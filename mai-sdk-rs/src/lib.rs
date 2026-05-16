@@ -626,7 +626,7 @@ pub struct RateLimits {
 /// Matches OpenAPI ProfilePermissions schema
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfilePermissions {
-    /// Model ID patterns. ["*"] = all models.
+    /// Model ID patterns. `["*"]` = all models.
     pub model_access: Vec<String>,
     pub max_context_tokens: Option<u32>,
     /// Endpoint patterns. ["*"] = all endpoints.
