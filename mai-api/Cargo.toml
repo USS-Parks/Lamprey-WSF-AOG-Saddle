@@ -1,0 +1,30 @@
+[package]
+name = "mai-api"
+description = "MAI API server: REST (axum) + gRPC (tonic) + SSE/WebSocket streaming"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+axum = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+mai-core = { path = "../mai-core" }
+mai-hil = { path = "../mai-hil" }
+mai-adapters = { path = "../mai-adapters" }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+
+[lints]
+workspace = true

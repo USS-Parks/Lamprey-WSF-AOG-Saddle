@@ -1,0 +1,58 @@
+[workspace]
+resolver = "2"
+members = [
+    "mai-core",
+    "mai-hil",
+    "mai-adapters",
+    "mai-api",
+    "mai-sdk-rs",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "LicenseRef-Proprietary"
+repository = "https://github.com/USS-Parks/im-mighty-eel-mai"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP/gRPC
+axum = "0.7"
+tonic = "0.12"
+prost = "0.13"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+thiserror = "2"
+
+# FFI bridge
+pyo3 = { version = "0.22", features = ["auto-initialize"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# GPU access (feature-gated)
+nvml-wrapper = { version = "0.10", optional = true }
+
+# Testing
+tokio-test = "0.4"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"

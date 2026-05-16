@@ -1,0 +1,33 @@
+[package]
+name = "mai-hil"
+description = "MAI Hardware Interface Layer: HIL traits and hardware drivers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+nvidia = ["dep:nvml-wrapper"]
+amd = []
+integration = []
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+nvml-wrapper = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+
+# HIL drivers contain unsafe for direct hardware access.
+# This override is scoped to mai-hil only; mai-core denies unsafe.
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

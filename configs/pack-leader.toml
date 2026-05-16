@@ -1,0 +1,45 @@
+# Pack Leader Tier Configuration
+# Full adapter fleet, 4+ GPUs, Gemma 4 12B Sentinel
+# Target hardware: 4+ GPU (H100/H200 or MI300X array), 160GB+ combined VRAM
+
+[mai]
+product_tier = "pack-leader"
+log_level = "info"
+
+[mai.power]
+sentinel_model = "gemma-4-12b"
+auto_demote_full_to_sentinel_minutes = 20
+auto_demote_sentinel_to_sleep_minutes = 180
+enable_schedule_profiles = true
+
+[mai.scheduler]
+strategy = "least-loaded"
+max_queue_depth = 200
+request_timeout_seconds = 300
+
+[mai.adapters]
+enabled = ["vllm", "ollama", "llamacpp", "tgi", "tensorrt", "exllamav2", "sglang"]
+process_memory_limit_mb = 32768
+process_cpu_limit_percent = 95
+restart_max_attempts = 5
+restart_backoff_base_seconds = 1
+
+[mai.api]
+listen_address = "127.0.0.1"
+rest_port = 8080
+grpc_port = 50051
+enable_streaming = true
+enable_websocket = true
+
+[mai.vault]
+zfs_dataset = "vault/models"
+profile_db_path = "/var/lib/mai/profiles.db"
+audit_log_path = "/var/lib/mai/audit/"
+
+[mai.health]
+heartbeat_interval_seconds = 5
+telemetry_retention_days = 365
+
+[mai.models]
+preload = ["gemma-4-12b", "qwen3-70b", "deepseek-v4"]
+sentinel = "gemma-4-12b"
