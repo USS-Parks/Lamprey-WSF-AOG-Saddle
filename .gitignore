@@ -32,3 +32,5 @@ venv/
 # Test artifacts
 tests/benchmarks/results/
 tests/burn-in/results/
+# Junk from sandbox sed failures
+.integrity/scripts/c *
