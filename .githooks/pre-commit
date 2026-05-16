@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# MAI Pre-Commit Hook: Anti-Truncation Guard
+# Rejects commits containing null bytes or suspiciously truncated files.
+# Install: git config core.hooksPath .githooks
+# Or copy to .git/hooks/pre-commit
+
+set -euo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+ERRORS=0
+
+# Get list of staged files (added or modified, not deleted)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+echo "Running anti-truncation checks..."
+
+for FILE in $STAGED_FILES; do
+    # Skip binary files
+    if file "$FILE" | grep -q "binary\|executable"; then
+        continue
+    fi
+
+    # CHECK 1: Null bytes in staged content
+    STAGED_CONTENT=$(git show ":$FILE" 2>/dev/null || true)
+    if echo "$STAGED_CONTENT" | grep -Pq '\x00'; then
+        echo -e "${RED}BLOCKED${NC} Null bytes detected in: $FILE"
+        ERRORS=$((ERRORS + 1))
+        continue
+    fi
+
+    # CHECK 2: Truncation detection (>50% size reduction vs HEAD)
+    if git rev-parse HEAD >/dev/null 2>&1; then
+        HEAD_SIZE=$(git show "HEAD:$FILE" 2>/dev/null | wc -c || echo 0)
+        STAGED_SIZE=$(git show ":$FILE" 2>/dev/null | wc -c || echo 0)
+
+        if [ "$HEAD_SIZE" -gt 100 ] && [ "$STAGED_SIZE" -gt 0 ]; then
+            RATIO=$((STAGED_SIZE * 100 / HEAD_SIZE))
+            if [ "$RATIO" -lt 50 ]; then
+                echo -e "${RED}BLOCKED${NC} Possible truncation in: $FILE"
+                echo -e "  HEAD: ${HEAD_SIZE} bytes -> Staged: ${STAGED_SIZE} bytes (${RATIO}% of original)"
+                echo -e "  ${YELLOW}If intentional, use: git commit --no-verify${NC}"
+                ERRORS=$((ERRORS + 1))
+            fi
+        fi
+    fi
+done
+
+if [ "$ERRORS" -gt 0 ]; then
+    echo ""
+    echo -e "${RED}Commit rejected: ${ERRORS} file(s) failed integrity checks.${NC}"
+    echo "Fix the files or use 'git commit --no-verify' to bypass."
+    exit 1
+fi
+
+echo "All files passed integrity checks."
+exit 0
