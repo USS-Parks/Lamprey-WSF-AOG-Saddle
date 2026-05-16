@@ -53,6 +53,7 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+import_mode = "importlib"
 markers = [
     "integration: requires real MAI instance",
 ]
