@@ -42,8 +42,12 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 # GPU access (feature-gated at crate level, not here)
 nvml-wrapper = "0.10"
 
+# IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
 # Testing
 tokio-test = "0.4"
+mockall = "0.13"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
