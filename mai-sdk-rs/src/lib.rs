@@ -121,20 +121,16 @@ pub type SdkResult<T> = Result<T, SdkError>;
 // Enums (aligned with OpenAPI enum definitions)
 // ──────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RequestPriority {
     Low,
+    #[default]
     Normal,
     High,
     Critical,
 }
 
-impl Default for RequestPriority {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 /// Maps to OpenAPI ChatChoice.finish_reason and adapter::FinishReason
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -9,85 +9,85 @@ Full implementation in Session 11.
 
 __version__ = "0.1.0"
 
+from mai.client import AsyncMaiClient, MaiClient
 from mai.types import (
-    ChatMessage,
+    AdapterHealthEntry,
+    AuditEntry,
+    AuditLogResponse,
+    CapabilityInfo,
+    ChatChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ChatChoice,
+    ChatMessage,
     CompletionRequest,
     CompletionResponse,
+    ContentSafetyLevel,
+    EmbeddingData,
     EmbeddingRequest,
     EmbeddingResponse,
-    EmbeddingData,
-    StructuredRequest,
-    StructuredResponse,
+    ErrorResponse,
+    FinishReason,
     FunctionCallRequest,
     FunctionCallResponse,
-    ModelObject,
-    ModelDetail,
-    CapabilityInfo,
-    HealthResponse,
-    AdapterHealthEntry,
-    HardwareHealthResponse,
     GpuHealthEntry,
+    HardwareHealthResponse,
+    HealthResponse,
+    MaiError,
+    ModelDetail,
+    ModelObject,
     PowerStateResponse,
     ProfileObject,
     ProfilePermissions,
-    AuditEntry,
-    AuditLogResponse,
-    Usage,
-    MaiError,
-    ErrorResponse,
-    RequestPriority,
-    FinishReason,
-    ContentSafetyLevel,
     ProfileRole,
+    RequestPriority,
+    StructuredRequest,
+    StructuredResponse,
+    Usage,
 )
-from mai.client import MaiClient, AsyncMaiClient
 
 __all__ = [
-    # Client
-    "MaiClient",
+    "AdapterHealthEntry",
     "AsyncMaiClient",
-    # Request types
-    "ChatMessage",
+    # Audit types
+    "AuditEntry",
+    "AuditLogResponse",
+    "CapabilityInfo",
+    "ChatChoice",
     "ChatCompletionRequest",
-    "CompletionRequest",
-    "EmbeddingRequest",
-    "StructuredRequest",
-    "FunctionCallRequest",
     # Response types
     "ChatCompletionResponse",
-    "ChatChoice",
+    # Request types
+    "ChatMessage",
+    "CompletionRequest",
     "CompletionResponse",
-    "EmbeddingResponse",
+    "ContentSafetyLevel",
     "EmbeddingData",
-    "StructuredResponse",
+    "EmbeddingRequest",
+    "EmbeddingResponse",
+    "ErrorResponse",
+    "FinishReason",
+    "FunctionCallRequest",
     "FunctionCallResponse",
-    "Usage",
-    # Model types
-    "ModelObject",
-    "ModelDetail",
-    "CapabilityInfo",
+    "GpuHealthEntry",
+    "HardwareHealthResponse",
     # Health types
     "HealthResponse",
-    "AdapterHealthEntry",
-    "HardwareHealthResponse",
-    "GpuHealthEntry",
+    # Client
+    "MaiClient",
+    # Error types
+    "MaiError",
+    "ModelDetail",
+    # Model types
+    "ModelObject",
     # Power types
     "PowerStateResponse",
     # Profile types
     "ProfileObject",
     "ProfilePermissions",
-    # Audit types
-    "AuditEntry",
-    "AuditLogResponse",
-    # Error types
-    "MaiError",
-    "ErrorResponse",
+    "ProfileRole",
     # Enums
     "RequestPriority",
-    "FinishReason",
-    "ContentSafetyLevel",
-    "ProfileRole",
+    "StructuredRequest",
+    "StructuredResponse",
+    "Usage",
 ]

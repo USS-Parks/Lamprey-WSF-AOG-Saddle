@@ -16,7 +16,6 @@ from uuid import UUID
 import httpx
 
 from mai.types import (
-    AuditLogResponse,
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -34,12 +33,12 @@ from mai.types import (
     ModelDetail,
     ModelObject,
     PowerStateResponse,
-    ProfileObject,
     RequestPriority,
     StructuredRequest,
     StructuredResponse,
 )
 
+_HTTP_ERROR_STATUS = 400
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -147,7 +146,7 @@ class MaiClient:
         **kwargs: Any,
     ) -> Iterator[ChatCompletionChunk]:
         """Streaming chat completion via SSE."""
-        req = ChatCompletionRequest(
+        ChatCompletionRequest(
             model=model,
             messages=messages,
             temperature=temperature,
@@ -175,11 +174,13 @@ class MaiClient:
         return EmbeddingResponse.model_validate(resp.json())
 
     def structured(
-        self, model: str, prompt: str, schema: dict[str, Any], **kwargs: Any
+        self, model: str, prompt: str, schema: dict[str, Any], **kwargs: Any,
     ) -> StructuredResponse:
         """JSON schema-constrained generation."""
         req = StructuredRequest(model=model, prompt=prompt, schema=schema, **kwargs)
-        resp = self._http.post("/generate/structured", json=req.model_dump(by_alias=True))
+        resp = self._http.post(
+            "/generate/structured", json=req.model_dump(by_alias=True),
+        )
         self._check_error(resp)
         return StructuredResponse.model_validate(resp.json())
 
@@ -237,7 +238,7 @@ class MaiClient:
     @staticmethod
     def _check_error(resp: httpx.Response) -> None:
         """Raise MaiError on non-2xx responses."""
-        if resp.status_code >= 400:
+        if resp.status_code >= _HTTP_ERROR_STATUS:
             try:
                 err = ErrorResponse.model_validate(resp.json())
             except Exception:
@@ -245,7 +246,7 @@ class MaiClient:
                     "code": f"MAI-{resp.status_code}0",
                     "message": resp.text,
                     "type": "internal_error",
-                }))
+                })) from None
             raise MaiError(err)
 
 
@@ -322,11 +323,14 @@ class AsyncMaiClient:
         **kwargs: Any,
     ) -> AsyncIterator[ChatCompletionChunk]:
         """Streaming chat completion via SSE."""
-        # Full implementation in Session 11
+        # Stub: consume args to satisfy linter (full implementation Session 11)
+        _ = (model, messages, temperature, top_p, max_tokens, kwargs)
         raise NotImplementedError("Async streaming client implemented in Session 11")
-        yield  # noqa: unreachable - makes this an async generator
+        yield  # type: ignore[unreachable]  # makes this an async generator
 
-    async def complete(self, model: str, prompt: str, **kwargs: Any) -> CompletionResponse:
+    async def complete(
+        self, model: str, prompt: str, **kwargs: Any,
+    ) -> CompletionResponse:
         """Text completion."""
         req = CompletionRequest(model=model, prompt=prompt, stream=False, **kwargs)
         resp = await self._http.post("/completions", json=req.model_dump())
@@ -341,11 +345,13 @@ class AsyncMaiClient:
         return EmbeddingResponse.model_validate(resp.json())
 
     async def structured(
-        self, model: str, prompt: str, schema: dict[str, Any], **kwargs: Any
+        self, model: str, prompt: str, schema: dict[str, Any], **kwargs: Any,
     ) -> StructuredResponse:
         """JSON schema-constrained generation."""
         req = StructuredRequest(model=model, prompt=prompt, schema=schema, **kwargs)
-        resp = await self._http.post("/generate/structured", json=req.model_dump(by_alias=True))
+        resp = await self._http.post(
+            "/generate/structured", json=req.model_dump(by_alias=True),
+        )
         self._check_error(resp)
         return StructuredResponse.model_validate(resp.json())
 
@@ -403,7 +409,7 @@ class AsyncMaiClient:
     @staticmethod
     def _check_error(resp: httpx.Response) -> None:
         """Raise MaiError on non-2xx responses."""
-        if resp.status_code >= 400:
+        if resp.status_code >= _HTTP_ERROR_STATUS:
             try:
                 err = ErrorResponse.model_validate(resp.json())
             except Exception:
@@ -411,5 +417,5 @@ class AsyncMaiClient:
                     "code": f"MAI-{resp.status_code}0",
                     "message": resp.text,
                     "type": "internal_error",
-                }))
+                })) from None
             raise MaiError(err)
