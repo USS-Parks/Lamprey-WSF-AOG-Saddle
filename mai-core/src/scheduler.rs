@@ -1,4 +1,4 @@
-#![allow(unused_variables)]
+#![allow(unused_variables, unused_imports)]
 //! Model Scheduler - Request routing and load balancing
 //!
 //! Routes inference requests to the optimal adapter+model combination based on
@@ -227,20 +227,20 @@ impl Scheduler {
     pub async fn promote_to_full_inference(
         &self,
         _request_id: RequestId,
-        required_capabilities: ModelCapabilities,
+        _required_capabilities: ModelCapabilities,
     ) -> Result<PromotionResult, SchedulerError> {
         // Implementation in Session 07
         todo!()
     }
 
     /// Apply backpressure when queues are full
-    pub fn apply_backpressure(&self, priority: RequestPriority) -> Option<BackpressureAction> {
+    pub fn apply_backpressure(&self, _priority: RequestPriority) -> Option<BackpressureAction> {
         // Implementation in Session 07
         todo!()
     }
 
     /// Get current queue depth for monitoring
-    pub async fn queue_depth(&self, priority: RequestPriority) -> usize {
+    pub async fn queue_depth(&self, _priority: RequestPriority) -> usize {
         // Implementation in Session 07
         todo!()
     }
