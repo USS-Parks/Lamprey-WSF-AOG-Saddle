@@ -20,8 +20,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 mai-core = { path = "../mai-core" }
-mai-hil = { path = "../mai-hil" }
-mai-adapters = { path = "../mai-adapters" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

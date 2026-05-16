@@ -10,8 +10,8 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.80"
+edition = "2024"
+rust-version = "1.85"
 license = "LicenseRef-Proprietary"
 repository = "https://github.com/USS-Parks/im-mighty-eel-mai"
 
@@ -20,7 +20,7 @@ repository = "https://github.com/USS-Parks/im-mighty-eel-mai"
 tokio = { version = "1", features = ["full"] }
 
 # HTTP/gRPC
-axum = "0.7"
+axum = { version = "0.8", features = ["ws"] }
 tonic = "0.12"
 prost = "0.13"
 
@@ -46,7 +46,7 @@ nvml-wrapper = "0.10"
 tokio-test = "0.4"
 
 [workspace.lints.rust]
-unsafe_code = "deny"
+unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"

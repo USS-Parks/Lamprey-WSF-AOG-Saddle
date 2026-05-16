@@ -1,1 +1,1 @@
-"""estate-ai application scaffold. Stub: implementation in Session 16."""
+"""Estate AI: digital asset cataloging and estate planning scaffold. Implementation in Session 16."""
