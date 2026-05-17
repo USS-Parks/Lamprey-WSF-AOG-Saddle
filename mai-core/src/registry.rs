@@ -4,7 +4,7 @@
 //! state transitions. Supports air-gap-safe updates via USB.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -218,7 +218,7 @@ impl ModelRegistry {
     /// Install model from USB drive (air-gap safe)
     pub async fn install_from_usb(
         &mut self,
-        usb_mount_point: &PathBuf,
+        usb_mount_point: &Path,
         package_name: &str,
     ) -> Result<InstallResult, RegistryError> {
         // Implementation in Session 07

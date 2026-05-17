@@ -20,7 +20,7 @@
 //! network connections. Telemetry is local-only.
 
 #![forbid(unsafe_code)] // Enforced by CI; drivers in mai-hil may use unsafe
-#![warn(missing_docs)]
+// #![warn(missing_docs)] // Re-enable after stub phase (Session 08+)
 
 pub mod scheduler;
 pub mod registry;
