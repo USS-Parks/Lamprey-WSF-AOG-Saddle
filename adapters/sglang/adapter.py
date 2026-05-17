@@ -23,8 +23,8 @@ from adapters.base import (
     UnsupportedOperationError,
     mai_adapter,
 )
-from .client import SglangClient
-from .config import SglangConfig
+from adapters.sglang.client import SglangClient
+from adapters.sglang.config import SglangConfig
 
 
 @mai_adapter(name="sglang", version="1.0.0")

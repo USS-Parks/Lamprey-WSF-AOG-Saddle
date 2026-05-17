@@ -1,12 +1,13 @@
 """Unit tests for MAI TGI adapter."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
+from adapters.base import GenerationParams, UnsupportedOperationError
 from adapters.tgi.adapter import TgiAdapter
 from adapters.tgi.config import TgiConfig
-from adapters.base import GenerationParams, UnsupportedOperationError
 
 
 @pytest.fixture

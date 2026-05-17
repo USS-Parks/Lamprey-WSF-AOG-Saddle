@@ -1,12 +1,13 @@
 """Unit tests for MAI TensorRT-LLM adapter."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
+from adapters.base import GenerationParams, UnsupportedOperationError
 from adapters.tensorrt.adapter import TensorRtAdapter
 from adapters.tensorrt.config import TensorRtConfig
-from adapters.base import GenerationParams, UnsupportedOperationError
 
 
 @pytest.fixture

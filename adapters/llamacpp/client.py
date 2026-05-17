@@ -150,7 +150,8 @@ class LlamaCppClient:
             detail = body_text[:200]
         if "out of memory" in detail.lower() or "oom" in detail.lower():
             raise OutOfMemoryError()
-        if "context" in detail.lower() and ("exceed" in detail.lower() or "too long" in detail.lower()):
+        dl = detail.lower()
+        if "context" in dl and ("exceed" in dl or "too long" in dl):
             raise ContextExceededError(max_context=0)
         if status >= 500:
             raise BackendUnavailableError()

@@ -1,13 +1,13 @@
 """Unit tests for MAI vLLM adapter."""
 from __future__ import annotations
 
-import json
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from adapters.base import GenerationParams
 from adapters.vllm.adapter import VllmAdapter
 from adapters.vllm.config import VllmConfig
-from adapters.base import GenerationParams, AdapterCapabilities
 
 
 @pytest.fixture

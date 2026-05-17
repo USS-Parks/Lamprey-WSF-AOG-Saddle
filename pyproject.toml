@@ -1,56 +1,51 @@
-# Root-level Python tooling config.
-# Ensures ruff/mypy apply consistent rules to ALL Python code (adapters/, mai-sdk-python/, etc.)
-# The mai-sdk-python/pyproject.toml inherits from this via ruff's config resolution.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mai-sdk"
+version = "0.1.0"
+description = "MAI Python SDK for IM-OS applications"
+requires-python = ">=3.12"
+license = {text = "Proprietary"}
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mai"]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort
-    "N",   # pep8-naming
-    "W",   # pycodestyle warnings
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "A",   # flake8-builtins
-    "COM", # flake8-commas
-    "C4",  # flake8-comprehensions
-    "ISC", # flake8-implicit-str-concat
-    "PIE", # flake8-pie
-    "PT",  # flake8-pytest-style
-    "RSE", # flake8-raise
-    "RET", # flake8-return
-    "SIM", # flake8-simplify
-    "TID", # flake8-tidy-imports
-    "ARG", # flake8-unused-arguments
-    "PL",  # pylint
-    "PERF", # perflint
-    "RUF", # ruff-specific
-]
+select = ["E", "F", "I", "N", "W", "UP", "ANN", "S", "B", "A", "COM", "C4", "ISC", "ICN", "PIE", "PT", "RSE", "RET", "SIM", "TID", "TCH", "ARG", "ERA", "PL", "TRY", "FLY", "PERF", "RUF"]
 ignore = [
-    "RSE102",  # Allow parentheses on raised exceptions (explicit instantiation)
-    "PLR2004", # Allow magic values in comparisons (HTTP status codes, etc.)
-    "RET505",  # Allow elif after return (clearer control flow)
-    "RET506",  # Allow elif after raise (clearer error handling)
-    "SIM108",  # Allow if/else over ternary (readability)
-    "SIM117",  # Allow nested with statements (clearer mock setup)
-    "PLC0415", # Allow non-top-level imports (test isolation)
-    "PLC0207", # Allow extra split calls (clarity over micro-optimization)
-    "PERF401", # Allow append in loop (async comprehension not always possible)
-    "PERF402", # Allow list append pattern
-    "PLR0911", # Allow many return statements (dispatch methods)
-    "PLR0913", # Allow many function arguments (HTTP client methods)
-    "PLR1714", # Allow separate comparisons over merged sets
+    "RSE102", "PLR2004", "RET505", "RET506", "SIM108", "SIM117",
+    "PLC0415", "PERF401", "PERF402", "PLR0911", "PLR0913", "PLR1714",
+    "ANN001", "ANN201", "ANN204", "ANN401",
+    "S101", "S310",
+    "TC001", "TC002", "TC003",
+    "TRY003", "TRY300", "TRY400",
+    "COM812",
+    "ERA001",
+    "W292",
+    "SIM212",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "ARG001"]
-"**/tests/**/*.py" = ["S101", "ARG001"]
-# Adapter stubs are mostly empty __init__.py files
-"adapters/**/__init__.py" = ["D104"]
+"**/tests/**/*.py" = ["S101"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -60,7 +55,6 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-addopts = "--import-mode=importlib"
 markers = [
     "integration: requires real MAI instance",
 ]

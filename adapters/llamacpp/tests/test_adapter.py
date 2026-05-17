@@ -1,12 +1,13 @@
 """Unit tests for MAI llama.cpp adapter."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
+from adapters.base import GenerationParams, UnsupportedOperationError
 from adapters.llamacpp.adapter import LlamaCppAdapter
 from adapters.llamacpp.config import LlamaCppConfig
-from adapters.base import GenerationParams, UnsupportedOperationError
 
 
 @pytest.fixture

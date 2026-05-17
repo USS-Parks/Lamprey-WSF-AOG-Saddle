@@ -1,12 +1,13 @@
 """Unit tests for MAI SGLang adapter."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
+from adapters.base import GenerationParams, UnsupportedOperationError
 from adapters.sglang.adapter import SglangAdapter
 from adapters.sglang.config import SglangConfig
-from adapters.base import GenerationParams, UnsupportedOperationError
 
 
 @pytest.fixture

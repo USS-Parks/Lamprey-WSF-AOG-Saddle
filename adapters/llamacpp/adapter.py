@@ -184,7 +184,9 @@ class LlamaCppAdapter(AdapterBase):
         """llama.cpp capabilities: streaming, grammar constraints, no native batching."""
         return AdapterCapabilities(
             max_context_window=self._context_size,
-            supported_quantizations=["gguf_q4_0", "gguf_q4_K_M", "gguf_q5_K_M", "gguf_q8_0", "gguf_f16"],
+            supported_quantizations=[
+                "gguf_q4_0", "gguf_q4_K_M", "gguf_q5_K_M", "gguf_q8_0", "gguf_f16",
+            ],
             supports_streaming=True,
             supports_batching=False,
             supports_structured_output=True,  # via GBNF grammar

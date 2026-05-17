@@ -1,12 +1,13 @@
 """Unit tests for MAI ExLlamaV2 adapter."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
+from adapters.base import GenerationParams, UnsupportedOperationError
 from adapters.exllamav2.adapter import ExLlamaV2Adapter
 from adapters.exllamav2.config import ExLlamaV2Config
-from adapters.base import GenerationParams, UnsupportedOperationError
 
 
 @pytest.fixture
