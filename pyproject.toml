@@ -30,14 +30,20 @@ select = [
     "PERF", # perflint
     "RUF", # ruff-specific
 ]
-# Excluded from mai-sdk-python's aggressive list:
-# ANN (strict type annotations - too noisy for adapter stubs using Any)
-# S (bandit security - enable when real implementations land)
-# TCH (type-checking imports - premature for stubs)
-# TRY (tryceratops - too strict for exception hierarchies)
-# ERA (commented-out code - stubs have intentional comment examples)
-# FLY (flynt - minimal impact)
-# ICN (import conventions - not needed yet)
+ignore = [
+    "RSE102",  # Allow parentheses on raised exceptions (explicit instantiation)
+    "PLR2004", # Allow magic values in comparisons (HTTP status codes, etc.)
+    "RET505",  # Allow elif after return (clearer control flow)
+    "RET506",  # Allow elif after raise (clearer error handling)
+    "SIM108",  # Allow if/else over ternary (readability)
+    "SIM117",  # Allow nested with statements (clearer mock setup)
+    "PLC0415", # Allow non-top-level imports (test isolation)
+    "PLC0207", # Allow extra split calls (clarity over micro-optimization)
+    "PERF401", # Allow append in loop (async comprehension not always possible)
+    "PERF402", # Allow list append pattern
+    "PLR0911", # Allow many return statements (dispatch methods)
+    "PLR1714", # Allow separate comparisons over merged sets
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "ARG001"]
