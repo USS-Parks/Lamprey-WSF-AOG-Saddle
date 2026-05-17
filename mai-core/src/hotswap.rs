@@ -325,7 +325,7 @@ impl HotSwapManager {
         let rollback_performed = matches!(swap_result, SwapResult::RolledBack { .. });
         self.record_audit(SwapAuditEntry {
             timestamp: start,
-            operator: request.operator.clone(),
+            operator: request.operator,
             target: request.target.clone(),
             reason: request.reason.clone(),
             duration_ms: start.elapsed().as_millis() as u64,
@@ -392,7 +392,7 @@ impl HotSwapManager {
                 // Find the adapter serving this model and mark it unhealthy
                 let registry = self.registry.read().await;
                 if let Some(adapter_id) = registry.get_loaded_adapter(old_id) {
-                    scheduler.set_adapter_health(&adapter_id, false);
+                    scheduler.set_adapter_health(adapter_id, false);
                     info!("Paused routing: adapter {} marked unhealthy for model swap", adapter_id);
                 } else {
                     return Err(SwapError::ComponentNotFound(

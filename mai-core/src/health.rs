@@ -442,10 +442,8 @@ impl HealthMonitor {
         for rule in &self.alert_rules {
             let current_value = self.get_metric_value(&rule.metric);
             if let Some(value) = current_value {
-                if value >= rule.threshold {
-                    if rule.level > max_level {
-                        max_level = rule.level;
-                    }
+                if value >= rule.threshold && rule.level > max_level {
+                    max_level = rule.level;
                 }
             }
         }
@@ -454,10 +452,9 @@ impl HealthMonitor {
         if matches!(
             self.hardware_health.network_state,
             NetworkState::NonCompliant { .. }
-        ) {
-            if AlertLevel::Critical > max_level {
-                max_level = AlertLevel::Critical;
-            }
+        ) && AlertLevel::Critical > max_level
+        {
+            max_level = AlertLevel::Critical;
         }
 
         // Any unhealthy adapter is at least Warn

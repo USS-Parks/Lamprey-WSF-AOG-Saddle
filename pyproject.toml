@@ -42,6 +42,7 @@ ignore = [
     "PERF401", # Allow append in loop (async comprehension not always possible)
     "PERF402", # Allow list append pattern
     "PLR0911", # Allow many return statements (dispatch methods)
+    "PLR0913", # Allow many function arguments (HTTP client methods)
     "PLR1714", # Allow separate comparisons over merged sets
 ]
 

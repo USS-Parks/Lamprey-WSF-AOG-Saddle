@@ -78,7 +78,7 @@ class TgiAdapter(AdapterBase):
         self._initialized = True
         logger.info(
             f"TGI adapter initialized: model={self._model_id}, "
-            f"quantize={self._config.quantize}, speculate={self._config.speculate}"
+            f"quantize={self._config.quantize}, speculate={self._config.speculate}",
         )
         return f"tgi-{self._model_id}-{self._start_time_ms}"
 
@@ -147,7 +147,7 @@ class TgiAdapter(AdapterBase):
         self._requests_served += len(prompts)
         return results
 
-    async def embed(self, texts: list[str]) -> list[Embedding]:
+    async def embed(self, _texts: list[str]) -> list[Embedding]:
         """TGI does not natively support embeddings."""
         raise UnsupportedOperationError("embed")
 

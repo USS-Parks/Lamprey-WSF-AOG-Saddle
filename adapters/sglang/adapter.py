@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from adapters.base import (
     AdapterBase,
@@ -144,10 +145,10 @@ class SglangAdapter(AdapterBase):
             results.append(result)
         return results
 
-    async def embed(self, texts: list[str]) -> list[list[float]]:
+    async def embed(self, _texts: list[str]) -> list[list[float]]:
         self._check_initialized()
         raise UnsupportedOperationError(
-            "SGLang does not expose a dedicated embedding endpoint"
+            "SGLang does not expose a dedicated embedding endpoint",
         )
 
     async def health_check(self) -> HealthStatus:

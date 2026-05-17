@@ -14,7 +14,7 @@ use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::Nvml;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info, warn};
+use tracing::info;
 
 /// NVIDIA GPU driver backed by NVML.
 ///

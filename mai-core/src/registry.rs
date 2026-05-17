@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::types::{AdapterId, ModelId};
 use crate::vault::{VaultError, VaultInterface};

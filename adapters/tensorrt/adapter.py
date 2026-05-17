@@ -80,7 +80,7 @@ class TensorRtAdapter(AdapterBase):
         logger.info(
             f"TensorRT-LLM adapter initialized: model={self._model_name}, "
             f"tp={self._config.tensor_parallel_size}, precision={self._config.precision}, "
-            f"engine_ready={self._engine_ready}"
+            f"engine_ready={self._engine_ready}",
         )
         return f"tensorrt-{self._model_name}-{self._start_time_ms}"
 
@@ -147,7 +147,7 @@ class TensorRtAdapter(AdapterBase):
         self._requests_served += len(prompts)
         return results
 
-    async def embed(self, texts: list[str]) -> list[Embedding]:
+    async def embed(self, _texts: list[str]) -> list[Embedding]:
         """TensorRT-LLM does not support embeddings."""
         raise UnsupportedOperationError("embed")
 

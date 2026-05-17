@@ -79,7 +79,7 @@ class LlamaCppAdapter(AdapterBase):
         self._initialized = True
         logger.info(
             f"llama.cpp adapter initialized: model={self._model_name}, "
-            f"ctx={self._context_size}, gpu_layers={self._config.n_gpu_layers}"
+            f"ctx={self._context_size}, gpu_layers={self._config.n_gpu_layers}",
         )
         return f"llamacpp-{self._start_time_ms}"
 
@@ -161,7 +161,7 @@ class LlamaCppAdapter(AdapterBase):
         self._requests_served += len(prompts)
         return results
 
-    async def embed(self, texts: list[str]) -> list[Embedding]:
+    async def embed(self, _texts: list[str]) -> list[Embedding]:
         """Embeddings not natively supported by llama-server."""
         raise UnsupportedOperationError("embed")
 

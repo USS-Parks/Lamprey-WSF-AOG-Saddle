@@ -79,7 +79,7 @@ class ExLlamaV2Adapter(AdapterBase):
         logger.info(
             f"ExLlamaV2 adapter initialized: model={self._model}, "
             f"quant={self._config.quantization}, cache={self._config.cache_mode}, "
-            f"loaded_models={len(self._loaded_models)}"
+            f"loaded_models={len(self._loaded_models)}",
         )
         return f"exllamav2-{self._start_time_ms}"
 
@@ -155,7 +155,7 @@ class ExLlamaV2Adapter(AdapterBase):
         self._requests_served += len(prompts)
         return results
 
-    async def embed(self, texts: list[str]) -> list[Embedding]:
+    async def embed(self, _texts: list[str]) -> list[Embedding]:
         """ExLlamaV2 does not support embeddings."""
         raise UnsupportedOperationError("embed")
 

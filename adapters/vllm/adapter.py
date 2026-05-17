@@ -25,7 +25,6 @@ from adapters.base import (
     GenerationResult,
     HealthStatus,
     Token,
-    UnsupportedOperationError,
     mai_adapter,
 )
 from adapters.vllm.client import VllmClient
@@ -88,7 +87,7 @@ class VllmAdapter(AdapterBase):
         logger.info(
             f"vLLM adapter initialized: model={self._model}, "
             f"tp={self._config.tensor_parallel_size}, "
-            f"models_available={len(self._available_models)}"
+            f"models_available={len(self._available_models)}",
         )
         return f"vllm-{self._model}-{self._start_time_ms}"
 

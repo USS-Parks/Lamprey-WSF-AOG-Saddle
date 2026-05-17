@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::types::{AdapterId, GpuIdentifier, ModelId, ProfileId, RequestId};
 
@@ -564,7 +564,7 @@ impl Scheduler {
                         .find(|id| {
                             self.adapters
                                 .get(*id)
-                                .map_or(false, |a| a.supported_models.contains(model))
+                                .is_some_and(|a| a.supported_models.contains(model))
                         })
                         .cloned()
                         .unwrap_or_else(|| candidates[0].clone())
