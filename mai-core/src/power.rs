@@ -496,7 +496,8 @@ mod tests {
 
     #[test]
     fn test_wake_to_sentinel() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
         let result = psm.request_transition(TransitionTrigger::WakeTrigger(WakeSource::ApiRequest));
         assert!(result.is_ok());
         assert_eq!(psm.current_state(), PowerState::Sentinel);
@@ -504,7 +505,8 @@ mod tests {
 
     #[test]
     fn test_urgent_wake_to_full() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
         let result = psm.request_transition(TransitionTrigger::UrgentWake(WakeSource::Manual));
         assert!(result.is_ok());
         assert_eq!(psm.current_state(), PowerState::FullInference);
@@ -520,7 +522,8 @@ mod tests {
 
     #[test]
     fn test_inactivity_demotion() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
         let result = psm.request_transition(TransitionTrigger::InactivityTimeout);
         assert!(result.is_ok());
         assert_eq!(psm.current_state(), PowerState::Sentinel);
@@ -536,7 +539,8 @@ mod tests {
 
     #[test]
     fn test_thermal_throttle() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
         let result = psm.handle_thermal_event(85.0);
         assert!(result.is_ok());
         assert!(result.unwrap().is_some());
@@ -545,7 +549,8 @@ mod tests {
 
     #[test]
     fn test_thermal_recovery() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::ThermalThrottle);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::ThermalThrottle);
         let result = psm.handle_thermal_event(70.0);
         assert!(result.is_ok());
         assert!(result.unwrap().is_some());
@@ -554,7 +559,8 @@ mod tests {
 
     #[test]
     fn test_thermal_no_action_when_normal() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
         let result = psm.handle_thermal_event(60.0); // below both thresholds
         assert!(result.is_ok());
         assert!(result.unwrap().is_none()); // no transition
@@ -611,8 +617,10 @@ mod tests {
     #[test]
     fn test_transition_log_recorded() {
         let mut psm = default_machine();
-        psm.request_transition(TransitionTrigger::SystemBoot).unwrap();
-        psm.request_transition(TransitionTrigger::WakeTrigger(WakeSource::ApiRequest)).unwrap();
+        psm.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
+        psm.request_transition(TransitionTrigger::WakeTrigger(WakeSource::ApiRequest))
+            .unwrap();
 
         let log = psm.transition_log();
         assert_eq!(log.len(), 2);
@@ -635,7 +643,8 @@ mod tests {
 
     #[test]
     fn test_reset_demotion_timer() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
         // Simulate some idle time passing (we can't easily fake Instant, but we can verify reset works)
         let before = psm.idle_duration();
         psm.reset_demotion_timer();

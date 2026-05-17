@@ -10,8 +10,8 @@
 
 #[cfg(feature = "integration")]
 mod integration {
-    use mai_adapters::{AdapterManager, FrameworkError};
     use mai_adapters::config::FrameworkConfig;
+    use mai_adapters::{AdapterManager, FrameworkError};
     use std::time::Duration;
 
     /// Test that AdapterManager can be created and discovers adapters
@@ -89,7 +89,11 @@ mod benchmark {
             per_iter_us, iterations, elapsed,
         );
         // Must be under 1ms per creation
-        assert!(per_iter_us < 1000, "Manager creation too slow: {}us", per_iter_us);
+        assert!(
+            per_iter_us < 1000,
+            "Manager creation too slow: {}us",
+            per_iter_us
+        );
     }
 
     /// Benchmark: Heartbeat cycle overhead on empty manager.
@@ -112,6 +116,10 @@ mod benchmark {
             "Empty heartbeat cycle: {}us/iter ({} iterations in {:?})",
             per_iter_us, iterations, elapsed,
         );
-        assert!(per_iter_us < 100, "Heartbeat cycle too slow: {}us", per_iter_us);
+        assert!(
+            per_iter_us < 100,
+            "Heartbeat cycle too slow: {}us",
+            per_iter_us
+        );
     }
 }

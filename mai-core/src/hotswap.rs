@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use crate::health::HealthMonitor;
 use crate::registry::ModelRegistry;
@@ -31,19 +31,14 @@ use crate::types::{AdapterId, ModelId, ProfileId};
 #[derive(Debug, Clone)]
 pub enum SwapTarget {
     /// Replace one model with another on the same adapter(s).
-    Model {
-        old_id: ModelId,
-        new_id: ModelId,
-    },
+    Model { old_id: ModelId, new_id: ModelId },
     /// Replace one adapter process with another (same backend type, new binary/config).
     Adapter {
         old_adapter: AdapterId,
         new_adapter: AdapterId,
     },
     /// React to a hardware topology change (GPU added/removed, memristor card, thermal sensor).
-    Hardware {
-        event: HardwareChangeEvent,
-    },
+    Hardware { event: HardwareChangeEvent },
 }
 
 /// Hardware topology changes that trigger a hot-swap operation.
@@ -92,9 +87,16 @@ impl SwapRequest {
     }
 
     /// Create an adapter swap with sensible defaults.
-    pub fn adapter_swap(old_adapter: AdapterId, new_adapter: AdapterId, reason: impl Into<String>) -> Self {
+    pub fn adapter_swap(
+        old_adapter: AdapterId,
+        new_adapter: AdapterId,
+        reason: impl Into<String>,
+    ) -> Self {
         Self {
-            target: SwapTarget::Adapter { old_adapter, new_adapter },
+            target: SwapTarget::Adapter {
+                old_adapter,
+                new_adapter,
+            },
             drain_timeout: Duration::from_secs(15),
             health_check_timeout: Duration::from_secs(30),
             rollback_on_failure: true,
@@ -141,7 +143,14 @@ pub enum SwapResult {
 impl SwapResult {
     /// Whether the swap ended in a usable state (either success or clean rollback).
     pub fn is_recoverable(&self) -> bool {
-        matches!(self, Self::Success { .. } | Self::RolledBack { original_restored: true, .. })
+        matches!(
+            self,
+            Self::Success { .. }
+                | Self::RolledBack {
+                    original_restored: true,
+                    ..
+                }
+        )
     }
 }
 
@@ -269,7 +278,9 @@ impl HotSwapManager {
         let mut state = SwapState::new(request.target.clone());
         let mut drained_count: usize = 0;
 
-        let result = self.run_swap_sequence(&request, &mut state, &mut drained_count).await;
+        let result = self
+            .run_swap_sequence(&request, &mut state, &mut drained_count)
+            .await;
 
         let swap_result = match result {
             Ok(()) => {
@@ -356,7 +367,9 @@ impl HotSwapManager {
         self.pause_routing(&request.target).await?;
 
         // Step 2: Drain in-flight requests
-        *drained_count = self.drain_requests(&request.target, request.drain_timeout).await?;
+        *drained_count = self
+            .drain_requests(&request.target, request.drain_timeout)
+            .await?;
         state.drain_completed = true;
 
         // Step 3: Deactivate old component
@@ -368,7 +381,9 @@ impl HotSwapManager {
         state.new_activated = true;
 
         // Step 5: Health check new component
-        let healthy = self.health_check(&request.target, request.health_check_timeout).await?;
+        let healthy = self
+            .health_check(&request.target, request.health_check_timeout)
+            .await?;
         state.health_check_passed = Some(healthy);
 
         if !healthy {
@@ -393,11 +408,15 @@ impl HotSwapManager {
                 let registry = self.registry.read().await;
                 if let Some(adapter_id) = registry.get_loaded_adapter(old_id) {
                     scheduler.set_adapter_health(adapter_id, false);
-                    info!("Paused routing: adapter {} marked unhealthy for model swap", adapter_id);
+                    info!(
+                        "Paused routing: adapter {} marked unhealthy for model swap",
+                        adapter_id
+                    );
                 } else {
-                    return Err(SwapError::ComponentNotFound(
-                        format!("No loaded adapter for model {}", old_id),
-                    ));
+                    return Err(SwapError::ComponentNotFound(format!(
+                        "No loaded adapter for model {}",
+                        old_id
+                    )));
                 }
             }
             SwapTarget::Adapter { old_adapter, .. } => {
@@ -446,12 +465,18 @@ impl HotSwapManager {
             };
 
             if in_flight == 0 {
-                info!("Drain complete: {} requests drained for {:?}", total_drained, adapter_id);
+                info!(
+                    "Drain complete: {} requests drained for {:?}",
+                    total_drained, adapter_id
+                );
                 return Ok(total_drained);
             }
 
             if Instant::now() >= deadline {
-                warn!("Drain timeout: {} requests still in flight for {:?}", in_flight, adapter_id);
+                warn!(
+                    "Drain timeout: {} requests still in flight for {:?}",
+                    in_flight, adapter_id
+                );
                 return Err(SwapError::DrainTimeout(in_flight));
             }
 
@@ -501,14 +526,21 @@ impl HotSwapManager {
     }
 
     /// Activate new component: load in registry and register in scheduler.
-    async fn activate(&self, target: &SwapTarget, resolved_adapter: &AdapterId) -> Result<(), SwapError> {
+    async fn activate(
+        &self,
+        target: &SwapTarget,
+        resolved_adapter: &AdapterId,
+    ) -> Result<(), SwapError> {
         match target {
             SwapTarget::Model { new_id, .. } => {
                 // Load the new model through the registry onto the same adapter
                 let mut registry = self.registry.write().await;
-                registry.load_model(new_id, resolved_adapter.clone()).await.map_err(|e| {
-                    SwapError::RegistryError(format!("Failed to load model {}: {}", new_id, e))
-                })?;
+                registry
+                    .load_model(new_id, resolved_adapter.clone())
+                    .await
+                    .map_err(|e| {
+                        SwapError::RegistryError(format!("Failed to load model {}: {}", new_id, e))
+                    })?;
                 info!("Activated new model: {}", new_id);
             }
             SwapTarget::Adapter { new_adapter, .. } => {
@@ -525,18 +557,16 @@ impl HotSwapManager {
                 // Register in health monitor
                 let mut health = self.health_monitor.write().await;
                 health.register_adapter(new_adapter.clone());
-                info!("Activated new adapter: {} (unhealthy until health check)", new_adapter);
+                info!(
+                    "Activated new adapter: {} (unhealthy until health check)",
+                    new_adapter
+                );
             }
             SwapTarget::Hardware { event } => {
                 match event {
                     HardwareChangeEvent::GpuAdded { gpu_id } => {
                         let mut scheduler = self.scheduler.write().await;
-                        scheduler.register_adapter(
-                            gpu_id.clone(),
-                            vec![],
-                            4,
-                            vec![gpu_id.clone()],
-                        );
+                        scheduler.register_adapter(gpu_id.clone(), vec![], 4, vec![gpu_id.clone()]);
                         let mut health = self.health_monitor.write().await;
                         health.register_adapter(gpu_id.clone());
                         info!("Activated new GPU: {}", gpu_id);
@@ -582,9 +612,9 @@ impl HotSwapManager {
                 let mut health = self.health_monitor.write().await;
                 let _ = health.record_heartbeat(
                     &adapter_id,
-                    1,     // requests_served
-                    10.0,  // avg_latency_ms (healthy baseline)
-                    0.0,   // error_rate (no errors)
+                    1,    // requests_served
+                    10.0, // avg_latency_ms (healthy baseline)
+                    0.0,  // error_rate (no errors)
                 );
             }
 
@@ -625,7 +655,9 @@ impl HotSwapManager {
                 // We need an adapter to reload onto; look up from new_id (just loaded)
                 let adapter_id = {
                     let registry = self.registry.read().await;
-                    registry.get_loaded_adapter(new_id).cloned()
+                    registry
+                        .get_loaded_adapter(new_id)
+                        .cloned()
                         .unwrap_or_else(|| "unknown-adapter".to_string())
                 };
                 let mut registry = self.registry.write().await;
@@ -638,16 +670,14 @@ impl HotSwapManager {
                 })?;
                 info!("Rollback: restored model {}", old_id);
             }
-            SwapTarget::Adapter { old_adapter, new_adapter } => {
+            SwapTarget::Adapter {
+                old_adapter,
+                new_adapter,
+            } => {
                 // Unregister new adapter, re-register old adapter
                 let mut scheduler = self.scheduler.write().await;
                 scheduler.unregister_adapter(new_adapter);
-                scheduler.register_adapter(
-                    old_adapter.clone(),
-                    vec![],
-                    4,
-                    vec![],
-                );
+                scheduler.register_adapter(old_adapter.clone(), vec![], 4, vec![]);
                 scheduler.set_adapter_health(old_adapter, true);
 
                 let mut health = self.health_monitor.write().await;
@@ -704,23 +734,18 @@ impl HotSwapManager {
         match target {
             SwapTarget::Model { old_id, .. } => {
                 let registry = self.registry.read().await;
-                registry
-                    .get_loaded_adapter(old_id)
-                    .cloned()
-                    .ok_or_else(|| SwapError::ComponentNotFound(
-                        format!("No adapter loaded for model {}", old_id),
-                    ))
+                registry.get_loaded_adapter(old_id).cloned().ok_or_else(|| {
+                    SwapError::ComponentNotFound(format!("No adapter loaded for model {}", old_id))
+                })
             }
             SwapTarget::Adapter { old_adapter, .. } => Ok(old_adapter.clone()),
-            SwapTarget::Hardware { event } => {
-                match event {
-                    HardwareChangeEvent::GpuRemoved { gpu_id } => Ok(gpu_id.clone()),
-                    HardwareChangeEvent::GpuAdded { gpu_id } => Ok(gpu_id.clone()),
-                    _ => Err(SwapError::ComponentNotFound(
-                        "No adapter ID for this hardware event type".to_string(),
-                    )),
-                }
-            }
+            SwapTarget::Hardware { event } => match event {
+                HardwareChangeEvent::GpuRemoved { gpu_id } => Ok(gpu_id.clone()),
+                HardwareChangeEvent::GpuAdded { gpu_id } => Ok(gpu_id.clone()),
+                _ => Err(SwapError::ComponentNotFound(
+                    "No adapter ID for this hardware event type".to_string(),
+                )),
+            },
         }
     }
 
@@ -729,22 +754,20 @@ impl HotSwapManager {
         match target {
             SwapTarget::Model { new_id, .. } => {
                 let registry = self.registry.read().await;
-                registry
-                    .get_loaded_adapter(new_id)
-                    .cloned()
-                    .ok_or_else(|| SwapError::ComponentNotFound(
-                        format!("No adapter loaded for new model {}", new_id),
+                registry.get_loaded_adapter(new_id).cloned().ok_or_else(|| {
+                    SwapError::ComponentNotFound(format!(
+                        "No adapter loaded for new model {}",
+                        new_id
                     ))
+                })
             }
             SwapTarget::Adapter { new_adapter, .. } => Ok(new_adapter.clone()),
-            SwapTarget::Hardware { event } => {
-                match event {
-                    HardwareChangeEvent::GpuAdded { gpu_id } => Ok(gpu_id.clone()),
-                    _ => Err(SwapError::ComponentNotFound(
-                        "No new adapter ID for this hardware event type".to_string(),
-                    )),
-                }
-            }
+            SwapTarget::Hardware { event } => match event {
+                HardwareChangeEvent::GpuAdded { gpu_id } => Ok(gpu_id.clone()),
+                _ => Err(SwapError::ComponentNotFound(
+                    "No new adapter ID for this hardware event type".to_string(),
+                )),
+            },
         }
     }
 }
@@ -780,10 +803,7 @@ mod tests {
             Ok(())
         }
 
-        async fn append_audit_entry(
-            &self,
-            _entry: &[u8],
-        ) -> Result<(), crate::vault::VaultError> {
+        async fn append_audit_entry(&self, _entry: &[u8]) -> Result<(), crate::vault::VaultError> {
             Ok(())
         }
 
@@ -847,7 +867,9 @@ mod tests {
     #[test]
     fn test_swap_request_hardware_defaults() {
         let req = SwapRequest::hardware_event(
-            HardwareChangeEvent::GpuAdded { gpu_id: "gpu-1".to_string() },
+            HardwareChangeEvent::GpuAdded {
+                gpu_id: "gpu-1".to_string(),
+            },
             "new GPU detected",
         );
         assert!(!req.rollback_on_failure); // Hardware events can't roll back
@@ -919,11 +941,8 @@ mod tests {
         let (scheduler, registry, health) = make_test_components();
         let mut mgr = HotSwapManager::new(scheduler, registry, health);
 
-        let req = SwapRequest::adapter_swap(
-            "nonexistent".to_string(),
-            "new-adapter".to_string(),
-            "test",
-        );
+        let req =
+            SwapRequest::adapter_swap("nonexistent".to_string(), "new-adapter".to_string(), "test");
 
         let result = mgr.execute_swap(req).await.unwrap();
         // The swap should complete (pause routing on nonexistent just sets health=false)
@@ -939,7 +958,12 @@ mod tests {
         // Register an adapter in scheduler + health monitor
         {
             let mut s = scheduler.write().await;
-            s.register_adapter("old-adapter".to_string(), vec!["model-a".to_string()], 4, vec![]);
+            s.register_adapter(
+                "old-adapter".to_string(),
+                vec!["model-a".to_string()],
+                4,
+                vec![],
+            );
             s.set_adapter_health(&"old-adapter".to_string(), true);
         }
         {
@@ -947,11 +971,7 @@ mod tests {
             h.register_adapter("old-adapter".to_string());
         }
 
-        let mut mgr = HotSwapManager::new(
-            scheduler.clone(),
-            registry.clone(),
-            health.clone(),
-        );
+        let mut mgr = HotSwapManager::new(scheduler.clone(), registry.clone(), health.clone());
 
         let req = SwapRequest::adapter_swap(
             "old-adapter".to_string(),
@@ -962,7 +982,9 @@ mod tests {
         let result = mgr.execute_swap(req).await.unwrap();
 
         match &result {
-            SwapResult::Success { drained_requests, .. } => {
+            SwapResult::Success {
+                drained_requests, ..
+            } => {
                 assert_eq!(*drained_requests, 0); // No in-flight during test
             }
             other => panic!("Expected Success, got {:?}", other),
@@ -984,11 +1006,7 @@ mod tests {
         // Simulate swap_in_progress flag
         mgr.swap_in_progress = true;
 
-        let req = SwapRequest::adapter_swap(
-            "a".to_string(),
-            "b".to_string(),
-            "test",
-        );
+        let req = SwapRequest::adapter_swap("a".to_string(), "b".to_string(), "test");
 
         let err = mgr.execute_swap(req).await.unwrap_err();
         assert!(matches!(err, SwapError::SwapInProgress));
@@ -1027,8 +1045,12 @@ mod tests {
 
     #[test]
     fn test_hardware_event_types() {
-        let added = HardwareChangeEvent::GpuAdded { gpu_id: "gpu-0".to_string() };
-        let removed = HardwareChangeEvent::GpuRemoved { gpu_id: "gpu-1".to_string() };
+        let added = HardwareChangeEvent::GpuAdded {
+            gpu_id: "gpu-0".to_string(),
+        };
+        let removed = HardwareChangeEvent::GpuRemoved {
+            gpu_id: "gpu-1".to_string(),
+        };
         let memristor = HardwareChangeEvent::MemristorCardInserted;
         let thermal = HardwareChangeEvent::ThermalSensorAdded;
 

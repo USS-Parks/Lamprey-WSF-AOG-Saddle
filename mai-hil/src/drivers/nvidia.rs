@@ -4,11 +4,11 @@
 //! Uses nvml-wrapper (NVML bindings) for GPU discovery, thermal monitoring,
 //! power management, and memory tracking. Feature-gated behind `nvidia`.
 
-use crate::HilError;
 use crate::traits::{
     CapabilityDescriptor, ComputeType, HardwareProbe, MemoryManager, PowerState,
     PowerStateController, QuantizationFormat, SecureLoadContext,
 };
+use crate::HilError;
 use async_trait::async_trait;
 use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::Nvml;
@@ -31,9 +31,8 @@ impl NvidiaDriver {
     /// Initialize a new NvidiaDriver for the given device index.
     /// Returns `HilError::Unavailable` if NVML cannot initialize.
     pub fn new(device_index: u32) -> Result<Self, HilError> {
-        let nvml = Nvml::init().map_err(|e| {
-            HilError::Unavailable(format!("NVML init failed: {e}"))
-        })?;
+        let nvml =
+            Nvml::init().map_err(|e| HilError::Unavailable(format!("NVML init failed: {e}")))?;
         Ok(Self {
             nvml: Arc::new(nvml),
             device_index,
@@ -73,10 +72,12 @@ impl HardwareProbe for NvidiaDriver {
                 HilError::Unavailable(format!("Cannot access GPU {device_index}: {e}"))
             })?;
 
-            let name = device.name().unwrap_or_else(|_| "Unknown NVIDIA GPU".into());
-            let mem_info = device.memory_info().map_err(|e| {
-                HilError::Unavailable(format!("Memory info unavailable: {e}"))
-            })?;
+            let name = device
+                .name()
+                .unwrap_or_else(|_| "Unknown NVIDIA GPU".into());
+            let mem_info = device
+                .memory_info()
+                .map_err(|e| HilError::Unavailable(format!("Memory info unavailable: {e}")))?;
 
             let cc = device.cuda_compute_capability().map_err(|e| {
                 HilError::Unavailable(format!("Compute capability query failed: {e}"))
@@ -87,7 +88,9 @@ impl HardwareProbe for NvidiaDriver {
             let power_limit = device.power_management_limit().unwrap_or(350_000); // milliwatts
             let tdp_watts = (power_limit / 1000) as u32;
 
-            let driver_version = nvml.sys_driver_version().unwrap_or_else(|_| "unknown".into());
+            let driver_version = nvml
+                .sys_driver_version()
+                .unwrap_or_else(|_| "unknown".into());
 
             let compute_types = Self::compute_types_from_arch(cc.major, cc.minor);
 
@@ -125,9 +128,9 @@ impl HardwareProbe for NvidiaDriver {
                 HilError::Unavailable(format!("Cannot access GPU {device_index}: {e}"))
             })?;
 
-            let temp = device.temperature(TemperatureSensor::Gpu).map_err(|e| {
-                HilError::Unavailable(format!("Temperature read failed: {e}"))
-            })?;
+            let temp = device
+                .temperature(TemperatureSensor::Gpu)
+                .map_err(|e| HilError::Unavailable(format!("Temperature read failed: {e}")))?;
 
             Ok(temp as f32)
         })
@@ -141,7 +144,10 @@ impl PowerStateController for NvidiaDriver {
     async fn set_power_state(&self, state: PowerState) -> Result<(), HilError> {
         // NVML doesn't have a direct analog to our power state model.
         // We track the logical state and use persistence mode for Sentinel/FullInference.
-        info!("NVIDIA GPU {}: power state -> {:?}", self.device_index, state);
+        info!(
+            "NVIDIA GPU {}: power state -> {:?}",
+            self.device_index, state
+        );
         let mut current = self.current_power_state.lock().await;
         *current = state;
         Ok(())
@@ -206,9 +212,9 @@ impl MemoryManager for NvidiaDriver {
                 HilError::Unavailable(format!("Cannot access GPU {device_index}: {e}"))
             })?;
 
-            let mem_info = device.memory_info().map_err(|e| {
-                HilError::Unavailable(format!("Memory info unavailable: {e}"))
-            })?;
+            let mem_info = device
+                .memory_info()
+                .map_err(|e| HilError::Unavailable(format!("Memory info unavailable: {e}")))?;
 
             // Return (total, used) per trait contract
             Ok((mem_info.total, mem_info.used))

@@ -5,12 +5,12 @@
 //! hardware detection and monitoring. This is the compute target of
 //! last resort when no GPU is available.
 
-use crate::HilError;
+use crate::drivers::{parse_memory_value, parse_proc_line};
 use crate::traits::{
     CapabilityDescriptor, ComputeType, HardwareProbe, MemoryManager, PowerState,
     PowerStateController, QuantizationFormat, SecureLoadContext,
 };
-use crate::drivers::{parse_memory_value, parse_proc_line};
+use crate::HilError;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tracing::info;
@@ -34,12 +34,10 @@ impl CpuDriver {
 
     /// Read and parse /proc/cpuinfo to extract CPU model name.
     async fn read_cpu_model(&self) -> Result<String, HilError> {
-        let content = tokio::task::spawn_blocking(|| {
-            std::fs::read_to_string("/proc/cpuinfo")
-        })
-        .await
-        .map_err(|e| HilError::Unavailable(format!("Task join error: {e}")))?
-        .map_err(|e| HilError::Unavailable(format!("/proc/cpuinfo unreadable: {e}")))?;
+        let content = tokio::task::spawn_blocking(|| std::fs::read_to_string("/proc/cpuinfo"))
+            .await
+            .map_err(|e| HilError::Unavailable(format!("Task join error: {e}")))?
+            .map_err(|e| HilError::Unavailable(format!("/proc/cpuinfo unreadable: {e}")))?;
 
         for line in content.lines() {
             if let Some((key, value)) = parse_proc_line(line) {
@@ -54,12 +52,10 @@ impl CpuDriver {
 
     /// Read /proc/meminfo and return (total_bytes, available_bytes).
     async fn read_memory_info(&self) -> Result<(u64, u64), HilError> {
-        let content = tokio::task::spawn_blocking(|| {
-            std::fs::read_to_string("/proc/meminfo")
-        })
-        .await
-        .map_err(|e| HilError::Unavailable(format!("Task join error: {e}")))?
-        .map_err(|e| HilError::Unavailable(format!("/proc/meminfo unreadable: {e}")))?;
+        let content = tokio::task::spawn_blocking(|| std::fs::read_to_string("/proc/meminfo"))
+            .await
+            .map_err(|e| HilError::Unavailable(format!("Task join error: {e}")))?
+            .map_err(|e| HilError::Unavailable(format!("/proc/meminfo unreadable: {e}")))?;
 
         let mut total_kb: u64 = 0;
         let mut available_kb: u64 = 0;
@@ -89,13 +85,11 @@ impl CpuDriver {
 
     /// Detect CPU SIMD capabilities from /proc/cpuinfo flags.
     async fn detect_compute_types(&self) -> Vec<ComputeType> {
-        let content = tokio::task::spawn_blocking(|| {
-            std::fs::read_to_string("/proc/cpuinfo")
-        })
-        .await
-        .ok()
-        .and_then(|r| r.ok())
-        .unwrap_or_default();
+        let content = tokio::task::spawn_blocking(|| std::fs::read_to_string("/proc/cpuinfo"))
+            .await
+            .ok()
+            .and_then(|r| r.ok())
+            .unwrap_or_default();
 
         let mut types = vec![ComputeType::CPUFallback];
 

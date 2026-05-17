@@ -38,7 +38,11 @@ impl SchedulingStrategy {
     /// Validate that Hybrid nesting doesn't exceed max depth.
     pub fn validate(&self) -> Result<(), SchedulerError> {
         match self {
-            Self::Hybrid { primary, fallback, depth } => {
+            Self::Hybrid {
+                primary,
+                fallback,
+                depth,
+            } => {
                 if *depth > 3 {
                     return Err(SchedulerError::ConfigError(
                         "Hybrid strategy max nesting depth is 3".to_string(),
@@ -362,7 +366,9 @@ impl Scheduler {
                     format!("{:?}", request.priority),
                 ));
             }
-            BackpressureAction::RejectNonCritical if request.priority != RequestPriority::Critical => {
+            BackpressureAction::RejectNonCritical
+                if request.priority != RequestPriority::Critical =>
+            {
                 self.metrics.total_rejected += 1;
                 return Err(SchedulerError::QueueFull(
                     self.total_queue_depth(),
@@ -383,7 +389,10 @@ impl Scheduler {
         let candidates = self.find_candidates(request);
         if candidates.is_empty() {
             return Err(SchedulerError::NoAdapterAvailable(
-                request.model_name.clone().unwrap_or_else(|| "any".to_string()),
+                request
+                    .model_name
+                    .clone()
+                    .unwrap_or_else(|| "any".to_string()),
             ));
         }
 
@@ -501,9 +510,7 @@ impl Scheduler {
 
     /// Number of in-flight requests for a specific adapter (0 if unknown).
     pub fn adapter_in_flight(&self, adapter_id: &AdapterId) -> usize {
-        self.adapters
-            .get(adapter_id)
-            .map_or(0, |a| a.in_flight)
+        self.adapters.get(adapter_id).map_or(0, |a| a.in_flight)
     }
 
     // ─── Internal helpers ─────────────────────────────────────────────
@@ -545,17 +552,11 @@ impl Scheduler {
                 self.round_robin_index = self.round_robin_index.wrapping_add(1);
                 candidates[idx].clone()
             }
-            SchedulingStrategy::LeastLoaded => {
-                candidates
-                    .iter()
-                    .min_by_key(|id| {
-                        self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight)
-                    })
-                    .cloned()
-                    .ok_or_else(|| {
-                        SchedulerError::NoAdapterAvailable("no candidates".to_string())
-                    })?
-            }
+            SchedulingStrategy::LeastLoaded => candidates
+                .iter()
+                .min_by_key(|id| self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight))
+                .cloned()
+                .ok_or_else(|| SchedulerError::NoAdapterAvailable("no candidates".to_string()))?,
             SchedulingStrategy::ModelAffinity => {
                 // Prefer adapter that already has the model loaded
                 if let Some(ref model) = request.model_name {
@@ -577,15 +578,15 @@ impl Scheduler {
                 // (priority is handled at the queue level, not adapter selection)
                 candidates
                     .iter()
-                    .min_by_key(|id| {
-                        self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight)
-                    })
+                    .min_by_key(|id| self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight))
                     .cloned()
                     .ok_or_else(|| {
                         SchedulerError::NoAdapterAvailable("no candidates".to_string())
                     })?
             }
-            SchedulingStrategy::Hybrid { primary, fallback, .. } => {
+            SchedulingStrategy::Hybrid {
+                primary, fallback, ..
+            } => {
                 // Try primary strategy first, fall back if it fails
                 self.select_with_strategy(primary, candidates, request)
                     .unwrap_or_else(|_| {
@@ -595,9 +596,10 @@ impl Scheduler {
             }
         };
 
-        let adapter = self.adapters.get(&selected_id).ok_or_else(|| {
-            SchedulerError::NoAdapterAvailable(selected_id.clone())
-        })?;
+        let adapter = self
+            .adapters
+            .get(&selected_id)
+            .ok_or_else(|| SchedulerError::NoAdapterAvailable(selected_id.clone()))?;
 
         let model_id = request
             .model_name
@@ -621,15 +623,11 @@ impl Scheduler {
         _request: &InferenceRequest,
     ) -> Result<AdapterId, SchedulerError> {
         match strategy {
-            SchedulingStrategy::LeastLoaded | SchedulingStrategy::PriorityQueued => {
-                candidates
-                    .iter()
-                    .min_by_key(|id| {
-                        self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight)
-                    })
-                    .cloned()
-                    .ok_or_else(|| SchedulerError::NoAdapterAvailable("empty".to_string()))
-            }
+            SchedulingStrategy::LeastLoaded | SchedulingStrategy::PriorityQueued => candidates
+                .iter()
+                .min_by_key(|id| self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight))
+                .cloned()
+                .ok_or_else(|| SchedulerError::NoAdapterAvailable("empty".to_string())),
             SchedulingStrategy::RoundRobin => {
                 // Can't mutate round_robin_index in &self, use first candidate
                 Ok(candidates.first().cloned().unwrap_or_default())

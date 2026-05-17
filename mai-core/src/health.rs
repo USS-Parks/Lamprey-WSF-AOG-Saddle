@@ -563,9 +563,7 @@ impl HealthMonitor {
                     None
                 }
             }
-            HealthMetric::CpuUtilization => {
-                Some(self.system_health.cpu_utilization as f64 * 100.0)
-            }
+            HealthMetric::CpuUtilization => Some(self.system_health.cpu_utilization as f64 * 100.0),
             HealthMetric::AirGapCompliance => {
                 match self.hardware_health.network_state {
                     NetworkState::NonCompliant { .. } => Some(1.0), // violation

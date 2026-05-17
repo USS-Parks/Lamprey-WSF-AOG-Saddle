@@ -248,8 +248,8 @@ impl ModelRegistry {
     /// Parse and validate a model manifest from TOML string.
     /// Validates required fields and internal consistency.
     pub fn parse_manifest(toml_content: &str) -> Result<ModelManifest, RegistryError> {
-        let manifest: ModelManifest =
-            toml::from_str(toml_content).map_err(|e| RegistryError::InvalidManifest(e.to_string()))?;
+        let manifest: ModelManifest = toml::from_str(toml_content)
+            .map_err(|e| RegistryError::InvalidManifest(e.to_string()))?;
 
         // Validate required fields are non-empty
         if manifest.model.name.is_empty() {
@@ -336,7 +336,9 @@ impl ModelRegistry {
             .get_mut(model_id)
             .ok_or_else(|| RegistryError::ModelNotFound(model_id.clone()))?;
 
-        if !entry.status.is_valid_transition(&ModelStatus::Loading { progress_percent: 0 }) {
+        if !entry.status.is_valid_transition(&ModelStatus::Loading {
+            progress_percent: 0,
+        }) {
             return Err(RegistryError::InvalidTransition {
                 from: entry.status.display_name().to_string(),
                 to: "Loading".to_string(),
@@ -350,7 +352,9 @@ impl ModelRegistry {
         );
 
         // Transition to Loading
-        entry.status = ModelStatus::Loading { progress_percent: 0 };
+        entry.status = ModelStatus::Loading {
+            progress_percent: 0,
+        };
         entry.loaded_adapter = Some(target_adapter.clone());
 
         // Request model weights from vault (PQC decryption happens inside vault)
@@ -393,7 +397,10 @@ impl ModelRegistry {
             .ok_or_else(|| RegistryError::ModelNotFound(model_id.clone()))?;
 
         // Must be in Loaded or Active to unload
-        let can_evict = matches!(entry.status, ModelStatus::Loaded | ModelStatus::Active { .. });
+        let can_evict = matches!(
+            entry.status,
+            ModelStatus::Loaded | ModelStatus::Active { .. }
+        );
         if !can_evict {
             return Err(RegistryError::InvalidTransition {
                 from: entry.status.display_name().to_string(),
@@ -474,11 +481,7 @@ impl ModelRegistry {
             "{}:{}:{}",
             manifest.model.name,
             manifest.model.version,
-            manifest
-                .model
-                .quantization
-                .as_deref()
-                .unwrap_or("native")
+            manifest.model.quantization.as_deref().unwrap_or("native")
         );
 
         self.vault
@@ -602,11 +605,7 @@ impl ModelRegistry {
 
     /// Find models that can serve a given request type and fit in available VRAM.
     /// Used by scheduler for capability matching.
-    pub fn find_capable_models(
-        &self,
-        capability: &str,
-        available_vram: u64,
-    ) -> Vec<ModelId> {
+    pub fn find_capable_models(&self, capability: &str, available_vram: u64) -> Vec<ModelId> {
         self.models
             .iter()
             .filter(|(_, entry)| {
@@ -764,7 +763,11 @@ mod tests {
                 Ok(vec![0u8; 1024]) // fake weights
             }
         }
-        async fn store_model_package(&self, _model_id: &str, _data: &[u8]) -> Result<(), VaultError> {
+        async fn store_model_package(
+            &self,
+            _model_id: &str,
+            _data: &[u8],
+        ) -> Result<(), VaultError> {
             if self.should_fail {
                 Err(VaultError::IoError("mock failure".to_string()))
             } else {
@@ -774,7 +777,11 @@ mod tests {
         async fn append_audit_entry(&self, _entry: &[u8]) -> Result<(), VaultError> {
             Ok(())
         }
-        async fn verify_signature(&self, _data: &[u8], _signature: &[u8]) -> Result<bool, VaultError> {
+        async fn verify_signature(
+            &self,
+            _data: &[u8],
+            _signature: &[u8],
+        ) -> Result<bool, VaultError> {
             Ok(!self.should_fail)
         }
     }
@@ -937,7 +944,10 @@ changelog = "Initial quantized release for MAI"
             .register_cold_model(id.clone(), manifest, PathBuf::from("/vault/x"))
             .await
             .unwrap();
-        registry.load_model(&id, "ollama:0".to_string()).await.unwrap();
+        registry
+            .load_model(&id, "ollama:0".to_string())
+            .await
+            .unwrap();
 
         let result = registry.unload_model(&id).await;
         assert!(result.is_ok());
@@ -950,7 +960,9 @@ changelog = "Initial quantized release for MAI"
     #[test]
     fn test_state_machine_valid_transitions() {
         let cold = ModelStatus::ColdStorage;
-        let loading = ModelStatus::Loading { progress_percent: 50 };
+        let loading = ModelStatus::Loading {
+            progress_percent: 50,
+        };
         let loaded = ModelStatus::Loaded;
         let active = ModelStatus::Active {
             last_used: Instant::now(),
@@ -959,7 +971,9 @@ changelog = "Initial quantized release for MAI"
         let evicting = ModelStatus::Evicting;
         let evicted = ModelStatus::Evicted;
 
-        assert!(cold.is_valid_transition(&ModelStatus::Loading { progress_percent: 0 }));
+        assert!(cold.is_valid_transition(&ModelStatus::Loading {
+            progress_percent: 0
+        }));
         assert!(loading.is_valid_transition(&ModelStatus::Loaded));
         assert!(loading.is_valid_transition(&ModelStatus::ColdStorage));
         assert!(loaded.is_valid_transition(&ModelStatus::Active {
@@ -1041,7 +1055,10 @@ changelog = "Initial quantized release for MAI"
             .register_cold_model(id.clone(), manifest, PathBuf::from("/v/x"))
             .await
             .unwrap();
-        registry.load_model(&id, "ollama:0".to_string()).await.unwrap();
+        registry
+            .load_model(&id, "ollama:0".to_string())
+            .await
+            .unwrap();
         registry.mark_active(&id).unwrap();
 
         // Should find this model for chat capability

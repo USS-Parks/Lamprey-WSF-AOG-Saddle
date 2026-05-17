@@ -12,8 +12,8 @@ use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
 use mai_hil::traits::{
-    AdapterCapabilities, AdapterConfig, Embedding, GenerationParams,
-    GenerationResult, HealthStatus, Token,
+    AdapterCapabilities, AdapterConfig, Embedding, GenerationParams, GenerationResult,
+    HealthStatus, Token,
 };
 
 use crate::audit::{AuditBuffer, AuditTimer};
@@ -116,8 +116,8 @@ impl AdapterManager {
         match result {
             Ok(value) => {
                 timer.success();
-                let init_result: InitializeResult = serde_json::from_value(value)
-                    .map_err(|e| FrameworkError::ProtocolError {
+                let init_result: InitializeResult =
+                    serde_json::from_value(value).map_err(|e| FrameworkError::ProtocolError {
                         name: name.to_string(),
                         detail: format!("Invalid initialize response: {e}"),
                     })?;
@@ -126,10 +126,12 @@ impl AdapterManager {
 
                 // Fetch capabilities
                 let caps_value = process.call("capabilities", Value::Null).await?;
-                let caps_result: CapabilitiesResult = serde_json::from_value(caps_value)
-                    .map_err(|e| FrameworkError::ProtocolError {
-                        name: name.to_string(),
-                        detail: format!("Invalid capabilities response: {e}"),
+                let caps_result: CapabilitiesResult =
+                    serde_json::from_value(caps_value).map_err(|e| {
+                        FrameworkError::ProtocolError {
+                            name: name.to_string(),
+                            detail: format!("Invalid capabilities response: {e}"),
+                        }
                     })?;
 
                 // Cache capabilities
@@ -180,11 +182,12 @@ impl AdapterManager {
         params: GenerationParams,
     ) -> Result<Vec<Token>, FrameworkError> {
         let processes = self.processes.read().await;
-        let process_mutex = processes
-            .get(adapter_name)
-            .ok_or_else(|| FrameworkError::AdapterNotFound {
-                name: adapter_name.to_string(),
-            })?;
+        let process_mutex =
+            processes
+                .get(adapter_name)
+                .ok_or_else(|| FrameworkError::AdapterNotFound {
+                    name: adapter_name.to_string(),
+                })?;
 
         let stream_id = self
             .next_stream_id
@@ -206,12 +209,11 @@ impl AdapterManager {
             Ok(value) => {
                 timer.success();
                 // For non-streaming mode, the response contains all tokens
-                let tokens: Vec<Token> = serde_json::from_value(value).map_err(|e| {
-                    FrameworkError::ProtocolError {
+                let tokens: Vec<Token> =
+                    serde_json::from_value(value).map_err(|e| FrameworkError::ProtocolError {
                         name: adapter_name.to_string(),
                         detail: format!("Invalid generate response: {e}"),
-                    }
-                })?;
+                    })?;
                 Ok(tokens)
             }
             Err(e) => {
@@ -229,11 +231,12 @@ impl AdapterManager {
         params: GenerationParams,
     ) -> Result<Vec<GenerationResult>, FrameworkError> {
         let processes = self.processes.read().await;
-        let process_mutex = processes
-            .get(adapter_name)
-            .ok_or_else(|| FrameworkError::AdapterNotFound {
-                name: adapter_name.to_string(),
-            })?;
+        let process_mutex =
+            processes
+                .get(adapter_name)
+                .ok_or_else(|| FrameworkError::AdapterNotFound {
+                    name: adapter_name.to_string(),
+                })?;
 
         let batch_params = GenerateBatchParams { prompts, params };
         let params_json = serde_json::to_value(&batch_params)?;
@@ -267,11 +270,12 @@ impl AdapterManager {
         texts: Vec<String>,
     ) -> Result<Vec<Embedding>, FrameworkError> {
         let processes = self.processes.read().await;
-        let process_mutex = processes
-            .get(adapter_name)
-            .ok_or_else(|| FrameworkError::AdapterNotFound {
-                name: adapter_name.to_string(),
-            })?;
+        let process_mutex =
+            processes
+                .get(adapter_name)
+                .ok_or_else(|| FrameworkError::AdapterNotFound {
+                    name: adapter_name.to_string(),
+                })?;
 
         let embed_params = EmbedParams { texts };
         let params_json = serde_json::to_value(&embed_params)?;
@@ -299,16 +303,14 @@ impl AdapterManager {
     }
 
     /// Query adapter health.
-    pub async fn health_check(
-        &self,
-        adapter_name: &str,
-    ) -> Result<HealthStatus, FrameworkError> {
+    pub async fn health_check(&self, adapter_name: &str) -> Result<HealthStatus, FrameworkError> {
         let processes = self.processes.read().await;
-        let process_mutex = processes
-            .get(adapter_name)
-            .ok_or_else(|| FrameworkError::AdapterNotFound {
-                name: adapter_name.to_string(),
-            })?;
+        let process_mutex =
+            processes
+                .get(adapter_name)
+                .ok_or_else(|| FrameworkError::AdapterNotFound {
+                    name: adapter_name.to_string(),
+                })?;
 
         let mut process = process_mutex.lock().await;
         let result = process.call("health_check", Value::Null).await?;
@@ -406,11 +408,12 @@ impl AdapterManager {
         adapter_config: AdapterConfig,
     ) -> Result<(), FrameworkError> {
         let processes = self.processes.read().await;
-        let process_mutex = processes
-            .get(adapter_name)
-            .ok_or_else(|| FrameworkError::AdapterNotFound {
-                name: adapter_name.to_string(),
-            })?;
+        let process_mutex =
+            processes
+                .get(adapter_name)
+                .ok_or_else(|| FrameworkError::AdapterNotFound {
+                    name: adapter_name.to_string(),
+                })?;
 
         let mut process = process_mutex.lock().await;
 

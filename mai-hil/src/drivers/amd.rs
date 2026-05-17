@@ -5,11 +5,11 @@
 //! thermal monitoring, power management, and memory tracking.
 //! No direct library dependency - works with any ROCm version that ships rocm-smi.
 
-use crate::HilError;
 use crate::traits::{
     CapabilityDescriptor, ComputeType, HardwareProbe, MemoryManager, PowerState,
     PowerStateController, QuantizationFormat, SecureLoadContext,
 };
+use crate::HilError;
 use async_trait::async_trait;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -51,9 +51,8 @@ impl AmdDriver {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        serde_json::from_str(&stdout).map_err(|e| {
-            HilError::Unavailable(format!("Failed to parse rocm-smi JSON: {e}"))
-        })
+        serde_json::from_str(&stdout)
+            .map_err(|e| HilError::Unavailable(format!("Failed to parse rocm-smi JSON: {e}")))
     }
 
     /// Extract the card key for this device index from rocm-smi JSON.
@@ -71,11 +70,15 @@ impl Default for AmdDriver {
 #[async_trait]
 impl HardwareProbe for AmdDriver {
     async fn discover_devices(&self) -> Result<Vec<CapabilityDescriptor>, HilError> {
-        let json = self.run_rocm_smi(&["--showproductname", "--showmeminfo", "vram"]).await?;
+        let json = self
+            .run_rocm_smi(&["--showproductname", "--showmeminfo", "vram"])
+            .await?;
 
         let card_key = self.card_key();
         let empty_map = serde_json::Map::new();
-        let card = json.as_object().unwrap_or(&empty_map)
+        let card = json
+            .as_object()
+            .unwrap_or(&empty_map)
             .get(&card_key)
             .and_then(|v| v.as_object());
 
@@ -103,16 +106,9 @@ impl HardwareProbe for AmdDriver {
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
 
-        let compute_types = vec![
-            ComputeType::FP16,
-            ComputeType::INT8,
-            ComputeType::BF16,
-        ];
+        let compute_types = vec![ComputeType::FP16, ComputeType::INT8, ComputeType::BF16];
 
-        let supported_quants = vec![
-            QuantizationFormat::GGUF,
-            QuantizationFormat::SafeTensors,
-        ];
+        let supported_quants = vec![QuantizationFormat::GGUF, QuantizationFormat::SafeTensors];
 
         let descriptor = CapabilityDescriptor {
             model_name,
@@ -134,7 +130,9 @@ impl HardwareProbe for AmdDriver {
 
         let card_key = self.card_key();
         let empty_map = serde_json::Map::new();
-        let card = json.as_object().unwrap_or(&empty_map)
+        let card = json
+            .as_object()
+            .unwrap_or(&empty_map)
             .get(&card_key)
             .and_then(|v| v.as_object());
 
@@ -221,16 +219,16 @@ impl MemoryManager for AmdDriver {
 
         let card_key = self.card_key();
         let empty_map = serde_json::Map::new();
-        let card = json.as_object().unwrap_or(&empty_map)
+        let card = json
+            .as_object()
+            .unwrap_or(&empty_map)
             .get(&card_key)
             .and_then(|v| v.as_object());
 
         let card = match card {
             Some(c) => c,
             None => {
-                return Err(HilError::Unavailable(
-                    "VRAM info unavailable".to_string(),
-                ));
+                return Err(HilError::Unavailable("VRAM info unavailable".to_string()));
             }
         };
 

@@ -22,14 +22,28 @@ use mai_hil::traits::{HardwareProbe, MemoryManager, PowerState, PowerStateContro
 async fn cpu_discover_devices_returns_valid_descriptor() {
     let driver = CpuDriver::new();
     let devices = driver.discover_devices().await;
-    assert!(devices.is_ok(), "CPU discovery must succeed on Linux: {:?}", devices.err());
+    assert!(
+        devices.is_ok(),
+        "CPU discovery must succeed on Linux: {:?}",
+        devices.err()
+    );
 
     let descriptors = devices.unwrap();
-    assert_eq!(descriptors.len(), 1, "CPU driver should report exactly one device");
+    assert_eq!(
+        descriptors.len(),
+        1,
+        "CPU driver should report exactly one device"
+    );
 
     let desc = &descriptors[0];
-    assert!(!desc.model_name.is_empty(), "CPU model name must not be empty");
-    assert_ne!(desc.model_name, "Unknown CPU", "Should detect actual CPU model");
+    assert!(
+        !desc.model_name.is_empty(),
+        "CPU model name must not be empty"
+    );
+    assert_ne!(
+        desc.model_name, "Unknown CPU",
+        "Should detect actual CPU model"
+    );
     assert!(desc.total_memory_bytes > 0, "Total memory must be > 0");
     assert!(
         desc.total_memory_bytes > 512 * 1024 * 1024,
@@ -68,7 +82,11 @@ async fn cpu_thermal_returns_reasonable_value() {
 async fn cpu_memory_usage_consistent() {
     let driver = CpuDriver::new();
     let usage = driver.get_memory_usage().await;
-    assert!(usage.is_ok(), "Memory usage query failed: {:?}", usage.err());
+    assert!(
+        usage.is_ok(),
+        "Memory usage query failed: {:?}",
+        usage.err()
+    );
 
     let (total, used) = usage.unwrap();
     assert!(total > 0, "Total memory must be > 0");
@@ -105,7 +123,10 @@ async fn cpu_power_state_transitions() {
         assert!(result.is_ok(), "Transition to {:?} failed", target_state);
 
         let current = driver.get_power_state().await.unwrap();
-        assert_eq!(current, target_state, "Power state mismatch after transition");
+        assert_eq!(
+            current, target_state,
+            "Power state mismatch after transition"
+        );
     }
 }
 
@@ -130,7 +151,11 @@ async fn cpu_allocate_memory_within_bounds() {
 
     // Allocate a small amount (should succeed)
     let result = driver.allocate_memory(1024).await;
-    assert!(result.is_ok(), "Small allocation failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Small allocation failed: {:?}",
+        result.err()
+    );
 
     // Allocate more than total (should fail with OOM)
     let (total, _) = driver.get_memory_usage().await.unwrap();
@@ -160,7 +185,10 @@ mod nvidia_integration {
         };
 
         let devices = driver.discover_devices().await.unwrap();
-        assert!(!devices.is_empty(), "NVIDIA driver should find at least one GPU");
+        assert!(
+            !devices.is_empty(),
+            "NVIDIA driver should find at least one GPU"
+        );
 
         let desc = &devices[0];
         assert!(!desc.model_name.is_empty());
@@ -199,7 +227,10 @@ mod nvidia_integration {
 
         let (total, used) = driver.get_memory_usage().await.unwrap();
         assert!(total > 0, "Total VRAM must be > 0");
-        assert!(used <= total, "Used VRAM ({used}) must be <= total ({total})");
+        assert!(
+            used <= total,
+            "Used VRAM ({used}) must be <= total ({total})"
+        );
         eprintln!(
             "VRAM: {} MB used / {} MB total",
             used / (1024 * 1024),
@@ -229,10 +260,19 @@ mod nvidia_integration {
         };
 
         driver.set_power_state(PowerState::Sentinel).await.unwrap();
-        assert_eq!(driver.get_power_state().await.unwrap(), PowerState::Sentinel);
+        assert_eq!(
+            driver.get_power_state().await.unwrap(),
+            PowerState::Sentinel
+        );
 
-        driver.set_power_state(PowerState::FullInference).await.unwrap();
-        assert_eq!(driver.get_power_state().await.unwrap(), PowerState::FullInference);
+        driver
+            .set_power_state(PowerState::FullInference)
+            .await
+            .unwrap();
+        assert_eq!(
+            driver.get_power_state().await.unwrap(),
+            PowerState::FullInference
+        );
     }
 }
 
@@ -275,7 +315,9 @@ mod amd_integration {
                 // Graceful failure is acceptable (no AMD GPU present)
                 let msg = format!("{e}");
                 assert!(
-                    msg.contains("not found") || msg.contains("Unavailable") || msg.contains("error"),
+                    msg.contains("not found")
+                        || msg.contains("Unavailable")
+                        || msg.contains("error"),
                     "Unexpected error format: {e}"
                 );
                 eprintln!("AMD GPU not present (expected): {e}");
@@ -288,7 +330,10 @@ mod amd_integration {
         // Power state is logical-only, doesn't require real AMD hardware
         let driver = AmdDriver::new(0);
         driver.set_power_state(PowerState::Sentinel).await.unwrap();
-        assert_eq!(driver.get_power_state().await.unwrap(), PowerState::Sentinel);
+        assert_eq!(
+            driver.get_power_state().await.unwrap(),
+            PowerState::Sentinel
+        );
     }
 }
 
@@ -319,12 +364,11 @@ mod event_serialization {
         ];
 
         for event in &events {
-            let json = serde_json::to_string(event)
-                .expect("HardwareEvent must serialize to JSON");
+            let json = serde_json::to_string(event).expect("HardwareEvent must serialize to JSON");
             assert!(!json.is_empty());
 
-            let deserialized: HardwareEvent = serde_json::from_str(&json)
-                .expect("HardwareEvent must deserialize from JSON");
+            let deserialized: HardwareEvent =
+                serde_json::from_str(&json).expect("HardwareEvent must deserialize from JSON");
 
             // Re-serialize to verify round-trip consistency
             let json2 = serde_json::to_string(&deserialized).unwrap();

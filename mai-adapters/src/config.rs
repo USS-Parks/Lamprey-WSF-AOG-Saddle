@@ -107,7 +107,10 @@ impl FrameworkConfig {
         if let Some(v) = fw_section.get("runner_script").and_then(|v| v.as_str()) {
             config.runner_script = PathBuf::from(v);
         }
-        if let Some(v) = fw_section.get("heartbeat_interval_ms").and_then(|v| v.as_integer()) {
+        if let Some(v) = fw_section
+            .get("heartbeat_interval_ms")
+            .and_then(|v| v.as_integer())
+        {
             config.heartbeat_interval_ms = v as u64;
         }
         if let Some(v) = fw_section
@@ -122,7 +125,10 @@ impl FrameworkConfig {
         {
             config.max_restart_attempts = v as u32;
         }
-        if let Some(v) = fw_section.get("request_timeout_ms").and_then(|v| v.as_integer()) {
+        if let Some(v) = fw_section
+            .get("request_timeout_ms")
+            .and_then(|v| v.as_integer())
+        {
             config.request_timeout_ms = v as u64;
         }
 
@@ -194,9 +200,8 @@ impl FrameworkConfig {
             }
 
             // Extract name and version from decorator (simple regex-free parse)
-            let (name, version) = parse_adapter_decorator(&content).unwrap_or_else(|| {
-                (dir_name.clone(), "0.0.0".to_string())
-            });
+            let (name, version) = parse_adapter_decorator(&content)
+                .unwrap_or_else(|| (dir_name.clone(), "0.0.0".to_string()));
 
             info!(name = %name, version = %version, path = %path.display(), "Discovered adapter");
 
@@ -223,7 +228,8 @@ fn parse_adapter_decorator(source: &str) -> Option<(String, String)> {
 
     // Extract name="..."
     let name = extract_kwarg(decorator_content, "name")?;
-    let version = extract_kwarg(decorator_content, "version").unwrap_or_else(|| "1.0.0".to_string());
+    let version =
+        extract_kwarg(decorator_content, "version").unwrap_or_else(|| "1.0.0".to_string());
 
     Some((name, version))
 }

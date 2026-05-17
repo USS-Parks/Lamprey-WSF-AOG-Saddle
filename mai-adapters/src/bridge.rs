@@ -11,8 +11,8 @@
 use serde::{Deserialize, Serialize};
 
 use mai_hil::traits::{
-    AdapterCapabilities, AdapterConfig, AdapterMetrics, Embedding, FinishReason,
-    GenerationParams, GenerationResult, HealthStatus, Token,
+    AdapterCapabilities, AdapterConfig, AdapterMetrics, Embedding, FinishReason, GenerationParams,
+    GenerationResult, HealthStatus, Token,
 };
 
 /// JSON-RPC request from AdapterManager to adapter process.

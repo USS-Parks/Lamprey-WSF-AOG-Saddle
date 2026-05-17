@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
-use tokio::sync::{mpsc, Mutex, oneshot};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::{debug, error, info, warn};
 
 use crate::bridge::{RpcError, RpcRequest, RpcResponse};
@@ -20,8 +20,7 @@ use crate::config::{DiscoveredAdapter, FrameworkConfig};
 use crate::errors::FrameworkError;
 
 /// State of an adapter process.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ProcessState {
     /// Not yet started.
     #[default]
@@ -196,14 +195,20 @@ impl AdapterProcess {
         })?;
 
         // Set up stdin writer channel
-        let stdin = child.stdin.take().ok_or_else(|| FrameworkError::SpawnFailed {
-            name: name.clone(),
-            reason: "Failed to capture stdin".to_string(),
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| FrameworkError::SpawnFailed {
-            name: name.clone(),
-            reason: "Failed to capture stdout".to_string(),
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| FrameworkError::SpawnFailed {
+                name: name.clone(),
+                reason: "Failed to capture stdin".to_string(),
+            })?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| FrameworkError::SpawnFailed {
+                name: name.clone(),
+                reason: "Failed to capture stdout".to_string(),
+            })?;
 
         let (stdin_tx, mut stdin_rx) = mpsc::channel::<String>(64);
         let (event_tx, event_rx) = mpsc::channel::<String>(256);
@@ -267,11 +272,7 @@ impl AdapterProcess {
     }
 
     /// Send an RPC request and await the response.
-    pub async fn call(
-        &mut self,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, FrameworkError> {
+    pub async fn call(&mut self, method: &str, params: Value) -> Result<Value, FrameworkError> {
         let name = &self.info.name;
 
         if self.state != ProcessState::Running && self.state != ProcessState::Starting {
@@ -300,15 +301,21 @@ impl AdapterProcess {
         }
 
         // Send request
-        let stdin_tx = self.stdin_tx.as_ref().ok_or_else(|| FrameworkError::NotReady {
-            name: name.clone(),
-            state: "no stdin channel".to_string(),
-        })?;
+        let stdin_tx = self
+            .stdin_tx
+            .as_ref()
+            .ok_or_else(|| FrameworkError::NotReady {
+                name: name.clone(),
+                state: "no stdin channel".to_string(),
+            })?;
 
-        stdin_tx.send(request_json).await.map_err(|_| FrameworkError::Io {
-            name: name.clone(),
-            source: std::io::Error::new(std::io::ErrorKind::BrokenPipe, "stdin channel closed"),
-        })?;
+        stdin_tx
+            .send(request_json)
+            .await
+            .map_err(|_| FrameworkError::Io {
+                name: name.clone(),
+                source: std::io::Error::new(std::io::ErrorKind::BrokenPipe, "stdin channel closed"),
+            })?;
 
         // Await response with timeout
         let timeout = Duration::from_millis(self.config.request_timeout_ms);
@@ -397,11 +404,8 @@ impl AdapterProcess {
         }
 
         // Send shutdown command
-        let shutdown_result = tokio::time::timeout(
-            Duration::from_secs(5),
-            self.call("shutdown", Value::Null),
-        )
-        .await;
+        let shutdown_result =
+            tokio::time::timeout(Duration::from_secs(5), self.call("shutdown", Value::Null)).await;
 
         match shutdown_result {
             Ok(Ok(_)) => {
@@ -425,7 +429,7 @@ impl AdapterProcess {
                     warn!(adapter = %self.info.name, exit_code = ?code, "Process exited");
                     false
                 }
-                Ok(None) => true,  // Still running
+                Ok(None) => true, // Still running
                 Err(e) => {
                     error!(adapter = %self.info.name, error = %e, "Error checking process status");
                     false
