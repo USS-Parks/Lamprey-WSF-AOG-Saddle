@@ -121,7 +121,7 @@ pub struct SchedulerConfig {
 #[derive(Debug)]
 pub struct AdapterSelection {
     /// Selected adapter
-    pub _adapter_id: AdapterId,
+    pub adapter_id: AdapterId,
     /// Selected model
     pub model_id: ModelId,
     /// GPU assignment (None for CPU fallback)
