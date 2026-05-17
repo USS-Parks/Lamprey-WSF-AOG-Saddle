@@ -144,10 +144,7 @@ pub struct PowerStateMachine {
 
 impl PowerStateMachine {
     /// Create new state machine with HIL dependency
-    pub fn new(
-        config: PowerConfig,
-        hil_power_controller: Arc<dyn PowerStateController>,
-    ) -> Self {
+    pub fn new(config: PowerConfig, hil_power_controller: Arc<dyn PowerStateController>) -> Self {
         Self {
             current_state: PowerState::Off,
             config,
@@ -210,11 +207,7 @@ impl PowerStateMachine {
     }
 
     /// Get transition latency target (for dashboard reporting)
-    pub fn transition_latency_target(
-        &self,
-        from: PowerState,
-        to: PowerState,
-    ) -> Option<Duration> {
+    pub fn transition_latency_target(&self, from: PowerState, to: PowerState) -> Option<Duration> {
         // Implementation in Session 07
         todo!()
     }

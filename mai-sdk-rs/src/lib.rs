@@ -63,10 +63,7 @@ impl MaiErrorType {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            Self::RateLimited
-                | Self::Overloaded
-                | Self::Timeout
-                | Self::PowerStateUnavailable
+            Self::RateLimited | Self::Overloaded | Self::Timeout | Self::PowerStateUnavailable
         )
     }
 }
@@ -736,10 +733,7 @@ impl MaiClient {
     // ── Inference endpoints ──
 
     /// POST /v1/chat/completions (OpenAI-compatible)
-    pub async fn chat(
-        &self,
-        _request: ChatCompletionRequest,
-    ) -> SdkResult<ChatCompletionResponse> {
+    pub async fn chat(&self, _request: ChatCompletionRequest) -> SdkResult<ChatCompletionResponse> {
         todo!("Session 11: HTTP client")
     }
 
@@ -753,10 +747,7 @@ impl MaiClient {
     }
 
     /// POST /v1/completions
-    pub async fn complete(
-        &self,
-        _request: CompletionRequest,
-    ) -> SdkResult<CompletionResponse> {
+    pub async fn complete(&self, _request: CompletionRequest) -> SdkResult<CompletionResponse> {
         todo!("Session 11: HTTP client")
     }
 
@@ -766,10 +757,7 @@ impl MaiClient {
     }
 
     /// POST /v1/generate/structured
-    pub async fn structured(
-        &self,
-        _request: StructuredRequest,
-    ) -> SdkResult<StructuredResponse> {
+    pub async fn structured(&self, _request: StructuredRequest) -> SdkResult<StructuredResponse> {
         todo!("Session 11: HTTP client")
     }
 
