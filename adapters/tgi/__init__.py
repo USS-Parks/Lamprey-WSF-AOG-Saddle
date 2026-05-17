@@ -1,1 +1,6 @@
-"""MAI tgi adapter. Stub: implementation in Session 08/09."""
+"""MAI TGI backend adapter."""
+from .adapter import TgiAdapter
+from .config import TgiConfig
+from .client import TgiClient
+
+__all__ = ["TgiAdapter", "TgiConfig", "TgiClient"]

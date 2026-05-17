@@ -1,1 +1,6 @@
-"""MAI llamacpp adapter. Stub: implementation in Session 08/09."""
+"""MAI llama.cpp backend adapter."""
+from .adapter import LlamaCppAdapter
+from .config import LlamaCppConfig
+from .client import LlamaCppClient
+
+__all__ = ["LlamaCppAdapter", "LlamaCppConfig", "LlamaCppClient"]

@@ -1,0 +1,245 @@
+"""llama.cpp HTTP client.
+
+Communicates with llama-server's OpenAI-compatible REST API.
+Uses stdlib urllib only (no external dependencies).
+All connections are localhost-only (air-gap safe).
+
+Session 09 deliverable.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from typing import Any, Iterator
+
+from adapters.base import (
+    AdapterTimeoutError,
+    BackendUnavailableError,
+    ContextExceededError,
+    ModelNotFoundError,
+    OutOfMemoryError,
+)
+
+logger = logging.getLogger("mai.adapters.llamacpp.client")
+
+
+@dataclass
+class LlamaCppResponse:
+    """Parsed llama-server API response."""
+
+    status_code: int
+    body: dict[str, Any]
+    elapsed_ms: float
+
+
+@dataclass
+class LlamaCppStreamChunk:
+    """Single chunk from llama-server streaming response."""
+
+    content: str
+    finish_reason: str | None
+    stop: bool = False
+
+
+class LlamaCppClient:
+    """HTTP client for llama-server (llama.cpp's built-in HTTP server).
+
+    llama-server exposes an OpenAI-compatible API at /v1/chat/completions
+    plus llama.cpp-specific endpoints for health, slots, and tokenization.
+    """
+
+    def __init__(self, base_url: str, timeout_ms: int, stream_timeout_ms: int):
+        self._base_url = base_url.rstrip("/")
+        self._timeout = timeout_ms / 1000.0
+        self._stream_timeout = stream_timeout_ms / 1000.0
+
+    def _request(
+        self, method: str, path: str, body: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> LlamaCppResponse:
+        """Execute HTTP request against llama-server."""
+        url = f"{self._base_url}{path}"
+        data = json.dumps(body).encode() if body else None
+        headers = {"Content-Type": "application/json"} if data else {}
+
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        t0 = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=timeout or self._timeout) as resp:
+                raw = resp.read().decode()
+                elapsed = (time.monotonic() - t0) * 1000
+                return LlamaCppResponse(
+                    status_code=resp.status,
+                    body=json.loads(raw) if raw else {},
+                    elapsed_ms=elapsed,
+                )
+        except urllib.error.HTTPError as e:
+            body_text = e.read().decode() if e.fp else ""
+            self._handle_http_error(e.code, body_text)
+            raise BackendUnavailableError() from e
+        except urllib.error.URLError as e:
+            if "timed out" in str(e.reason):
+                raise AdapterTimeoutError(timeout_ms=int((timeout or self._timeout) * 1000)) from e
+            raise BackendUnavailableError() from e
+        except TimeoutError as e:
+            raise AdapterTimeoutError(timeout_ms=int((timeout or self._timeout) * 1000)) from e
+
+    def _stream_request(
+        self, path: str, body: dict[str, Any],
+    ) -> Iterator[LlamaCppStreamChunk]:
+        """Execute streaming request. Yields SSE chunks."""
+        url = f"{self._base_url}{path}"
+        body["stream"] = True
+        data = json.dumps(body).encode()
+        headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            resp = urllib.request.urlopen(req, timeout=self._stream_timeout)
+        except urllib.error.HTTPError as e:
+            body_text = e.read().decode() if e.fp else ""
+            self._handle_http_error(e.code, body_text)
+            raise BackendUnavailableError() from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            raise BackendUnavailableError() from e
+
+        try:
+            for line in resp:
+                line_str = line.decode().strip()
+                if not line_str or not line_str.startswith("data: "):
+                    continue
+                payload = line_str[6:]
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk_data = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                choices = chunk_data.get("choices", [])
+                if not choices:
+                    continue
+                choice = choices[0]
+                delta = choice.get("delta", {})
+                content = delta.get("content", "")
+                finish_reason = choice.get("finish_reason")
+                yield LlamaCppStreamChunk(
+                    content=content,
+                    finish_reason=finish_reason,
+                    stop=finish_reason is not None,
+                )
+        finally:
+            resp.close()
+
+    def _handle_http_error(self, status: int, body_text: str) -> None:
+        """Map HTTP errors to MAI error types."""
+        if status == 404:
+            raise ModelNotFoundError(model="unknown")
+        if status in (408, 504):
+            raise AdapterTimeoutError(timeout_ms=int(self._timeout * 1000))
+        detail = ""
+        try:
+            err_body = json.loads(body_text)
+            detail = err_body.get("message", err_body.get("error", ""))
+        except (json.JSONDecodeError, KeyError):
+            detail = body_text[:200]
+        if "out of memory" in detail.lower() or "oom" in detail.lower():
+            raise OutOfMemoryError()
+        if "context" in detail.lower() and ("exceed" in detail.lower() or "too long" in detail.lower()):
+            raise ContextExceededError(max_context=0)
+        if status >= 500:
+            raise BackendUnavailableError()
+
+    # ─── Public API ───────────────────────────────────────────────────────
+
+    def chat_completions(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        max_tokens: int = 512,
+        stop: list[str] | None = None,
+        stream: bool = False,
+        grammar: str | None = None,
+    ) -> LlamaCppResponse | Iterator[LlamaCppStreamChunk]:
+        """OpenAI-compatible chat completions."""
+        body: dict[str, Any] = {
+            "messages": messages,
+            "temperature": temperature,
+            "top_p": top_p,
+            "n_predict": max_tokens,
+        }
+        if stop:
+            body["stop"] = stop
+        if grammar:
+            body["grammar"] = grammar
+
+        if stream:
+            return self._stream_request("/v1/chat/completions", body)
+        return self._request("POST", "/v1/chat/completions", body)
+
+    def completion(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        max_tokens: int = 512,
+        stop: list[str] | None = None,
+        stream: bool = False,
+        grammar: str | None = None,
+    ) -> LlamaCppResponse | Iterator[LlamaCppStreamChunk]:
+        """Text completion endpoint."""
+        body: dict[str, Any] = {
+            "prompt": prompt,
+            "temperature": temperature,
+            "top_p": top_p,
+            "n_predict": max_tokens,
+        }
+        if stop:
+            body["stop"] = stop
+        if grammar:
+            body["grammar"] = grammar
+
+        if stream:
+            return self._stream_request("/completion", body)
+        return self._request("POST", "/completion", body)
+
+    def health(self) -> dict[str, Any]:
+        """Check llama-server health. Returns status and slot info."""
+        try:
+            resp = self._request("GET", "/health", timeout=5.0)
+            return resp.body
+        except (AdapterTimeoutError, BackendUnavailableError):
+            return {"status": "error"}
+
+    def slots(self) -> list[dict[str, Any]]:
+        """Get inference slot status."""
+        try:
+            resp = self._request("GET", "/slots", timeout=5.0)
+            if isinstance(resp.body, list):
+                return resp.body
+            return resp.body.get("slots", [])
+        except (AdapterTimeoutError, BackendUnavailableError):
+            return []
+
+    def tokenize(self, text: str) -> list[int]:
+        """Tokenize text and return token IDs."""
+        resp = self._request("POST", "/tokenize", {"content": text})
+        return resp.body.get("tokens", [])
+
+    def detokenize(self, tokens: list[int]) -> str:
+        """Convert token IDs back to text."""
+        resp = self._request("POST", "/detokenize", {"tokens": tokens})
+        return resp.body.get("content", "")
+
+    def props(self) -> dict[str, Any]:
+        """Get server properties (model info, context size, etc.)."""
+        try:
+            resp = self._request("GET", "/props", timeout=5.0)
+            return resp.body
+        except (AdapterTimeoutError, BackendUnavailableError):
+            return {}
