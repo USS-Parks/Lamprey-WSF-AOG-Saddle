@@ -40,13 +40,15 @@ impl From<SchedulerError> for CoreError {
     fn from(err: SchedulerError) -> Self {
         tracing::error!("Scheduler error: {:?}", err);
         match err {
-            SchedulerError::NoCompatibleAdapter(_) => {
+            SchedulerError::NoAdapterAvailable(_) => {
                 CoreError::ModelUnavailable("No compatible adapter".into())
             }
-            SchedulerError::AllAdaptersBusy => CoreError::Overloaded,
-            SchedulerError::Timeout(_) => CoreError::RequestFailed("Request timed out".into()),
-            SchedulerError::QueueFull(_) => CoreError::Overloaded,
-            _ => CoreError::Internal("Scheduler error".into()),
+            SchedulerError::QueueFull(..) => CoreError::Overloaded,
+            SchedulerError::RequestTimeout(..) => {
+                CoreError::RequestFailed("Request timed out".into())
+            }
+            SchedulerError::ModelNotLoadable(m) => CoreError::ModelUnavailable(m),
+            SchedulerError::ConfigError(e) => CoreError::Internal(e),
         }
     }
 }
@@ -73,8 +75,11 @@ impl From<HealthError> for CoreError {
     fn from(err: HealthError) -> Self {
         tracing::error!("Health error: {:?}", err);
         match err {
-            HealthError::AirGapNonCompliant(detail) => CoreError::AirGapViolation(detail),
-            _ => CoreError::Internal("Health subsystem error".into()),
+            HealthError::AirGapViolation(detail) => CoreError::AirGapViolation(detail),
+            HealthError::AdapterNotRegistered(id) => {
+                CoreError::Internal(format!("Adapter not registered: {}", id))
+            }
+            HealthError::ConfigError(e) => CoreError::Internal(e),
         }
     }
 }

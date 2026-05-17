@@ -1,290 +1,866 @@
-//! Model Scheduler - Request routing and load balancing
+//! Model Scheduler - Request routing, load balancing, and Sentinel promotion
 //!
-//! Routes inference requests to the optimal adapter+model combination based on
-//! configurable strategies, hardware capabilities, and family profile priorities.
+//! Routes inference requests to the best available adapter based on model
+//! capabilities, load balancing strategy, and GPU VRAM availability. Detects
+//! when requests exceed Sentinel model capability and triggers promotion
+//! to Full Inference.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+use std::collections::{HashMap, VecDeque};
+use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
 
 use crate::types::{AdapterId, GpuIdentifier, ModelId, ProfileId, RequestId};
-use mai_hil::traits::{AdapterCapabilities, AdapterHandle, HardwareProbe, MemoryManager};
 
-/// Configurable scheduling strategies
-#[derive(Debug, Clone)]
+/// Scheduling strategy for adapter selection
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SchedulingStrategy {
-    /// Distribute requests evenly across available adapters
+    /// Cycle through adapters in order
     RoundRobin,
-    /// Route to adapter with lowest current load (requests in flight)
+    /// Pick the adapter with fewest in-flight requests
     LeastLoaded,
-    /// Prefer adapter that already has the model loaded (reduce VRAM churn)
+    /// Prefer the adapter that already has the model loaded
     ModelAffinity,
-    /// Priority queue: higher-priority profiles jump the queue
+    /// Route based on request priority level
     PriorityQueued,
-    /// Hybrid: primary strategy first, secondary as tiebreaker
+    /// Combine two strategies. Max recursion depth: 3.
     Hybrid {
         primary: Box<SchedulingStrategy>,
-        secondary: Box<SchedulingStrategy>,
+        fallback: Box<SchedulingStrategy>,
+        /// Nesting depth (enforced, max 3)
+        depth: u8,
     },
 }
 
-/// Priority levels derived from family profiles
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum RequestPriority {
-    /// Guest profiles, background tasks
-    Low,
-    /// Default for adult profiles
-    Normal,
-    /// Admin profiles, interactive chat
-    High,
-    /// System tasks, wake triggers
-    Critical,
+impl SchedulingStrategy {
+    /// Validate that Hybrid nesting doesn't exceed max depth.
+    pub fn validate(&self) -> Result<(), SchedulerError> {
+        match self {
+            Self::Hybrid { primary, fallback, depth } => {
+                if *depth > 3 {
+                    return Err(SchedulerError::ConfigError(
+                        "Hybrid strategy max nesting depth is 3".to_string(),
+                    ));
+                }
+                primary.validate()?;
+                fallback.validate()?;
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
-/// Types of inference requests
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Request priority levels (family profile-based)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum RequestPriority {
+    /// Background tasks, batch processing
+    Low = 0,
+    /// Standard user requests
+    Normal = 1,
+    /// Elevated (e.g., parent profile, time-sensitive)
+    High = 2,
+    /// System-critical (health checks, security tasks)
+    Critical = 3,
+}
+
+/// Type of inference request
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RequestType {
-    /// Multi-turn conversation
     Chat,
-    /// Single-shot text completion
     Completion,
-    /// Vector embedding computation
     Embedding,
-    /// JSON schema / grammar constrained output
     Structured,
-    /// Tool/function calling
     FunctionCall,
 }
 
-/// Unified request payload
-#[derive(Debug, Clone)]
+/// Request payload variants
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RequestPayload {
-    /// Chat messages (multi-turn)
     Chat { messages: Vec<ChatMessage> },
-    /// Single prompt completion
     Completion { prompt: String },
-    /// Texts to embed
     Embedding { texts: Vec<String> },
 }
 
 /// Single chat message
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
-    /// Role: "user", "assistant", "system"
     pub role: String,
-    /// Message content
     pub content: String,
 }
 
-/// Full inference request structure
+/// A queued inference request
 #[derive(Debug, Clone)]
 pub struct InferenceRequest {
     /// Unique request identifier
     pub id: RequestId,
-    /// Family profile for auth/priority
+    /// Requesting family profile
     pub profile_id: ProfileId,
-    /// Target model name
-    pub model_name: String,
-    /// Request type
+    /// Requested model (empty = scheduler picks)
+    pub model_name: Option<ModelId>,
+    /// Type of request
     pub request_type: RequestType,
     /// Request payload
     pub payload: RequestPayload,
-    /// Priority (derived from profile + explicit header)
+    /// Priority level
     pub priority: RequestPriority,
-    /// Per-request timeout override
-    pub timeout: Option<Duration>,
-    /// Whether to stream tokens
+    /// Per-request timeout
+    pub timeout: Duration,
+    /// Whether to stream response tokens
     pub streaming: bool,
+    /// When the request was enqueued
+    pub enqueued_at: Instant,
+    /// Estimated token count for complexity assessment
+    pub estimated_tokens: u32,
 }
 
 /// Scheduler configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulerConfig {
-    /// Active scheduling strategy
+    /// Primary scheduling strategy
     pub strategy: SchedulingStrategy,
     /// Max queue depth per priority level
-    pub max_queue_depth_per_priority: HashMap<RequestPriority, usize>,
+    pub max_queue_depth_per_priority: HashMap<String, usize>,
     /// Default request timeout
     pub default_timeout: Duration,
-    /// Queue utilization threshold for backpressure (0.0-1.0)
-    pub backpressure_threshold: f64,
+    /// Queue depth at which backpressure activates
+    pub backpressure_threshold: usize,
     /// Whether Sentinel promotion is enabled
     pub sentinel_promotion_enabled: bool,
 }
 
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        let mut max_depth = HashMap::new();
+        max_depth.insert("Low".to_string(), 100);
+        max_depth.insert("Normal".to_string(), 50);
+        max_depth.insert("High".to_string(), 25);
+        max_depth.insert("Critical".to_string(), 10);
+
+        Self {
+            strategy: SchedulingStrategy::LeastLoaded,
+            max_queue_depth_per_priority: max_depth,
+            default_timeout: Duration::from_secs(120),
+            backpressure_threshold: 80,
+            sentinel_promotion_enabled: true,
+        }
+    }
+}
+
 /// Result of adapter selection
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AdapterSelection {
     /// Selected adapter
     pub adapter_id: AdapterId,
-    /// Selected model
+    /// Model to use on that adapter
     pub model_id: ModelId,
-    /// GPU assignment (None for CPU fallback)
-    pub gpu_assignment: Option<GpuIdentifier>,
-    /// Estimated request latency
-    pub estimated_latency: Duration,
+    /// GPU assigned for this request
+    pub gpu_id: Option<GpuIdentifier>,
+    /// Whether Sentinel promotion was triggered
+    pub promotion_triggered: bool,
 }
 
 /// Scheduler errors
 #[derive(Error, Debug)]
 pub enum SchedulerError {
-    /// No adapter supports the requested model/capabilities
-    #[error("No compatible adapter found for model {0}")]
-    NoCompatibleAdapter(String),
+    /// No adapter available for this request
+    #[error("No adapter available for model {0}")]
+    NoAdapterAvailable(String),
 
-    /// All adapters at maximum request capacity
-    #[error("All adapters at capacity")]
-    AllAdaptersBusy,
+    /// Request queue is full (backpressure)
+    #[error("Queue full: {0} requests pending at priority {1}")]
+    QueueFull(usize, String),
 
-    /// Request exceeded timeout
-    #[error("Request timeout after {0:?}")]
-    Timeout(Duration),
+    /// Request timed out waiting in queue
+    #[error("Request {0} timed out after {1}ms")]
+    RequestTimeout(String, u64),
 
-    /// Queue full for the given priority level
-    #[error("Queue full for priority {0:?}")]
-    QueueFull(RequestPriority),
+    /// Model not loaded and cannot be loaded
+    #[error("Model not loadable: {0}")]
+    ModelNotLoadable(String),
 
-    /// HIL layer error (wrapped)
-    #[error("HIL error: {0}")]
-    HilError(String),
-
-    /// Adapter layer error (wrapped)
-    #[error("Adapter error: {0}")]
-    AdapterError(String),
-}
-
-/// Main scheduler struct
-pub struct Scheduler {
-    config: SchedulerConfig,
-    adapters: Arc<RwLock<HashMap<AdapterId, AdapterInfo>>>,
-    models: Arc<RwLock<HashMap<ModelId, ModelPlacement>>>,
-    hardware_probe: Arc<dyn HardwareProbe>,
-    memory_manager: Arc<dyn MemoryManager>,
-}
-
-struct AdapterInfo {
-    _handle: AdapterHandle,
-    _capabilities: AdapterCapabilities,
-    current_load: usize,
-    health_status: bool,
-}
-
-struct ModelPlacement {
-    _adapter_id: AdapterId,
-    gpu_id: Option<GpuIdentifier>,
-    vram_allocated: u64,
-}
-
-impl Scheduler {
-    /// Create a new scheduler with configuration and HIL dependencies
-    pub fn new(
-        config: SchedulerConfig,
-        hardware_probe: Arc<dyn HardwareProbe>,
-        memory_manager: Arc<dyn MemoryManager>,
-    ) -> Self {
-        Self {
-            config,
-            adapters: Arc::new(RwLock::new(HashMap::new())),
-            models: Arc::new(RwLock::new(HashMap::new())),
-            hardware_probe,
-            memory_manager,
-        }
-    }
-
-    /// Register an adapter with the scheduler
-    pub async fn register_adapter(
-        &self,
-        _adapter_id: AdapterId,
-        _handle: AdapterHandle,
-        _capabilities: AdapterCapabilities,
-    ) -> Result<(), SchedulerError> {
-        // Implementation in Session 07
-        todo!()
-    }
-
-    /// Route a request to the optimal adapter+model
-    pub async fn route_request(
-        &self,
-        _request: InferenceRequest,
-    ) -> Result<AdapterSelection, SchedulerError> {
-        // Implementation in Session 07
-        todo!()
-    }
-
-    /// Evaluate if request exceeds Sentinel capability (for promotion)
-    pub fn evaluate_complexity(&self, _request: &InferenceRequest) -> ComplexityScore {
-        // Implementation in Session 07
-        todo!()
-    }
-
-    /// Trigger promotion to Full Inference mode
-    pub async fn promote_to_full_inference(
-        &self,
-        _request_id: RequestId,
-        _required_capabilities: ModelCapabilities,
-    ) -> Result<PromotionResult, SchedulerError> {
-        // Implementation in Session 07
-        todo!()
-    }
-
-    /// Apply backpressure when queues are full
-    pub fn apply_backpressure(&self, _priority: RequestPriority) -> Option<BackpressureAction> {
-        // Implementation in Session 07
-        todo!()
-    }
-
-    /// Get current queue depth for monitoring
-    pub async fn queue_depth(&self, _priority: RequestPriority) -> usize {
-        // Implementation in Session 07
-        todo!()
-    }
+    /// Configuration error
+    #[error("Config error: {0}")]
+    ConfigError(String),
 }
 
 /// Complexity assessment for Sentinel promotion decisions
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ComplexityScore {
-    /// Handled by Sentinel (Q&A, commands, reminders)
-    Simple,
-    /// May exceed Sentinel context or reasoning
-    Moderate,
-    /// Requires Full model (long context, multi-step, embedding)
-    Complex,
-}
-
-/// Capabilities required by a request (for promotion evaluation)
 #[derive(Debug, Clone)]
-pub struct ModelCapabilities {
-    /// Minimum context window needed
-    pub min_context_tokens: u32,
-    /// Whether structured output is required
-    pub requires_structured_output: bool,
-    /// Whether vision/multimodal is required
+pub struct ComplexityScore {
+    /// Estimated input tokens
+    pub input_tokens: u32,
+    /// Estimated output tokens
+    pub output_tokens: u32,
+    /// Whether task requires multi-step reasoning
+    pub is_complex_task: bool,
+    /// Whether task requires vision/multimodal
     pub requires_vision: bool,
-    /// Whether tool calling is required
+    /// Whether task requires tool calling
     pub requires_tool_calling: bool,
 }
 
-/// Result of promotion attempt
-#[derive(Debug)]
-pub enum PromotionResult {
-    /// Full model loaded and serving
-    Success { first_token_latency: Duration },
-    /// Promotion not possible, falling back to Sentinel
-    FallbackToSentinel { reason: String },
-    /// Promotion failed with error
-    Failed { error: SchedulerError },
+impl ComplexityScore {
+    /// Whether this complexity exceeds Sentinel model capability
+    pub fn exceeds_sentinel(&self) -> bool {
+        self.input_tokens > 4096
+            || self.output_tokens > 2048
+            || self.is_complex_task
+            || self.requires_vision
+            || self.requires_tool_calling
+    }
 }
 
-/// Backpressure actions when queue utilization exceeds threshold
-#[derive(Debug, Clone, Copy)]
+/// Registered adapter info tracked by the scheduler
+#[derive(Debug, Clone)]
+struct AdapterInfo {
+    adapter_id: AdapterId,
+    /// Models this adapter can serve
+    supported_models: Vec<ModelId>,
+    /// Current in-flight request count
+    in_flight: usize,
+    /// Maximum concurrent requests
+    max_concurrent: usize,
+    /// GPU(s) assigned to this adapter
+    gpu_ids: Vec<GpuIdentifier>,
+    /// Whether adapter is healthy
+    is_healthy: bool,
+    /// Last time a request was routed here
+    last_used: Instant,
+}
+
+/// Local telemetry metrics (never transmitted off-device)
+#[derive(Debug, Clone, Default)]
+pub struct SchedulerMetrics {
+    /// Total requests routed
+    pub total_routed: u64,
+    /// Total requests rejected (backpressure)
+    pub total_rejected: u64,
+    /// Total Sentinel promotions triggered
+    pub total_promotions: u64,
+    /// Total request timeouts
+    pub total_timeouts: u64,
+    /// Average queue depth over measurement window
+    pub avg_queue_depth: f32,
+    /// Average routing latency in ms
+    pub avg_routing_latency_ms: f64,
+}
+
+/// Backpressure action when queue fills
+#[derive(Debug, Clone)]
 pub enum BackpressureAction {
-    /// Reject new requests at or below this priority
-    RejectNew(RequestPriority),
-    /// Extend timeout for this priority level
-    ExtendTimeout(RequestPriority),
-    /// Signal client with retry-after header
-    SignalClient { retry_after_seconds: u32 },
+    /// Accept request normally
+    Accept,
+    /// Reject lowest-priority requests
+    RejectLowPriority,
+    /// Reject all non-critical requests
+    RejectNonCritical,
+    /// Reject everything (system overloaded)
+    RejectAll,
+}
+
+/// Result of Sentinel promotion evaluation
+#[derive(Debug, Clone)]
+pub enum PromotionResult {
+    /// Sentinel can handle this request
+    SentinelSufficient,
+    /// Need Full Inference; promotion triggered
+    PromotionTriggered,
+    /// Already in Full Inference mode
+    AlreadyFull,
+}
+
+/// The model scheduler. Routes requests to adapters.
+pub struct Scheduler {
+    config: SchedulerConfig,
+    /// Registered adapters
+    adapters: HashMap<AdapterId, AdapterInfo>,
+    /// Priority queues (one per priority level)
+    queues: HashMap<RequestPriority, VecDeque<InferenceRequest>>,
+    /// Round-robin index for RoundRobin strategy
+    round_robin_index: usize,
+    /// Local metrics (never transmitted)
+    metrics: SchedulerMetrics,
+}
+
+impl Scheduler {
+    /// Create a new scheduler with the given configuration
+    pub fn new(config: SchedulerConfig) -> Result<Self, SchedulerError> {
+        config.strategy.validate()?;
+
+        let mut queues = HashMap::new();
+        queues.insert(RequestPriority::Low, VecDeque::new());
+        queues.insert(RequestPriority::Normal, VecDeque::new());
+        queues.insert(RequestPriority::High, VecDeque::new());
+        queues.insert(RequestPriority::Critical, VecDeque::new());
+
+        Ok(Self {
+            config,
+            adapters: HashMap::new(),
+            queues,
+            round_robin_index: 0,
+            metrics: SchedulerMetrics::default(),
+        })
+    }
+
+    /// Register an adapter with the scheduler
+    pub fn register_adapter(
+        &mut self,
+        adapter_id: AdapterId,
+        supported_models: Vec<ModelId>,
+        max_concurrent: usize,
+        gpu_ids: Vec<GpuIdentifier>,
+    ) {
+        info!(
+            adapter = %adapter_id,
+            models = ?supported_models,
+            max_concurrent = max_concurrent,
+            "Registering adapter with scheduler"
+        );
+        self.adapters.insert(
+            adapter_id.clone(),
+            AdapterInfo {
+                adapter_id,
+                supported_models,
+                in_flight: 0,
+                max_concurrent,
+                gpu_ids,
+                is_healthy: true,
+                last_used: Instant::now(),
+            },
+        );
+    }
+
+    /// Unregister an adapter (e.g., on adapter shutdown)
+    pub fn unregister_adapter(&mut self, adapter_id: &AdapterId) {
+        self.adapters.remove(adapter_id);
+    }
+
+    /// Mark an adapter as healthy or unhealthy
+    pub fn set_adapter_health(&mut self, adapter_id: &AdapterId, healthy: bool) {
+        if let Some(adapter) = self.adapters.get_mut(adapter_id) {
+            adapter.is_healthy = healthy;
+        }
+    }
+
+    /// Route a request to the best available adapter.
+    /// Returns the adapter selection or an error if no adapter is available.
+    pub fn route_request(
+        &mut self,
+        request: &InferenceRequest,
+    ) -> Result<AdapterSelection, SchedulerError> {
+        let started = Instant::now();
+
+        // Check backpressure
+        let action = self.evaluate_backpressure();
+        match action {
+            BackpressureAction::RejectAll => {
+                self.metrics.total_rejected += 1;
+                return Err(SchedulerError::QueueFull(
+                    self.total_queue_depth(),
+                    format!("{:?}", request.priority),
+                ));
+            }
+            BackpressureAction::RejectNonCritical if request.priority != RequestPriority::Critical => {
+                self.metrics.total_rejected += 1;
+                return Err(SchedulerError::QueueFull(
+                    self.total_queue_depth(),
+                    format!("{:?}", request.priority),
+                ));
+            }
+            BackpressureAction::RejectLowPriority if request.priority == RequestPriority::Low => {
+                self.metrics.total_rejected += 1;
+                return Err(SchedulerError::QueueFull(
+                    self.total_queue_depth(),
+                    format!("{:?}", request.priority),
+                ));
+            }
+            _ => {}
+        }
+
+        // Find candidate adapters for the request
+        let candidates = self.find_candidates(request);
+        if candidates.is_empty() {
+            return Err(SchedulerError::NoAdapterAvailable(
+                request.model_name.clone().unwrap_or_else(|| "any".to_string()),
+            ));
+        }
+
+        // Select adapter based on strategy
+        let selected = self.select_adapter(&candidates, request)?;
+
+        // Update metrics
+        if let Some(adapter) = self.adapters.get_mut(&selected.adapter_id) {
+            adapter.in_flight += 1;
+            adapter.last_used = Instant::now();
+        }
+
+        self.metrics.total_routed += 1;
+        let latency = started.elapsed().as_secs_f64() * 1000.0;
+        // Running average
+        let n = self.metrics.total_routed as f64;
+        self.metrics.avg_routing_latency_ms =
+            self.metrics.avg_routing_latency_ms * ((n - 1.0) / n) + latency / n;
+
+        debug!(
+            request_id = %request.id,
+            adapter = %selected.adapter_id,
+            model = %selected.model_id,
+            "Request routed"
+        );
+
+        Ok(selected)
+    }
+
+    /// Notify scheduler that a request completed (decrement in-flight count)
+    pub fn request_completed(&mut self, adapter_id: &AdapterId) {
+        if let Some(adapter) = self.adapters.get_mut(adapter_id) {
+            adapter.in_flight = adapter.in_flight.saturating_sub(1);
+        }
+    }
+
+    /// Evaluate request complexity for Sentinel promotion decision
+    pub fn evaluate_complexity(&self, request: &InferenceRequest) -> ComplexityScore {
+        let input_tokens = request.estimated_tokens;
+
+        let is_complex = matches!(
+            request.request_type,
+            RequestType::FunctionCall | RequestType::Structured
+        );
+
+        let requires_vision = false; // would check payload in production
+
+        ComplexityScore {
+            input_tokens,
+            output_tokens: input_tokens / 2, // rough estimate
+            is_complex_task: is_complex,
+            requires_vision,
+            requires_tool_calling: request.request_type == RequestType::FunctionCall,
+        }
+    }
+
+    /// Check if Sentinel promotion is needed for a request
+    pub fn check_promotion(&mut self, request: &InferenceRequest) -> PromotionResult {
+        if !self.config.sentinel_promotion_enabled {
+            return PromotionResult::AlreadyFull;
+        }
+
+        let complexity = self.evaluate_complexity(request);
+        if complexity.exceeds_sentinel() {
+            self.metrics.total_promotions += 1;
+            info!(
+                request_id = %request.id,
+                input_tokens = complexity.input_tokens,
+                is_complex = complexity.is_complex_task,
+                "Sentinel promotion triggered"
+            );
+            PromotionResult::PromotionTriggered
+        } else {
+            PromotionResult::SentinelSufficient
+        }
+    }
+
+    /// Get current backpressure action
+    pub fn evaluate_backpressure(&self) -> BackpressureAction {
+        let total = self.total_queue_depth();
+        let threshold = self.config.backpressure_threshold;
+
+        if total < threshold {
+            BackpressureAction::Accept
+        } else if total < threshold * 2 {
+            BackpressureAction::RejectLowPriority
+        } else if total < threshold * 3 {
+            BackpressureAction::RejectNonCritical
+        } else {
+            BackpressureAction::RejectAll
+        }
+    }
+
+    /// Total requests across all queues + in-flight
+    pub fn total_queue_depth(&self) -> usize {
+        let queued: usize = self.queues.values().map(VecDeque::len).sum();
+        let in_flight: usize = self.adapters.values().map(|a| a.in_flight).sum();
+        queued + in_flight
+    }
+
+    /// Get current scheduler metrics (local-only telemetry)
+    pub fn metrics(&self) -> &SchedulerMetrics {
+        &self.metrics
+    }
+
+    /// Number of registered adapters
+    pub fn adapter_count(&self) -> usize {
+        self.adapters.len()
+    }
+
+    /// Number of healthy adapters
+    pub fn healthy_adapter_count(&self) -> usize {
+        self.adapters.values().filter(|a| a.is_healthy).count()
+    }
+
+    /// Number of in-flight requests for a specific adapter (0 if unknown).
+    pub fn adapter_in_flight(&self, adapter_id: &AdapterId) -> usize {
+        self.adapters
+            .get(adapter_id)
+            .map_or(0, |a| a.in_flight)
+    }
+
+    // ─── Internal helpers ─────────────────────────────────────────────
+
+    /// Find adapters that can serve a request
+    fn find_candidates(&self, request: &InferenceRequest) -> Vec<AdapterId> {
+        self.adapters
+            .values()
+            .filter(|a| {
+                // Must be healthy
+                if !a.is_healthy {
+                    return false;
+                }
+                // Must have capacity
+                if a.in_flight >= a.max_concurrent {
+                    return false;
+                }
+                // Must support the requested model (if specified)
+                if let Some(ref model) = request.model_name {
+                    if !a.supported_models.contains(model) {
+                        return false;
+                    }
+                }
+                true
+            })
+            .map(|a| a.adapter_id.clone())
+            .collect()
+    }
+
+    /// Select the best adapter from candidates based on strategy
+    fn select_adapter(
+        &mut self,
+        candidates: &[AdapterId],
+        request: &InferenceRequest,
+    ) -> Result<AdapterSelection, SchedulerError> {
+        let selected_id = match &self.config.strategy {
+            SchedulingStrategy::RoundRobin => {
+                let idx = self.round_robin_index % candidates.len();
+                self.round_robin_index = self.round_robin_index.wrapping_add(1);
+                candidates[idx].clone()
+            }
+            SchedulingStrategy::LeastLoaded => {
+                candidates
+                    .iter()
+                    .min_by_key(|id| {
+                        self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight)
+                    })
+                    .cloned()
+                    .ok_or_else(|| {
+                        SchedulerError::NoAdapterAvailable("no candidates".to_string())
+                    })?
+            }
+            SchedulingStrategy::ModelAffinity => {
+                // Prefer adapter that already has the model loaded
+                if let Some(ref model) = request.model_name {
+                    candidates
+                        .iter()
+                        .find(|id| {
+                            self.adapters
+                                .get(*id)
+                                .map_or(false, |a| a.supported_models.contains(model))
+                        })
+                        .cloned()
+                        .unwrap_or_else(|| candidates[0].clone())
+                } else {
+                    candidates[0].clone()
+                }
+            }
+            SchedulingStrategy::PriorityQueued => {
+                // For priority queued, pick least loaded among candidates
+                // (priority is handled at the queue level, not adapter selection)
+                candidates
+                    .iter()
+                    .min_by_key(|id| {
+                        self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight)
+                    })
+                    .cloned()
+                    .ok_or_else(|| {
+                        SchedulerError::NoAdapterAvailable("no candidates".to_string())
+                    })?
+            }
+            SchedulingStrategy::Hybrid { primary, fallback, .. } => {
+                // Try primary strategy first, fall back if it fails
+                self.select_with_strategy(primary, candidates, request)
+                    .unwrap_or_else(|_| {
+                        self.select_with_strategy(fallback, candidates, request)
+                            .unwrap_or_else(|_| candidates[0].clone())
+                    })
+            }
+        };
+
+        let adapter = self.adapters.get(&selected_id).ok_or_else(|| {
+            SchedulerError::NoAdapterAvailable(selected_id.clone())
+        })?;
+
+        let model_id = request
+            .model_name
+            .clone()
+            .or_else(|| adapter.supported_models.first().cloned())
+            .unwrap_or_else(|| "default".to_string());
+
+        Ok(AdapterSelection {
+            adapter_id: selected_id,
+            model_id,
+            gpu_id: adapter.gpu_ids.first().cloned(),
+            promotion_triggered: false,
+        })
+    }
+
+    /// Helper for Hybrid strategy: apply a specific strategy to candidates
+    fn select_with_strategy(
+        &self,
+        strategy: &SchedulingStrategy,
+        candidates: &[AdapterId],
+        _request: &InferenceRequest,
+    ) -> Result<AdapterId, SchedulerError> {
+        match strategy {
+            SchedulingStrategy::LeastLoaded | SchedulingStrategy::PriorityQueued => {
+                candidates
+                    .iter()
+                    .min_by_key(|id| {
+                        self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight)
+                    })
+                    .cloned()
+                    .ok_or_else(|| SchedulerError::NoAdapterAvailable("empty".to_string()))
+            }
+            SchedulingStrategy::RoundRobin => {
+                // Can't mutate round_robin_index in &self, use first candidate
+                Ok(candidates.first().cloned().unwrap_or_default())
+            }
+            SchedulingStrategy::ModelAffinity => {
+                Ok(candidates.first().cloned().unwrap_or_default())
+            }
+            SchedulingStrategy::Hybrid { primary, .. } => {
+                self.select_with_strategy(primary, candidates, _request)
+            }
+        }
+    }
+}
+
+/// Multi-GPU distribution helper.
+/// Assigns models to GPUs based on VRAM availability.
+pub fn distribute_to_gpu(
+    required_vram: u64,
+    gpu_available: &[(GpuIdentifier, u64)],
+) -> Option<GpuIdentifier> {
+    // Pick the GPU with the most available VRAM that fits the model
+    gpu_available
+        .iter()
+        .filter(|(_, avail)| *avail >= required_vram)
+        .max_by_key(|(_, avail)| *avail)
+        .map(|(id, _)| id.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_request(priority: RequestPriority, model: Option<&str>) -> InferenceRequest {
+        InferenceRequest {
+            id: uuid::Uuid::new_v4(),
+            profile_id: uuid::Uuid::new_v4(),
+            model_name: model.map(|s| s.to_string()),
+            request_type: RequestType::Chat,
+            payload: RequestPayload::Chat {
+                messages: vec![ChatMessage {
+                    role: "user".to_string(),
+                    content: "Hello".to_string(),
+                }],
+            },
+            priority,
+            timeout: Duration::from_secs(30),
+            streaming: true,
+            enqueued_at: Instant::now(),
+            estimated_tokens: 100,
+        }
+    }
+
+    fn setup_scheduler() -> Scheduler {
+        let mut sched = Scheduler::new(SchedulerConfig::default()).unwrap();
+        sched.register_adapter(
+            "ollama:0".to_string(),
+            vec!["qwen3-14b".to_string(), "phi4-mini".to_string()],
+            10,
+            vec!["nvidia:rtx5090:0".to_string()],
+        );
+        sched.register_adapter(
+            "vllm:0".to_string(),
+            vec!["qwen3-70b".to_string()],
+            5,
+            vec!["nvidia:h100:0".to_string()],
+        );
+        sched
+    }
+
+    #[test]
+    fn test_register_adapter() {
+        let sched = setup_scheduler();
+        assert_eq!(sched.adapter_count(), 2);
+        assert_eq!(sched.healthy_adapter_count(), 2);
+    }
+
+    #[test]
+    fn test_route_request_to_correct_adapter() {
+        let mut sched = setup_scheduler();
+        let req = make_request(RequestPriority::Normal, Some("qwen3-14b"));
+        let selection = sched.route_request(&req).unwrap();
+        assert_eq!(selection.adapter_id, "ollama:0");
+        assert_eq!(selection.model_id, "qwen3-14b");
+    }
+
+    #[test]
+    fn test_route_request_no_adapter() {
+        let mut sched = setup_scheduler();
+        let req = make_request(RequestPriority::Normal, Some("nonexistent-model"));
+        let result = sched.route_request(&req);
+        assert!(matches!(result, Err(SchedulerError::NoAdapterAvailable(_))));
+    }
+
+    #[test]
+    fn test_least_loaded_selection() {
+        let mut sched = setup_scheduler();
+
+        // Route 3 requests to ollama (it supports phi4-mini)
+        for _ in 0..3 {
+            let req = make_request(RequestPriority::Normal, Some("phi4-mini"));
+            sched.route_request(&req).unwrap();
+        }
+
+        // Both adapters support nothing in common except through default selection
+        // But if we request a model both support... let's register a shared model
+        sched.register_adapter(
+            "llamacpp:0".to_string(),
+            vec!["phi4-mini".to_string()],
+            10,
+            vec![],
+        );
+
+        // Now route another phi4-mini request -- should go to llamacpp (0 in-flight)
+        let req = make_request(RequestPriority::Normal, Some("phi4-mini"));
+        let selection = sched.route_request(&req).unwrap();
+        assert_eq!(selection.adapter_id, "llamacpp:0");
+    }
+
+    #[test]
+    fn test_unhealthy_adapter_excluded() {
+        let mut sched = setup_scheduler();
+        sched.set_adapter_health(&"ollama:0".to_string(), false);
+
+        let req = make_request(RequestPriority::Normal, Some("qwen3-14b"));
+        let result = sched.route_request(&req);
+        // ollama is the only adapter for qwen3-14b, and it's unhealthy
+        assert!(matches!(result, Err(SchedulerError::NoAdapterAvailable(_))));
+    }
+
+    #[test]
+    fn test_request_completed_decrements() {
+        let mut sched = setup_scheduler();
+        let req = make_request(RequestPriority::Normal, Some("qwen3-14b"));
+        sched.route_request(&req).unwrap();
+
+        // in_flight should be 1
+        assert_eq!(sched.adapters["ollama:0"].in_flight, 1);
+
+        sched.request_completed(&"ollama:0".to_string());
+        assert_eq!(sched.adapters["ollama:0"].in_flight, 0);
+    }
+
+    #[test]
+    fn test_complexity_evaluation() {
+        let sched = setup_scheduler();
+
+        let simple_req = make_request(RequestPriority::Normal, None);
+        let score = sched.evaluate_complexity(&simple_req);
+        assert!(!score.exceeds_sentinel());
+
+        let mut complex_req = make_request(RequestPriority::Normal, None);
+        complex_req.estimated_tokens = 5000;
+        let score = sched.evaluate_complexity(&complex_req);
+        assert!(score.exceeds_sentinel());
+
+        let mut tool_req = make_request(RequestPriority::Normal, None);
+        tool_req.request_type = RequestType::FunctionCall;
+        let score = sched.evaluate_complexity(&tool_req);
+        assert!(score.exceeds_sentinel());
+    }
+
+    #[test]
+    fn test_backpressure_accept_under_threshold() {
+        let sched = setup_scheduler();
+        let action = sched.evaluate_backpressure();
+        assert!(matches!(action, BackpressureAction::Accept));
+    }
+
+    #[test]
+    fn test_metrics_increment() {
+        let mut sched = setup_scheduler();
+        let req = make_request(RequestPriority::Normal, Some("qwen3-14b"));
+        sched.route_request(&req).unwrap();
+        assert_eq!(sched.metrics().total_routed, 1);
+    }
+
+    #[test]
+    fn test_hybrid_strategy_validation() {
+        // Valid hybrid
+        let valid = SchedulingStrategy::Hybrid {
+            primary: Box::new(SchedulingStrategy::LeastLoaded),
+            fallback: Box::new(SchedulingStrategy::RoundRobin),
+            depth: 1,
+        };
+        assert!(valid.validate().is_ok());
+
+        // Exceeds max depth
+        let invalid = SchedulingStrategy::Hybrid {
+            primary: Box::new(SchedulingStrategy::LeastLoaded),
+            fallback: Box::new(SchedulingStrategy::RoundRobin),
+            depth: 4,
+        };
+        assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn test_distribute_to_gpu() {
+        let gpus = vec![
+            ("gpu:0".to_string(), 16_000_000_000u64),
+            ("gpu:1".to_string(), 32_000_000_000u64),
+        ];
+
+        // Should pick gpu:1 (more available VRAM)
+        let result = distribute_to_gpu(10_000_000_000, &gpus);
+        assert_eq!(result, Some("gpu:1".to_string()));
+
+        // Nothing fits
+        let result = distribute_to_gpu(64_000_000_000, &gpus);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_unregister_adapter() {
+        let mut sched = setup_scheduler();
+        assert_eq!(sched.adapter_count(), 2);
+        sched.unregister_adapter(&"ollama:0".to_string());
+        assert_eq!(sched.adapter_count(), 1);
+    }
+
+    #[test]
+    fn test_promotion_check() {
+        let mut sched = setup_scheduler();
+
+        let simple = make_request(RequestPriority::Normal, None);
+        let result = sched.check_promotion(&simple);
+        assert!(matches!(result, PromotionResult::SentinelSufficient));
+
+        let mut complex = make_request(RequestPriority::Normal, None);
+        complex.estimated_tokens = 8000;
+        let result = sched.check_promotion(&complex);
+        assert!(matches!(result, PromotionResult::PromotionTriggered));
+        assert_eq!(sched.metrics().total_promotions, 1);
+    }
 }
