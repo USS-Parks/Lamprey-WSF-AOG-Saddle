@@ -39,3 +39,6 @@ pub mod handlers;
 
 // Session 11c: SSE Streaming + WebSocket
 pub mod streaming;
+
+// Session 11d: gRPC Server
+pub mod grpc;

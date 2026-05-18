@@ -1,0 +1,534 @@
+// MAI gRPC Service Definitions
+// Island Mountain Model Abstraction Interface
+//
+// Proto3 service definitions for all MAI gRPC services.
+// Message types mirror the REST API types defined in mai-api/src/types.rs.
+// This is the stable syscall interface in the Tock trust model.
+
+syntax = "proto3";
+
+package mai.v1;
+
+option java_package = "io.islandmountain.mai.v1";
+option go_package = "islandmountain.io/mai/v1;maiv1";
+
+// ═══════════════════════════════════════════════════════════════════
+// Service: MaiInference
+// ═══════════════════════════════════════════════════════════════════
+
+service MaiInference {
+    // Unary chat completion (non-streaming)
+    rpc ChatCompletion(ChatCompletionRequest) returns (ChatCompletionResponse);
+    // Server-streaming chat completion (token-by-token)
+    rpc ChatCompletionStream(ChatCompletionRequest) returns (stream ChatCompletionChunk);
+    // Unary embedding generation
+    rpc Embed(EmbeddingRequest) returns (EmbeddingResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Service: MaiModels
+// ═══════════════════════════════════════════════════════════════════
+
+service MaiModels {
+    // List all models visible to the requesting profile
+    rpc ListModels(ListModelsRequest) returns (ModelListResponse);
+    // Get details for a specific model
+    rpc GetModel(GetModelRequest) returns (ModelDetail);
+    // Load a model into memory (admin only)
+    rpc LoadModel(ModelOperationRequest) returns (ModelOperationResponse);
+    // Unload a model from memory (admin only)
+    rpc UnloadModel(ModelOperationRequest) returns (ModelOperationResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Service: MaiHealth
+// ═══════════════════════════════════════════════════════════════════
+
+service MaiHealth {
+    // Aggregate health status
+    rpc GetHealth(GetHealthRequest) returns (HealthResponse);
+    // Per-adapter health
+    rpc GetAdapterHealth(GetAdapterHealthRequest) returns (AdapterHealthResponse);
+    // Hardware health (GPUs, air-gap)
+    rpc GetHardwareHealth(GetHardwareHealthRequest) returns (HardwareHealthResponse);
+    // System resource health (CPU, RAM, disk)
+    rpc GetSystemHealth(GetSystemHealthRequest) returns (SystemHealthResponse);
+    // Server-streaming health watch (pushes updates on state change)
+    rpc Watch(HealthWatchRequest) returns (stream HealthResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Service: MaiPower
+// ═══════════════════════════════════════════════════════════════════
+
+service MaiPower {
+    // Get current power state
+    rpc GetPowerState(GetPowerStateRequest) returns (PowerStateResponse);
+    // Request a power state transition (admin only)
+    rpc TransitionPower(PowerTransitionRequest) returns (PowerTransitionResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Service: MaiRegistry
+// ═══════════════════════════════════════════════════════════════════
+
+service MaiRegistry {
+    // Query model registry with optional filters
+    rpc QueryRegistry(RegistryQueryRequest) returns (RegistryQueryResponse);
+    // Trigger a filesystem scan for new models
+    rpc ScanModels(ScanModelsRequest) returns (ScanModelsResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Service: MaiAudit
+// ═══════════════════════════════════════════════════════════════════
+
+service MaiAudit {
+    // Retrieve audit log entries with pagination
+    rpc GetAuditLog(AuditLogRequest) returns (AuditLogResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Standard gRPC Health Checking Protocol (grpc.health.v1)
+// ═══════════════════════════════════════════════════════════════════
+// We define our own copy here rather than importing the well-known
+// proto, so the build has zero external proto dependencies.
+
+service Health {
+    rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+    rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+    // Service name. Empty string = overall server health.
+    string service = 1;
+}
+
+message HealthCheckResponse {
+    enum ServingStatus {
+        UNKNOWN = 0;
+        SERVING = 1;
+        NOT_SERVING = 2;
+        SERVICE_UNKNOWN = 3;
+    }
+    ServingStatus status = 1;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Inference
+// ═══════════════════════════════════════════════════════════════════
+
+message ChatCompletionRequest {
+    // Model identifier (optional; scheduler picks if empty)
+    string model = 1;
+    // Conversation messages
+    repeated ChatMessage messages = 2;
+    // Whether to stream (ignored in unary RPC; always true in stream RPC)
+    bool stream = 3;
+    // Sampling temperature (0.0 - 2.0)
+    float temperature = 4;
+    // Nucleus sampling threshold
+    float top_p = 5;
+    // Maximum tokens to generate
+    uint32 max_tokens = 6;
+    // Stop sequences
+    repeated string stop = 7;
+    // Frequency penalty (-2.0 to 2.0)
+    float frequency_penalty = 8;
+    // Presence penalty (-2.0 to 2.0)
+    float presence_penalty = 9;
+    // User identifier for abuse tracking (local-only)
+    string user = 10;
+    // Profile ID (injected by auth interceptor, not set by client)
+    string profile_id = 15;
+}
+
+message ChatMessage {
+    // Role: system, user, assistant, tool
+    string role = 1;
+    // Message content
+    string content = 2;
+    // Optional name for multi-participant chats
+    string name = 3;
+}
+
+message ChatCompletionResponse {
+    // Response identifier
+    string id = 1;
+    // Object type ("chat.completion")
+    string object = 2;
+    // Creation timestamp (unix epoch seconds)
+    uint64 created = 3;
+    // Model that generated the response
+    string model = 4;
+    // Response choices
+    repeated ChatChoice choices = 5;
+    // Token usage statistics
+    TokenUsage usage = 6;
+}
+
+message ChatChoice {
+    // Choice index
+    uint32 index = 1;
+    // Generated message
+    ChatMessage message = 2;
+    // Why generation stopped
+    string finish_reason = 3;
+}
+
+message TokenUsage {
+    // Tokens in the prompt
+    uint32 prompt_tokens = 1;
+    // Tokens generated
+    uint32 completion_tokens = 2;
+    // Total tokens consumed
+    uint32 total_tokens = 3;
+}
+
+message ChatCompletionChunk {
+    // Chunk identifier
+    string id = 1;
+    // Object type ("chat.completion.chunk")
+    string object = 2;
+    // Creation timestamp
+    uint64 created = 3;
+    // Model name
+    string model = 4;
+    // Delta choices
+    repeated ChunkChoice choices = 5;
+}
+
+message ChunkChoice {
+    // Choice index
+    uint32 index = 1;
+    // Incremental content delta
+    ChunkDelta delta = 2;
+    // Finish reason (only on final chunk)
+    string finish_reason = 3;
+}
+
+message ChunkDelta {
+    // Role (only in first chunk)
+    string role = 1;
+    // Content fragment
+    string content = 2;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Embeddings
+// ═══════════════════════════════════════════════════════════════════
+
+message EmbeddingRequest {
+    // Model to use
+    string model = 1;
+    // Input texts to embed
+    repeated string input = 2;
+    // Encoding format ("float" or "base64")
+    string encoding_format = 3;
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 15;
+}
+
+message EmbeddingResponse {
+    // Object type
+    string object = 1;
+    // Embedding results
+    repeated EmbeddingData data = 2;
+    // Model used
+    string model = 3;
+    // Token usage
+    EmbeddingUsage usage = 4;
+}
+
+message EmbeddingData {
+    // Object type
+    string object = 1;
+    // Embedding vector (float encoding)
+    repeated float embedding = 2;
+    // Index in input batch
+    uint32 index = 3;
+}
+
+message EmbeddingUsage {
+    // Tokens in input
+    uint32 prompt_tokens = 1;
+    // Total tokens
+    uint32 total_tokens = 2;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Models
+// ═══════════════════════════════════════════════════════════════════
+
+message ListModelsRequest {
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 1;
+}
+
+message GetModelRequest {
+    // Model identifier
+    string model_id = 1;
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 2;
+}
+
+message ModelOperationRequest {
+    // Model identifier
+    string model_id = 1;
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 2;
+}
+
+message ModelListResponse {
+    // Object type
+    string object = 1;
+    // Available models
+    repeated ModelDetail data = 2;
+}
+
+message ModelDetail {
+    // Model identifier
+    string id = 1;
+    // Object type
+    string object = 2;
+    // Creation timestamp
+    uint64 created = 3;
+    // Owner
+    string owned_by = 4;
+    // Capabilities
+    ModelCapabilities capabilities = 5;
+    // Lifecycle status
+    string status = 6;
+    // Size on disk in bytes
+    uint64 size_bytes = 7;
+    // VRAM required in bytes
+    uint64 required_vram_bytes = 8;
+}
+
+message ModelCapabilities {
+    bool chat = 1;
+    bool completion = 2;
+    bool embedding = 3;
+    bool vision = 4;
+    bool structured_output = 5;
+    uint32 max_context_tokens = 6;
+}
+
+message ModelOperationResponse {
+    // Operation performed
+    string operation = 1;
+    // Model affected
+    string model_id = 2;
+    // Result status
+    string status = 3;
+    // Human-readable message
+    string message = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Health
+// ═══════════════════════════════════════════════════════════════════
+
+message GetHealthRequest {}
+
+message GetAdapterHealthRequest {}
+
+message GetHardwareHealthRequest {}
+
+message GetSystemHealthRequest {}
+
+message HealthWatchRequest {
+    // Minimum interval between updates in seconds (0 = every change)
+    uint32 interval_secs = 1;
+}
+
+message HealthResponse {
+    // Overall status: "healthy", "degraded", "unhealthy"
+    string status = 1;
+    // Alert level
+    string alert_level = 2;
+    // Per-adapter summaries
+    repeated AdapterHealthSummary adapters = 3;
+    // Hardware summary
+    HardwareHealthSummary hardware = 4;
+    // System resource summary
+    SystemHealthSummary system = 5;
+}
+
+message AdapterHealthResponse {
+    repeated AdapterHealthSummary adapters = 1;
+}
+
+message HardwareHealthResponse {
+    HardwareHealthSummary hardware = 1;
+}
+
+message SystemHealthResponse {
+    SystemHealthSummary system = 1;
+}
+
+message AdapterHealthSummary {
+    // Adapter identifier
+    string id = 1;
+    // Status
+    string status = 2;
+    // Average latency in ms
+    double avg_latency_ms = 3;
+    // Error rate (0.0 - 1.0)
+    float error_rate = 4;
+}
+
+message HardwareHealthSummary {
+    // Per-GPU summaries
+    repeated GpuHealthSummary gpus = 1;
+    // Air-gap compliance status
+    string air_gap_status = 2;
+}
+
+message GpuHealthSummary {
+    // Device identifier
+    string device_id = 1;
+    // Temperature in Celsius
+    float temperature_celsius = 2;
+    // VRAM utilization percentage
+    float vram_utilization_percent = 3;
+    // Power draw in watts
+    uint32 power_watts = 4;
+    // Thermal state
+    string thermal_state = 5;
+}
+
+message SystemHealthSummary {
+    // Disk utilization percentage
+    float disk_utilization_percent = 1;
+    // RAM utilization percentage
+    float ram_utilization_percent = 2;
+    // CPU utilization percentage
+    float cpu_utilization_percent = 3;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Power
+// ═══════════════════════════════════════════════════════════════════
+
+message GetPowerStateRequest {}
+
+message PowerStateResponse {
+    // Current power state
+    string state = 1;
+    // Estimated power draw in watts
+    uint32 estimated_watts = 2;
+    // Time in current state (seconds)
+    uint64 state_duration_secs = 3;
+    // Whether auto-demotion is pending
+    bool demotion_pending = 4;
+}
+
+message PowerTransitionRequest {
+    // Target state or trigger action
+    string action = 1;
+    // Optional reason for audit trail
+    string reason = 2;
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 3;
+}
+
+message PowerTransitionResponse {
+    // Previous state
+    string previous_state = 1;
+    // New state (may be same if transition denied)
+    string current_state = 2;
+    // Whether transition was accepted
+    bool accepted = 3;
+    // Human-readable message
+    string message = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Registry
+// ═══════════════════════════════════════════════════════════════════
+
+message RegistryQueryRequest {
+    // Optional capability filter
+    string capability_filter = 1;
+    // Optional status filter ("loaded", "available", "all")
+    string status_filter = 2;
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 3;
+}
+
+message RegistryQueryResponse {
+    // Total models registered
+    uint32 total_models = 1;
+    // Models currently loaded
+    uint32 loaded_models = 2;
+    // Model entries
+    repeated ModelDetail models = 3;
+}
+
+message ScanModelsRequest {
+    // Profile ID (injected by auth interceptor)
+    string profile_id = 1;
+}
+
+message ScanModelsResponse {
+    // Number of models discovered
+    uint32 models_found = 1;
+    // Number of new models added
+    uint32 new_models = 2;
+    // Scan status message
+    string message = 3;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Message Types: Audit
+// ═══════════════════════════════════════════════════════════════════
+
+message AuditLogRequest {
+    // Page offset
+    uint64 offset = 1;
+    // Page size (max 100)
+    uint64 limit = 2;
+    // Optional profile filter
+    string profile_filter = 3;
+    // Profile ID of requester (injected by auth interceptor)
+    string profile_id = 4;
+}
+
+message AuditLogResponse {
+    // Audit entries (newest first)
+    repeated AuditEntry entries = 1;
+    // Total entries available
+    uint64 total = 2;
+    // Current page offset
+    uint64 offset = 3;
+    // Page size
+    uint64 limit = 4;
+}
+
+message AuditEntry {
+    // Entry sequence number
+    uint64 sequence = 1;
+    // Timestamp (ISO 8601)
+    string timestamp = 2;
+    // Profile that made the request
+    string profile_id = 3;
+    // Method (HTTP method or gRPC method)
+    string method = 4;
+    // Request path or gRPC service/method
+    string endpoint = 5;
+    // Model used (if applicable)
+    string model = 6;
+    // Input token count
+    uint32 tokens_in = 7;
+    // Output token count
+    uint32 tokens_out = 8;
+    // Response latency in ms
+    uint64 latency_ms = 9;
+    // Status code
+    uint32 status_code = 10;
+    // Request identifier
+    string request_id = 11;
+    // Hash chain integrity value
+    string chain_hash = 12;
+}

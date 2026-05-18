@@ -43,6 +43,13 @@ notify = { version = "7", features = ["macos_kqueue"] }
 mai-core = { path = "../mai-core" }
 mai-hil = { path = "../mai-hil" }
 
+# gRPC reflection for grpcurl/grpcui discovery
+tonic-reflection = "0.12"
+
+[build-dependencies]
+tonic-build = "0.12"
+prost-build = "0.13"
+
 [dev-dependencies]
 tokio-test = { workspace = true }
 mockall = { workspace = true }

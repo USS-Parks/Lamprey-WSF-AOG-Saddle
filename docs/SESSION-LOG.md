@@ -32,7 +32,7 @@
 
 ### Session 11: MAI API Server Implementation (Sub-Sessions 11a-11e)
 
-**Status:** Not Started
+**Status:** In Progress (11a+11b+11c+11d complete, 11e remaining)
 **Phase:** C (Integration Code)
 **Depends On:** Sessions 05, 07, 10
 **Blocks:** Sessions 12, 15, 16
@@ -107,30 +107,35 @@ Notes:
 - 31 new unit tests (6 mod.rs + 8 sse.rs + 17 ws.rs)
 - Cargo.toml: added tokio-stream dependency
 - cargo check/clippy deferred to local (no Rust toolchain in sandbox)
-
 #### Session 11d: gRPC Server
 
-**Status:** Not Started
+**Status:** Complete
 **Depends On:** Session 11a
 **Blocks:** 11e
-**Started:** --
-**Completed:** --
+**Started:** 2026-05-18
+**Completed:** 2026-05-18
 
 Deliverables:
-- [ ] proto/mai.proto: all service and message definitions
-- [ ] build.rs: tonic-build configuration
-- [ ] src/grpc/inference.rs: MaiInference with streaming
-- [ ] src/grpc/models.rs: MaiModels service
-- [ ] src/grpc/health.rs: MaiHealth + grpc.health.v1 standard
-- [ ] src/grpc/power.rs: MaiPower service
-- [ ] src/grpc/registry.rs: MaiRegistry service
-- [ ] src/grpc/audit.rs: MaiAudit service
-- [ ] src/grpc/server.rs: server builder with all services
-- [ ] src/grpc/mod.rs: module declarations
-- [ ] cargo check + clippy clean
+- [x] proto/mai.proto: all service and message definitions (534 lines)
+- [x] build.rs: tonic-build configuration with reflection descriptor (23 lines)
+- [x] mai-api/Cargo.toml: tonic, tonic-reflection, tonic-build, prost-build deps (59 lines)
+- [x] src/grpc/mod.rs: proto module, profile extraction, permission check, error mapping, 7 tests (186 lines)
+- [x] src/grpc/inference.rs: MaiInference with streaming, real scheduler API (364 lines)
+- [x] src/grpc/models.rs: MaiModels with registry list/get/load/unload (181 lines)
+- [x] src/grpc/health.rs: MaiHealth + grpc.health.v1 standard, watch streaming (489 lines)
+- [x] src/grpc/power.rs: MaiPower with real PowerStateMachine transitions (174 lines)
+- [x] src/grpc/registry.rs: MaiRegistry with ModelFilter query (154 lines)
+- [x] src/grpc/audit.rs: MaiAudit with AuditWriter trait methods (121 lines)
+- [x] src/grpc/server.rs: server builder with all 7 services + reflection (171 lines)
+- [x] src/lib.rs: grpc module declaration added
+- [ ] cargo check + clippy clean (deferred: no Rust toolchain in Cowork sandbox)
 
 Notes:
-- --
+- Session split across 2 Cowork sessions due to context compaction.
+- v1 of all 6 service files used invented mai-core APIs. Audit Pass 1 discovered every mismatch. All 6 rewritten (v2) against real interfaces.
+- Proto3 defines 6 MAI services + grpc.health.v1 (534 lines). profile_id at field 15 in inference requests (auth interceptor injects).
+- Registry scan_models is placeholder (ModelRegistry has no scan method; deferred to Session 15).
+- Adapter IPC pipeline not wired (placeholder token producers). Full integration deferred to Session 11e.
 
 #### Session 11e: Server Bootstrap + Integration Tests + Audit
 
@@ -356,13 +361,13 @@ Notes:
 |---|---|---|
 | A: Specification | 01-05 | Complete (5/5) -- archived |
 | B: Foundation Code | 06-10 | Complete (06+06b+07+08+09+10) -- archived |
-| C: Integration Code | 11-13 | Not Started |
+| C: Integration Code | 11-13 | In Progress (11a+11b+11c+11d complete) |
 | D: System Code | 14-16 | Not Started |
 | E: Testing + Packaging | 17-18 | Not Started |
 
 **Sessions Complete:** 10 / 18 (includes 06+06b as one logical session)
-**Deliverables Complete:** 93 / 180
-**Next Session:** 11d (gRPC Server)
+**Deliverables Complete:** 105 / 180
+**Next Session:** 11e (Server Bootstrap + Integration Tests)
 **Next Archive:** After Session 20 (or end of Phase D, whichever comes first)
 
 ---
@@ -471,5 +476,35 @@ Notes:
 - SSE backpressure: when 64-event buffer fills, oldest events dropped with gap marker comment. Resume via Last-Event-ID replays from buffer.
 - Audio/STT binary frames accepted but processing deferred to Session 13.
 - Tool calling acknowledged but processing deferred to Session 13.
+
+**Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally (no Rust toolchain in Cowork sandbox).
+
+### 2026-05-18: Session 11d - gRPC Server
+
+**Scope:** Proto3 service definitions, tonic gRPC server with 6 MAI services + grpc.health.v1, auth interceptor via gRPC metadata, server builder with reflection.
+
+**Delivered (10 new files, 2 modified, 2397 gRPC lines + 534 proto lines):**
+- `proto/mai.proto` (534 lines): 6 MAI services (Inference, Models, Health, Power, Registry, Audit) + grpc.health.v1, all message types mirroring REST API
+- `build.rs` (23 lines): tonic-build with file_descriptor_set for reflection
+- `mai-api/Cargo.toml` (59 lines): added tonic 0.12, tonic-reflection 0.12, prost 0.13, async-trait, uuid; build-deps tonic-build + prost-build
+- `src/grpc/mod.rs` (186 lines): proto include, extract_grpc_profile from x-im-profile metadata, role_has_permission mirroring types.rs, api_error_to_status, 7 unit tests
+- `src/grpc/inference.rs` (364 lines): ChatCompletion (unary), ChatCompletionStream (server-streaming via mpsc), Embed. Uses real Scheduler.route_request() API
+- `src/grpc/models.rs` (181 lines): ListModels, GetModel, LoadModel, UnloadModel. Uses real ModelRegistry.list_models/get_model API
+- `src/grpc/health.rs` (489 lines): GetHealth, GetAdapterHealth, GetHardwareHealth, GetSystemHealth, Watch (server-streaming with change detection). GrpcHealthService for grpc.health.v1 Check/Watch. 7 unit tests
+- `src/grpc/power.rs` (174 lines): GetPowerState, TransitionPower. Uses real PowerStateMachine.request_transition() with TransitionTrigger enum. 2 unit tests
+- `src/grpc/registry.rs` (154 lines): QueryRegistry with ModelFilter, ScanModels (placeholder). Uses real ModelRegistry.list_models(filter)
+- `src/grpc/audit.rs` (121 lines): GetAuditLog with pagination. Uses real AuditWriter.read_recent/read_by_profile/entry_count
+- `src/grpc/server.rs` (171 lines): GrpcServerConfig, build_grpc_server() registering all 7 services + tonic-reflection. Default port 8421. 2 unit tests
+- `src/lib.rs`: added grpc module declaration
+
+**Audit Findings (v1 to v2 rewrite):**
+All 6 service files initially written against invented mai-core APIs. Audit Pass 1 systematically read every mai-core source file and discovered:
+- inference.rs: scheduler.submit() does not exist (real: route_request()), wrong InferenceRequest fields
+- models.rs: registry.list_models() signature wrong, ModelManifest field paths wrong
+- health.rs: get_snapshot() result shape wrong, assumed methods on enums that don't exist
+- power.rs: power.transition() does not exist (real: request_transition(TransitionTrigger))
+- registry.rs: registry.scan() does not exist (placeholder added)
+- audit.rs: AuditWriter.query() does not exist (real: read_recent/read_by_profile/entry_count)
+All 6 files rewritten from scratch against verified APIs. v2 files verified: zero null bytes, bracket balance, correct tail content.
 
 **Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally (no Rust toolchain in Cowork sandbox).
