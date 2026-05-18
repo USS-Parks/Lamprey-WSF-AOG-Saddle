@@ -31,3 +31,8 @@ pub mod config;
 pub mod auth;
 pub mod audit;
 pub mod air_gap;
+
+// Session 11b: REST API Endpoints
+pub mod state;
+pub mod routes;
+pub mod handlers;

@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use mai_core::types::{ModelId, ProfileId, RequestId};
+use mai_core::types::{ModelId, RequestId};
 
 // ─── Chat Completion Request ────────────────────────────────────────
 
@@ -467,17 +467,76 @@ pub struct AuditLogEntry {
     pub chain_hash: String,
 }
 
-// ─── Profile Types ──────────────────────────────────────────────────
 
-/// Family profile information extracted from request headers
+// ─── Profile Wire Types (API responses) ────────────────────────────
+
+/// Profile summary for API responses (wire format)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProfileInfo {
-    /// Profile unique identifier
-    pub id: ProfileId,
+pub struct ProfileResponse {
+    /// Profile identifier
+    pub id: String,
     /// Display name
     pub name: String,
+    /// Role string
+    pub role: String,
+}
+
+/// Profile list response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileListResponse {
+    pub profiles: Vec<ProfileResponse>,
+}
+
+// ─── Adapter Wire Types (API responses) ─────────────────────────────
+
+/// Adapter listing response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdapterListResponse {
+    pub adapters: Vec<AdapterHealthSummary>,
+}
+
+// ─── Model Load/Unload Response ─────────────────────────────────────
+
+/// Response for model load/unload operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelOperationResponse {
+    /// Operation performed
+    pub operation: String,
+    /// Model affected
+    pub model_id: String,
+    /// Result status
+    pub status: String,
+    /// Human-readable message
+    pub message: String,
+}
+
+// ─── Registry Scan Response ─────────────────────────────────────────
+
+/// Response for registry scan operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryScanResponse {
+    /// Number of models discovered
+    pub models_found: usize,
+    /// Number of new models added
+    pub new_models: usize,
+    /// Scan status message
+    pub message: String,
+}
+// ─── Profile Types ──────────────────────────────────────────────────
+
+/// Family profile information extracted from request headers.
+/// This is the internal representation used by middleware and handlers.
+/// The wire format for API responses uses separate types.
+#[derive(Debug, Clone)]
+pub struct ProfileInfo {
+    /// Profile unique identifier
+    pub profile_id: String,
     /// Access role
     pub role: ProfileRole,
+    /// Optional display name
+    pub display_name: Option<String>,
+    /// Computed permissions from role
+    pub permissions: ProfilePermissions,
 }
 
 /// Profile access roles with hierarchical permissions

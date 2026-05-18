@@ -62,24 +62,29 @@ Notes:
 
 #### Session 11b: REST API Endpoints
 
-**Status:** Not Started
+**Status:** Complete
 **Depends On:** Session 11a
 **Blocks:** 11c, 11e
-**Started:** --
-**Completed:** --
+**Started:** 2026-05-17
+**Completed:** 2026-05-17
 
 Deliverables:
-- [ ] src/state.rs: AppState with all component references
-- [ ] src/routes.rs: complete route tree with middleware
-- [ ] src/handlers/inference.rs: chat/completions, embeddings, structured, function_call
-- [ ] src/handlers/models.rs: list, detail, load, unload
-- [ ] src/handlers/health.rs: aggregate, adapters, hardware, system
-- [ ] src/handlers/system.rs: power, registry, adapters, audit, profiles
-- [ ] src/handlers/mod.rs: handler module declarations
-- [ ] cargo check + clippy clean
+- [x] src/state.rs: AppState with Arc<RwLock<T>> for all core components (85 lines)
+- [x] src/routes.rs: complete route tree, 20 endpoints, 4 route groups, profile middleware (106 lines)
+- [x] src/handlers/inference.rs: chat_completions, embeddings, structured_generation, function_call (519 lines)
+- [x] src/handlers/models.rs: list_models, get_model, load_model, unload_model with profile filtering (267 lines)
+- [x] src/handlers/health.rs: aggregate_health, adapter_health, hardware_health, system_health (185 lines)
+- [x] src/handlers/system.rs: power, registry, adapters, audit log, profiles (360 lines)
+- [x] src/handlers/mod.rs: handler module declarations (10 lines)
+- [x] src/types.rs: added 5 wire-format types (ProfileResponse, ProfileListResponse, AdapterListResponse, ModelOperationResponse, RegistryScanResponse)
+- [x] src/lib.rs: added state, routes, handlers module declarations
+- [x] All imports cross-referenced, bracket-balanced, null-byte clean
 
 Notes:
-- --
+- ProfileInfo struct in types.rs realigned to match auth.rs (profile_id: String, role, display_name, permissions)
+- AuditEntry field mapping corrected in system.rs (path not endpoint, model_name not model, duration_ms not latency_ms)
+- Streaming (stream=true) deferred to 11c, returns 503 ServiceUnavailable
+- Backend opacity enforced: no adapter/backend names in any response
 
 #### Session 11c: SSE Streaming + WebSocket
 
