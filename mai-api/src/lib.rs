@@ -42,3 +42,12 @@ pub mod streaming;
 
 // Session 11d: gRPC Server
 pub mod grpc;
+
+// Session 11e: Server Bootstrap
+pub mod server;
+
+// Public re-exports for SDK consumers and binary entry point
+pub use server::MaiServer;
+pub use server::ServerError;
+pub use config::ServerConfig;
+pub use errors::ApiError;

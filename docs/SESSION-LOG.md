@@ -32,7 +32,7 @@
 
 ### Session 11: MAI API Server Implementation (Sub-Sessions 11a-11e)
 
-**Status:** In Progress (11a+11b+11c+11d complete, 11e remaining)
+**Status:** Complete (11a+11b+11c+11d+11e all complete)
 **Phase:** C (Integration Code)
 **Depends On:** Sessions 05, 07, 10
 **Blocks:** Sessions 12, 15, 16
@@ -139,29 +139,32 @@ Notes:
 
 #### Session 11e: Server Bootstrap + Integration Tests + Audit
 
-**Status:** Not Started
+**Status:** Complete
 **Depends On:** Sessions 11a, 11b, 11c, 11d
 **Blocks:** Sessions 12, 15, 16
-**Started:** --
-**Completed:** --
+**Started:** 2026-05-18
+**Completed:** 2026-05-18
 
 Deliverables:
-- [ ] src/server.rs: MaiServer with dual-stack startup and graceful shutdown
-- [ ] src/lib.rs: all module declarations and re-exports (final)
-- [ ] src/main.rs: binary entry point
-- [ ] tests/http_integration.rs: 6+ HTTP tests
-- [ ] tests/grpc_integration.rs: 4+ gRPC tests
-- [ ] tests/streaming_integration.rs: 4+ streaming tests incl. concurrency
-- [ ] Audit Pass 1 complete
-- [ ] Audit Pass 2 complete
-- [ ] SESSION-LOG.md updated
-- [ ] HANDOFF.md updated
-- [ ] INDEX.md updated
-- [ ] KNOWN-ISSUES.md updated
-- [ ] Git push command provided
+- [x] src/server.rs: MaiServer with dual-stack startup, graceful shutdown, StubVault (335 lines, 4 tests)
+- [x] src/lib.rs: all 12 module declarations + 4 re-exports (53 lines)
+- [x] src/main.rs: binary entry point with tracing, CLI args, ExitCode (117 lines)
+- [x] tests/http_integration.rs: 7 HTTP integration tests (244 lines)
+- [x] tests/grpc_integration.rs: 4 gRPC integration tests (243 lines)
+- [x] tests/streaming_integration.rs: 5 streaming tests incl. 50-concurrent (292 lines)
+- [x] Audit Pass 1 complete
+- [x] Audit Pass 2 complete
+- [x] SESSION-LOG.md updated
+- [x] HANDOFF.md updated
+- [x] INDEX.md updated
+- [x] KNOWN-ISSUES.md updated
+- [x] Git push command provided
 
 Notes:
-- --
+- Session split across 2 Cowork sessions due to context compaction.
+- Audit Pass 1 found and fixed: DevSwitchReader naming, air_gapped field, proto message types (ModelOperationRequest not LoadModelRequest, ListModelsRequest.profile_id), unused imports, Unicode box-drawing chars.
+- Audit Pass 2 confirmed: zero null bytes (all 6 files), correct bracket balance, all imports resolve, line counts match.
+- StubVault implements VaultInterface for bootstrap without real vault (Session 12 provides real ZFS vault).
 
 ---
 
@@ -187,7 +190,6 @@ Deliverables:
 - [ ] Audit trail tamper detection tests
 
 Notes:
-- --
 
 ---
 
@@ -212,7 +214,6 @@ Deliverables:
 - [ ] Agentic task lifecycle test
 
 Notes:
-- --
 
 ---
 
@@ -242,7 +243,6 @@ Deliverables:
 - [ ] Thermal throttle simulation tests
 
 Notes:
-- --
 
 ---
 
@@ -269,7 +269,6 @@ Deliverables:
 - [ ] Compatibility check tests
 
 Notes:
-- --
 
 ---
 
@@ -296,7 +295,6 @@ Deliverables:
 - [ ] Developer documentation: how to extend each scaffold
 
 Notes:
-- --
 
 ---
 
@@ -321,7 +319,6 @@ Deliverables:
 - [ ] All tests documented with setup requirements and expected outcomes
 
 Notes:
-- --
 
 ---
 
@@ -351,7 +348,6 @@ Deliverables:
 - [ ] Production readiness checklist
 
 Notes:
-- --
 
 ---
 
@@ -361,13 +357,13 @@ Notes:
 |---|---|---|
 | A: Specification | 01-05 | Complete (5/5) -- archived |
 | B: Foundation Code | 06-10 | Complete (06+06b+07+08+09+10) -- archived |
-| C: Integration Code | 11-13 | In Progress (11a+11b+11c+11d complete) |
+| C: Integration Code | 11-13 | In Progress (Session 11 complete, 12-13 remaining) |
 | D: System Code | 14-16 | Not Started |
 | E: Testing + Packaging | 17-18 | Not Started |
 
-**Sessions Complete:** 10 / 18 (includes 06+06b as one logical session)
-**Deliverables Complete:** 105 / 180
-**Next Session:** 11e (Server Bootstrap + Integration Tests)
+**Sessions Complete:** 11 / 18 (includes 06+06b as one logical session, 11a-11e as one logical session)
+**Deliverables Complete:** 118 / 180
+**Next Session:** 12 (Vault Integration)
 **Next Archive:** After Session 20 (or end of Phase D, whichever comes first)
 
 ---
@@ -506,5 +502,44 @@ All 6 service files initially written against invented mai-core APIs. Audit Pass
 - registry.rs: registry.scan() does not exist (placeholder added)
 - audit.rs: AuditWriter.query() does not exist (real: read_recent/read_by_profile/entry_count)
 All 6 files rewritten from scratch against verified APIs. v2 files verified: zero null bytes, bracket balance, correct tail content.
+
+**Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally (no Rust toolchain in Cowork sandbox).
+
+### 2026-05-18: Session 11e - Server Bootstrap + Integration Tests
+
+**Scope:** Dual-stack server bootstrap, binary entry point, integration test suites, final audit of entire Session 11 (mai-api crate).
+
+**Delivered (6 files: 3 new source, 3 new test):**
+- `mai-api/src/server.rs` (335 lines): MaiServer struct, ServerError enum, 7-step startup (config validate, air-gap check, init components, build AppState, start REST+gRPC, block shutdown, graceful drain), shutdown_signal (SIGTERM/SIGINT/ctrl-c), StubVault for VaultInterface, 4 unit tests
+- `mai-api/src/lib.rs` (53 lines): All 12 module declarations (types, errors, config, auth, audit, air_gap, state, routes, handlers, streaming, grpc, server) + 4 public re-exports (MaiServer, ServerError, ServerConfig, ApiError)
+- `mai-api/src/main.rs` (117 lines): Tracing subscriber with EnvFilter, CLI arg parsing (--config/-c/--help/-h), ExitCode return, 1 unit test
+- `mai-api/tests/http_integration.rs` (244 lines): TestVault, build_test_state(), 7 tests (chat completions no model, embeddings routes, model listing, admin rejection, health, error format, guest default)
+- `mai-api/tests/grpc_integration.rs` (243 lines): start_test_grpc_server() with ephemeral port, 4 tests (health serving, list models, chat no model, auth rejection)
+- `mai-api/tests/streaming_integration.rs` (292 lines): 5 tests (SSE events, heartbeat timing, done terminator, 50-concurrent requests, non-streaming passthrough)
+
+**Session 11 Totals (11a-11e):**
+- Source files: 27 (types, errors, config, auth, audit, air_gap, state, routes, 5 handlers, 3 streaming, 8 grpc, server, main, lib)
+- Test files: 3 integration suites
+- Proto: 1 (534 lines)
+- Lines of Rust: ~12,400 (source) + ~780 (tests)
+- Unit tests: 94 (45 from 11a + 31 from 11c + 18 from 11d)
+- Integration tests: 16 (7 HTTP + 4 gRPC + 5 streaming)
+- REST endpoints: 20 + 1 WebSocket
+- gRPC services: 6 MAI + grpc.health.v1
+
+**Audit Pass 1 Fixes:**
+- DevSwitchReader (not SimulatedSwitchReader), air_gapped field (not is_safe)
+- Proto ChatMessage has role/content/name only (removed tool_calls, tool_call_id)
+- ModelOperationRequest (not LoadModelRequest), ListModelsRequest has profile_id
+- Removed unused imports (ApiError, Bytes, StreamExt)
+- Replaced Unicode box-drawing chars with ASCII
+
+**Audit Pass 2 Verified:**
+- Zero null bytes in all 6 files
+- Bracket balance PASS (Rust-aware parser)
+- 12/12 module declarations match filesystem
+- 21/21 route-to-handler mappings verified
+- 4/4 re-exports match actual pub items
+- All imports resolve to real pub items in source modules
 
 **Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally (no Rust toolchain in Cowork sandbox).

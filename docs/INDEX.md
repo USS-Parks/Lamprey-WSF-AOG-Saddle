@@ -106,7 +106,7 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 
 ---
 
-## Test Suites Index (Updated Session 10)
+## Test Suites Index (Updated Session 11e)
 
 | Suite | Location | Purpose | Session |
 |---|---|---|---|
@@ -120,5 +120,9 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | Session 11a unit tests | `mai-api/src/{errors,config,auth,audit,air_gap}.rs` `#[cfg(test)]` | API errors, config loading, profile auth, audit chain, air-gap verify (45 tests) | 11a |
 | Session 11c streaming tests | `mai-api/src/streaming/{mod,sse,ws}.rs` `#[cfg(test)]` | Token channel, backpressure, SSE format, WebSocket messages, auth handshake (31 tests) | 11c |
 | Session 11d gRPC tests | `mai-api/src/grpc/{mod,health,power}.rs` `#[cfg(test)]` | Profile extraction, permission checks, error mapping, health utils, power transitions (18 tests) | 11d |
+| Session 11e server tests | `mai-api/src/server.rs` `#[cfg(test)]` | Server config, stub vault, error display (4 tests) | 11e |
+| HTTP integration | `mai-api/tests/http_integration.rs` | Chat, embeddings, models, admin, health, errors, guest (7 tests) | 11e |
+| gRPC integration | `mai-api/tests/grpc_integration.rs` | Health, models, chat, auth rejection (4 tests) | 11e |
+| Streaming integration | `mai-api/tests/streaming_integration.rs` | SSE events, heartbeat, done, 50-concurrent, non-streaming (5 tests) | 11e |
 | Security tests | tests/integration/ | PQC integrity, tamper detection, sandbox enforcement | 17 |
 | Scenario 

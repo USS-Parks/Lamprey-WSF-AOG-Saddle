@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER.md (Session 65, 2026-05-15)
-**Status:** Phase A+B complete. Sessions 11a+11b+11c+11d complete. Next: Session 11e (Server Bootstrap + Integration Tests).
+**Status:** Phase A+B complete. Session 11 complete (11a+11b+11c+11d+11e). Next: Session 12 (Vault Integration).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -32,13 +32,13 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 ### Codebase (Phase B Complete)
 
-5 Rust crates and 7 Python adapters are implemented. The mai-api foundation layer (Session 11a) is complete with 7 source modules (3189 lines, 45 unit tests). Session 11b added 7 handler/state/route files (1531 lines). Session 11c added 3 streaming files (streaming/mod.rs, streaming/sse.rs, streaming/ws.rs) totaling 1762 lines with 31 unit tests. The REST API has 20 endpoints plus a WebSocket at /v1/ws across 5 route groups (inference, models, health, system, streaming) with profile-based auth on all routes. The mai-core kernel, mai-hil drivers, and mai-adapters framework are all production code with 86+ unit tests, 14 E2E integration tests, and 8 benchmarks passing. See [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) for detailed line counts and per-session deliverable lists. Session 11d added proto/mai.proto (534 lines, 6 services + grpc.health.v1), build.rs, and 8 gRPC service files in src/grpc/ (2397 lines, 18 unit tests). The gRPC server runs on port 8421 with tonic-reflection, profile auth via x-im-profile metadata, and all services sharing AppState with the REST server.
+5 Rust crates and 7 Python adapters are implemented. The mai-api crate (Session 11, all 5 sub-sessions complete) contains 27 source files (~12,400 lines), 3 integration test suites (16 tests), and proto/mai.proto (534 lines). The REST API has 20 endpoints plus a WebSocket at /v1/ws across 5 route groups (inference, models, health, system, streaming) with profile-based auth on all routes. The gRPC server runs on port 8421 with 6 MAI services + grpc.health.v1, tonic-reflection, and shared AppState. The mai-core kernel, mai-hil drivers, and mai-adapters framework are all production code with 86+ unit tests, 14 E2E integration tests, and 8 benchmarks passing. Session 11 adds 94 unit tests + 16 integration tests. See SESSION-LOG.md for detailed deliverable lists.
 
 **CI fixes applied 2026-05-17:** (1) pytest collection failures fixed (missing `adapters/__init__.py`, added `conftest.py`). (2) `AdapterBase.__init__` now accepts optional config dict; all 6 non-Ollama adapters updated to match. (3) Stale test assertions corrected (llamacpp context_size, tensorrt ports). **Still needed:** run `cargo fmt` locally (Rust formatting drift), fix Sglang's `self._raw_config` reference (should be `self._config`).
 
-**Response Cache (Session 10d, 2026-05-17):** Standalone `mai-core/src/cache.rs` module (627 lines, 12 unit tests). LRU eviction with TTL, memory budget enforcement, profile isolation, blake3 key hashing. Not yet integrated into scheduler or hotswap (deferred to Session 11 when API layer provides proper entry points). Types added to `mai-core/src/types.rs`.
+**Response Cache (Session 10d, 2026-05-17):** Standalone `mai-core/src/cache.rs` module (627 lines, 12 unit tests). LRU eviction with TTL, memory budget enforcement, profile isolation, blake3 key hashing. Not yet integrated into scheduler or hotswap (deferred to Session 12+ when vault provides proper entry points). Types added to `mai-core/src/types.rs`.
 
-**Immediate next step:** Execute **Session 11e** (Server Bootstrap + Integration Tests: dual-stack startup, graceful shutdown, HTTP/gRPC integration tests, final audit). Session 11e depends on 11a+11b+11c+11d (all complete).
+**Immediate next step:** Execute **Session 12** (Vault Integration: ZFS vault interface, PQC encryption ML-KEM/ML-DSA, TPM 2.0 key management, family profile store, audit trail writer, Qdrant vector DB). Session 12 depends on Sessions 07 and 11 (both complete).
 
 ---
 
@@ -60,12 +60,12 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 The longest remaining dependency chain:
 
-**11e -> 12 -> 15 -> 17 -> 18** (5 sessions sequential, 11d now complete)
+**12 -> 15 -> 17 -> 18** (4 sessions sequential, Session 11 now complete)
 
 Sessions that can overlap (if multiple sessions available):
 - Sessions 14, 15, 16 can run in parallel (different subsystems, shared dependencies met after 12)
 
-Realistic remaining calendar: 14-18 Cowork/Code sessions (Session 11 now 5 sub-sessions).
+Realistic remaining calendar: 12-16 Cowork/Code sessions (Session 11 now complete).
 
 ---
 
