@@ -15,5 +15,19 @@
 //! - `/v1/health` - System health
 //! - `/v1/power` - Power state queries and transitions
 //! - `/v1/admin/*` - Configuration and registry management
+//!
+//! ## Trust Model
+//!
+//! This crate is TRUSTED. It sits inside the Tock kernel boundary.
+//! All external input is validated at this layer before reaching
+//! mai-core. Backend adapter names are never exposed in responses.
 
-// Stub: implementation in Session 11
+#![forbid(unsafe_code)]
+
+// Session 11a: Foundation + Middleware modules
+pub mod types;
+pub mod errors;
+pub mod config;
+pub mod auth;
+pub mod audit;
+pub mod air_gap;

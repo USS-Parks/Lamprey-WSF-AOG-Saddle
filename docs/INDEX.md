@@ -117,5 +117,6 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | Benchmark suite | `mai-adapters/tests/benchmarks.rs` | 8 performance measurements (throughput, TTFT, overhead, memory, scaling, wake, load, swap) | 10 |
 | Benchmark comparison | `tests/benchmarks/bench_compare.py` | Result storage, cross-run comparison, regression detection | 10 |
 | Response cache unit tests | `mai-core/src/cache.rs` `#[cfg(test)]` | Cache hit/miss, TTL, eviction, profile isolation (12 tests) | 10d |
+| Session 11a unit tests | `mai-api/src/{errors,config,auth,audit,air_gap}.rs` `#[cfg(test)]` | API errors, config loading, profile auth, audit chain, air-gap verify (45 tests) | 11a |
 | Security tests | tests/integration/ | PQC integrity, tamper detection, sandbox enforcement | 17 |
 | Scenario 

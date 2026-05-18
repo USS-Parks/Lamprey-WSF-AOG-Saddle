@@ -18,12 +18,34 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+async-trait = { workspace = true }
+blake3 = { workspace = true }
+
+# Middleware and HTTP utilities
+tower = { version = "0.5", features = ["util", "timeout"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+futures-core = "0.3"
+futures-util = "0.3"
+hyper = { version = "1", features = ["full"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
+bytes = "1"
+pin-project-lite = "0.2"
+
+# Cryptographic hashing for audit chain
+sha3 = "0.10"
+hex = "0.4"
+
+# File watching for config hot-reload
+notify = { version = "7", features = ["macos_kqueue"] }
 
 mai-core = { path = "../mai-core" }
 mai-hil = { path = "../mai-hil" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
+mockall = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }
 
 [lints]
 workspace = true

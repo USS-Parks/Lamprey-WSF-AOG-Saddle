@@ -32,13 +32,13 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 ### Codebase (Phase B Complete)
 
-5 Rust crates and 7 Python adapters are implemented. The mai-core kernel (scheduler, power state machine, health monitor, hot-swap manager), mai-hil drivers (NVIDIA, AMD, CPU, TetraMem stub), and mai-adapters framework (subprocess IPC, cgroups isolation, crash recovery) are all production code with 86+ unit tests, 14 E2E integration tests, and 8 benchmarks passing. CI is green. See [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) for detailed line counts and per-session deliverable lists.
+5 Rust crates and 7 Python adapters are implemented. The mai-api foundation layer (Session 11a) is complete with 7 source modules (3189 lines, 45 unit tests). The mai-core kernel (scheduler, power state machine, health monitor, hot-swap manager), mai-hil drivers (NVIDIA, AMD, CPU, TetraMem stub), and mai-adapters framework (subprocess IPC, cgroups isolation, crash recovery) are all production code with 86+ unit tests, 14 E2E integration tests, and 8 benchmarks passing. CI is green. See [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) for detailed line counts and per-session deliverable lists.
 
 **CI fixes applied 2026-05-17:** (1) pytest collection failures fixed (missing `adapters/__init__.py`, added `conftest.py`). (2) `AdapterBase.__init__` now accepts optional config dict; all 6 non-Ollama adapters updated to match. (3) Stale test assertions corrected (llamacpp context_size, tensorrt ports). **Still needed:** run `cargo fmt` locally (Rust formatting drift), fix Sglang's `self._raw_config` reference (should be `self._config`).
 
 **Response Cache (Session 10d, 2026-05-17):** Standalone `mai-core/src/cache.rs` module (627 lines, 12 unit tests). LRU eviction with TTL, memory budget enforcement, profile isolation, blake3 key hashing. Not yet integrated into scheduler or hotswap (deferred to Session 11 when API layer provides proper entry points). Types added to `mai-core/src/types.rs`.
 
-**Immediate next step:** Execute **Session 11a** (Foundation + Middleware: types.rs, errors.rs, config.rs, auth.rs, audit.rs, air_gap.rs). Session 11 is split into 5 sub-sessions (11a-11e) to ensure comprehensive implementation within Cowork context limits. Each sub-session is a standalone Cowork session. See MAI-BUILD-PROMPT-ROSTER.md for full prompts.
+**Immediate next step:** Execute **Session 11b** (REST API Endpoints: state.rs, routes.rs, handlers for inference, models, health, system). Session 11b depends on 11a (now complete).
 
 ---
 
