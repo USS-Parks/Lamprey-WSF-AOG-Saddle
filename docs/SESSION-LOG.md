@@ -30,27 +30,122 @@
 
 ## Phase C: Integration Code (Sessions 11-13)
 
-### Session 11: MAI API Server Implementation
+### Session 11: MAI API Server Implementation (Sub-Sessions 11a-11e)
 
 **Status:** Not Started
 **Phase:** C (Integration Code)
 **Depends On:** Sessions 05, 07, 10
 **Blocks:** Sessions 12, 15, 16
+**Structure:** Split into 5 sub-sessions to ensure comprehensive implementation and audit within Cowork context limits.
+
+#### Session 11a: Foundation + Middleware
+
+**Status:** Not Started
+**Depends On:** Sessions 05, 07, 10
+**Blocks:** 11b, 11c, 11d
 **Started:** --
 **Completed:** --
 
 Deliverables:
-- [ ] REST API server (axum) with all endpoints
-- [ ] gRPC server (tonic) with proto3 services
-- [ ] SSE streaming implementation
-- [ ] WebSocket bidirectional streaming
-- [ ] Authentication middleware with family profiles
-- [ ] Audit middleware with append-only logging
-- [ ] Air-gap startup verification
-- [ ] Configuration system with product tier defaults
-- [ ] HTTP integration tests
-- [ ] gRPC integration tests
-- [ ] Streaming delivery tests
+- [ ] mai-api/Cargo.toml updated with all required dependencies
+- [ ] src/types.rs: API request/response types with From conversions
+- [ ] src/errors.rs: ApiError with MAI-XYYY codes, HTTP mapping, IntoResponse
+- [ ] src/config.rs: ServerConfig, tier defaults, TOML loading, hot-reload
+- [ ] src/auth.rs: profile extraction, role permissions, middleware layer
+- [ ] src/audit.rs: audit middleware, hash chaining, writer trait
+- [ ] src/air_gap.rs: startup check, periodic re-verify, switch reader trait
+- [ ] src/lib.rs: module declarations
+- [ ] cargo check + clippy clean
+
+Notes:
+- --
+
+#### Session 11b: REST API Endpoints
+
+**Status:** Not Started
+**Depends On:** Session 11a
+**Blocks:** 11c, 11e
+**Started:** --
+**Completed:** --
+
+Deliverables:
+- [ ] src/state.rs: AppState with all component references
+- [ ] src/routes.rs: complete route tree with middleware
+- [ ] src/handlers/inference.rs: chat/completions, embeddings, structured, function_call
+- [ ] src/handlers/models.rs: list, detail, load, unload
+- [ ] src/handlers/health.rs: aggregate, adapters, hardware, system
+- [ ] src/handlers/system.rs: power, registry, adapters, audit, profiles
+- [ ] src/handlers/mod.rs: handler module declarations
+- [ ] cargo check + clippy clean
+
+Notes:
+- --
+
+#### Session 11c: SSE Streaming + WebSocket
+
+**Status:** Not Started
+**Depends On:** Sessions 11a, 11b
+**Blocks:** 11e
+**Started:** --
+**Completed:** --
+
+Deliverables:
+- [ ] src/streaming/sse.rs: SSE with sequence numbering, heartbeat, backpressure, resume
+- [ ] src/streaming/ws.rs: WebSocket with multiplexed requests, all message types
+- [ ] src/streaming/mod.rs: module declarations and shared utilities
+- [ ] Updated inference handler for stream=true delegation
+- [ ] WebSocket route at /v1/ws
+- [ ] cargo check + clippy clean
+
+Notes:
+- --
+
+#### Session 11d: gRPC Server
+
+**Status:** Not Started
+**Depends On:** Session 11a
+**Blocks:** 11e
+**Started:** --
+**Completed:** --
+
+Deliverables:
+- [ ] proto/mai.proto: all service and message definitions
+- [ ] build.rs: tonic-build configuration
+- [ ] src/grpc/inference.rs: MaiInference with streaming
+- [ ] src/grpc/models.rs: MaiModels service
+- [ ] src/grpc/health.rs: MaiHealth + grpc.health.v1 standard
+- [ ] src/grpc/power.rs: MaiPower service
+- [ ] src/grpc/registry.rs: MaiRegistry service
+- [ ] src/grpc/audit.rs: MaiAudit service
+- [ ] src/grpc/server.rs: server builder with all services
+- [ ] src/grpc/mod.rs: module declarations
+- [ ] cargo check + clippy clean
+
+Notes:
+- --
+
+#### Session 11e: Server Bootstrap + Integration Tests + Audit
+
+**Status:** Not Started
+**Depends On:** Sessions 11a, 11b, 11c, 11d
+**Blocks:** Sessions 12, 15, 16
+**Started:** --
+**Completed:** --
+
+Deliverables:
+- [ ] src/server.rs: MaiServer with dual-stack startup and graceful shutdown
+- [ ] src/lib.rs: all module declarations and re-exports (final)
+- [ ] src/main.rs: binary entry point
+- [ ] tests/http_integration.rs: 6+ HTTP tests
+- [ ] tests/grpc_integration.rs: 4+ gRPC tests
+- [ ] tests/streaming_integration.rs: 4+ streaming tests incl. concurrency
+- [ ] Audit Pass 1 complete
+- [ ] Audit Pass 2 complete
+- [ ] SESSION-LOG.md updated
+- [ ] HANDOFF.md updated
+- [ ] INDEX.md updated
+- [ ] KNOWN-ISSUES.md updated
+- [ ] Git push command provided
 
 Notes:
 - --
@@ -259,7 +354,7 @@ Notes:
 
 **Sessions Complete:** 10 / 18 (includes 06+06b as one logical session)
 **Deliverables Complete:** 78 / 180
-**Next Session:** 11 (MAI API Server Implementation)
+**Next Session:** 11a (Foundation + Middleware)
 **Next Archive:** After Session 20 (or end of Phase D, whichever comes first)
 
 ---

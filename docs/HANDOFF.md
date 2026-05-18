@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER.md (Session 65, 2026-05-15)
-**Status:** Phase A+B complete. Next: Session 11 (MAI API Server Implementation).
+**Status:** Phase A+B complete. Next: Session 11a (Foundation + Middleware).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -38,7 +38,7 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 **Response Cache (Session 10d, 2026-05-17):** Standalone `mai-core/src/cache.rs` module (627 lines, 12 unit tests). LRU eviction with TTL, memory budget enforcement, profile isolation, blake3 key hashing. Not yet integrated into scheduler or hotswap (deferred to Session 11 when API layer provides proper entry points). Types added to `mai-core/src/types.rs`.
 
-**Immediate next step:** Execute **Session 11** (MAI API Server: axum REST, tonic gRPC, SSE streaming, WebSocket, auth middleware, audit middleware, air-gap startup verification).
+**Immediate next step:** Execute **Session 11a** (Foundation + Middleware: types.rs, errors.rs, config.rs, auth.rs, audit.rs, air_gap.rs). Session 11 is split into 5 sub-sessions (11a-11e) to ensure comprehensive implementation within Cowork context limits. Each sub-session is a standalone Cowork session. See MAI-BUILD-PROMPT-ROSTER.md for full prompts.
 
 ---
 
@@ -60,12 +60,12 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 The longest remaining dependency chain:
 
-**11 -> 12 -> 15 -> 17 -> 18** (5 sessions sequential)
+**11a -> 11b -> 11c -> 11e -> 12 -> 15 -> 17 -> 18** (8 sub/sessions sequential, 11d parallel with 11b/11c)
 
 Sessions that can overlap (if multiple sessions available):
 - Sessions 14, 15, 16 can run in parallel (different subsystems, shared dependencies met after 12)
 
-Realistic remaining calendar: 10-14 Cowork/Code sessions.
+Realistic remaining calendar: 14-18 Cowork/Code sessions (Session 11 now 5 sub-sessions).
 
 ---
 
@@ -108,4 +108,11 @@ Session 18 concludes with this checklist. Every item must pass before the MAI sh
 - [CONVENTIONS.md](CONVENTIONS.md): Coding standards and naming rules
 - [PROJECT.md](PROJECT.md): Scope, phases, timeline
 - [SESSION-RULES.md](SESSION-RULES.md): Session governance and quality gates
-- [SESSION
+- [SESSION-LOG.md](SESSION-LOG.md): Session progress tracking
+- [KNOWN-ISSUES.md](KNOWN-ISSUES.md): Limitations and deferred items
+- [INDEX.md](INDEX.md): Master file index
+- [MAI-BUILD-PROMPT-ROSTER.md](MAI-BUILD-PROMPT-ROSTER.md): Complete session prompts and deliverables
+
+---
+
+*Document derived from MAI-BUILD-PROMPT-ROSTER.md | 2026-05-15 | Island Mountain AI | Confidential*
