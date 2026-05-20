@@ -11,7 +11,7 @@ use crate::state::AppState;
 use super::proto;
 use super::{extract_grpc_profile, role_has_permission};
 
-use mai_core::power::{PowerState, TransitionResult, TransitionTrigger};
+use mai_core::power::{TransitionResult, TransitionTrigger};
 
 /// MaiPower service implementation.
 pub struct MaiPowerService {

@@ -5,7 +5,7 @@
 //! profiles can view audit logs.
 
 use tonic::{Request, Response, Status};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::state::AppState;
 use super::proto;
