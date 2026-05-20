@@ -139,8 +139,8 @@ mod tests {
     #[test]
     fn test_heartbeat_resets_missed() {
         let mut state = AdapterHealthState::new("test".to_string(), 50, 3);
-        // Force last_heartbeat to be old
-        state.last_heartbeat = Instant::now() - Duration::from_millis(200);
+        // Force last_heartbeat to be old (2 intervals = 1 missed, under threshold of 3)
+        state.last_heartbeat = Instant::now() - Duration::from_millis(100);
         assert!(matches!(state.check(), HealthCheckResult::Missed { .. }));
 
         state.record_heartbeat();
