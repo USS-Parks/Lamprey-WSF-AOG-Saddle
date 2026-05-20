@@ -301,7 +301,7 @@ async fn test_non_streaming_still_works() {
         .unwrap();
 
     let resp = app.oneshot(req).await.unwrap();
-    let status = resp.status();
+    let _status = resp.status();
 
     // Should get a JSON response (error due to no model, but NOT text/event-stream)
     let content_type = resp

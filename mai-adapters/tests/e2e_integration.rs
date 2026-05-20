@@ -22,6 +22,7 @@
 //!   13. test_health_monitoring
 //!   14. test_air_gap_verification
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -34,7 +35,10 @@ use mai_core::health::{
 };
 use mai_core::hotswap::{HotSwapManager, SwapRequest, SwapResult};
 use mai_core::power::{PowerConfig, PowerState, PowerStateMachine, TransitionTrigger, WakeSource};
-use mai_core::registry::ModelRegistry;
+use mai_core::registry::{
+    CapabilityInfo, CompatibilityInfo, MetadataInfo, ModelFormat, ModelInfo, ModelManifest,
+    ModelRegistry, SecurityInfo,
+};
 use mai_core::scheduler::{
     BackpressureAction, ChatMessage, InferenceRequest, RequestPayload, RequestPriority,
     RequestType, Scheduler, SchedulerConfig,
@@ -181,6 +185,44 @@ fn boot_to_sentinel() -> PowerStateMachine {
         .unwrap();
     assert_eq!(power.current_state(), PowerState::Sentinel);
     power
+}
+
+/// Helper: build a minimal test ModelManifest.
+fn test_manifest(name: &str) -> ModelManifest {
+    ModelManifest {
+        model: ModelInfo {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            format: ModelFormat::GGUF,
+            quantization: Some("Q4_K_M".to_string()),
+            size_bytes: 1024,
+            required_vram_bytes: 2048,
+        },
+        compatibility: CompatibilityInfo {
+            min_mai_version: "0.1.0".to_string(),
+            supported_backends: vec!["ollama".to_string()],
+            hardware_classes: vec!["gpu".to_string()],
+        },
+        capabilities: CapabilityInfo {
+            chat: true,
+            completion: false,
+            embedding: false,
+            vision: false,
+            structured_output: false,
+            max_context_tokens: 4096,
+            supported_languages: vec!["en".to_string()],
+        },
+        security: SecurityInfo {
+            signature_algorithm: "ML-DSA-87".to_string(),
+            public_key_fingerprint: "test-fingerprint".to_string(),
+            integrity_hash_tree: "test-hash-tree-root".to_string(),
+        },
+        metadata: MetadataInfo {
+            license: "Apache-2.0".to_string(),
+            source: None,
+            changelog: "Test model".to_string(),
+        },
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -423,13 +465,20 @@ async fn test_fallback_chain() {
 
     // Recover primary
     scheduler.set_adapter_health(&"vllm-primary".to_string(), true);
+
+    // Give fallback an in-flight request so LeastLoaded deterministically
+    // picks primary (0 in-flight) over fallback (1 in-flight)
+    let _filler = make_request(Some("llama3-8b"), RequestPriority::Normal);
+    let _filler_sel = scheduler.route_request(&_filler).unwrap();
+    // One of the two adapters now has in_flight=1; route again
     let request3 = make_request(Some("llama3-8b"), RequestPriority::Normal);
     let selection3 = scheduler.route_request(&request3).unwrap();
-    // With LeastLoaded strategy (default), recovered primary has 0 in-flight
-    // so it should be selected
-    assert_eq!(
-        selection3.adapter_id, "vllm-primary",
-        "Recovered adapter should rejoin routing pool"
+    // The second request must go to whichever adapter has 0 in-flight.
+    // Since both are healthy and one already took the filler, the other
+    // must be selected, proving the recovered adapter rejoined the pool.
+    assert_ne!(
+        selection3.adapter_id, _filler_sel.adapter_id,
+        "Recovered adapter should rejoin routing pool (second request must go to the other adapter)"
     );
 }
 
@@ -548,6 +597,30 @@ async fn test_model_hotswap() {
     )])));
     let registry = Arc::new(RwLock::new(ModelRegistry::new(Box::new(MockVault))));
     let health = Arc::new(RwLock::new(HealthMonitor::new(HealthConfig::default())));
+
+    // Register models in registry so HotSwapManager can find them.
+    // model-old must be loaded (active); model-new must be in cold storage
+    // so activate() can load it onto the same adapter.
+    {
+        let mut r = registry.write().await;
+        r.register_cold_model(
+            "model-old".to_string(),
+            test_manifest("model-old"),
+            PathBuf::from("/vault/model-old"),
+        )
+        .await
+        .unwrap();
+        r.load_model(&"model-old".to_string(), "adapter-v1".to_string())
+            .await
+            .unwrap();
+        r.register_cold_model(
+            "model-new".to_string(),
+            test_manifest("model-new"),
+            PathBuf::from("/vault/model-new"),
+        )
+        .await
+        .unwrap();
+    }
 
     // Register in health monitor
     {

@@ -104,8 +104,6 @@ fn parse_config_path() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_parse_no_args() {
         // parse_config_path reads from std::env::args which we can't
