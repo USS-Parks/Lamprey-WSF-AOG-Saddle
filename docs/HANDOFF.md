@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded 18 to 35 sessions)
-**Status:** Phase A+B+C complete. Sessions 14a+14b complete. Next: Session 14c (remaining NDJSON migration: generate_batch, health_check, heartbeat_cycle).
+**Status:** Phase A+B+C+D-Prep complete. Wiring sprint (14a-14c) complete. Next: Session 15 (Scheduler Core Architecture).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -46,7 +46,9 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 **Session 14b complete (2026-05-19):** Real inference path wired end-to-end. HTTP requests now produce real tokens from real adapters. AdapterManager starts at boot from config/adapters.toml, registers with Scheduler, and shuts down cleanly. All 4 inference handlers (chat, embeddings, structured, function_call) call real adapter methods. SSE streaming reads from IPC event channel via new generate_stream_channel() method. Model alias resolution maps user-facing names to adapter+model pairs. Zero placeholder content remains. AdapterCrashed (MAI-3005) error variant added. All 3 integration test suites updated. e2e_inference.sh verification script created.
 
-**Immediate next step:** Execute **Session 14c** (remaining NDJSON migration). Session 14c migrates the remaining legacy methods (generate_batch, health_check, heartbeat_cycle) to NDJSON and completes the wiring sprint. After 14c, the scheduler track (15-21, 32-33), security track (26-28), and application track (29-31) can run in parallel.
+**Session 14c complete (2026-05-20):** API/SDK route alignment, auth hardening, SDK streaming. Added /v1/completions and /v1/power/state SDK-compat routes. Replaced header-trust auth (X-IM-Profile) with API key validation (X-IM-Auth-Token) using SHA-256 hashing, per-key sliding window rate limiting (default 60/min, MAI-4005 429 response). First-boot admin key generation (printed to stdout, never logged). Python SDK: real SSE streaming (sync Iterator + async AsyncIterator), retry with exponential backoff, health_check() convenience. SDK integration test suite with 7 test categories. No NotImplementedError stubs remain. New dependencies: sha2, hex, uuid. Config template: config/auth_keys.toml. Build docs: docs/BUILD.md. KNOWN-ISSUES.md: Issues #3, #4, #5 marked resolved. CI green: all 4 gates passing.
+
+**Immediate next step:** Execute **Session 15** (Scheduler Core Architecture). The wiring sprint (14a-14c) is complete. The scheduler track (15-21, 32-33) is the critical path. Security track (26-28) and application track (29-31) can now run in parallel.
 
 ---
 

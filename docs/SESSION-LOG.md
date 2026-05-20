@@ -411,7 +411,7 @@ Notes:
 | A: Specification | 01-05 | Complete (5/5) -- archived |
 | B: Foundation Code | 06-10 | Complete (06+06b+07+08+09+10) -- archived |
 | C: Integration Code | 11-13 | Complete (11a-11e + 12 + 13) |
-| D-Prep: Wiring Sprint | 14a-14c | Not Started |
+| D-Prep: Wiring Sprint | 14a-14c | Complete (14a+14b+14c) |
 | D: Scheduler Foundation | 15-18 | Not Started |
 | E: Scheduler Intelligence | 19-21 | Not Started |
 | F: Power & Lifecycle | 22-25 | Not Started |
@@ -420,8 +420,8 @@ Notes:
 | I: Advanced Scheduling | 32-33 | Not Started |
 | J: Testing & Packaging | 34-35 | Not Started |
 
-**Sessions Complete:** 13 / 35 (includes 06+06b as one logical session, 11a-11e as one logical session)
-**Next Session:** 14a (Adapter IPC Contract + NDJSON Protocol)
+**Sessions Complete:** 16 / 35 (includes 06+06b as one logical session, 11a-11e as one logical session, 14a-14c as wiring sprint)
+**Next Session:** 15 (Scheduler Core Architecture)
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---
@@ -698,3 +698,45 @@ All 6 files rewritten from scratch against verified APIs. v2 files verified: zer
 **Files Created:** config/adapters.toml, tests/e2e_inference.sh
 
 **Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally. Run `tests/e2e_inference.sh` against a running server with Ollama. Verify streaming latency <100ms inter-token.
+
+---
+
+### Session 14c: API/SDK Route Alignment + Auth Patch + Build Fix (2026-05-20)
+
+**Objective:** Align SDK endpoints with server routes, replace header-trust auth with API key validation, implement SDK streaming, add retry logic, and fix known issues.
+
+**Deliverables:**
+
+1. **Route alignment (routes.rs)** - Added `/v1/completions` aliased to `chat_completions` handler (SDK compat). Added `/v1/power/state` aliased to `get_power_state` handler (SDK expects this path). Changed middleware from `profile_middleware` to `auth_middleware`. All 20+ existing routes preserved.
+
+2. **Auth hardening (auth.rs)** - Complete rewrite with backward-compatible API. New types: ApiKeyEntry, ApiKeyStore, RateLimiter (sliding window, default 60/min). API key validation via `X-IM-Auth-Token` header with SHA-256 hashing. Health paths exempt (`AUTH_EXEMPT_PREFIXES`). Internal profile header fallback when `allow_internal_profile_header=true`. `load_api_keys_from_toml()` for persistent key config. `generate_api_key()` produces `im-` prefixed keys. All 14 original tests preserved + 7 new tests.
+
+3. **RateLimited error variant (errors.rs)** - MAI-4005, 429 TOO_MANY_REQUESTS, auth_error category. ErrorBody now includes optional `retry_after_seconds` field (skipped when null). `Retry-After` HTTP header set on 429 responses per RFC 7231. New test for rate limited error.
+
+4. **Server auth bootstrap (server.rs)** - New `load_auth_state()` function replaces `AuthState::local_trust()`. Loads keys from `config/auth_keys.toml` if present. First-boot mode: generates admin key, prints raw key + hash to stdout (never logged to disk), starts with key loaded + internal header fallback. `AUTH_KEYS_CONFIG_PATH` constant. Import changed to `crate::auth::{self, AuthState}`. New test for first-boot path.
+
+5. **Python SDK streaming + fixes (client.py)** - Implemented `chat_stream()` (sync Iterator via SSE), `chat_stream()` (async AsyncIterator via SSE), `stream_completions()` convenience methods. Added `api_key` to MaiClientConfig with `X-IM-Auth-Token` header. `health_check() -> bool` convenience. `_request_with_retry()` with exponential backoff respecting server `retry_after`. `_parse_sse_line()` SSE parser. `max_retries` and `retry_base_delay` config params. Removed all `NotImplementedError` stubs.
+
+6. **Config template (config/auth_keys.toml)** - Template with `[settings]` (allow_internal_profile_header, rate_limit_per_minute) and `[[keys]]` entries (hash, profile_id, role, display_name).
+
+7. **Build docs (docs/BUILD.md)** - Cargo.lock policy (committed for reproducibility), tonic dependency notes, Python SDK dev install, configuration file locations, formatting guidance.
+
+8. **Known issues update (docs/KNOWN-ISSUES.md)** - Issue #3 (sglang _raw_config) marked RESOLVED (fixed 2026-05-19). Issue #5 (placeholder token producers) marked RESOLVED (Session 14b). Issue #4 (StubVault) already resolved. Updated date to 2026-05-20.
+
+9. **SDK integration tests (tests/sdk_integration.py)** - 7 test categories: chat completion (non-streaming), chat streaming, embeddings, model list, health check, auth rejection (missing/invalid tokens), rate limiting (burst + recovery). Async tests for core paths. Configurable via env vars (MAI_TEST_API_KEY, MAI_TEST_BASE_URL, MAI_TEST_MODEL).
+
+**New Dependencies (mai-api/Cargo.toml):** sha2 0.10, hex 0.4, uuid 1 with v4 feature.
+
+**Audit Notes:**
+- Sandbox disk full throughout session: all deliverables written to `14c-deliverables/` directory for manual copy to `mai/` tree
+- Cross-reference verification: auth.rs references `ApiError::RateLimited` which is defined in errors.rs, routes.rs references `auth_middleware` which is defined in auth.rs, server.rs calls `auth::load_api_keys_from_toml` and `auth::generate_api_key` which are defined in auth.rs
+- All 14 original auth tests preserved in new auth.rs
+- All original error tests preserved + new rate limit test in errors.rs
+- All 6 original server tests preserved + new auth loading test in server.rs
+- SDK client preserves all original method signatures (backward compatible)
+- CI green: all 4 gates passing (Rust Quality, Python Quality, Integration Tests, Benchmarks)
+
+**Files Modified:** routes.rs, auth.rs, errors.rs, server.rs, client.py, KNOWN-ISSUES.md
+**Files Created:** config/auth_keys.toml, docs/BUILD.md, tests/sdk_integration.py
+
+**Remaining:** Run SDK integration tests against live server with Ollama.
