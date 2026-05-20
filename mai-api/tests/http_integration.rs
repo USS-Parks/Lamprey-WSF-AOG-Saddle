@@ -208,7 +208,7 @@ async fn test_admin_endpoint_rejected_for_adult() {
     let state = build_test_state();
     let app = build_router(state);
 
-    let body = r#"{"target_state": "FullInference"}"#;
+    let body = r#"{"action": "promote"}"#;
     let req = json_request("POST", "/v1/power/transition", body, Some("adult-1:Adult"));
     let resp = app.oneshot(req).await.unwrap();
 
