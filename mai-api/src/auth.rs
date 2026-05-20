@@ -437,9 +437,7 @@ pub async fn auth_middleware(
     // Try API key authentication first
     if let Some(token_value) = headers.get(AUTH_TOKEN_HEADER) {
         let token_str = token_value.to_str().map_err(|_| {
-            ApiError::BadRequest(
-                "X-IM-Auth-Token header contains non-ASCII characters".to_string(),
-            )
+            ApiError::BadRequest("X-IM-Auth-Token header contains non-ASCII characters".to_string())
         })?;
 
         let store = auth_state.key_store.read().await;
@@ -674,12 +672,7 @@ mod tests {
     fn test_api_key_store_hashed_add() {
         let mut store = ApiKeyStore::new();
         let hash = hash_api_key("im-my-secret");
-        store.add_key_hashed(
-            hash,
-            "user1".to_string(),
-            ProfileRole::Adult,
-            None,
-        );
+        store.add_key_hashed(hash, "user1".to_string(), ProfileRole::Adult, None);
 
         assert!(store.validate("im-my-secret").is_some());
         assert!(store.validate("im-other-secret").is_none());
