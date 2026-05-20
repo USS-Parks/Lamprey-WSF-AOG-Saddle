@@ -102,13 +102,18 @@ pub fn role_has_permission(role: &str, permission: &str) -> bool {
 
 /// Convert an ApiError-style error into a tonic Status.
 pub fn api_error_to_status(code: &str, message: &str) -> Status {
-    match &code[..6] {
-        "MAI-1" => Status::invalid_argument(message.to_string()),
-        "MAI-2" => Status::not_found(message.to_string()),
-        "MAI-3" => Status::internal(message.to_string()),
-        "MAI-4" => Status::permission_denied(message.to_string()),
-        "MAI-5" => Status::failed_precondition(message.to_string()),
-        _ => Status::unknown(message.to_string()),
+    if code.starts_with("MAI-1") {
+        Status::invalid_argument(message.to_string())
+    } else if code.starts_with("MAI-2") {
+        Status::not_found(message.to_string())
+    } else if code.starts_with("MAI-3") {
+        Status::internal(message.to_string())
+    } else if code.starts_with("MAI-4") {
+        Status::permission_denied(message.to_string())
+    } else if code.starts_with("MAI-5") {
+        Status::failed_precondition(message.to_string())
+    } else {
+        Status::unknown(message.to_string())
     }
 }
 
