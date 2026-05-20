@@ -20,6 +20,7 @@ use crate::audit::{AuditBuffer, AuditTimer};
 use crate::bridge::{
     CapabilitiesResult, EmbedParams, EmbedResult, GenerateBatchParams, GenerateBatchResult,
     GenerateParams, HealthCheckResult, InitializeParams, InitializeResult,
+    IpcEvent, IpcEventKind, IpcInferencePayload, IpcInferenceParams,
 };
 use crate::config::{DiscoveredAdapter, FrameworkConfig};
 use crate::errors::FrameworkError;
@@ -101,43 +102,22 @@ impl AdapterManager {
 
         let mut process = process_mutex.lock().await;
 
-        // Spawn the subprocess
+        // Spawn the subprocess (sends startup config on stdin automatically)
         process.spawn().await?;
 
-        // Send initialize RPC
-        let init_params = InitializeParams {
-            config: adapter_config,
-        };
-        let params_json = serde_json::to_value(&init_params)?;
-
         let timer = AuditTimer::start(name.to_string(), "initialize".to_string(), 0);
-        let result = process.call("initialize", params_json).await;
 
-        match result {
-            Ok(value) => {
+        // IPC Protocol v1.0: await the handshake response.
+        // The runner reads the startup config, calls initialize(), then sends
+        // a handshake with capabilities. No separate init or capabilities RPC needed.
+        match process.await_handshake().await {
+            Ok(handshake) => {
                 timer.success();
-                let init_result: InitializeResult =
-                    serde_json::from_value(value).map_err(|e| FrameworkError::ProtocolError {
-                        name: name.to_string(),
-                        detail: format!("Invalid initialize response: {e}"),
-                    })?;
 
-                process.mark_running();
-
-                // Fetch capabilities
-                let caps_value = process.call("capabilities", Value::Null).await?;
-                let caps_result: CapabilitiesResult =
-                    serde_json::from_value(caps_value).map_err(|e| {
-                        FrameworkError::ProtocolError {
-                            name: name.to_string(),
-                            detail: format!("Invalid capabilities response: {e}"),
-                        }
-                    })?;
-
-                // Cache capabilities
+                // Cache capabilities from handshake
                 {
                     let mut caps = self.capabilities.write().await;
-                    caps.insert(name.to_string(), caps_result.capabilities.clone());
+                    caps.insert(name.to_string(), handshake.capabilities.clone());
                 }
 
                 // Set up health monitoring
@@ -153,13 +133,13 @@ impl AdapterManager {
                     );
                 }
 
-                info!(adapter = %name, handle = %init_result.handle, "Adapter started successfully");
+                info!(adapter = %name, handle = %handshake.handle, "Adapter started successfully");
 
                 Ok(ManagedAdapter {
                     name: name.to_string(),
-                    version: process.info.version.clone(),
-                    capabilities: caps_result.capabilities,
-                    handle: init_result.handle,
+                    version: handshake.version,
+                    capabilities: handshake.capabilities,
+                    handle: handshake.handle,
                 })
             }
             Err(e) => {
@@ -173,14 +153,20 @@ impl AdapterManager {
         }
     }
 
-    /// Send a generate (streaming) request to an adapter.
-    /// Returns a stream of Token results.
-    pub async fn generate(
+    /// Send an inference request via IPC and return the request_id.
+    ///
+    /// Callers consume streaming tokens from the IPC event channel
+    /// (obtained via `take_ipc_event_rx()` on the process). Events
+    /// are correlated by `request_id`.
+    ///
+    /// For convenience, `generate_collect()` below collects all tokens
+    /// into a Vec (backward compat with the old blocking API).
+    pub async fn generate_stream(
         &self,
         adapter_name: &str,
         prompt: String,
         params: GenerationParams,
-    ) -> Result<Vec<Token>, FrameworkError> {
+    ) -> Result<String, FrameworkError> {
         let processes = self.processes.read().await;
         let process_mutex =
             processes
@@ -189,38 +175,119 @@ impl AdapterManager {
                     name: adapter_name.to_string(),
                 })?;
 
-        let stream_id = self
-            .next_stream_id
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-        let gen_params = GenerateParams {
+        let payload = IpcInferencePayload {
             prompt,
-            params,
-            stream_id,
+            params: IpcInferenceParams::from(&params),
+            stream: true,
         };
-        let params_json = serde_json::to_value(&gen_params)?;
+        let payload_json = serde_json::to_value(&payload).map_err(|e| {
+            FrameworkError::ProtocolError {
+                name: adapter_name.to_string(),
+                detail: format!("Failed to serialize inference payload: {e}"),
+            }
+        })?;
 
-        let timer = AuditTimer::start(adapter_name.to_string(), "generate".to_string(), stream_id);
+        let process = process_mutex.lock().await;
+        let request_id = process.send_ipc("inference", payload_json).await?;
+
+        debug!(adapter = %adapter_name, request_id = %request_id, "Inference request sent");
+        Ok(request_id)
+    }
+
+    /// Send a generate request and collect all tokens (blocking convenience).
+    /// Returns the collected tokens after the done event.
+    pub async fn generate(
+        &self,
+        adapter_name: &str,
+        prompt: String,
+        params: GenerationParams,
+    ) -> Result<Vec<Token>, FrameworkError> {
+        let request_id = self.generate_stream(adapter_name, prompt, params).await?;
+
+        let timer = AuditTimer::start(adapter_name.to_string(), "generate".to_string(), 0);
+
+        // Collect tokens from the IPC event channel
+        let processes = self.processes.read().await;
+        let process_mutex =
+            processes
+                .get(adapter_name)
+                .ok_or_else(|| FrameworkError::AdapterNotFound {
+                    name: adapter_name.to_string(),
+                })?;
 
         let mut process = process_mutex.lock().await;
-        let result = process.call("generate", params_json).await;
-
-        match result {
-            Ok(value) => {
-                timer.success();
-                // For non-streaming mode, the response contains all tokens
-                let tokens: Vec<Token> =
-                    serde_json::from_value(value).map_err(|e| FrameworkError::ProtocolError {
-                        name: adapter_name.to_string(),
-                        detail: format!("Invalid generate response: {e}"),
-                    })?;
-                Ok(tokens)
+        let ipc_rx = process.take_ipc_event_rx().ok_or_else(|| {
+            FrameworkError::NotReady {
+                name: adapter_name.to_string(),
+                state: "no ipc event channel".to_string(),
             }
-            Err(e) => {
-                timer.failure(format!("{e}"));
-                Err(e)
+        })?;
+
+        let mut tokens = Vec::new();
+        let timeout = std::time::Duration::from_millis(self.config.request_timeout_ms);
+        let deadline = tokio::time::Instant::now() + timeout;
+
+        // Re-wrap ipc_rx in the process so other callers can use it later
+        // (we need to consume events for THIS request_id only)
+        // For now, consume from the channel directly
+        let mut ipc_rx = ipc_rx;
+        loop {
+            match tokio::time::timeout_at(deadline, ipc_rx.recv()).await {
+                Ok(Some(event)) => {
+                    if event.request_id != request_id {
+                        continue; // Not our request
+                    }
+                    match event.parse() {
+                        Ok(IpcEventKind::Token { text, logprob, index, finish_reason }) => {
+                            tokens.push(Token {
+                                text,
+                                logprob,
+                                index,
+                                is_end_of_text: finish_reason.is_some(),
+                            });
+                        }
+                        Ok(IpcEventKind::Usage { .. }) => {
+                            // Usage accounting - log but don't block
+                        }
+                        Ok(IpcEventKind::Done) => {
+                            timer.success();
+                            break;
+                        }
+                        Ok(IpcEventKind::Error { code, message }) => {
+                            timer.failure(format!("[{code}] {message}"));
+                            return Err(FrameworkError::ProtocolError {
+                                name: adapter_name.to_string(),
+                                detail: format!("[{code}] {message}"),
+                            });
+                        }
+                        Ok(IpcEventKind::Result { .. }) => {
+                            // Unexpected for inference, ignore
+                        }
+                        Err(e) => {
+                            warn!(adapter = %adapter_name, error = %e, "Failed to parse IPC event");
+                        }
+                    }
+                }
+                Ok(None) => {
+                    // Channel closed - process crashed
+                    timer.failure("IPC channel closed".to_string());
+                    return Err(FrameworkError::ProcessCrashed {
+                        name: adapter_name.to_string(),
+                        exit_code: None,
+                    });
+                }
+                Err(_) => {
+                    // Timeout
+                    timer.failure("timeout".to_string());
+                    return Err(FrameworkError::ResponseTimeout {
+                        name: adapter_name.to_string(),
+                        timeout_ms: self.config.request_timeout_ms,
+                    });
+                }
             }
         }
+
+        Ok(tokens)
     }
 
     /// Send a batch generation request.
@@ -431,17 +498,17 @@ impl AdapterManager {
                 );
                 tokio::time::sleep(duration).await;
 
-                // Respawn
+                // Respawn (sends startup config, triggers handshake)
                 process.spawn().await?;
 
-                // Re-initialize
-                let init_params = InitializeParams {
-                    config: adapter_config,
-                };
-                let params_json = serde_json::to_value(&init_params)?;
-                let _result = process.call("initialize", params_json).await?;
+                // Await handshake (replaces legacy init + capabilities RPCs)
+                let handshake = process.await_handshake().await?;
 
-                process.mark_running();
+                // Update cached capabilities
+                {
+                    let mut caps = self.capabilities.write().await;
+                    caps.insert(adapter_name.to_string(), handshake.capabilities);
+                }
 
                 // Reset health state
                 let health = self.health.read().await;

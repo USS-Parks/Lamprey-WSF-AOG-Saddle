@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded 18 to 35 sessions)
-**Status:** Phase A+B+C complete. Session 13 complete. Next: Session 14a (Adapter IPC Contract + NDJSON Protocol).
+**Status:** Phase A+B+C complete. Session 14a complete. Next: Session 14b (Adapter Manager Full Migration to NDJSON).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -44,7 +44,7 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 **Agent/RAG Interface (Session 13, 2026-05-18):** New `mai-agent` crate (8 source files + 3 integration test files, ~5434 lines total). Context management with 4 truncation strategies (OldestFirst, MiddleOut, RelevanceScored, HardCutoff). Tool registry with OpenAI-compatible function format, multi-step chain tracking, role-based access control. RAG pipeline with batch embedding, cosine similarity semantic cache, profile-isolated retrieval. STT manager with PCM silence detection, audio buffering, Whisper large-v3 default. Agentic task manager with per-profile concurrency limits, resource budgets (tokens, tool calls, duration), submit/poll/cancel lifecycle. 61 unit tests + 16 integration tests. All types reference real mai-core exports.
 
-**Immediate next step:** Execute **Session 14a** (Adapter IPC Contract + NDJSON Protocol). The wiring sprint (14a-14c) must complete before any new feature work. After 14c, the scheduler track (15-21, 32-33), security track (26-28), and application track (29-31) can run in parallel.
+**Immediate next step:** Execute **Session 14b** (Adapter Manager Full Migration to NDJSON). Session 14a delivered the IPC protocol spec, bridge types, handshake flow, and streaming inference over NDJSON. Session 14b migrates the remaining legacy JSON-RPC methods (generate_batch, embed, health_check, heartbeat_cycle) to NDJSON. The wiring sprint (14a-14c) must complete before any new feature work. After 14c, the scheduler track (15-21, 32-33), security track (26-28), and application track (29-31) can run in parallel.
 
 ---
 

@@ -1,7 +1,7 @@
 # MAI Build Index
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-17
+**Last Updated:** 2026-05-19
 
 ---
 
@@ -22,6 +22,7 @@ These documents govern the MAI build. Read them before writing code.
 | [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) | Completed sessions 01-10 (Phase A+B) with full notes and deliverable lists | Reviewing past session details |
 | [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) | Archived onboarding walkthrough and Phase A+B code inventory | Reference only |
 | [SESSION-RULES.md](SESSION-RULES.md) | Dependency enforcement, acceptance criteria protocol, quality gates, session workflow | Conducting any session |
+| [IPC-PROTOCOL.md](IPC-PROTOCOL.md) | NDJSON IPC wire format spec for Rust-Python adapter communication | Working on adapter IPC (Sessions 14a-14c) |
 
 ---
 
@@ -140,5 +141,6 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | RAG pipeline integration | `mai-agent/tests/rag_pipeline_test.rs` | Full RAG flow, semantic cache, profile isolation, dimension validation (4 tests) | 13 |
 | Tool calling integration | `mai-agent/tests/tool_calling_test.rs` | Chain round-trip, role access, parallel calls, step limits, model format (5 tests) | 13 |
 | Task lifecycle integration | `mai-agent/tests/task_lifecycle_test.rs` | Full lifecycle, concurrency, budget exhaustion, cancel/fail, audit trail (7 tests) | 13 |
+| IPC protocol tests | `adapters/tests/test_ipc_protocol.py` | NDJSON wire format contract verification (26 tests across 7 classes) | 14a |
 | Security tests | tests/integration/ | PQC integrity, tamper detection, sandbox enforcement | 17 |
 | Scenario 

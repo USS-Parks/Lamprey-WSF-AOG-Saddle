@@ -1,18 +1,20 @@
-"""MAI Adapter Runner: JSON-RPC subprocess protocol handler.
+"""MAI Adapter Runner: NDJSON IPC subprocess protocol handler (v1.0).
 
-Spawned by AdapterManager as a subprocess. Reads JSON-RPC requests from stdin,
-dispatches to the loaded adapter, writes responses to stdout.
+Spawned by AdapterProcess as:  python3 runner.py <adapter_name>
 
-Protocol: newline-delimited JSON matching Rust bridge.rs types.
-  Request:  {"id": <int>, "method": <str>, "params": <obj>}
-  Response: {"id": <int>, "result": <value>}
-  Error:    {"id": <int>, "error": {"code": <str>, "detail": <str>}}
-  Event:    {"event": <str>, "data": <obj>}  (adapter -> manager, no id)
+Protocol (IPC-PROTOCOL.md):
+  Phase 1 - Startup:
+    Rust writes startup config JSON on stdin (one line).
+    Runner reads it, imports the adapter, calls initialize(), then writes
+    a handshake response on stdout.
+  Phase 2 - Request loop:
+    Rust writes: {"request_id": "<uuid>", "type": "<method>", "payload": {}}
+    Runner replies with NDJSON events:
+      token, usage, result, done, error  (all carry request_id)
 
-Usage: python -m adapters.runner <adapter_module> <adapter_class>
-  e.g. python -m adapters.runner adapters.ollama.adapter OllamaAdapter
+Stderr is reserved for Python logging. Never parsed by Rust.
 
-Session 08 deliverable.
+Session 08 original / Session 14a NDJSON rewrite.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from adapters.base import (
     AdapterBase,
     AdapterError,
     GenerationParams,
+    get_adapter,
 )
 
 logger = logging.getLogger("mai.adapters.runner")
@@ -43,22 +46,25 @@ logging.basicConfig(
 
 
 class AdapterRunner:
-    """JSON-RPC protocol handler for a single adapter subprocess.
+    """NDJSON IPC protocol handler for a single adapter subprocess.
 
-    Reads requests from stdin, dispatches to the adapter instance,
-    writes responses to stdout. All I/O is newline-delimited JSON.
+    Phase 1: Read startup config from stdin, initialize adapter, send handshake.
+    Phase 2: Read IPC requests from stdin, dispatch, write NDJSON events to stdout.
     """
 
-    def __init__(self, adapter: AdapterBase) -> None:
+    def __init__(self, adapter: AdapterBase, adapter_name: str, version: str) -> None:
         self._adapter = adapter
+        self._adapter_name = adapter_name
+        self._version = version
+        self._handle = ""
         self._running = False
         self._start_time_ms = 0
         self._requests_served = 0
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
 
-    async def run(self) -> None:
-        """Main event loop. Read requests, dispatch, write responses."""
+    async def run(self, startup_config: dict[str, Any]) -> None:
+        """Main lifecycle: handshake then request loop."""
         self._running = True
         self._start_time_ms = _now_ms()
 
@@ -75,13 +81,44 @@ class AdapterRunner:
             transport, protocol, self._reader, loop,
         )
 
-        logger.info("Adapter runner started, reading from stdin")
+        # ── Phase 1: Initialize adapter and send handshake ──
+        config = startup_config.get("config") or {}
+        try:
+            self._handle = await self._adapter.initialize(config, hil_handle=None)
+        except Exception as e:
+            logger.error(f"Adapter initialization failed: {e}")
+            sys.exit(1)
 
+        caps = self._adapter.capabilities()
+        handshake = {
+            "request_id": "",  # Not a request, but IpcEvent requires this field
+            "type": "handshake",
+            "adapter_name": self._adapter_name,
+            "version": self._version,
+            "handle": self._handle or f"{self._adapter_name}-{_now_ms()}",
+            "capabilities": {
+                "max_context_window": caps.max_context_window,
+                "supported_quantizations": caps.supported_quantizations,
+                "supports_streaming": caps.supports_streaming,
+                "supports_batching": caps.supports_batching,
+                "supports_structured_output": caps.supports_structured_output,
+                "supports_vision": caps.supports_vision,
+                "supports_tool_calling": caps.supports_tool_calling,
+                "supports_continuous_batching": caps.supports_continuous_batching,
+                "supports_embedding": caps.supports_embedding,
+                "supports_hot_swap": caps.supports_hot_swap,
+                "backend_version": caps.backend_version,
+            },
+        }
+        await self._send_line(handshake)
+        logger.info(f"Handshake sent for {self._adapter_name}")
+
+        # ── Phase 2: Request loop ──
+        logger.info("Entering request loop")
         while self._running:
             try:
                 line = await self._reader.readline()
                 if not line:
-                    # EOF - parent closed pipe
                     logger.info("stdin EOF, shutting down")
                     break
 
@@ -90,12 +127,10 @@ class AdapterRunner:
                     continue
 
                 request = json.loads(line_str)
-                response = await self._dispatch(request)
-                await self._send(response)
+                await self._dispatch(request)
 
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON on stdin: {e}")
-                # Can't send error response without a valid request id
                 continue
             except asyncio.CancelledError:
                 break
@@ -109,106 +144,84 @@ class AdapterRunner:
         except Exception:
             logger.error(f"Shutdown error: {traceback.format_exc()}")
 
-    async def _dispatch(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Route a JSON-RPC request to the appropriate adapter method."""
-        req_id = request.get("id", 0)
-        method = request.get("method", "")
-        params = request.get("params", {})
+    async def _dispatch(self, request: dict[str, Any]) -> None:
+        """Route an IPC request and emit NDJSON response events."""
+        request_id = request.get("request_id", "")
+        req_type = request.get("type", "")
+        payload = request.get("payload", {})
 
         try:
-            result = await self._handle_method(method, params, req_id)
+            await self._handle_method(req_type, payload, request_id)
             self._requests_served += 1
-            return {"id": req_id, "result": result}
         except AdapterError as e:
-            return {
-                "id": req_id,
-                "error": {
-                    "code": e.code,
-                    "detail": e.detail or str(e),
-                    "data": e.data,
-                },
-            }
+            await self._send_event(request_id, "error", {
+                "code": e.code,
+                "message": e.detail or str(e),
+            })
+            await self._send_event(request_id, "done", {})
         except Exception as e:
-            logger.error(f"Unhandled error in {method}: {traceback.format_exc()}")
-            return {
-                "id": req_id,
-                "error": {
-                    "code": "InternalError",
-                    "detail": str(e),
-                },
-            }
+            logger.error(f"Unhandled error in {req_type}: {traceback.format_exc()}")
+            await self._send_event(request_id, "error", {
+                "code": "InternalError",
+                "message": str(e),
+            })
+            await self._send_event(request_id, "done", {})
 
     async def _handle_method(
-        self, method: str, params: dict[str, Any], req_id: int,
-    ) -> Any:
-        """Dispatch to the correct adapter method by name."""
-        if method == "initialize":
-            config = params.get("config", {})
-            handle = await self._adapter.initialize(config, hil_handle=None)
-            return {"handle": handle}
+        self, method: str, payload: dict[str, Any], request_id: str,
+    ) -> None:
+        """Dispatch to the correct adapter method. Emits events directly."""
+        if method == "inference":
+            prompt = payload.get("prompt", "")
+            params = payload.get("params", {})
+            stream = payload.get("stream", True)
+            gen_params = _parse_generation_params(params)
 
-        elif method == "generate":
-            prompt = params["prompt"]
-            gen_params = _parse_generation_params(params.get("params", {}))
-            stream_id = params.get("stream_id", req_id)
-
-            # Stream tokens as events, then return final response
+            # Stream tokens
+            token_index = 0
+            finish_reason: str | None = None
             async for token in self._adapter.generate(prompt, gen_params):
-                await self._send_event("token", {
-                    "stream_id": stream_id,
+                finish_reason = "stop" if token.is_end_of_text else None
+                await self._send_event(request_id, "token", {
                     "text": token.text,
                     "logprob": token.logprob,
-                    "index": token.index,
-                    "is_end_of_text": token.is_end_of_text,
+                    "index": token_index,
+                    "finish_reason": finish_reason,
+                })
+                token_index += 1
+
+            # If no tokens set finish_reason, use "stop"
+            if finish_reason is None and token_index > 0:
+                # Resend the last token with finish_reason set
+                await self._send_event(request_id, "token", {
+                    "text": "",
+                    "logprob": None,
+                    "index": token_index,
+                    "finish_reason": "stop",
                 })
 
-            # Send stream end event
-            await self._send_event("stream_end", {
-                "stream_id": stream_id,
-                "finish_reason": "stop",
+            # Usage event (approximate; adapters should report real counts)
+            await self._send_event(request_id, "usage", {
+                "prompt_tokens": 0,  # Adapter should override
+                "completion_tokens": token_index,
             })
-            return {"stream_id": stream_id, "completed": True}
+            await self._send_event(request_id, "done", {})
 
-        elif method == "generate_batch":
-            prompts = params["prompts"]
-            gen_params = _parse_generation_params(params.get("params", {}))
-            results = await self._adapter.generate_batch(prompts, gen_params)
-            return {
-                "results": [
-                    {
-                        "text": r.text,
-                        "tokens_generated": r.tokens_generated,
-                        "finish_reason": r.finish_reason.value,
-                    }
-                    for r in results
-                ],
-            }
-
-        elif method == "embed":
-            texts = params["texts"]
-            embeddings = await self._adapter.embed(texts)
-            return {
-                "embeddings": [
-                    {"vector": e.vector, "input_tokens": e.input_tokens}
-                    for e in embeddings
-                ],
-            }
-
-        elif method == "health_check":
+        elif method == "health":
             status = await self._adapter.health_check()
-            return {
-                "status": {
-                    "kind": status.kind.value,
-                    "uptime_ms": status.uptime_ms,
-                    "requests_served": status.requests_served,
-                    "reason": status.reason,
+            await self._send_event(request_id, "result", {
+                "data": {
+                    "status": status.kind.value,
+                    "uptime_ms": status.uptime_ms or (_now_ms() - self._start_time_ms),
+                    "requests_served": self._requests_served,
                 },
-            }
+            })
+            await self._send_event(request_id, "done", {})
 
         elif method == "capabilities":
             caps = self._adapter.capabilities()
-            return {
-                "capabilities": {
+            await self._send_event(request_id, "result", {
+                "data": {
                     "max_context_window": caps.max_context_window,
                     "supported_quantizations": caps.supported_quantizations,
                     "supports_streaming": caps.supports_streaming,
@@ -221,15 +234,20 @@ class AdapterRunner:
                     "supports_hot_swap": caps.supports_hot_swap,
                     "backend_version": caps.backend_version,
                 },
-            }
+            })
+            await self._send_event(request_id, "done", {})
 
         elif method == "shutdown":
             await self._adapter.shutdown()
             self._running = False
-            return {"ok": True}
+            await self._send_event(request_id, "result", {"data": {"ok": True}})
+            await self._send_event(request_id, "done", {})
 
         elif method == "heartbeat":
-            return {"timestamp_ms": _now_ms()}
+            await self._send_event(request_id, "result", {
+                "data": {"timestamp_ms": _now_ms()},
+            })
+            await self._send_event(request_id, "done", {})
 
         else:
             raise AdapterError(
@@ -237,17 +255,24 @@ class AdapterRunner:
                 detail=f"Unknown method: {method}",
             )
 
-    async def _send(self, message: dict[str, Any]) -> None:
-        """Write a JSON message to stdout, newline-terminated."""
+    async def _send_line(self, message: dict[str, Any]) -> None:
+        """Write a JSON line to stdout."""
         if self._writer is None:
             return
         line = json.dumps(message, separators=(",", ":")) + "\n"
         self._writer.write(line.encode("utf-8"))
         await self._writer.drain()
 
-    async def _send_event(self, event: str, data: dict[str, Any]) -> None:
-        """Write an event (no id) to stdout."""
-        await self._send({"event": event, "data": data})
+    async def _send_event(
+        self, request_id: str, event_type: str, fields: dict[str, Any],
+    ) -> None:
+        """Write an NDJSON event with request_id and type."""
+        event: dict[str, Any] = {
+            "request_id": request_id,
+            "type": event_type,
+        }
+        event.update(fields)
+        await self._send_line(event)
 
 
 def _parse_generation_params(raw: dict[str, Any]) -> GenerationParams:
@@ -286,23 +311,71 @@ def load_adapter(module_path: str, class_name: str) -> AdapterBase:
     return cls()
 
 
+def _read_startup_config() -> dict[str, Any]:
+    """Read the startup config JSON from stdin (first line, blocking)."""
+    line = sys.stdin.readline()
+    if not line:
+        logger.error("No startup config received on stdin (EOF)")
+        sys.exit(1)
+    try:
+        return json.loads(line.strip())
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid startup config JSON: {e}")
+        sys.exit(1)
+
+
 def main() -> None:
-    """Entry point. Usage: python -m adapters.runner <module> <class>"""
-    if len(sys.argv) != 3:
+    """Entry point. Usage: python3 runner.py <adapter_name>
+
+    The adapter name is the only CLI argument. Module path and class name
+    are provided in the startup config JSON on stdin per IPC-PROTOCOL.md.
+    The runner also checks the @mai_adapter registry as a fallback.
+    """
+    if len(sys.argv) != 2:
         print(
-            "Usage: python -m adapters.runner <adapter_module> <adapter_class>",
+            "Usage: python3 runner.py <adapter_name>",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    module_path = sys.argv[1]
-    class_name = sys.argv[2]
+    adapter_name = sys.argv[1]
+    logger.info(f"Runner started for adapter: {adapter_name}")
 
-    adapter = load_adapter(module_path, class_name)
-    runner = AdapterRunner(adapter)
+    # Read startup config from stdin (Phase 1 of IPC protocol)
+    startup_config = _read_startup_config()
+    logger.info(f"Received startup config: adapter_name={startup_config.get('adapter_name')}")
+
+    module_path = startup_config.get("module_path", "")
+    entry_class = startup_config.get("entry_class", "")
+
+    # Try direct import first (from startup config)
+    adapter: AdapterBase | None = None
+    version = "1.0.0"
+
+    if module_path and entry_class:
+        adapter = load_adapter(module_path, entry_class)
+        version = getattr(adapter, "_mai_adapter_version", "1.0.0")
+    else:
+        # Fallback: look up in the @mai_adapter registry
+        # Import all adapter modules to trigger registration
+        try:
+            importlib.import_module(f"adapters.{adapter_name}.adapter")
+        except ImportError:
+            pass
+        cls = get_adapter(adapter_name)
+        if cls is None:
+            logger.error(
+                f"Adapter '{adapter_name}' not found in registry and no "
+                f"module_path/entry_class provided in startup config"
+            )
+            sys.exit(1)
+        adapter = cls()
+        version = getattr(cls, "_mai_adapter_version", "1.0.0")
+
+    runner = AdapterRunner(adapter, adapter_name, version)
 
     try:
-        asyncio.run(runner.run())
+        asyncio.run(runner.run(startup_config))
     except KeyboardInterrupt:
         logger.info("Runner interrupted")
     except Exception:

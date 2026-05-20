@@ -15,9 +15,13 @@ use tokio::process::{Child, Command};
 use tokio::sync::{Mutex, mpsc, oneshot};
 use tracing::{debug, error, info, warn};
 
-use crate::bridge::{RpcError, RpcRequest, RpcResponse};
+use crate::bridge::{
+    HandshakeResponse, IpcEvent, IpcRequest, IpcStartupConfig,
+    RpcError, RpcRequest, RpcResponse,
+};
 use crate::config::{DiscoveredAdapter, FrameworkConfig};
 use crate::errors::FrameworkError;
+use mai_hil::traits::AdapterCapabilities;
 
 /// State of an adapter process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -74,16 +78,24 @@ pub struct AdapterProcess {
     last_start: Option<Instant>,
     /// Last successful heartbeat timestamp.
     last_heartbeat: Option<Instant>,
-    /// Next RPC request ID.
+    /// Next RPC request ID (legacy).
     next_id: u64,
     /// Channel to send lines to the subprocess stdin.
     stdin_tx: Option<mpsc::Sender<String>>,
-    /// Pending RPC requests awaiting responses.
+    /// Pending RPC requests awaiting responses (legacy JSON-RPC).
     pending: Arc<Mutex<std::collections::HashMap<u64, PendingRequest>>>,
+    /// Pending IPC requests awaiting done/error events (NDJSON protocol).
+    pending_ipc: Arc<Mutex<std::collections::HashMap<String, oneshot::Sender<Result<(), FrameworkError>>>>>,
     /// Child process handle.
     child: Option<Child>,
-    /// Channel for incoming events from the adapter.
+    /// Channel for incoming events from the adapter (raw lines).
     event_rx: Option<mpsc::Receiver<String>>,
+    /// Channel for typed IPC events (token stream, usage, etc.).
+    ipc_event_rx: Option<mpsc::Receiver<IpcEvent>>,
+    /// Adapter handle string from handshake.
+    pub handle: Option<String>,
+    /// Capabilities reported by the adapter during handshake.
+    pub capabilities: Option<AdapterCapabilities>,
 }
 
 impl AdapterProcess {
@@ -99,8 +111,12 @@ impl AdapterProcess {
             next_id: 1,
             stdin_tx: None,
             pending: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            pending_ipc: Arc::new(Mutex::new(std::collections::HashMap::new())),
             child: None,
             event_rx: None,
+            ipc_event_rx: None,
+            handle: None,
+            capabilities: None,
         }
     }
 
@@ -132,14 +148,11 @@ impl AdapterProcess {
         self.state = ProcessState::Starting;
         self.last_start = Some(Instant::now());
 
+        // IPC Protocol v1.0: single positional arg (adapter name only).
+        // Module path and class are sent via startup config on stdin.
         let mut cmd = Command::new(self.config.python_path.as_os_str());
         cmd.arg(self.config.runner_script.as_os_str())
-            .arg("--adapter-name")
-            .arg(name)
-            .arg("--module-path")
-            .arg(self.info.module_path.as_os_str())
-            .arg("--entry-module")
-            .arg(&self.info.entry_module)
+            .arg(name) // Single positional arg per IPC-PROTOCOL.md
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -172,16 +185,11 @@ impl AdapterProcess {
                 ));
             }
 
-            // Replace cmd with cgroup-wrapped version
+            // Replace cmd with cgroup-wrapped version (single positional arg)
             cgroup_cmd
                 .arg(self.config.python_path.as_os_str())
                 .arg(self.config.runner_script.as_os_str())
-                .arg("--adapter-name")
-                .arg(name)
-                .arg("--module-path")
-                .arg(self.info.module_path.as_os_str())
-                .arg("--entry-module")
-                .arg(&self.info.entry_module)
+                .arg(name) // Single positional arg per IPC-PROTOCOL.md
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped());
@@ -227,7 +235,13 @@ impl AdapterProcess {
             }
         });
 
-        // Stdout reader task - reads lines and dispatches responses/events
+        // IPC event channel for typed NDJSON events (tokens, usage, etc.)
+        let (ipc_event_tx, ipc_event_rx) = mpsc::channel::<IpcEvent>(256);
+
+        // Stdout reader task - reads NDJSON lines and dispatches:
+        //   - IpcEvent lines to the ipc_event channel (for streaming consumers)
+        //   - Legacy RpcResponse lines to the pending map (backward compat)
+        //   - Unknown lines to the raw event channel
         let pending_clone = Arc::clone(&self.pending);
         let adapter_name = name.clone();
         tokio::spawn(async move {
@@ -239,8 +253,12 @@ impl AdapterProcess {
                     continue;
                 }
 
-                // Try to parse as RpcResponse first
-                if let Ok(response) = serde_json::from_str::<RpcResponse>(&line) {
+                // Try IPC NDJSON event first (has "type" and "request_id" fields)
+                if let Ok(ipc_event) = serde_json::from_str::<IpcEvent>(&line) {
+                    let _ = ipc_event_tx.send(ipc_event).await;
+                }
+                // Fallback: legacy RpcResponse (has "id" field)
+                else if let Ok(response) = serde_json::from_str::<RpcResponse>(&line) {
                     let mut pending = pending_clone.lock().await;
                     if let Some(req) = pending.remove(&response.id) {
                         let result = if let Some(err) = response.error {
@@ -257,17 +275,40 @@ impl AdapterProcess {
                         );
                     }
                 } else {
-                    // Treat as event (streaming tokens, heartbeats, etc.)
+                    // Unknown format - send as raw event
                     let _ = event_tx.send(line).await;
                 }
             }
         });
 
-        self.stdin_tx = Some(stdin_tx);
+        self.stdin_tx = Some(stdin_tx.clone());
         self.child = Some(child);
         self.event_rx = Some(event_rx);
+        self.ipc_event_rx = Some(ipc_event_rx);
 
-        info!(adapter = %name, "Adapter process spawned successfully");
+        // ── IPC Startup Handshake (Protocol v1.0) ────────────────────────
+        // Step 1: Send startup config as first stdin line
+        let startup_config = IpcStartupConfig {
+            adapter_name: name.clone(),
+            module_path: self.info.module_path.to_string_lossy().to_string(),
+            entry_class: self.info.entry_module.clone(),
+            config: None, // Adapter-specific config added by manager
+        };
+        let config_json = serde_json::to_string(&startup_config).map_err(|e| {
+            FrameworkError::ProtocolError {
+                name: name.clone(),
+                detail: format!("Failed to serialize startup config: {e}"),
+            }
+        })?;
+        stdin_tx
+            .send(config_json)
+            .await
+            .map_err(|_| FrameworkError::SpawnFailed {
+                name: name.clone(),
+                reason: "stdin channel closed before startup config sent".to_string(),
+            })?;
+
+        info!(adapter = %name, "Adapter process spawned, startup config sent");
         Ok(())
     }
 
@@ -341,9 +382,135 @@ impl AdapterProcess {
         }
     }
 
-    /// Take the event receiver (for the health monitor to consume).
+    /// Take the raw event receiver (for the health monitor to consume).
     pub fn take_event_rx(&mut self) -> Option<mpsc::Receiver<String>> {
         self.event_rx.take()
+    }
+
+    /// Take the typed IPC event receiver (for streaming token consumers).
+    pub fn take_ipc_event_rx(&mut self) -> Option<mpsc::Receiver<IpcEvent>> {
+        self.ipc_event_rx.take()
+    }
+
+    /// Wait for the handshake response from the subprocess.
+    /// Must be called after spawn(). Blocks up to 30 seconds (per IPC-PROTOCOL.md).
+    /// On success, caches capabilities and handle, then marks process Running.
+    pub async fn await_handshake(&mut self) -> Result<HandshakeResponse, FrameworkError> {
+        let name = &self.info.name;
+        let timeout = Duration::from_secs(30);
+
+        // Read from the ipc_event channel; the first IPC line should be the handshake
+        let ipc_rx = self
+            .ipc_event_rx
+            .as_mut()
+            .ok_or_else(|| FrameworkError::NotReady {
+                name: name.clone(),
+                state: "no ipc event channel".to_string(),
+            })?;
+
+        let handshake_event = tokio::time::timeout(timeout, ipc_rx.recv())
+            .await
+            .map_err(|_| FrameworkError::InitFailed {
+                name: name.clone(),
+                reason: "Handshake timeout (30s) - no response from adapter".to_string(),
+            })?
+            .ok_or_else(|| FrameworkError::ProcessCrashed {
+                name: name.clone(),
+                exit_code: None,
+            })?;
+
+        // The handshake event has type "handshake"
+        if handshake_event.event_type != "handshake" {
+            return Err(FrameworkError::ProtocolError {
+                name: name.clone(),
+                detail: format!(
+                    "Expected handshake event, got type '{}'",
+                    handshake_event.event_type
+                ),
+            });
+        }
+
+        // Reconstruct full JSON from the IpcEvent to deserialize as HandshakeResponse
+        let mut full_obj = serde_json::Map::new();
+        full_obj.insert("type".to_string(), Value::String(handshake_event.event_type.clone()));
+        full_obj.insert("request_id".to_string(), Value::String(handshake_event.request_id.clone()));
+        for (k, v) in &handshake_event.data {
+            full_obj.insert(k.clone(), v.clone());
+        }
+
+        let handshake: HandshakeResponse =
+            serde_json::from_value(Value::Object(full_obj)).map_err(|e| {
+                FrameworkError::ProtocolError {
+                    name: name.clone(),
+                    detail: format!("Invalid handshake response: {e}"),
+                }
+            })?;
+
+        info!(
+            adapter = %name,
+            version = %handshake.version,
+            handle = %handshake.handle,
+            "Handshake complete"
+        );
+
+        self.handle = Some(handshake.handle.clone());
+        self.capabilities = Some(handshake.capabilities.clone());
+        self.mark_running();
+
+        Ok(handshake)
+    }
+
+    /// Send an IPC request (NDJSON protocol v1.0).
+    /// Returns the request_id for callers that want to correlate events.
+    pub async fn send_ipc(
+        &self,
+        request_type: &str,
+        payload: Value,
+    ) -> Result<String, FrameworkError> {
+        let name = &self.info.name;
+
+        if self.state != ProcessState::Running {
+            return Err(FrameworkError::NotReady {
+                name: name.clone(),
+                state: self.state.to_string(),
+            });
+        }
+
+        let request_id = uuid::Uuid::new_v4().to_string();
+        let request = IpcRequest {
+            request_id: request_id.clone(),
+            request_type: request_type.to_string(),
+            payload,
+        };
+
+        let request_json = serde_json::to_string(&request).map_err(|e| {
+            FrameworkError::ProtocolError {
+                name: name.clone(),
+                detail: format!("Failed to serialize IPC request: {e}"),
+            }
+        })?;
+
+        let stdin_tx = self
+            .stdin_tx
+            .as_ref()
+            .ok_or_else(|| FrameworkError::NotReady {
+                name: name.clone(),
+                state: "no stdin channel".to_string(),
+            })?;
+
+        stdin_tx
+            .send(request_json)
+            .await
+            .map_err(|_| FrameworkError::Io {
+                name: name.clone(),
+                source: std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "stdin channel closed",
+                ),
+            })?;
+
+        debug!(adapter = %name, request_id = %request_id, method = %request_type, "IPC request sent");
+        Ok(request_id)
     }
 
     /// Mark the process as running (after successful initialization).
