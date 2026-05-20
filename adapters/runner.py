@@ -20,6 +20,7 @@ Session 08 original / Session 14a NDJSON rewrite.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib
 import json
 import logging
@@ -174,7 +175,6 @@ class AdapterRunner:
         if method == "inference":
             prompt = payload.get("prompt", "")
             params = payload.get("params", {})
-            stream = payload.get("stream", True)
             gen_params = _parse_generation_params(params)
 
             # Stream tokens
@@ -358,10 +358,8 @@ def main() -> None:
     else:
         # Fallback: look up in the @mai_adapter registry
         # Import all adapter modules to trigger registration
-        try:
+        with contextlib.suppress(ImportError):
             importlib.import_module(f"adapters.{adapter_name}.adapter")
-        except ImportError:
-            pass
         cls = get_adapter(adapter_name)
         if cls is None:
             logger.error(

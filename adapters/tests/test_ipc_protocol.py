@@ -17,9 +17,9 @@ the IPC-PROTOCOL.md specification.
 from __future__ import annotations
 
 import json
+from typing import ClassVar
 
 import pytest
-
 
 # ── Startup Config ────────────────────────────────────────────────────────────
 
@@ -261,8 +261,22 @@ class TestEventOrdering:
     def test_inference_event_sequence(self) -> None:
         """Inference: 0+ tokens, 1 usage, 1 done."""
         events = [
-            {"request_id": "r1", "type": "token", "text": "P", "logprob": None, "index": 0, "finish_reason": None},
-            {"request_id": "r1", "type": "token", "text": "aris", "logprob": None, "index": 1, "finish_reason": "stop"},
+            {
+                "request_id": "r1",
+                "type": "token",
+                "text": "P",
+                "logprob": None,
+                "index": 0,
+                "finish_reason": None,
+            },
+            {
+                "request_id": "r1",
+                "type": "token",
+                "text": "aris",
+                "logprob": None,
+                "index": 1,
+                "finish_reason": "stop",
+            },
             {"request_id": "r1", "type": "usage", "prompt_tokens": 10, "completion_tokens": 2},
             {"request_id": "r1", "type": "done"},
         ]
@@ -298,11 +312,18 @@ class TestEventOrdering:
 class TestErrorCodes:
     """Verify error codes match IPC-PROTOCOL.md taxonomy."""
 
-    VALID_CODES = {
-        "Timeout", "OutOfMemory", "ModelNotFound", "BackendCrashed",
-        "BackendUnavailable", "ContextExceeded", "RateLimited",
-        "HardwareFault", "ValidationError", "UnsupportedOperation",
+    VALID_CODES: ClassVar[set[str]] = {
+        "BackendCrashed",
+        "BackendUnavailable",
+        "ContextExceeded",
+        "HardwareFault",
         "InternalError",
+        "ModelNotFound",
+        "OutOfMemory",
+        "RateLimited",
+        "Timeout",
+        "UnsupportedOperation",
+        "ValidationError",
     }
 
     @pytest.mark.parametrize("code", sorted(VALID_CODES))
