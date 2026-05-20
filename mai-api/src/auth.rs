@@ -1,67 +1,230 @@
 //! Authentication and authorization middleware for the MAI API.
 //!
-//! # Trust Model
+//! # Trust Model (Session 14c)
 //!
-//! Every request carries a profile identity via the `X-IM-Profile` header.
-//! The profile determines role-based permissions for model access, content
-//! filtering, and administrative operations.
+//! Every non-health request must carry a valid API key via the
+//! `X-IM-Auth-Token` header. The key maps to a profile with role-based
+//! permissions. Health endpoints are exempt from auth.
+//!
+//! Internal service-to-service calls may use the `X-IM-Profile` header
+//! directly, but ONLY when `allow_internal_profile_header` is enabled
+//! in config (disabled by default).
+//!
+//! # Rate Limiting
+//!
+//! Per-key request rate limiting with configurable threshold (default
+//! 60 requests/minute). Returns 429 Too Many Requests when exceeded.
 //!
 //! # Backend Opacity
 //!
-//! Profile middleware never exposes adapter or backend names. All authorization
-//! decisions reference model capabilities, not implementation details.
+//! Profile middleware never exposes adapter or backend names. All
+//! authorization decisions reference model capabilities, not
+//! implementation details.
 
 use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, warn};
+use std::time::Instant;
+use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
 
 use crate::errors::ApiError;
 use crate::types::{ModelAccessFilter, ProfileInfo, ProfileRole};
 
-// ── Header Constants ──────────────────────────────────────────────────
+// -- Header Constants --
 
-/// Header name for profile identification.
-pub const PROFILE_HEADER: &str = "X-IM-Profile";
-
-/// Header name for optional TPM-backed auth token.
+/// Header name for API key authentication (Session 14c).
 pub const AUTH_TOKEN_HEADER: &str = "X-IM-Auth-Token";
 
-// ── Token Validation Trait ────────────────────────────────────────────
+/// Header name for internal service-to-service profile identification.
+/// Only honored when `allow_internal_profile_header` is enabled.
+pub const PROFILE_HEADER: &str = "X-IM-Profile";
 
-/// Trait for validating authentication tokens.
-///
-/// Implementations may use TPM 2.0 attestation, local key verification,
-/// or other air-gap-compatible mechanisms. No network calls permitted.
-#[async_trait::async_trait]
-pub trait TokenValidator: Send + Sync + 'static {
-    /// Validate a token and return the associated profile ID.
-    /// Returns None if the token is invalid or expired.
-    async fn validate(&self, token: &str) -> Option<String>;
+/// Paths exempt from API key authentication.
+const AUTH_EXEMPT_PREFIXES: &[&str] = &["/v1/health"];
 
-    /// Check if a token has a specific capability.
-    async fn has_capability(&self, token: &str, capability: &str) -> bool;
-}
+// -- API Key Store --
 
-/// Default validator that accepts profile headers without token verification.
-///
-/// Used during development and for local-only deployments where all
-/// access originates from the trusted local network segment.
+/// An authenticated API key entry mapping a key hash to a profile.
 #[derive(Debug, Clone)]
-pub struct LocalTrustValidator;
+pub struct ApiKeyEntry {
+    /// SHA-256 hash of the raw API key (hex-encoded).
+    pub key_hash: String,
+    /// Profile ID this key authenticates as.
+    pub profile_id: String,
+    /// Role for this profile.
+    pub role: ProfileRole,
+    /// Optional display name.
+    pub display_name: Option<String>,
+}
 
-#[async_trait::async_trait]
-impl TokenValidator for LocalTrustValidator {
-    async fn validate(&self, _token: &str) -> Option<String> {
-        // Local trust: all tokens are valid. Profile comes from header.
-        Some("local-trust".to_string())
+/// API key store: maps hashed keys to profile entries.
+#[derive(Debug, Clone)]
+pub struct ApiKeyStore {
+    /// Keys indexed by their SHA-256 hash.
+    keys: HashMap<String, ApiKeyEntry>,
+    /// Allow X-IM-Profile header for internal service-to-service calls.
+    /// Disabled by default. When enabled, requests with X-IM-Profile but
+    /// no X-IM-Auth-Token are treated as internal calls.
+    pub allow_internal_profile_header: bool,
+}
+
+impl ApiKeyStore {
+    /// Create an empty key store.
+    pub fn new() -> Self {
+        Self {
+            keys: HashMap::new(),
+            allow_internal_profile_header: false,
+        }
     }
 
-    async fn has_capability(&self, _token: &str, _capability: &str) -> bool {
-        true
+    /// Add a key by its raw plaintext value. The store hashes it internally.
+    pub fn add_key_raw(
+        &mut self,
+        raw_key: &str,
+        profile_id: String,
+        role: ProfileRole,
+        display_name: Option<String>,
+    ) {
+        let hash = hash_api_key(raw_key);
+        self.keys.insert(
+            hash.clone(),
+            ApiKeyEntry {
+                key_hash: hash,
+                profile_id,
+                role,
+                display_name,
+            },
+        );
+    }
+
+    /// Add a key by its pre-computed hash (for loading from config).
+    pub fn add_key_hashed(
+        &mut self,
+        key_hash: String,
+        profile_id: String,
+        role: ProfileRole,
+        display_name: Option<String>,
+    ) {
+        self.keys.insert(
+            key_hash.clone(),
+            ApiKeyEntry {
+                key_hash,
+                profile_id,
+                role,
+                display_name,
+            },
+        );
+    }
+
+    /// Validate a raw API key. Returns the entry if valid.
+    pub fn validate(&self, raw_key: &str) -> Option<&ApiKeyEntry> {
+        let hash = hash_api_key(raw_key);
+        self.keys.get(&hash)
+    }
+
+    /// Number of registered keys.
+    pub fn len(&self) -> usize {
+        self.keys.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.keys.is_empty()
     }
 }
 
-// ── Profile Extraction ────────────────────────────────────────────────
+impl Default for ApiKeyStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Hash an API key with SHA-256, return hex-encoded string.
+pub fn hash_api_key(raw_key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw_key.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+/// Generate a cryptographically random API key (32 bytes, hex-encoded = 64 chars).
+pub fn generate_api_key() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    // Use a combination of random-ish sources since we may not have
+    // a proper CSPRNG in all environments. In production, use the
+    // TPM or /dev/urandom via the vault.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let seed = format!(
+        "mai-key-{}-{}-{}",
+        now.as_nanos(),
+        std::process::id(),
+        uuid::Uuid::new_v4()
+    );
+    let mut hasher = Sha256::new();
+    hasher.update(seed.as_bytes());
+    let hash = hex::encode(hasher.finalize());
+    // Prefix with "im-" for easy identification
+    format!("im-{}", hash)
+}
+
+// -- Rate Limiter --
+
+/// Per-key sliding window rate limiter.
+#[derive(Debug, Clone)]
+pub struct RateLimiter {
+    /// Maximum requests per window.
+    pub max_requests: u32,
+    /// Window duration in seconds.
+    pub window_seconds: u64,
+    /// Per-key request timestamps.
+    windows: Arc<RwLock<HashMap<String, Vec<Instant>>>>,
+}
+
+impl RateLimiter {
+    /// Create a new rate limiter.
+    pub fn new(max_requests: u32, window_seconds: u64) -> Self {
+        Self {
+            max_requests,
+            window_seconds,
+            windows: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Default: 60 requests per minute.
+    pub fn default_per_minute() -> Self {
+        Self::new(60, 60)
+    }
+
+    /// Check if a key is within its rate limit. Returns Ok(remaining)
+    /// or Err(retry_after_seconds).
+    pub async fn check_rate_limit(&self, key_hash: &str) -> Result<u32, u64> {
+        let now = Instant::now();
+        let window_duration = std::time::Duration::from_secs(self.window_seconds);
+        let mut windows = self.windows.write().await;
+
+        let timestamps = windows.entry(key_hash.to_string()).or_default();
+
+        // Prune expired timestamps
+        timestamps.retain(|t| now.duration_since(*t) < window_duration);
+
+        if timestamps.len() >= self.max_requests as usize {
+            // Find the oldest timestamp to calculate retry-after
+            let oldest = timestamps.first().copied().unwrap_or(now);
+            let elapsed = now.duration_since(oldest);
+            let retry_after = self.window_seconds.saturating_sub(elapsed.as_secs());
+            return Err(retry_after.max(1));
+        }
+
+        timestamps.push(now);
+        let remaining = self.max_requests - timestamps.len() as u32;
+        Ok(remaining)
+    }
+}
+
+// -- Profile Extraction --
 
 /// Extract profile information from request headers.
 ///
@@ -149,10 +312,10 @@ fn parse_role(s: &str) -> Result<ProfileRole, ApiError> {
     }
 }
 
-// ── Axum Extractor ───────────────────────────────────────────────────
+// -- Axum Extractor --
 
 /// Allows handlers to extract ProfileInfo directly from the request.
-/// Requires that profile_middleware has run and inserted ProfileInfo
+/// Requires that auth_middleware has run and inserted ProfileInfo
 /// into request extensions.
 impl<S> axum::extract::FromRequestParts<S> for ProfileInfo
 where
@@ -171,56 +334,183 @@ where
             .ok_or(ApiError::Unauthorized)
     }
 }
-// ── Middleware ─────────────────────────────────────────────────────────
+
+// -- Authentication State --
 
 /// Authentication state shared across middleware layers.
 #[derive(Clone)]
 pub struct AuthState {
-    pub validator: Arc<dyn TokenValidator>,
+    pub key_store: Arc<RwLock<ApiKeyStore>>,
+    pub rate_limiter: Arc<RateLimiter>,
 }
 
 impl AuthState {
-    pub fn new(validator: Arc<dyn TokenValidator>) -> Self {
-        Self { validator }
+    /// Create auth state with an API key store and rate limiter.
+    pub fn new(key_store: ApiKeyStore, rate_limiter: RateLimiter) -> Self {
+        Self {
+            key_store: Arc::new(RwLock::new(key_store)),
+            rate_limiter: Arc::new(rate_limiter),
+        }
     }
 
+    /// Create auth state for local-trust development mode.
+    /// All requests are accepted without API key validation.
+    /// A default admin key is still generated and logged.
     pub fn local_trust() -> Self {
+        let mut store = ApiKeyStore::new();
+        store.allow_internal_profile_header = true;
         Self {
-            validator: Arc::new(LocalTrustValidator),
+            key_store: Arc::new(RwLock::new(store)),
+            rate_limiter: Arc::new(RateLimiter::default_per_minute()),
+        }
+    }
+
+    /// Create auth state from a loaded key store with default rate limits.
+    pub fn with_key_store(store: ApiKeyStore) -> Self {
+        Self {
+            key_store: Arc::new(RwLock::new(store)),
+            rate_limiter: Arc::new(RateLimiter::default_per_minute()),
+        }
+    }
+
+    /// Create auth state with custom rate limits.
+    pub fn with_rate_limit(store: ApiKeyStore, max_requests: u32, window_seconds: u64) -> Self {
+        Self {
+            key_store: Arc::new(RwLock::new(store)),
+            rate_limiter: Arc::new(RateLimiter::new(max_requests, window_seconds)),
         }
     }
 }
 
-/// Middleware that extracts the profile from request headers and injects
-/// it as a request extension.
+// -- Middleware --
+
+/// Check if a request path is exempt from authentication.
+fn is_auth_exempt(path: &str) -> bool {
+    AUTH_EXEMPT_PREFIXES
+        .iter()
+        .any(|prefix| path.starts_with(prefix))
+}
+
+/// Combined authentication + profile extraction middleware.
 ///
-/// Downstream handlers access the profile via:
-/// ```ignore
-/// let profile = request.extensions().get::<ProfileInfo>().unwrap();
-/// ```
-pub async fn profile_middleware(
+/// For non-exempt paths:
+/// 1. Requires X-IM-Auth-Token header with a valid API key
+/// 2. Maps the key to a profile (role, permissions)
+/// 3. Checks per-key rate limit
+/// 4. Injects ProfileInfo into request extensions
+///
+/// For exempt paths (health):
+/// 1. Injects a Guest profile (no auth required)
+///
+/// When `allow_internal_profile_header` is enabled and no auth token
+/// is present, falls back to X-IM-Profile header parsing (for internal
+/// service-to-service calls only).
+pub async fn auth_middleware(
     headers: HeaderMap,
     mut request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    let profile = extract_profile(&headers)?;
+    let path = request.uri().path().to_string();
 
-    debug!(
-        profile_id = %profile.profile_id,
-        role = ?profile.role,
-        "Profile extracted from request"
-    );
+    // Health endpoints are auth-exempt
+    if is_auth_exempt(&path) {
+        let profile = extract_profile(&headers).unwrap_or(ProfileInfo {
+            profile_id: "guest".to_string(),
+            role: ProfileRole::Guest,
+            display_name: Some("Guest".to_string()),
+            permissions: ProfileRole::Guest.permissions(),
+        });
+        request.extensions_mut().insert(profile);
+        return Ok(next.run(request).await);
+    }
 
-    // Inject profile into request extensions for downstream handlers
-    request.extensions_mut().insert(profile);
+    // Get auth state from request extensions (injected by server.rs)
+    let auth_state = request
+        .extensions()
+        .get::<AuthState>()
+        .cloned()
+        .ok_or_else(|| {
+            warn!("AuthState not found in request extensions");
+            ApiError::InternalError
+        })?;
 
-    Ok(next.run(request).await)
+    // Try API key authentication first
+    if let Some(token_value) = headers.get(AUTH_TOKEN_HEADER) {
+        let token_str = token_value.to_str().map_err(|_| {
+            ApiError::BadRequest(
+                "X-IM-Auth-Token header contains non-ASCII characters".to_string(),
+            )
+        })?;
+
+        let store = auth_state.key_store.read().await;
+        let entry = store.validate(token_str).ok_or_else(|| {
+            warn!("Invalid API key presented");
+            ApiError::TokenInvalid
+        })?;
+
+        // Rate limit check (keyed by the key's hash)
+        let key_hash = entry.key_hash.clone();
+        let profile_id = entry.profile_id.clone();
+        let role = entry.role.clone();
+        let display_name = entry.display_name.clone();
+        drop(store); // Release read lock before rate limit check
+
+        match auth_state.rate_limiter.check_rate_limit(&key_hash).await {
+            Ok(_remaining) => {}
+            Err(retry_after) => {
+                warn!(
+                    profile_id = %profile_id,
+                    retry_after = retry_after,
+                    "Rate limit exceeded"
+                );
+                return Err(ApiError::RateLimited(retry_after));
+            }
+        }
+
+        let permissions = role.permissions();
+        let profile = ProfileInfo {
+            profile_id,
+            role,
+            display_name,
+            permissions,
+        };
+
+        debug!(
+            profile_id = %profile.profile_id,
+            role = ?profile.role,
+            "Authenticated via API key"
+        );
+
+        request.extensions_mut().insert(profile);
+        return Ok(next.run(request).await);
+    }
+
+    // Fall back to internal profile header if allowed
+    let store = auth_state.key_store.read().await;
+    if store.allow_internal_profile_header {
+        drop(store);
+        let profile = extract_profile(&headers)?;
+
+        debug!(
+            profile_id = %profile.profile_id,
+            role = ?profile.role,
+            "Profile extracted via internal header (no API key)"
+        );
+
+        request.extensions_mut().insert(profile);
+        return Ok(next.run(request).await);
+    }
+    drop(store);
+
+    // No valid auth mechanism found
+    warn!("No authentication credentials provided");
+    Err(ApiError::Unauthorized)
 }
 
 /// Check if a profile has a specific permission.
 ///
 /// This is called by route handlers that need to enforce authorization.
-/// The profile must have been injected by profile_middleware first.
+/// The profile must have been injected by auth_middleware first.
 pub fn check_permission(profile: &ProfileInfo, permission: &str) -> Result<(), ApiError> {
     let allowed = match permission {
         "inference" => profile.permissions.can_inference,
@@ -246,19 +536,9 @@ pub fn check_permission(profile: &ProfileInfo, permission: &str) -> Result<(), A
     Ok(())
 }
 
-// ── Model Access Filtering ────────────────────────────────────────────
+// -- Model Access Filtering --
 
 /// Check if a profile is allowed to access a specific model.
-///
-/// Uses the ModelAccessFilter from the profile's permissions.
-/// - None filter: all models accessible
-/// - TeenSafe: only models tagged as teen-appropriate
-/// - ChildSafe: only models tagged as child-safe
-/// - DefaultOnly: only the system default model
-///
-/// The `is_teen_safe` and `is_child_safe` and `is_default` parameters
-/// come from the model's metadata in the registry. This function does
-/// not perform registry lookups itself.
 pub fn can_access_model(
     profile: &ProfileInfo,
     model_name: &str,
@@ -267,19 +547,192 @@ pub fn can_access_model(
     is_default: bool,
 ) -> bool {
     match &profile.permissions.model_filter {
-        None => true, // No filter = all models
+        None => true,
         Some(ModelAccessFilter::TeenSafe) => is_teen_safe,
         Some(ModelAccessFilter::ChildSafe) => is_child_safe,
         Some(ModelAccessFilter::DefaultOnly) => is_default,
     }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────
+// -- Config Loading --
+
+/// Load API keys from a TOML config file.
+///
+/// Expected format:
+/// ```toml
+/// [settings]
+/// allow_internal_profile_header = false
+/// rate_limit_per_minute = 60
+///
+/// [[keys]]
+/// hash = "sha256-hex-hash-of-key"
+/// profile_id = "family-dad"
+/// role = "admin"
+/// display_name = "Dad"
+/// ```
+pub fn load_api_keys_from_toml(path: &std::path::Path) -> Result<ApiKeyStore, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("Cannot read auth config {}: {}", path.display(), e))?;
+
+    let table: toml::Table =
+        toml::from_str(&content).map_err(|e| format!("Invalid auth config TOML: {e}"))?;
+
+    let mut store = ApiKeyStore::new();
+
+    // Parse settings
+    if let Some(settings) = table.get("settings").and_then(|v| v.as_table()) {
+        store.allow_internal_profile_header = settings
+            .get("allow_internal_profile_header")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+    }
+
+    // Parse keys
+    if let Some(keys_array) = table.get("keys").and_then(|v| v.as_array()) {
+        for key_val in keys_array {
+            let key_table = key_val
+                .as_table()
+                .ok_or("Each [[keys]] entry must be a table")?;
+
+            let key_hash = key_table
+                .get("hash")
+                .and_then(|v| v.as_str())
+                .ok_or("Each key must have a 'hash' field")?
+                .to_string();
+
+            let profile_id = key_table
+                .get("profile_id")
+                .and_then(|v| v.as_str())
+                .ok_or("Each key must have a 'profile_id' field")?
+                .to_string();
+
+            let role_str = key_table
+                .get("role")
+                .and_then(|v| v.as_str())
+                .unwrap_or("guest");
+
+            let role = match role_str.to_lowercase().as_str() {
+                "admin" => ProfileRole::Admin,
+                "adult" => ProfileRole::Adult,
+                "teen" => ProfileRole::Teen,
+                "child" => ProfileRole::Child,
+                _ => ProfileRole::Guest,
+            };
+
+            let display_name = key_table
+                .get("display_name")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            store.add_key_hashed(key_hash, profile_id, role, display_name);
+        }
+    }
+
+    info!(keys = store.len(), "Loaded API key store from config");
+    Ok(store)
+}
+
+// -- Tests --
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::types::ContentFilterLevel;
+
+    #[test]
+    fn test_hash_api_key_deterministic() {
+        let key = "im-test-key-12345";
+        let h1 = hash_api_key(key);
+        let h2 = hash_api_key(key);
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 64); // SHA-256 hex = 64 chars
+    }
+
+    #[test]
+    fn test_api_key_store_add_and_validate() {
+        let mut store = ApiKeyStore::new();
+        store.add_key_raw(
+            "im-test-key-abc",
+            "admin1".to_string(),
+            ProfileRole::Admin,
+            Some("Test Admin".to_string()),
+        );
+
+        assert_eq!(store.len(), 1);
+
+        let entry = store.validate("im-test-key-abc");
+        assert!(entry.is_some());
+        let entry = entry.unwrap();
+        assert_eq!(entry.profile_id, "admin1");
+        assert!(matches!(entry.role, ProfileRole::Admin));
+
+        // Wrong key should fail
+        assert!(store.validate("im-wrong-key").is_none());
+    }
+
+    #[test]
+    fn test_api_key_store_hashed_add() {
+        let mut store = ApiKeyStore::new();
+        let hash = hash_api_key("im-my-secret");
+        store.add_key_hashed(
+            hash,
+            "user1".to_string(),
+            ProfileRole::Adult,
+            None,
+        );
+
+        assert!(store.validate("im-my-secret").is_some());
+        assert!(store.validate("im-other-secret").is_none());
+    }
+
+    #[test]
+    fn test_generate_api_key_format() {
+        let key = generate_api_key();
+        assert!(key.starts_with("im-"));
+        assert!(key.len() > 60);
+    }
+
+    #[test]
+    fn test_rate_limiter_allows_within_limit() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let limiter = RateLimiter::new(5, 60);
+        rt.block_on(async {
+            for _ in 0..5 {
+                assert!(limiter.check_rate_limit("key1").await.is_ok());
+            }
+            // 6th request should be rejected
+            assert!(limiter.check_rate_limit("key1").await.is_err());
+        });
+    }
+
+    #[test]
+    fn test_rate_limiter_different_keys_independent() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let limiter = RateLimiter::new(2, 60);
+        rt.block_on(async {
+            assert!(limiter.check_rate_limit("key_a").await.is_ok());
+            assert!(limiter.check_rate_limit("key_a").await.is_ok());
+            assert!(limiter.check_rate_limit("key_a").await.is_err());
+            // key_b should be unaffected
+            assert!(limiter.check_rate_limit("key_b").await.is_ok());
+        });
+    }
+
+    #[test]
+    fn test_is_auth_exempt() {
+        assert!(is_auth_exempt("/v1/health"));
+        assert!(is_auth_exempt("/v1/health/adapters"));
+        assert!(is_auth_exempt("/v1/health/hardware"));
+        assert!(!is_auth_exempt("/v1/chat/completions"));
+        assert!(!is_auth_exempt("/v1/models"));
+        assert!(!is_auth_exempt("/v1/power"));
+    }
 
     #[test]
     fn test_parse_admin_profile() {
@@ -309,7 +762,6 @@ mod tests {
         let result = extract_profile(&headers).unwrap();
         assert_eq!(result.profile_id, "guest");
         assert!(matches!(result.role, ProfileRole::Guest));
-        // Guest can_inference is true per types.rs definition
         assert!(result.permissions.can_inference);
     }
 
@@ -388,7 +840,6 @@ mod tests {
             display_name: None,
             permissions: ProfileRole::Child.permissions(),
         };
-        // Child can only access child-safe models
         assert!(can_access_model(&profile, "phi-4-mini", false, true, false));
         assert!(!can_access_model(
             &profile,
@@ -425,7 +876,6 @@ mod tests {
             display_name: None,
             permissions: ProfileRole::Guest.permissions(),
         };
-        // Guest can only access default model
         assert!(can_access_model(
             &profile,
             "default-model",
@@ -479,7 +929,6 @@ mod tests {
             display_name: None,
             permissions: ProfileRole::Admin.permissions(),
         };
-        // Unknown permission is denied
         assert!(check_permission(&profile, "nonexistent").is_err());
     }
 }

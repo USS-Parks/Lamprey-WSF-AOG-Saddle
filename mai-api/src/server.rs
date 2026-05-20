@@ -5,6 +5,7 @@
 //! 2. Optionally runs the air-gap startup check
 //! 3. Initializes all mai-core components (scheduler, registry, health,
 //!    power, hotswap) and wraps them in shared `AppState`
+//! 3b. Loads API keys from config/auth_keys.toml (Session 14c)
 //! 4. Starts the REST server (axum, default port 8420) and the gRPC
 //!    server (tonic, default port 8421) concurrently
 //! 5. Listens for SIGTERM / SIGINT (Unix) or ctrl-c (all platforms) and
@@ -27,7 +28,7 @@ use tracing::{error, info, warn};
 
 use crate::air_gap::{AirGapChecker, DevSwitchReader};
 use crate::audit::MemoryAuditWriter;
-use crate::auth::AuthState;
+use crate::auth::{self, AuthState};
 use crate::config::{ProductTier, ServerConfig, load_or_default};
 use crate::grpc::server::{GrpcServerConfig, build_grpc_server};
 use crate::routes::build_router;
@@ -42,6 +43,9 @@ use mai_core::registry::ModelRegistry;
 use mai_core::scheduler::{Scheduler, SchedulerConfig};
 use mai_core::vault::VaultInterface;
 use mai_hil::traits::AdapterConfig;
+
+/// Default path for auth keys config file.
+const AUTH_KEYS_CONFIG_PATH: &str = "config/auth_keys.toml";
 
 /// Parsed adapter configuration from adapters.toml.
 #[derive(Debug, Clone, Default)]
@@ -132,6 +136,7 @@ impl MaiServer {
     /// 1. Validate configuration
     /// 2. Air-gap verification (if enforcement enabled)
     /// 3. Initialize mai-core components
+    /// 3b. Load API key authentication (Session 14c)
     /// 4. Build shared AppState
     /// 5. Start REST + gRPC servers concurrently
     /// 6. Block on shutdown signal (SIGTERM / SIGINT / ctrl-c)
@@ -176,7 +181,6 @@ impl MaiServer {
             .map_err(|e| ServerError::Init(format!("Scheduler: {e}")))?;
         let scheduler = Arc::new(RwLock::new(scheduler));
 
-        // ModelRegistry requires a VaultInterface. Use an in-memory stub
         // until Session 12 provides the real vault.
         let vault = StubVault;
         let registry = ModelRegistry::new(Box::new(vault));
@@ -193,9 +197,11 @@ impl MaiServer {
 
         let audit_writer = Arc::new(MemoryAuditWriter::new());
         let config = Arc::new(RwLock::new(self.config.clone()));
-        let auth = AuthState::local_trust();
 
-        // -- Step 3b: Load adapter config and start AdapterManager --
+        // -- Step 3b: Load API key authentication (Session 14c) --
+        let auth = load_auth_state();
+
+        // -- Step 3c: Load adapter config and start AdapterManager --
         let adapter_boot = load_adapter_boot_config(self.adapter_config_path.as_deref());
         let adapter_manager = AdapterManager::new(adapter_boot.framework.clone());
         let adapter_manager = Arc::new(Mutex::new(adapter_manager));
@@ -351,6 +357,77 @@ impl MaiServer {
 
         Ok(())
     }
+}
+
+// -- Auth Loading (Session 14c) --
+
+/// Load authentication state from config or generate first-boot key.
+///
+/// Precedence:
+/// 1. If config/auth_keys.toml exists, load keys from it.
+/// 2. If no config file, generate a first-boot admin key, print it to
+///    stdout (ONE TIME), and start in local-trust mode so the admin can
+///    configure persistent keys.
+fn load_auth_state() -> AuthState {
+    let auth_path = Path::new(AUTH_KEYS_CONFIG_PATH);
+
+    if auth_path.exists() {
+        match auth::load_api_keys_from_toml(auth_path) {
+            Ok(store) => {
+                info!(
+                    keys = store.len(),
+                    path = %auth_path.display(),
+                    "API key authentication loaded from config"
+                );
+                return AuthState::with_key_store(store);
+            }
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    "Failed to load auth config, falling back to first-boot mode"
+                );
+            }
+        }
+    }
+
+    // First-boot: generate an admin key and print it.
+    // The admin copies this key into config/auth_keys.toml (hashed)
+    // for persistent authentication.
+    let admin_key = auth::generate_api_key();
+    let admin_hash = auth::hash_api_key(&admin_key);
+
+    // Print to stdout so the admin can capture it. This is the ONLY
+    // time the raw key is visible. It is never logged to the tracing
+    // subscriber (which may write to disk).
+    println!("========================================");
+    println!("  MAI FIRST-BOOT: Admin API Key");
+    println!("========================================");
+    println!("  Key:  {}", admin_key);
+    println!("  Hash: {}", admin_hash);
+    println!();
+    println!("  Save the KEY somewhere safe. Add the HASH");
+    println!("  to config/auth_keys.toml to persist it:");
+    println!();
+    println!("  [[keys]]");
+    println!("  hash = \"{}\"", admin_hash);
+    println!("  profile_id = \"admin\"");
+    println!("  role = \"admin\"");
+    println!("  display_name = \"System Admin\"");
+    println!("========================================");
+
+    info!("First-boot admin key generated (printed to stdout, NOT logged)");
+
+    // Start with the generated key loaded + local-trust fallback
+    // so the admin can configure via API immediately.
+    let mut store = auth::ApiKeyStore::new();
+    store.allow_internal_profile_header = true;
+    store.add_key_hashed(
+        admin_hash,
+        "admin".to_string(),
+        crate::types::ProfileRole::Admin,
+        Some("First-Boot Admin".to_string()),
+    );
+    AuthState::with_key_store(store)
 }
 
 /// Wait for a shutdown signal: SIGTERM, SIGINT (Unix), or ctrl-c.
@@ -591,5 +668,22 @@ mod tests {
         assert!(err.to_string().contains("bad port"));
         let err = ServerError::AirGap("switch offline".to_string());
         assert!(err.to_string().contains("switch offline"));
+    }
+
+    #[test]
+    fn test_load_auth_state_no_config() {
+        // When no config file exists, load_auth_state should generate
+        // a first-boot key and return a working AuthState.
+        let auth = load_auth_state();
+        // The store should have at least the generated admin key
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let store = auth.key_store.read().await;
+            assert_eq!(store.len(), 1);
+            assert!(store.allow_internal_profile_header);
+        });
     }
 }

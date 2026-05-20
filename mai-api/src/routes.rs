@@ -4,6 +4,7 @@
 //! layers (auth, audit, CORS), and state injection. Route groups:
 //!
 //! - `/v1/chat/*` - Inference (chat completions)
+//! - `/v1/completions` - Completion (alias to chat_completions, SDK compat)
 //! - `/v1/embeddings` - Embedding generation
 //! - `/v1/generate/*` - Structured output, function calling
 //! - `/v1/models/*` - Model listing and management
@@ -18,7 +19,7 @@ use axum::Router;
 use axum::middleware;
 use axum::routing::{any, get, post};
 
-use crate::auth::profile_middleware;
+use crate::auth::auth_middleware;
 use crate::handlers;
 use crate::state::AppState;
 use crate::streaming;
@@ -26,14 +27,20 @@ use crate::streaming;
 /// Build the complete API router with all routes and middleware.
 ///
 /// The router is structured in groups matching the API surface spec.
-/// Profile middleware runs on all routes, extracting the caller's
-/// identity from `X-IM-Profile` headers. Individual handlers enforce
-/// permission checks for admin-only operations.
+/// Auth middleware runs on all routes, validating API keys and extracting
+/// the caller's profile. Health routes are exempt from auth (handled
+/// in the middleware itself). Individual handlers enforce permission
+/// checks for admin-only operations.
 pub fn build_router(state: AppState) -> Router {
     // Inference routes (require inference permission)
     let inference_routes = Router::new()
         .route(
             "/v1/chat/completions",
+            post(handlers::inference::chat_completions),
+        )
+        // SDK compat: /v1/completions aliases to chat_completions handler
+        .route(
+            "/v1/completions",
             post(handlers::inference::chat_completions),
         )
         .route("/v1/embeddings", post(handlers::inference::embeddings))
@@ -59,7 +66,7 @@ pub fn build_router(state: AppState) -> Router {
             post(handlers::models::unload_model),
         );
 
-    // Health routes (open to all authenticated profiles)
+    // Health routes (open to all, auth exempt)
     let health_routes = Router::new()
         .route("/v1/health", get(handlers::health::aggregate_health))
         .route("/v1/health/adapters", get(handlers::health::adapter_health))
@@ -72,6 +79,8 @@ pub fn build_router(state: AppState) -> Router {
     // System routes (mixed permissions, enforced per-handler)
     let system_routes = Router::new()
         .route("/v1/power", get(handlers::system::get_power_state))
+        // SDK compat: /v1/power/state aliases to get_power_state
+        .route("/v1/power/state", get(handlers::system::get_power_state))
         .route(
             "/v1/power/transition",
             post(handlers::system::power_transition),
@@ -96,20 +105,20 @@ pub fn build_router(state: AppState) -> Router {
         .merge(health_routes)
         .merge(system_routes)
         .merge(ws_routes)
-        .layer(middleware::from_fn(profile_middleware))
+        .layer(middleware::from_fn(auth_middleware))
         .with_state(state)
 }
 
-// ─── Tests ──────────────────────────────────────────────────────────
+// --- Tests ---
 
 #[cfg(test)]
 mod tests {
     /// Compile-time check: build_router must accept AppState and return Router.
-    /// Runtime route testing is deferred to Session 11e integration tests.
+    /// Runtime route testing is deferred to integration tests.
     #[test]
     fn test_router_builds() {
         // This test validates that the router type-checks.
-        // Actual HTTP testing requires a running server (Session 11e).
+        // Actual HTTP testing requires a running server.
         assert!(true, "Router type-checks at compile time");
     }
 }

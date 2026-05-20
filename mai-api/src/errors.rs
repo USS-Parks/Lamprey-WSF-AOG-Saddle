@@ -4,7 +4,7 @@
 //! - MAI-1XXX: Request errors (bad input, validation failure)
 //! - MAI-2XXX: Model errors (unavailable, incompatible, loading)
 //! - MAI-3XXX: System errors (overloaded, hardware, internal)
-//! - MAI-4XXX: Auth errors (unauthorized, forbidden, profile)
+//! - MAI-4XXX: Auth errors (unauthorized, forbidden, profile, rate-limited)
 //! - MAI-5XXX: Config errors (invalid config, air-gap violation)
 //!
 //! Backend opacity: no backend-specific names, paths, or internal
@@ -65,6 +65,8 @@ pub enum ApiError {
     ProfileNotFound(String),
     /// MAI-4004: Token validation failed
     TokenInvalid,
+    /// MAI-4005: Rate limit exceeded (Session 14c). Payload is retry_after seconds.
+    RateLimited(u64),
 
     // ─── MAI-5XXX: Config Errors ────────────────────────────────
     /// MAI-5001: Configuration error
@@ -95,6 +97,7 @@ impl ApiError {
             Self::Unauthorized => "MAI-4002",
             Self::ProfileNotFound(_) => "MAI-4003",
             Self::TokenInvalid => "MAI-4004",
+            Self::RateLimited(_) => "MAI-4005",
             Self::ConfigError(_) => "MAI-5001",
             Self::AirGapViolation(_) => "MAI-5002",
         }
@@ -121,6 +124,7 @@ impl ApiError {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::ProfileNotFound(_) => StatusCode::UNAUTHORIZED,
             Self::TokenInvalid => StatusCode::UNAUTHORIZED,
+            Self::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::ConfigError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::AirGapViolation(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -146,7 +150,8 @@ impl ApiError {
             Self::PermissionDenied(_)
             | Self::Unauthorized
             | Self::ProfileNotFound(_)
-            | Self::TokenInvalid => "auth_error",
+            | Self::TokenInvalid
+            | Self::RateLimited(_) => "auth_error",
             Self::ConfigError(_) | Self::AirGapViolation(_) => "config_error",
         }
     }
@@ -175,6 +180,9 @@ impl ApiError {
             Self::Unauthorized => "Authentication required".to_string(),
             Self::ProfileNotFound(_) => "Profile not found".to_string(),
             Self::TokenInvalid => "Invalid authentication token".to_string(),
+            Self::RateLimited(retry_after) => {
+                format!("Rate limit exceeded, retry after {retry_after} seconds")
+            }
             Self::ConfigError(_) => "Configuration error".to_string(),
             Self::AirGapViolation(_) => {
                 "Air-gap policy violation detected, service suspended".to_string()
@@ -185,6 +193,8 @@ impl ApiError {
 
 /// JSON error response body matching the spec:
 /// `{ "error": { "code": "MAI-XYYY", "message": "...", "type": "..." } }`
+///
+/// Rate-limited responses additionally include `retry_after_seconds`.
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
     error: ErrorBody,
@@ -196,15 +206,24 @@ struct ErrorBody {
     message: String,
     #[serde(rename = "type")]
     error_type: String,
+    /// Seconds until the client should retry. Only set for rate-limited errors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retry_after_seconds: Option<u64>,
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        let retry_after = match &self {
+            ApiError::RateLimited(secs) => Some(*secs),
+            _ => None,
+        };
+
         let body = ErrorResponse {
             error: ErrorBody {
                 code: self.code().to_string(),
                 message: self.safe_message(),
                 error_type: self.error_type().to_string(),
+                retry_after_seconds: retry_after,
             },
         };
 
@@ -218,7 +237,16 @@ impl IntoResponse for ApiError {
             "API error response"
         );
 
-        (status, axum::Json(body)).into_response()
+        let mut response = (status, axum::Json(body)).into_response();
+
+        // Add Retry-After header for rate-limited responses (RFC 7231 §7.1.3)
+        if let Some(secs) = retry_after {
+            if let Ok(val) = axum::http::HeaderValue::from_str(&secs.to_string()) {
+                response.headers_mut().insert("Retry-After", val);
+            }
+        }
+
+        response
     }
 }
 
@@ -327,6 +355,16 @@ mod tests {
             ApiError::InternalError.status(),
             StatusCode::INTERNAL_SERVER_ERROR
         );
+    }
+
+    #[test]
+    fn test_rate_limited_error() {
+        let err = ApiError::RateLimited(30);
+        assert_eq!(err.code(), "MAI-4005");
+        assert_eq!(err.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(err.error_type(), "auth_error");
+        assert!(err.safe_message().contains("30"));
+        assert!(err.safe_message().contains("retry"));
     }
 
     #[test]

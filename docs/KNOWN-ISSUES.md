@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-18
+**Last Updated:** 2026-05-20
 
 ---
 
@@ -25,33 +25,7 @@ The Cowork sandbox does not include a Rust toolchain. `cargo check`, `cargo clip
 
 Formatting drift has accumulated across sessions. No functional impact but `cargo fmt` will produce diffs when run locally.
 
-**Action:** Run `cargo fmt --all` once before Session 12.
-
-### 3. Sglang Adapter self._raw_config Reference
-
-**Severity:** Medium (runtime crash on initialize())
-**Affects:** `adapters/sglang/adapter.py`
-**Status:** Open since Session 10 CI fix (2026-05-17)
-
-The Sglang adapter references `self._raw_config` in its `initialize()` method, but `AdapterBase` stores config as `self._config`. Will raise `AttributeError` when `initialize()` is called.
-
-**Action:** Change `self._raw_config` to `self._config` in `adapters/sglang/adapter.py`.
-
-### 4. StubVault in Server Bootstrap
-
-**Severity:** Expected (placeholder)
-**Affects:** `mai-api/src/server.rs`
-**Status:** RESOLVED (Session 12, 2026-05-18)
-
-The server uses a `StubVault` that returns `ModelNotFound` for all weight loads and `Ok(true)` for all signature verifications. This is intentional for Session 11e. Real ZfsVault now available in mai-vault crate.
-
-### 5. Placeholder Token Producers in Streaming
-
-**Severity:** Expected (placeholder)
-**Affects:** `mai-api/src/streaming/sse.rs`, `mai-api/src/handlers/inference.rs`
-**Status:** By design, resolved when adapter IPC pipeline is wired
-
-Streaming handlers use simulated token producers that generate placeholder tokens. Real adapter output requires the JSON-RPC IPC bridge (Session 08) to be wired into the streaming channel. Full integration deferred until adapter processes are managed by the server.
+**Action:** Run `cargo fmt --all` once before Session 15. If generated protobuf code causes conflicts, add `#[rustfmt::skip]` or exclude in `rustfmt.toml`. See docs/BUILD.md for details.
 
 ### 6. Registry scan_models Placeholder
 
@@ -96,6 +70,24 @@ All 6 gRPC service files initially coded against non-existent APIs. All rewritte
 ### Session 11e: Proto Message Type Mismatches (RESOLVED)
 
 Integration tests used `LoadModelRequest` (doesn't exist), empty `ListModelsRequest` (has profile_id field), ChatMessage with `tool_calls`/`tool_call_id` (proto only has role/content/name). All fixed during Audit Pass 1.
+
+### Issue #3: Sglang Adapter self._raw_config (RESOLVED)
+
+**Resolved:** 2026-05-19 (Adapter Contract Alignment maintenance session)
+
+The Sglang adapter referenced `self._raw_config` in its `initialize()` method, but `AdapterBase` stores config as `self._config`. Fixed by changing to `self._config`. Confirmed via grep: no remaining references to `_raw_config` in the codebase.
+
+### Issue #4: StubVault in Server Bootstrap (RESOLVED)
+
+**Resolved:** Session 12, 2026-05-18
+
+The server used a `StubVault` placeholder. Real ZfsVault now available in mai-vault crate. StubVault retained for bootstrap/testing only.
+
+### Issue #5: Placeholder Token Producers in Streaming (RESOLVED)
+
+**Resolved:** Session 14b, 2026-05-20
+
+Streaming handlers previously used simulated token producers. Session 14b wired the real inference path end-to-end through AdapterManager, connecting adapter IPC output to the SSE streaming channel.
 
 ---
 
