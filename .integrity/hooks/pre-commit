@@ -58,8 +58,8 @@ for FILE in $STAGED_FILES; do
     # CHECK 3: Bracket balance for code files
     case "$FILE" in
         *.rs|*.py|*.js|*.ts|*.json)
-            OPEN=$(printf '%s' "$STAGED_CONTENT" | grep -c '{' || true)
-            CLOSE=$(printf '%s' "$STAGED_CONTENT" | grep -c '}' || true)
+            OPEN=$(printf '%s' "$STAGED_CONTENT" | grep -o '{' | wc -l || true)
+            CLOSE=$(printf '%s' "$STAGED_CONTENT" | grep -o '}' | wc -l || true)
             DELTA=$((OPEN - CLOSE))
             ABS=${DELTA#-}
             if [ "$ABS" -gt 3 ]; then
