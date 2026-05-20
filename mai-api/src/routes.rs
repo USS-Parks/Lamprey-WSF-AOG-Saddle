@@ -105,7 +105,10 @@ pub fn build_router(state: AppState) -> Router {
         .merge(health_routes)
         .merge(system_routes)
         .merge(ws_routes)
-        .layer(middleware::from_fn(auth_middleware))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
         .with_state(state)
 }
 

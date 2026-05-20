@@ -21,7 +21,12 @@
 //! authorization decisions reference model capabilities, not
 //! implementation details.
 
-use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
+use axum::{
+    extract::{Request, State},
+    http::HeaderMap,
+    middleware::Next,
+    response::Response,
+};
 use sha3::{Digest, Sha3_256};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,6 +35,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::errors::ApiError;
+use crate::state::AppState;
 use crate::types::{ModelAccessFilter, ProfileInfo, ProfileRole};
 
 // -- Header Constants --
@@ -406,6 +412,7 @@ fn is_auth_exempt(path: &str) -> bool {
 /// is present, falls back to X-IM-Profile header parsing (for internal
 /// service-to-service calls only).
 pub async fn auth_middleware(
+    State(state): State<AppState>,
     headers: HeaderMap,
     mut request: Request,
     next: Next,
@@ -424,15 +431,8 @@ pub async fn auth_middleware(
         return Ok(next.run(request).await);
     }
 
-    // Get auth state from request extensions (injected by server.rs)
-    let auth_state = request
-        .extensions()
-        .get::<AuthState>()
-        .cloned()
-        .ok_or_else(|| {
-            warn!("AuthState not found in request extensions");
-            ApiError::InternalError
-        })?;
+    // Get auth state from AppState
+    let auth_state = state.auth.clone();
 
     // Try API key authentication first
     if let Some(token_value) = headers.get(AUTH_TOKEN_HEADER) {
