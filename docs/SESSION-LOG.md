@@ -240,6 +240,34 @@ Notes:
 - Zero null bytes, zero bracket imbalance, zero truncation across all files.
 ---
 
+### Maintenance: Adapter Contract Alignment (CI Fix)
+
+**Status:** Complete
+**Phase:** Maintenance (between Phase C and Phase D)
+**Depends On:** Sessions 08, 09, 10
+**Blocks:** None (unblocks CI green for all Python adapter tests)
+**Started:** 2026-05-19
+**Completed:** 2026-05-19
+
+Deliverables:
+- [x] adapters/base.py: `maybe_await()` utility for sync/async transparency, `_HealthyDescriptor` for dual-mode HealthStatus.healthy, `AdapterCapabilities` custom `__init__` for field aliases, `Embedding.__eq__` for list comparison, `GenerationParams.extra` + `.stop` property
+- [x] adapters/vllm/adapter.py: dual-mode generate(), `maybe_await` throughout, `_cfg` fallback in capabilities, embed() uses `client.embeddings` not private `_request`
+- [x] adapters/sglang/adapter.py: fixed `self._raw_config` -> `self._config`, HealthStatus factory methods, FinishReason enum conversion, removed non-existent GenerationResult fields
+- [x] adapters/tensorrt/adapter.py: dual-mode generate(), `maybe_await` throughout, `_cfg` fallback, `extra` dict in capabilities
+- [x] adapters/tgi/adapter.py: dual-mode generate(), `maybe_await` throughout, `_cfg` fallback, TGI-native response parsing
+- [x] adapters/llamacpp/adapter.py: dual-mode generate(), `maybe_await` throughout, `_cfg` fallback, OpenAI-format response parsing
+- [x] adapters/exllamav2/adapter.py: `maybe_await` in health_check/load_model/unload_model, optional config param on load_model, `extra` dict in capabilities
+- [x] Zero test files modified (all fixes in production code)
+- [x] 66/66 adapter tests passing (pytest 2.37s)
+
+Notes:
+- 28 test failures across 7 adapter test suites caused by contract drift between AdapterBase shared types, concrete adapters, and test expectations.
+- 5 systemic root causes: (1) initialize() signature drift, (2) generate() dual-mode contract, (3) AdapterCapabilities field name mismatches, (4) asyncio.to_thread incompatible with AsyncMock, (5) type/API drift in shared models.
+- All fixed centrally in base types + adapters; zero test modifications required.
+- Unused imports cleaned (ruff F401 compliance): removed `asyncio`, `time` from sglang; removed `UnsupportedOperationError` from vllm.
+
+---
+
 ## Phase D: System Code (Sessions 14-16)
 
 ### Session 14: Sleep Mode + Power State Machine
