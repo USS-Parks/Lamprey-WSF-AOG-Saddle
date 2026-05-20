@@ -11,7 +11,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::auth::check_permission;
@@ -24,6 +24,7 @@ use crate::types::{
 };
 
 use mai_core::scheduler::{InferenceRequest, RequestPayload, RequestPriority, RequestType};
+use mai_hil::traits::GenerationParams;
 
 // ─── Chat Completions ──────────────────────────────────────────────
 
@@ -89,10 +90,39 @@ pub async fn chat_completions(
         })?
     };
 
-    // In a full implementation, we would forward the request to the selected
-    // adapter and await the response. For now, we build a placeholder response
-    // that demonstrates the correct wire format. The actual adapter IPC bridge
-    // (Session 08) handles the subprocess communication.
+    // Resolve model alias to adapter name. The scheduler selection gives us
+    // the adapter_id (which matches the adapter name registered at boot).
+    let adapter_name = selection.adapter_id.clone();
+
+    // Build prompt from chat messages (concatenated for adapter consumption)
+    let prompt = build_chat_prompt(&req.messages);
+
+    // Build generation params from request
+    let gen_params = build_generation_params(&req);
+
+    // Route to the real adapter via AdapterManager
+    let tokens = {
+        let mgr = state.adapter_manager.lock().await;
+        mgr.generate(&adapter_name, prompt, gen_params)
+            .await
+            .map_err(|e| {
+                error!(error = %e, adapter = %adapter_name, "Adapter generate failed");
+                match e {
+                    mai_adapters::errors::FrameworkError::ProcessCrashed { .. } => {
+                        ApiError::AdapterCrashed(adapter_name.clone())
+                    }
+                    mai_adapters::errors::FrameworkError::ResponseTimeout { .. } => {
+                        ApiError::RequestTimeout
+                    }
+                    _ => ApiError::InternalError,
+                }
+            })?
+    };
+
+    // Collect generated text from tokens
+    let generated_text: String = tokens.iter().map(|t| t.text.as_str()).collect();
+    let completion_tokens = tokens.len() as u32;
+
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -107,15 +137,15 @@ pub async fn chat_completions(
             index: 0,
             message: ApiChatMessage {
                 role: "assistant".to_string(),
-                content: String::new(), // Populated by adapter response
+                content: generated_text,
                 name: None,
             },
             finish_reason: Some("stop".to_string()),
         }],
         usage: TokenUsage {
             prompt_tokens: inference_req.estimated_tokens,
-            completion_tokens: 0,
-            total_tokens: inference_req.estimated_tokens,
+            completion_tokens,
+            total_tokens: inference_req.estimated_tokens + completion_tokens,
         },
     };
 
@@ -129,6 +159,7 @@ pub async fn chat_completions(
         request_id = %request_id,
         model = %selection.model_id,
         profile = %profile.profile_id,
+        tokens = completion_tokens,
         "Chat completion served"
     );
 
@@ -195,13 +226,25 @@ pub async fn embeddings(
         })?
     };
 
-    // Placeholder response with correct wire format
-    let data: Vec<EmbeddingData> = texts
+    let adapter_name = selection.adapter_id.clone();
+
+    // Route to real adapter for embedding
+    let embeddings = {
+        let mgr = state.adapter_manager.lock().await;
+        mgr.embed(&adapter_name, texts.clone())
+            .await
+            .map_err(|e| {
+                error!(error = %e, adapter = %adapter_name, "Adapter embed failed");
+                ApiError::InternalError
+            })?
+    };
+
+    let data: Vec<EmbeddingData> = embeddings
         .iter()
         .enumerate()
-        .map(|(i, _)| EmbeddingData {
+        .map(|(i, emb)| EmbeddingData {
             object: "embedding".to_string(),
-            embedding: vec![], // Populated by adapter
+            embedding: emb.vector.clone(),
             index: i as u32,
         })
         .collect();
@@ -290,6 +333,23 @@ pub async fn structured_generation(
         })?
     };
 
+    let adapter_name = selection.adapter_id.clone();
+    let prompt = build_chat_prompt(&req.messages);
+    let gen_params = build_structured_gen_params(&req);
+
+    let tokens = {
+        let mgr = state.adapter_manager.lock().await;
+        mgr.generate(&adapter_name, prompt, gen_params)
+            .await
+            .map_err(|e| {
+                error!(error = %e, adapter = %adapter_name, "Adapter structured gen failed");
+                ApiError::InternalError
+            })?
+    };
+
+    let generated_text: String = tokens.iter().map(|t| t.text.as_str()).collect();
+    let completion_tokens = tokens.len() as u32;
+
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -304,15 +364,15 @@ pub async fn structured_generation(
             index: 0,
             message: ApiChatMessage {
                 role: "assistant".to_string(),
-                content: String::new(), // Populated by adapter with schema-constrained output
+                content: generated_text,
                 name: None,
             },
             finish_reason: Some("stop".to_string()),
         }],
         usage: TokenUsage {
             prompt_tokens: inference_req.estimated_tokens,
-            completion_tokens: 0,
-            total_tokens: inference_req.estimated_tokens,
+            completion_tokens,
+            total_tokens: inference_req.estimated_tokens + completion_tokens,
         },
     };
 
@@ -395,6 +455,42 @@ pub async fn function_call(
         })?
     };
 
+    let adapter_name = selection.adapter_id.clone();
+
+    // Build prompt with tool definitions injected as system context
+    let mut prompt = String::from("Available tools:\n");
+    for tool in &req.tools {
+        prompt.push_str(&format!(
+            "- {} ({}): {}\n",
+            tool.function.name,
+            tool.tool_type,
+            tool.function.description.as_deref().unwrap_or(""),
+        ));
+    }
+    prompt.push('\n');
+    prompt.push_str(&build_chat_prompt(&req.messages));
+
+    let gen_params = GenerationParams {
+        temperature: 0.0,
+        top_p: 1.0,
+        max_tokens: 4096,
+        stop_sequences: Vec::new(),
+        structured_schema: None,
+    };
+
+    let tokens = {
+        let mgr = state.adapter_manager.lock().await;
+        mgr.generate(&adapter_name, prompt, gen_params)
+            .await
+            .map_err(|e| {
+                error!(error = %e, adapter = %adapter_name, "Adapter function_call gen failed");
+                ApiError::InternalError
+            })?
+    };
+
+    let generated_text: String = tokens.iter().map(|t| t.text.as_str()).collect();
+    let completion_tokens = tokens.len() as u32;
+
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -409,15 +505,15 @@ pub async fn function_call(
             index: 0,
             message: ApiChatMessage {
                 role: "assistant".to_string(),
-                content: String::new(), // Populated by adapter with tool_calls
+                content: generated_text,
                 name: None,
             },
             finish_reason: Some("tool_calls".to_string()),
         }],
         usage: TokenUsage {
             prompt_tokens: inference_req.estimated_tokens,
-            completion_tokens: 0,
-            total_tokens: inference_req.estimated_tokens,
+            completion_tokens,
+            total_tokens: inference_req.estimated_tokens + completion_tokens,
         },
     };
 
@@ -427,6 +523,45 @@ pub async fn function_call(
     }
 
     Ok(Json(response).into_response())
+}
+
+// ─── Prompt / Param Builders ──────────────────────────────────────
+
+/// Build a single prompt string from chat messages for adapter consumption.
+/// Uses a simple role-tagged format that adapters can parse or pass through.
+fn build_chat_prompt(messages: &[ApiChatMessage]) -> String {
+    let mut prompt = String::new();
+    for msg in messages {
+        prompt.push_str(&msg.role);
+        prompt.push_str(": ");
+        prompt.push_str(&msg.content);
+        prompt.push('\n');
+    }
+    prompt
+}
+
+/// Map ChatCompletionRequest params into the HIL GenerationParams struct.
+fn build_generation_params(req: &ChatCompletionRequest) -> GenerationParams {
+    GenerationParams {
+        temperature: req.temperature.unwrap_or(0.7),
+        top_p: req.top_p.unwrap_or(1.0),
+        max_tokens: req.max_tokens.map(|v| v as usize).unwrap_or(2048),
+        stop_sequences: req.stop.clone().unwrap_or_default(),
+        structured_schema: None,
+    }
+}
+
+/// Build GenerationParams with a JSON schema constraint for structured output.
+fn build_structured_gen_params(
+    req: &StructuredGenerationRequest,
+) -> GenerationParams {
+    GenerationParams {
+        temperature: req.temperature.unwrap_or(0.0),
+        top_p: 1.0,
+        max_tokens: req.max_tokens.map(|v| v as usize).unwrap_or(4096),
+        stop_sequences: Vec::new(),
+        structured_schema: req.response_format.json_schema.clone(),
+    }
 }
 
 // ─── Validation Helpers ────────────────────────────────────────────

@@ -1,0 +1,33 @@
+# MAI Adapter Configuration - Development Defaults
+#
+# This file defines which adapters to start on boot and how to
+# map user-facing model aliases to backend adapter+model pairs.
+#
+# Production configurations are generated from the product tier
+# TOML files (scout.toml, ranger.toml, pack-leader.toml).
+
+[adapter_framework]
+adapters_dir = "adapters"
+python_path = "python3"
+runner_script = "adapters/runner.py"
+heartbeat_interval_ms = 5000
+missed_heartbeat_threshold = 3
+max_restart_attempts = 10
+request_timeout_ms = 30000
+
+# Ollama adapter - default for development
+[adapters.ollama]
+enabled = true
+host = "127.0.0.1"
+port = 11434
+gpu_ids = [0]
+max_concurrent = 4
+models = ["llama3", "nomic-embed-text"]
+
+# Model alias map: user-facing name -> [adapter, backend_model]
+# These are the names clients use in the "model" field of API requests.
+[model_aliases]
+"lamprey/fast" = { adapter = "ollama", model = "llama3" }
+"lamprey/embed" = { adapter = "ollama", model = "nomic-embed-text" }
+"llama3" = { adapter = "ollama", model = "llama3" }
+"nomic-embed-text" = { adapter = "ollama", model = "nomic-embed-text" }

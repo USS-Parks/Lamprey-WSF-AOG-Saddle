@@ -53,6 +53,8 @@ pub enum ApiError {
     HardwareFault,
     /// MAI-3004: Service unavailable (shutting down or starting up)
     ServiceUnavailable,
+    /// MAI-3005: Adapter process crashed during inference
+    AdapterCrashed(String),
 
     // ─── MAI-4XXX: Auth Errors ──────────────────────────────────
     /// MAI-4001: Permission denied for this profile role
@@ -88,6 +90,7 @@ impl ApiError {
             Self::InternalError => "MAI-3002",
             Self::HardwareFault => "MAI-3003",
             Self::ServiceUnavailable => "MAI-3004",
+            Self::AdapterCrashed(_) => "MAI-3005",
             Self::PermissionDenied(_) => "MAI-4001",
             Self::Unauthorized => "MAI-4002",
             Self::ProfileNotFound(_) => "MAI-4003",
@@ -113,6 +116,7 @@ impl ApiError {
             Self::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
             Self::HardwareFault => StatusCode::INTERNAL_SERVER_ERROR,
             Self::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
+            Self::AdapterCrashed(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::PermissionDenied(_) => StatusCode::FORBIDDEN,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::ProfileNotFound(_) => StatusCode::UNAUTHORIZED,
@@ -137,7 +141,8 @@ impl ApiError {
             Self::SystemOverloaded
             | Self::InternalError
             | Self::HardwareFault
-            | Self::ServiceUnavailable => "system_error",
+            | Self::ServiceUnavailable
+            | Self::AdapterCrashed(_) => "system_error",
             Self::PermissionDenied(_)
             | Self::Unauthorized
             | Self::ProfileNotFound(_)
@@ -165,6 +170,9 @@ impl ApiError {
             Self::InternalError => "An internal error occurred".to_string(),
             Self::HardwareFault => "A hardware fault was detected".to_string(),
             Self::ServiceUnavailable => "Service is temporarily unavailable".to_string(),
+            Self::AdapterCrashed(_) => {
+                "Adapter process crashed, request failed".to_string()
+            }
             Self::PermissionDenied(detail) => format!("Permission denied: {detail}"),
             Self::Unauthorized => "Authentication required".to_string(),
             Self::ProfileNotFound(_) => "Profile not found".to_string(),

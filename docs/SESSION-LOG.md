@@ -665,3 +665,36 @@ All 6 files rewritten from scratch against verified APIs. v2 files verified: zer
 **Files Created:** IPC-PROTOCOL.md, test_ipc_protocol.py
 
 **Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally (no Rust toolchain in Cowork sandbox). Run `pytest adapters/tests/` to confirm all 67 tests pass.
+
+---
+
+### Session 14b: Real Inference Path - End-to-End Wiring (2026-05-19)
+
+**Objective:** Wire the complete inference path so HTTP requests produce real tokens from real model adapters, replacing all placeholder/synthetic content.
+
+**Deliverables:**
+1. **AdapterManager startup in server.rs** - Loads `config/adapters.toml`, creates AdapterManager with FrameworkConfig, discovers and starts enabled adapters, registers each with the Scheduler, shuts down cleanly in Step 7
+2. **Real adapter calls in inference.rs** - chat_completions calls `mgr.generate()`, embeddings calls `mgr.embed()`, structured_generation calls `mgr.generate()` with schema params, function_call calls `mgr.generate()` with tool context. Zero placeholder content remains
+3. **Helper functions** - `build_chat_prompt()`: role-tagged concatenation. `build_generation_params()`: maps Option<f32>/Option<u32> to GenerationParams (f32/usize). `build_structured_gen_params()`: schema-constrained generation params
+4. **Model alias resolution** - `model_aliases` field in AppState (HashMap<String, (String, String)>). Loaded from `[model_aliases]` section of adapters.toml. Scheduler routes via registered adapter_id
+5. **SSE streaming real token integration** - Replaced placeholder token producer with `generate_stream_channel()` call. New method on AdapterManager returns (request_id, mpsc::Receiver<IpcEvent>). Producer task reads IPC events, maps Token/Done/Error to TokenEvents
+6. **config/adapters.toml** - Development defaults: Ollama adapter on 127.0.0.1:11434, models llama3 + nomic-embed-text, aliases lamprey/fast and lamprey/embed
+7. **errors.rs AdapterCrashed** - MAI-3005 variant with 503 status, system_error type, backend-opaque message. Added to all 4 match arms
+8. **Integration test updates** - http_integration.rs, grpc_integration.rs, streaming_integration.rs: all updated to pass adapter_manager (Arc<Mutex<AdapterManager>>) and model_aliases (HashMap) to AppState::new()
+9. **e2e_inference.sh** - 5-section test script: chat completion, embeddings, SSE streaming, alias resolution, error handling. Validates non-empty content, correct HTTP codes, MAI error codes, no backend name leakage
+10. **generate_stream_channel() on AdapterManager** - New public method combining generate_stream() + take_ipc_event_rx() into single call. Returns (String, mpsc::Receiver<IpcEvent>) for external streaming consumers
+
+**Audit Notes:**
+- Double audit pass completed (cross-reference + file integrity)
+- File integrity verification subagent: all 8 modified files PASS (correct line counts, clean termination, no null bytes)
+- GenerationParams field types verified: f32 (not Option) for temperature/top_p, usize (not Option) for max_tokens
+- Embedding.vector field name verified (not .values)
+- FrameworkError variants verified: ProcessCrashed{name, exit_code}, ResponseTimeout{name, timeout_ms}
+- AdapterCrashed exhaustiveness verified across code(), status(), error_type(), safe_message()
+- All 3 integration test files updated with new AppState constructor args
+- Sandbox disk full during session: all edits done via Edit tool (no bash available)
+
+**Files Modified:** server.rs, inference.rs, sse.rs, errors.rs, state.rs, manager.rs, http_integration.rs, grpc_integration.rs, streaming_integration.rs
+**Files Created:** config/adapters.toml, tests/e2e_inference.sh
+
+**Remaining:** Run `cargo check --workspace` and `cargo clippy --workspace` locally. Run `tests/e2e_inference.sh` against a running server with Ollama. Verify streaming latency <100ms inter-token.

@@ -5,12 +5,13 @@
 //! All components are thread-safe (Arc + Mutex/RwLock internally).
 
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::audit::AuditWriter;
 use crate::auth::AuthState;
 use crate::config::ServerConfig;
 
+use mai_adapters::manager::AdapterManager;
 use mai_core::health::HealthMonitor;
 use mai_core::hotswap::HotSwapManager;
 use mai_core::power::PowerStateMachine;
@@ -39,6 +40,10 @@ pub struct AppState {
     pub config: Arc<RwLock<ServerConfig>>,
     /// Authentication state (token validator)
     pub auth: AuthState,
+    /// Adapter manager: spawns and manages Python adapter subprocesses
+    pub adapter_manager: Arc<Mutex<AdapterManager>>,
+    /// Model alias map: maps user-facing model names to (adapter_name, backend_model)
+    pub model_aliases: Arc<RwLock<std::collections::HashMap<String, (String, String)>>>,
 }
 
 impl AppState {
@@ -56,6 +61,8 @@ impl AppState {
         audit_writer: Arc<dyn AuditWriter>,
         config: Arc<RwLock<ServerConfig>>,
         auth: AuthState,
+        adapter_manager: Arc<Mutex<AdapterManager>>,
+        model_aliases: std::collections::HashMap<String, (String, String)>,
     ) -> Self {
         Self {
             scheduler,
@@ -66,6 +73,8 @@ impl AppState {
             audit_writer,
             config,
             auth,
+            adapter_manager,
+            model_aliases: Arc::new(RwLock::new(model_aliases)),
         }
     }
 }

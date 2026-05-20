@@ -8,8 +8,9 @@
 //! - Health endpoint aggregation
 //! - Model listing with profile filtering
 
+use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -27,6 +28,9 @@ use mai_core::power::{PowerConfig, PowerStateMachine};
 use mai_core::registry::ModelRegistry;
 use mai_core::scheduler::{Scheduler, SchedulerConfig};
 use mai_core::vault::VaultInterface;
+
+use mai_adapters::config::FrameworkConfig;
+use mai_adapters::manager::AdapterManager;
 
 // -- Test Vault Stub -------------------------------------------------------
 
@@ -83,6 +87,10 @@ fn build_test_state() -> AppState {
     let config = Arc::new(RwLock::new(ServerConfig::default()));
     let auth = AuthState::local_trust();
 
+    let adapter_manager = AdapterManager::new(FrameworkConfig::default());
+    let adapter_manager = Arc::new(Mutex::new(adapter_manager));
+    let model_aliases = HashMap::new();
+
     AppState::new(
         scheduler,
         registry,
@@ -92,6 +100,8 @@ fn build_test_state() -> AppState {
         audit_writer,
         config,
         auth,
+        adapter_manager,
+        model_aliases,
     )
 }
 

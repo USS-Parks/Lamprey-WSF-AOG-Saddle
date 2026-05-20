@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded 18 to 35 sessions)
-**Status:** Phase A+B+C complete. Session 14a complete. Next: Session 14b (Adapter Manager Full Migration to NDJSON).
+**Status:** Phase A+B+C complete. Sessions 14a+14b complete. Next: Session 14c (remaining NDJSON migration: generate_batch, health_check, heartbeat_cycle).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -44,7 +44,9 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 **Agent/RAG Interface (Session 13, 2026-05-18):** New `mai-agent` crate (8 source files + 3 integration test files, ~5434 lines total). Context management with 4 truncation strategies (OldestFirst, MiddleOut, RelevanceScored, HardCutoff). Tool registry with OpenAI-compatible function format, multi-step chain tracking, role-based access control. RAG pipeline with batch embedding, cosine similarity semantic cache, profile-isolated retrieval. STT manager with PCM silence detection, audio buffering, Whisper large-v3 default. Agentic task manager with per-profile concurrency limits, resource budgets (tokens, tool calls, duration), submit/poll/cancel lifecycle. 61 unit tests + 16 integration tests. All types reference real mai-core exports.
 
-**Immediate next step:** Execute **Session 14b** (Adapter Manager Full Migration to NDJSON). Session 14a delivered the IPC protocol spec, bridge types, handshake flow, and streaming inference over NDJSON. Session 14b migrates the remaining legacy JSON-RPC methods (generate_batch, embed, health_check, heartbeat_cycle) to NDJSON. The wiring sprint (14a-14c) must complete before any new feature work. After 14c, the scheduler track (15-21, 32-33), security track (26-28), and application track (29-31) can run in parallel.
+**Session 14b complete (2026-05-19):** Real inference path wired end-to-end. HTTP requests now produce real tokens from real adapters. AdapterManager starts at boot from config/adapters.toml, registers with Scheduler, and shuts down cleanly. All 4 inference handlers (chat, embeddings, structured, function_call) call real adapter methods. SSE streaming reads from IPC event channel via new generate_stream_channel() method. Model alias resolution maps user-facing names to adapter+model pairs. Zero placeholder content remains. AdapterCrashed (MAI-3005) error variant added. All 3 integration test suites updated. e2e_inference.sh verification script created.
+
+**Immediate next step:** Execute **Session 14c** (remaining NDJSON migration). Session 14c migrates the remaining legacy methods (generate_batch, health_check, heartbeat_cycle) to NDJSON and completes the wiring sprint. After 14c, the scheduler track (15-21, 32-33), security track (26-28), and application track (29-31) can run in parallel.
 
 ---
 

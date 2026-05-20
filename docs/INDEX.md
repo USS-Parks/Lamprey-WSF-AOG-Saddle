@@ -142,5 +142,7 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | Tool calling integration | `mai-agent/tests/tool_calling_test.rs` | Chain round-trip, role access, parallel calls, step limits, model format (5 tests) | 13 |
 | Task lifecycle integration | `mai-agent/tests/task_lifecycle_test.rs` | Full lifecycle, concurrency, budget exhaustion, cancel/fail, audit trail (7 tests) | 13 |
 | IPC protocol tests | `adapters/tests/test_ipc_protocol.py` | NDJSON wire format contract verification (26 tests across 7 classes) | 14a |
+| Adapter boot config | `mai-api/config/adapters.toml` | Development adapter defaults (Ollama), model alias map | 14b |
+| E2E inference tests | `mai-api/tests/e2e_inference.sh` | Curl-based verification: chat, embed, SSE, aliases, errors | 14b |
 | Security tests | tests/integration/ | PQC integrity, tamper detection, sandbox enforcement | 17 |
 | Scenario 

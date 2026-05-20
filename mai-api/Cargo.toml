@@ -42,6 +42,7 @@ notify = { version = "7", features = ["macos_kqueue"] }
 
 mai-core = { path = "../mai-core" }
 mai-hil = { path = "../mai-hil" }
+mai-adapters = { path = "../mai-adapters" }
 
 # gRPC reflection for grpcurl/grpcui discovery
 tonic-reflection = "0.12"
