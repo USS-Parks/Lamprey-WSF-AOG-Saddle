@@ -344,10 +344,13 @@ mod tests {
             .register_instance(make_instance("vllm:0", "llama3-8b", "vllm"))
             .unwrap();
 
-        // Load up ollama:0
+        // Directly load up ollama:0 via the registry so we control which
+        // instance carries the load (schedule() would distribute across both).
+        let ollama_id = InstanceId::new("ollama:0");
         for _ in 0..5 {
-            let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
-            sched.schedule(&req).unwrap();
+            sched
+                .registry
+                .record_request_start(&ollama_id, SequenceId::new());
         }
 
         // Next request should go to vllm:0 (less loaded)
