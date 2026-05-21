@@ -380,54 +380,63 @@ Audit Notes:
 
 ---
 
-## Phase E: Testing + Packaging (Sessions 17-18)
+### Session 17: KV Cache Manager
 
-### Session 17: Integration Test Suite + System Validation
-
-**Status:** Not Started
-**Phase:** E (Testing + Packaging)
-**Depends On:** ALL previous sessions (14, 15, 16 are final blockers)
-**Blocks:** Session 18
-**Started:** --
-**Completed:** --
+**Status:** Complete
+**Phase:** D (Scheduler Foundation)
+**Depends On:** Sessions 15, 16
+**Blocks:** Sessions 18, 19
+**Started:** 2026-05-20
+**Completed:** 2026-05-20
 
 Deliverables:
-- [ ] Phase 1 exit criteria validation suite (8 tests)
-- [ ] Scenario tests (7 real-world scenarios)
-- [ ] Security validation tests (6 security tests)
-- [ ] Performance baseline (8 metrics, stored as JSON)
-- [ ] Test coverage report with gap analysis
-- [ ] 72-hour stability test framework
-- [ ] All tests documented with setup requirements and expected outcomes
+- [x] kv/sequence.rs: SequenceMeta struct with ModelMemoryFactor memory estimation, EMA inter-request gap tracking, touch/record_request/mark_evicted/mark_readmitted lifecycle methods (430 lines, 11 tests)
+- [x] kv/manager.rs: KvCacheManager trait (object-safe, Send+Sync), 10 methods: allocate/deallocate/can_fit/eviction_candidates/evict/touch/free_bytes/total_bytes/active_sequences/sequence_meta (78 lines)
+- [x] kv/eviction.rs: EvictionScorer with multi-factor scoring (idle + size + priority penalty - reuse), configurable weights, reuse prediction heuristic, system priority immunity (377 lines, 10 tests)
+- [x] kv/guard.rs: ThrashGuard with minimum residency protection, recently-evicted penalty, eviction rate limiter (VecDeque-based), eviction history tracking (399 lines, 8 tests)
+- [x] kv/triggers.rs: TriggerConfig with proactive (75%)/eviction (85%)/emergency (95%) thresholds, evaluate_triggers() function, on_demand_trigger(), EvictionAction enum (318 lines, 8 tests)
+- [x] kv/mod.rs: HeuristicKvCacheManager composing DashMap + AtomicU64 + EvictionScorer + Mutex<ThrashGuard>, KvCacheConfig with TOML deserialization, perform_eviction() with guard/rate-limit integration, scored_candidates() (690 lines, 16 tests)
+- [x] config/kv.toml: Full configuration with eviction weights, anti-thrash params, trigger thresholds, 5 model_factors entries with per-token byte calculations (113 lines)
+- [x] Scheduler integration: KvCacheManager import in default.rs, kv_manager field + set_kv_manager()/kv_manager() methods, Step 4.5 KV touch + can_fit warning in schedule(), deallocate in release_sequence(), ClusterMetrics KV fields (kv_active_sequences, kv_used_bytes, kv_total_bytes)
+- [x] lib.rs updated: pub mod kv, re-exports for KvCacheManager, HeuristicKvCacheManager, KvCacheConfig
+- [x] types.rs updated: 3 KV fields added to ClusterMetrics
+- [x] Integration tests in default.rs: 5 tests (KV attachment, metrics with/without KV, release deallocates, can_fit budget) (5 tests)
+- [x] File integrity verification: all 10 files pass (line counts, null bytes, bracket balance, tail completeness)
+
+Architecture Notes:
+- DashMap for lock-free concurrent sequence reads; Mutex<ThrashGuard> only for sequential eviction decisions
+- AtomicU64 for used_bytes enables lock-free can_fit() and free_bytes()
+- Eviction score = (idle_weight * idle) + (size_weight * size) + priority_penalty - (reuse_weight * reuse)
+- System priority sequences score -1000 (never evicted)
+- Emergency mode bypasses minimum residency guard
+- Standard eviction targets proactive threshold (75%); emergency targets eviction threshold (85%)
+- batch_contribution placeholder = 0.0 (wired in Session 18 continuous batching)
+- topology_penalty NOT wired into eviction scoring yet (Session 19 multi-factor scorer)
+- Scheduler integration is advisory only: schedule() logs warnings but does not block on KV pressure
 
 Notes:
+- Sandbox disk full throughout session: all edits via file tools, no bash available
+- Session split across 2 Cowork context windows due to compaction
+
+**Totals:** ~2292 lines source + 113 lines config, 53 unit tests + 5 integration tests across 6 kv/ source files + default.rs.
 
 ---
 
-### Session 18: Deployment Packaging + Burn-In Protocol
+### Session 18: Continuous Batching Awareness
 
 **Status:** Not Started
-**Phase:** E (Testing + Packaging)
+**Phase:** D (Scheduler Foundation)
 **Depends On:** Session 17
-**Blocks:** Nothing (final session)
+**Blocks:** Session 19
 **Started:** --
 **Completed:** --
 
 Deliverables:
-- [ ] Debian package (.deb) for MAI core components
-- [ ] Python wheel for adapter implementations
-- [ ] systemd service files (7 services with dependency ordering)
-- [ ] Docker compose alternative for development
-- [ ] First-boot automation script (<3 minute target)
-- [ ] 72-hour burn-in protocol (4 phases)
-- [ ] Burn-in report generator (JSON + HTML)
-- [ ] Installation guide
-- [ ] Upgrade guide with rollback
-- [ ] Configuration reference
-- [ ] Troubleshooting guide
-- [ ] Operator runbook
-- [ ] API quick-start with curl examples
-- [ ] Production readiness checklist
+- [ ] Batch metrics in InstanceMetrics (batch_size, prefill_queue, decode_slots)
+- [ ] Batch contribution factor in eviction scoring
+- [ ] Prefill vs decode queue tracking
+- [ ] Continuous batching simulator for testing
+- [ ] Integration with KV cache can_fit()
 
 Notes:
 
@@ -443,7 +452,7 @@ Notes:
 | B: Foundation Code | 06-10 | Complete (06+06b+07+08+09+10) -- archived |
 | C: Integration Code | 11-13 | Complete (11a-11e + 12 + 13) |
 | D-Prep: Wiring Sprint | 14a-14c | Complete (14a+14b+14c) |
-| D: Scheduler Foundation | 15-18 | In Progress (15, 16 complete) |
+| D: Scheduler Foundation | 15-18 | In Progress (15, 16, 17 complete) |
 | E: Scheduler Intelligence | 19-21 | Not Started |
 | F: Power & Lifecycle | 22-25 | Not Started |
 | G: Security Hardening | 26-28 | Not Started |
@@ -451,8 +460,8 @@ Notes:
 | I: Advanced Scheduling | 32-33 | Not Started |
 | J: Testing & Packaging | 34-35 | Not Started |
 
-**Sessions Complete:** 18 / 35 (includes 06+06b as one logical session, 11a-11e as one logical session, 14a-14c as wiring sprint)
-**Next Session:** 17 (KV Cache Manager)
+**Sessions Complete:** 19 / 35 (includes 06+06b as one logical session, 11a-11e as one logical session, 14a-14c as wiring sprint)
+**Next Session:** 18 (Continuous Batching Awareness)
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---

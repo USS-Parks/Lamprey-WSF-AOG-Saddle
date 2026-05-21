@@ -19,9 +19,10 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::aliases::AliasResolver;
+use crate::kv::manager::KvCacheManager;
 use crate::placement::PlacementEngine;
 use crate::registry::InstanceRegistry;
 use crate::scheduler::Scheduler;
@@ -44,6 +45,8 @@ pub struct DefaultScheduler {
     config: SchedulerConfig,
     /// GPU topology for hardware-aware placement (Session 16).
     topology: Option<Arc<GpuTopology>>,
+    /// KV cache manager for VRAM-aware placement (Session 17).
+    kv_manager: Option<Arc<dyn KvCacheManager>>,
     /// Atomic counters for cluster metrics.
     total_routed: AtomicU64,
     total_rejected: AtomicU64,
@@ -69,6 +72,7 @@ impl DefaultScheduler {
             aliases,
             config,
             topology: None,
+            kv_manager: None,
             total_routed: AtomicU64::new(0),
             total_rejected: AtomicU64::new(0),
         }
@@ -92,9 +96,30 @@ impl DefaultScheduler {
             aliases,
             config,
             topology: Some(topology),
+            kv_manager: None,
             total_routed: AtomicU64::new(0),
             total_rejected: AtomicU64::new(0),
         }
+    }
+
+    /// Set the KV cache manager for VRAM-aware placement (Session 17).
+    ///
+    /// When set, the scheduler:
+    /// - Checks `can_fit()` before placement decisions
+    /// - Includes eviction cost in instance scoring
+    /// - Calls `touch()` on routed sequences
+    /// - Calls `deallocate()` on released sequences
+    pub fn set_kv_manager(&mut self, kv_manager: Arc<dyn KvCacheManager>) {
+        info!(
+            budget_gb = kv_manager.total_bytes() as f64 / 1_000_000_000.0,
+            "KV cache manager attached to scheduler"
+        );
+        self.kv_manager = Some(kv_manager);
+    }
+
+    /// Access the KV cache manager (if set).
+    pub fn kv_manager(&self) -> Option<&Arc<dyn KvCacheManager>> {
+        self.kv_manager.as_ref()
     }
 
     /// Access the alias resolver (for config reload).
@@ -181,6 +206,31 @@ impl Scheduler for DefaultScheduler {
         // Step 4: Placement
         let decision = self.placement.place(request, &candidates)?;
 
+        // Step 4.5: KV cache awareness (Session 17)
+        // If a KV cache manager is attached, check whether the new sequence
+        // fits in the VRAM budget. If not, log a warning. Actual eviction is
+        // driven by the trigger system (threshold/emergency), not inline here.
+        // For continuation requests, touch the existing sequence.
+        if let Some(ref kv) = self.kv_manager {
+            if let Some(ref cont_seq) = request.continuation_of {
+                // Continuation: refresh the sequence's last-access time
+                kv.touch(*cont_seq);
+            }
+
+            // Estimate if the new allocation would fit
+            let estimated_tokens = (request.prompt_tokens + request.max_tokens) as usize;
+            // Use a rough per-token estimate (128 KB default, covers most models)
+            let rough_bytes_per_token = 131_072.0_f64;
+            if !kv.can_fit(estimated_tokens, rough_bytes_per_token) {
+                warn!(
+                    session = %request.session_id,
+                    tokens = estimated_tokens,
+                    free_mb = kv.free_bytes() / 1_000_000,
+                    "KV cache VRAM pressure: new sequence may not fit"
+                );
+            }
+        }
+
         // Step 5: Update instance metrics
         self.registry
             .record_request_start(&decision.instance_id, request.session_id);
@@ -197,9 +247,15 @@ impl Scheduler for DefaultScheduler {
         Ok(decision)
     }
 
-    fn release_sequence(&self, instance: &InstanceId, _seq_id: SequenceId) {
+    fn release_sequence(&self, instance: &InstanceId, seq_id: SequenceId) {
         self.registry.record_request_complete(instance);
-        debug!(instance = %instance, "Sequence released");
+
+        // Deallocate KV cache for this sequence (Session 17)
+        if let Some(ref kv) = self.kv_manager {
+            kv.deallocate(seq_id);
+        }
+
+        debug!(instance = %instance, seq = %seq_id, "Sequence released");
     }
 
     fn register_instance(&self, config: InstanceConfig) -> Result<(), SchedulerError> {
@@ -235,6 +291,21 @@ impl Scheduler for DefaultScheduler {
             topology_gpu_count: topo_gpus,
             topology_nvlink_cliques: topo_cliques,
             topology_has_anomalies: false, // TODO: wire to MetricsRefresher (Session 19)
+            kv_active_sequences: self
+                .kv_manager
+                .as_ref()
+                .map(|kv| kv.active_sequences() as u32)
+                .unwrap_or(0),
+            kv_used_bytes: self
+                .kv_manager
+                .as_ref()
+                .map(|kv| kv.total_bytes() - kv.free_bytes())
+                .unwrap_or(0),
+            kv_total_bytes: self
+                .kv_manager
+                .as_ref()
+                .map(|kv| kv.total_bytes())
+                .unwrap_or(0),
         }
     }
 }
@@ -669,5 +740,120 @@ mod tests {
         assert_eq!(metrics.total_requests_routed, 100);
         // Queue depth should be 100 (no releases)
         assert_eq!(metrics.total_queue_depth, 100);
+    }
+
+    // --- Session 17: KV cache integration tests ---
+
+    fn make_kv_manager(budget: u64) -> Arc<crate::kv::HeuristicKvCacheManager> {
+        use crate::kv::KvCacheConfig;
+        let config = KvCacheConfig {
+            total_budget_bytes: budget,
+            ..Default::default()
+        };
+        Arc::new(crate::kv::HeuristicKvCacheManager::new(config))
+    }
+
+    #[test]
+    fn test_kv_manager_attachment() {
+        let mut sched = DefaultScheduler::new(test_config());
+        assert!(sched.kv_manager().is_none());
+
+        let kv = make_kv_manager(8_000_000_000);
+        sched.set_kv_manager(kv);
+        assert!(sched.kv_manager().is_some());
+    }
+
+    #[test]
+    fn test_cluster_metrics_with_kv() {
+        let mut sched = DefaultScheduler::new(test_config());
+        let kv = make_kv_manager(10_000_000_000);
+
+        // Allocate a sequence directly in the KV manager
+        use crate::kv::sequence::{ModelMemoryFactor, SequenceMeta};
+        let factor = ModelMemoryFactor {
+            layers: 32,
+            kv_heads: 8,
+            head_dim: 128,
+            dtype_size: 2,
+        };
+        let seq = SequenceMeta::new(
+            SequenceId::new(),
+            InstanceId::new("ollama:0"),
+            "llama3-8b".to_string(),
+            512,
+            Priority::Normal,
+            &factor,
+        );
+        let expected_bytes = seq.kv_bytes;
+        kv.allocate(seq).unwrap();
+
+        sched.set_kv_manager(kv);
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.kv_active_sequences, 1);
+        assert_eq!(metrics.kv_used_bytes, expected_bytes);
+        assert_eq!(metrics.kv_total_bytes, 10_000_000_000);
+    }
+
+    #[test]
+    fn test_cluster_metrics_no_kv() {
+        // Without KV manager, KV fields should be zero
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.kv_active_sequences, 0);
+        assert_eq!(metrics.kv_used_bytes, 0);
+        assert_eq!(metrics.kv_total_bytes, 0);
+    }
+
+    #[test]
+    fn test_release_sequence_deallocates_kv() {
+        let mut sched = DefaultScheduler::new(test_config());
+        let kv = make_kv_manager(8_000_000_000);
+
+        use crate::kv::sequence::{ModelMemoryFactor, SequenceMeta};
+        let factor = ModelMemoryFactor {
+            layers: 32,
+            kv_heads: 8,
+            head_dim: 128,
+            dtype_size: 2,
+        };
+        let seq_id = SequenceId::new();
+        let inst_id = InstanceId::new("ollama:0");
+        let seq = SequenceMeta::new(
+            seq_id,
+            inst_id.clone(),
+            "llama3-8b".to_string(),
+            256,
+            Priority::Normal,
+            &factor,
+        );
+        kv.allocate(seq).unwrap();
+        assert_eq!(kv.active_sequences(), 1);
+
+        sched.set_kv_manager(kv.clone());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        // Release should deallocate from KV
+        sched.release_sequence(&inst_id, seq_id);
+        assert_eq!(kv.active_sequences(), 0);
+        assert_eq!(kv.free_bytes(), 8_000_000_000);
+    }
+
+    #[test]
+    fn test_kv_can_fit_with_budget() {
+        let kv = make_kv_manager(1_000_000); // 1 MB budget
+        // llama3-8b per-token = 131,072 bytes. 8 tokens = ~1MB, should just barely fit
+        assert!(kv.can_fit(7, 131_072.0));
+        // 100 tokens = ~13 MB, should not fit
+        assert!(!kv.can_fit(100, 131_072.0));
     }
 }

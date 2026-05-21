@@ -28,6 +28,7 @@
 
 pub mod aliases;
 pub mod default;
+pub mod kv;
 pub mod placement;
 pub mod registry;
 pub mod scheduler;
@@ -36,6 +37,8 @@ pub mod types;
 
 // Re-exports for convenience
 pub use default::DefaultScheduler;
+pub use kv::manager::KvCacheManager;
+pub use kv::{HeuristicKvCacheManager, KvCacheConfig};
 pub use scheduler::Scheduler;
 pub use topology::{GpuTopology, TopologyConfig, TopologyError};
 pub use types::{

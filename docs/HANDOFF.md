@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded 18 to 35 sessions)
-**Status:** Phase A+B+C+D-Prep complete. Sessions 15-16 (Scheduler Core + GPU Topology) complete. Next: Session 17 (KV Cache Manager).
+**Status:** Phase A+B+C+D-Prep complete. Sessions 15-17 (Scheduler Core + GPU Topology + KV Cache Manager) complete. Next: Session 18 (Continuous Batching Awareness).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -52,7 +52,9 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 **GPU Topology (Session 16, 2026-05-20):** Topology discovery module added to mai-scheduler (5 source files, ~2018 lines, 41 unit tests + 18 integration tests). Parses nvidia-smi topo -m output into weighted GPU interconnect graph with NVLink/PCIe/CPU-bridge/cross-socket edge costs. Precomputes best GPU pairs/quads, NVLink cliques (Bron-Kerbosch), Floyd-Warshall path cost matrix, CPU affinity groups. PlacementEngine gains topology_penalty() method for hardware-aware scoring. Configurable link weights via config/topology.toml. Periodic metrics refresh with anomaly detection (thermal throttle, VRAM exhaustion, stuck utilization). topology_penalty NOT wired into default scorer yet (Session 19 integrates multi-factor scoring). Fixture files for 1/2/4/8-GPU topologies with full integration test suite.
 
-**Immediate next step:** Execute **Session 17** (KV Cache Manager). Sessions 15 (Scheduler Core) and 16 (GPU Topology) are complete. The scheduler track (15-21, 32-33) is the critical path. Security track (26-28) and application track (29-31) can now run in parallel.
+**KV Cache Manager (Session 17, 2026-05-20):** KV cache management subsystem added to mai-scheduler (6 source files in kv/ module, ~2292 lines, 53 unit tests + 5 integration tests). KvCacheManager trait (object-safe, Send+Sync) with HeuristicKvCacheManager concrete implementation. DashMap for lock-free sequence reads, AtomicU64 for used_bytes, Mutex<ThrashGuard> only for sequential eviction decisions. Multi-factor eviction scoring: idle time + size + priority penalty - reuse prediction. System priority sequences immune (score -1000). Anti-thrashing: minimum residency (30s), recently-evicted penalty (-100), rate limiter (10/sec). Three-tier triggers: proactive (75%, prepare candidates), standard (85%, evict with guards), emergency (95%, bypass residency). Scheduler integration: kv_manager field on DefaultScheduler, can_fit() advisory check in schedule(), deallocate on release_sequence(), ClusterMetrics gains kv_active_sequences/kv_used_bytes/kv_total_bytes. Config via config/kv.toml with 5 model memory factor entries. batch_contribution placeholder for Session 18.
+
+**Immediate next step:** Execute **Session 18** (Continuous Batching Awareness). Sessions 15-17 (Scheduler Core + GPU Topology + KV Cache Manager) are complete. The scheduler track (15-21, 32-33) is the critical path. Security track (26-28) and application track (29-31) can now run in parallel.
 
 ---
 
@@ -74,7 +76,7 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 The longest remaining dependency chain (restructured):
 
-**14a -> 14b -> 14c -> 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21 -> 32 -> 33 -> 34 -> 35** (14 sessions sequential, 15-16 done)
+**14a -> 14b -> 14c -> 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21 -> 32 -> 33 -> 34 -> 35** (14 sessions sequential, 15-17 done)
 
 Parallel tracks (after 14c completes):
 - Track A: Scheduler (15-21, 32-33) - critical path

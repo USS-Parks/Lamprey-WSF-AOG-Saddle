@@ -1,7 +1,7 @@
 # MAI Build Index
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-20
+**Last Updated:** 2026-05-20 (Session 17)
 
 ---
 
@@ -72,15 +72,8 @@ Each session produces specific deliverables. This table maps sessions to their p
 |---|---|---|
 | 15 | Scheduler Core Architecture | mai-scheduler crate (7 files, 41+ tests), Scheduler trait, DefaultScheduler, API integration |
 | 16 | GPU Topology Discovery + Weighted Graph | topology module (5 files, 41 unit tests), integration tests (16 tests), fixtures, config/topology.toml |
-| 17 | KV Cache Manager | (Not yet started) |
+| 17 | KV Cache Manager | kv/ module (6 files, 53 unit tests + 5 integration tests), KvCacheManager trait, HeuristicKvCacheManager, config/kv.toml |
 | 18 | Continuous Batching Awareness | (Not yet started) |
-
-### Phase E: Testing + Packaging (Sessions 17-18)
-
-| Session | Title | Primary Outputs |
-|---|---|---|
-| 17 | Integration Test Suite + System Validation | Phase 1 exit criteria tests, scenario tests, security validation, performance baseline |
-| 18 | Deployment Packaging + Burn-In Protocol | .deb package, systemd services, Docker compose, first-boot automation, 72-hour burn-in, docs |
 
 ---
 
@@ -109,7 +102,7 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 
 ---
 
-## Test Suites Index (Updated Session 16)
+## Test Suites Index (Updated Session 17)
 
 | Suite | Location | Purpose | Session |
 |---|---|---|---|
@@ -148,20 +141,23 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | Scheduler registry tests | `mai-scheduler/src/registry.rs` `#[cfg(test)]` | Register, duplicate, remove, find by model/GPU, request tracking, overload (11 tests) | 15 |
 | Scheduler alias tests | `mai-scheduler/src/aliases.rs` `#[cfg(test)]` | Resolve known, passthrough unknown, has_alias, reload, list (6 tests) | 15 |
 | Scheduler placement tests | `mai-scheduler/src/placement.rs` `#[cfg(test)]` | Least-loaded, VRAM tiebreaker, overload filter, continuation affinity, custom scorer (10 tests) | 15 |
-| Scheduler default tests | `mai-scheduler/src/default.rs` `#[cfg(test)]` | Schedule, alias passthrough, backpressure, preferred backend, 100-thread concurrent (14 tests) | 15 |
+| Scheduler default tests | `mai-scheduler/src/default.rs` `#[cfg(test)]` | Schedule, alias passthrough, backpressure, preferred backend, 100-thread concurrent (14 tests) | 15, 17 |
 | Topology collector tests | `mai-scheduler/src/topology/collector.rs` `#[cfg(test)]` | nvidia-smi parsing, link types, CPU affinity, degenerate cases (11 tests) | 16 |
 | Topology graph tests | `mai-scheduler/src/topology/graph.rs` `#[cfg(test)]` | Graph construction, edge costs, NVLink detection, NUMA, metrics update (8 tests) | 16 |
 | Topology analysis tests | `mai-scheduler/src/topology/analysis.rs` `#[cfg(test)]` | Floyd-Warshall, best pairs/quads, NVLink cliques, CPU affinity groups (12 tests) | 16 |
 | Topology refresh tests | `mai-scheduler/src/topology/refresh.rs` `#[cfg(test)]` | Anomaly detection, thermal throttle, VRAM exhaustion, metrics refresh (7 tests) | 16 |
 | Topology mod tests | `mai-scheduler/src/topology/mod.rs` `#[cfg(test)]` | Default config, flat topology, single GPU penalty (3 tests) | 16 |
 | Topology integration | `mai-scheduler/tests/topology_integration.rs` | Full pipeline: parse fixtures -> graph -> analysis -> penalty, config sensitivity (16 tests) | 16 |
-| Security tests | tests/integration/ | PQC integrity, tamper detection, sandbox enforcement | 17 |
-| Scenario tests | tests/integration/ | 7 real-world end-to-end scenarios | 17 |
-| Performance baseline | tests/benchmarks/ | 8 performance metrics stored as JSON | 17 |
+| KV sequence tests | `mai-scheduler/src/kv/sequence.rs` `#[cfg(test)]` | Memory estimation, touch/request tracking, EMA gap, eviction/readmission lifecycle (11 tests) | 17 |
+| KV eviction tests | `mai-scheduler/src/kv/eviction.rs` `#[cfg(test)]` | Multi-factor scoring, idle/size/priority/reuse components, system immunity (10 tests) | 17 |
+| KV guard tests | `mai-scheduler/src/kv/guard.rs` `#[cfg(test)]` | Min residency, readmit penalty, rate limiting, eviction history (8 tests) | 17 |
+| KV trigger tests | `mai-scheduler/src/kv/triggers.rs` `#[cfg(test)]` | Proactive/eviction/emergency thresholds, on-demand, boundary cases (8 tests) | 17 |
+| KV manager tests | `mai-scheduler/src/kv/mod.rs` `#[cfg(test)]` | Allocate/deallocate, can_fit, eviction candidates, perform_eviction, emergency bypass (16 tests) | 17 |
+| KV integration tests | `mai-scheduler/src/default.rs` `#[cfg(test)]` | KV attachment, cluster metrics with/without KV, release deallocates, can_fit budget (5 tests) | 17 |
 
 ---
 
-## Configuration Files Index (Post-Session 16)
+## Configuration Files Index (Post-Session 17)
 
 | File | Purpose | Session |
 |---|---|---|
@@ -172,6 +168,7 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | config/scheduler.toml | Scheduler config (strategy, thresholds, model aliases) | 15 |
 | config/topology.toml | Topology config (link weights, refresh interval, anomaly thresholds) | 16 |
 | config/auth_keys.toml | API key auth config template (key hashes, rate limits) | 14c |
+| config/kv.toml | KV cache config (budget, eviction weights, anti-thrash, triggers, model factors) | 17 |
 
 ---
 

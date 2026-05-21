@@ -278,6 +278,12 @@ pub struct ClusterMetrics {
     pub topology_nvlink_cliques: u32,
     /// Whether topology anomalies are active.
     pub topology_has_anomalies: bool,
+    /// KV cache: active sequences tracked by KV manager.
+    pub kv_active_sequences: u32,
+    /// KV cache: bytes currently in use.
+    pub kv_used_bytes: u64,
+    /// KV cache: total budget bytes.
+    pub kv_total_bytes: u64,
 }
 
 // ---------------------------------------------------------------------------
