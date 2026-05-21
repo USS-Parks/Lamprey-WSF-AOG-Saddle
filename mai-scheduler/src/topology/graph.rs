@@ -204,7 +204,7 @@ impl GpuGraph {
     pub fn is_nvlink(&self, from: GpuId, to: GpuId) -> bool {
         self.edges
             .get(&(from, to))
-            .map_or(false, |link| link.link_type.is_nvlink())
+            .is_some_and(|link| link.link_type.is_nvlink())
     }
 }
 

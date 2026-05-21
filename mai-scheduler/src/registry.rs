@@ -136,7 +136,7 @@ impl InstanceRegistry {
     pub fn is_overloaded(&self, id: &InstanceId, threshold: u32) -> bool {
         self.instances
             .get(id)
-            .map_or(true, |entry| entry.metrics.queue_depth >= threshold)
+            .is_none_or(|entry| entry.metrics.queue_depth >= threshold)
     }
 
     /// Total active sequences across all instances.

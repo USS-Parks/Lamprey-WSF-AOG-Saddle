@@ -105,8 +105,8 @@ fn floyd_warshall(graph: &GpuGraph, gpu_ids: &[GpuId]) -> HashMap<(u32, u32), f6
         .collect();
 
     // Diagonal = 0
-    for i in 0..n {
-        dist[i][i] = 0.0;
+    for (i, row) in dist.iter_mut().enumerate().take(n) {
+        row[i] = 0.0;
     }
 
     // Direct edges

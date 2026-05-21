@@ -38,7 +38,7 @@ pub enum LinkType {
 
 impl LinkType {
     /// Parse a link type string from nvidia-smi output.
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_label(s: &str) -> Option<Self> {
         match s.trim() {
             "NV4" => Some(Self::NV4),
             "NV3" | "NV2" => Some(Self::NV2),
@@ -226,7 +226,7 @@ pub fn parse_topo_matrix(output: &str) -> Result<ParsedTopology, TopologyError> 
                 continue;
             }
 
-            if let Some(link_type) = LinkType::from_str(tokens[token_idx]) {
+            if let Some(link_type) = LinkType::parse_label(tokens[token_idx]) {
                 if link_type != LinkType::SelfLink {
                     links.push(ParsedLink {
                         from: GpuId(row_gpu_id),
@@ -247,8 +247,8 @@ pub fn parse_topo_matrix(output: &str) -> Result<ParsedTopology, TopologyError> 
 
 /// Parse "GPUn" label to extract the GPU ordinal.
 fn parse_gpu_label(s: &str) -> Option<u32> {
-    if s.starts_with("GPU") {
-        s[3..].parse().ok()
+    if let Some(stripped) = s.strip_prefix("GPU") {
+        stripped.parse().ok()
     } else {
         None
     }
@@ -329,15 +329,15 @@ GPU7\tPHB\tPHB\tPHB\tNV4\tNV4\tNV4\tNV4\t X \t32-63\t\tN/A
 
     #[test]
     fn test_link_type_parse() {
-        assert_eq!(LinkType::from_str("NV4"), Some(LinkType::NV4));
-        assert_eq!(LinkType::from_str("NV2"), Some(LinkType::NV2));
-        assert_eq!(LinkType::from_str("NV1"), Some(LinkType::NV1));
-        assert_eq!(LinkType::from_str("PXB"), Some(LinkType::PXB));
-        assert_eq!(LinkType::from_str("PIX"), Some(LinkType::PXB));
-        assert_eq!(LinkType::from_str("PHB"), Some(LinkType::PHB));
-        assert_eq!(LinkType::from_str("SYS"), Some(LinkType::SYS));
-        assert_eq!(LinkType::from_str("X"), Some(LinkType::SelfLink));
-        assert_eq!(LinkType::from_str("BOGUS"), None);
+        assert_eq!(LinkType::parse_label("NV4"), Some(LinkType::NV4));
+        assert_eq!(LinkType::parse_label("NV2"), Some(LinkType::NV2));
+        assert_eq!(LinkType::parse_label("NV1"), Some(LinkType::NV1));
+        assert_eq!(LinkType::parse_label("PXB"), Some(LinkType::PXB));
+        assert_eq!(LinkType::parse_label("PIX"), Some(LinkType::PXB));
+        assert_eq!(LinkType::parse_label("PHB"), Some(LinkType::PHB));
+        assert_eq!(LinkType::parse_label("SYS"), Some(LinkType::SYS));
+        assert_eq!(LinkType::parse_label("X"), Some(LinkType::SelfLink));
+        assert_eq!(LinkType::parse_label("BOGUS"), None);
     }
 
     #[test]

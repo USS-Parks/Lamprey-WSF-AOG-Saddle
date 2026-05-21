@@ -43,18 +43,10 @@ pub enum AnomalyFlag {
 // ---------------------------------------------------------------------------
 
 /// Per-GPU state tracked across refresh cycles for anomaly detection.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct GpuRefreshState {
     /// Timestamp when utilization first hit 100%.
     util_stuck_since: Option<Instant>,
-}
-
-impl Default for GpuRefreshState {
-    fn default() -> Self {
-        Self {
-            util_stuck_since: None,
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

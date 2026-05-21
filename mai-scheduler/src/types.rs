@@ -229,7 +229,7 @@ pub struct InstanceConfig {
 
 /// Live metrics for an instance. Updated on every request/completion.
 /// Read by the placement engine for scoring.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct InstanceMetrics {
     /// Current number of sequences in the instance's queue.
     pub queue_depth: u32,
@@ -241,18 +241,6 @@ pub struct InstanceMetrics {
     pub last_request_epoch_ms: u64,
     /// Last sequence ID served (for continuation affinity).
     pub last_sequence_id: Option<SequenceId>,
-}
-
-impl Default for InstanceMetrics {
-    fn default() -> Self {
-        Self {
-            queue_depth: 0,
-            active_sequences: 0,
-            vram_used: 0,
-            last_request_epoch_ms: 0,
-            last_sequence_id: None,
-        }
-    }
 }
 
 /// Combined config + live metrics for an instance. This is what the
