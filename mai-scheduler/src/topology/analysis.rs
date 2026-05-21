@@ -9,9 +9,9 @@
 
 use std::collections::HashMap;
 
-use crate::types::GpuId;
-use super::graph::GpuGraph;
 use super::TopologyConfig;
+use super::graph::GpuGraph;
+use crate::types::GpuId;
 
 /// Precomputed topology analysis results.
 #[derive(Debug, Clone)]
@@ -98,11 +98,8 @@ fn floyd_warshall(graph: &GpuGraph, gpu_ids: &[GpuId]) -> HashMap<(u32, u32), f6
     let mut dist: Vec<Vec<f64>> = vec![vec![f64::INFINITY; n]; n];
 
     // Map GpuId -> index
-    let id_to_idx: HashMap<GpuId, usize> = gpu_ids
-        .iter()
-        .enumerate()
-        .map(|(i, &id)| (id, i))
-        .collect();
+    let id_to_idx: HashMap<GpuId, usize> =
+        gpu_ids.iter().enumerate().map(|(i, &id)| (id, i)).collect();
 
     // Diagonal = 0
     for (i, row) in dist.iter_mut().enumerate().take(n) {
@@ -264,11 +261,7 @@ fn detect_nvlink_cliques(graph: &GpuGraph, gpu_ids: &[GpuId]) -> Vec<Vec<GpuId>>
         .collect();
 
     // Sort cliques by size (largest first), then by first GPU ID
-    result.sort_by(|a, b| {
-        b.len()
-            .cmp(&a.len())
-            .then_with(|| a[0].0.cmp(&b[0].0))
-    });
+    result.sort_by(|a, b| b.len().cmp(&a.len()).then_with(|| a[0].0.cmp(&b[0].0)));
 
     result
 }
@@ -307,7 +300,11 @@ fn bron_kerbosch(
     for v in candidates {
         r.push(v);
 
-        let p_new: Vec<usize> = p_remaining.iter().filter(|&&u| adj[v][u]).copied().collect();
+        let p_new: Vec<usize> = p_remaining
+            .iter()
+            .filter(|&&u| adj[v][u])
+            .copied()
+            .collect();
         let x_new: Vec<usize> = x_current.iter().filter(|&&u| adj[v][u]).copied().collect();
 
         bron_kerbosch(adj, r, &p_new, &x_new, cliques);
@@ -350,8 +347,8 @@ fn compute_cpu_affinity_groups(graph: &GpuGraph, gpu_ids: &[GpuId]) -> Vec<Vec<G
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::topology::collector::{LinkType, ParsedGpu, ParsedLink, ParsedTopology};
     use crate::topology::LinkWeightConfig;
+    use crate::topology::collector::{LinkType, ParsedGpu, ParsedLink, ParsedTopology};
 
     fn make_config() -> TopologyConfig {
         TopologyConfig::default()
@@ -360,12 +357,28 @@ mod tests {
     fn make_two_gpu_nvlink_graph() -> GpuGraph {
         let parsed = ParsedTopology {
             gpus: vec![
-                ParsedGpu { gpu_id: GpuId(0), name: "GPU0".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(1), name: "GPU1".into(), cpu_affinity: Some(0) },
+                ParsedGpu {
+                    gpu_id: GpuId(0),
+                    name: "GPU0".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(1),
+                    name: "GPU1".into(),
+                    cpu_affinity: Some(0),
+                },
             ],
             links: vec![
-                ParsedLink { from: GpuId(0), to: GpuId(1), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(1), to: GpuId(0), link_type: LinkType::NV4 },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(1),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(0),
+                    link_type: LinkType::NV4,
+                },
             ],
             cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0)].into_iter().collect(),
         };
@@ -375,28 +388,92 @@ mod tests {
     fn make_four_gpu_mixed_graph() -> GpuGraph {
         let parsed = ParsedTopology {
             gpus: vec![
-                ParsedGpu { gpu_id: GpuId(0), name: "GPU0".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(1), name: "GPU1".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(2), name: "GPU2".into(), cpu_affinity: Some(32) },
-                ParsedGpu { gpu_id: GpuId(3), name: "GPU3".into(), cpu_affinity: Some(32) },
+                ParsedGpu {
+                    gpu_id: GpuId(0),
+                    name: "GPU0".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(1),
+                    name: "GPU1".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(2),
+                    name: "GPU2".into(),
+                    cpu_affinity: Some(32),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(3),
+                    name: "GPU3".into(),
+                    cpu_affinity: Some(32),
+                },
             ],
             links: vec![
-                ParsedLink { from: GpuId(0), to: GpuId(1), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(1), to: GpuId(0), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(0), to: GpuId(2), link_type: LinkType::PHB },
-                ParsedLink { from: GpuId(2), to: GpuId(0), link_type: LinkType::PHB },
-                ParsedLink { from: GpuId(0), to: GpuId(3), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(3), to: GpuId(0), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(1), to: GpuId(2), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(2), to: GpuId(1), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(1), to: GpuId(3), link_type: LinkType::PHB },
-                ParsedLink { from: GpuId(3), to: GpuId(1), link_type: LinkType::PHB },
-                ParsedLink { from: GpuId(2), to: GpuId(3), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(3), to: GpuId(2), link_type: LinkType::NV4 },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(1),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(0),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(2),
+                    link_type: LinkType::PHB,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(0),
+                    link_type: LinkType::PHB,
+                },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(3),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(3),
+                    to: GpuId(0),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(2),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(1),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(3),
+                    link_type: LinkType::PHB,
+                },
+                ParsedLink {
+                    from: GpuId(3),
+                    to: GpuId(1),
+                    link_type: LinkType::PHB,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(3),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(3),
+                    to: GpuId(2),
+                    link_type: LinkType::NV4,
+                },
             ],
-            cpu_affinity: [
-                (GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32), (GpuId(3), 32),
-            ].into_iter().collect(),
+            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32), (GpuId(3), 32)]
+                .into_iter()
+                .collect(),
         };
         GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0)
     }

@@ -11,14 +11,15 @@
 //! into the topology graph's node metrics. The scheduler reads these
 //! metrics during placement scoring.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use crate::types::GpuId;
+
 use super::GpuTopology;
 use super::collector::AdapterGpuMetrics;
+use crate::types::GpuId;
 
 // ---------------------------------------------------------------------------
 // Anomaly flags
@@ -32,10 +33,16 @@ pub enum AnomalyFlag {
     UtilizationStuck { gpu_id: GpuId, stuck_seconds: u64 },
 
     /// GPU temperature exceeds the thermal throttle threshold.
-    ThermalThrottle { gpu_id: GpuId, temperature_celsius: u32 },
+    ThermalThrottle {
+        gpu_id: GpuId,
+        temperature_celsius: u32,
+    },
 
     /// VRAM usage exceeds the configured threshold fraction.
-    VramExhaustion { gpu_id: GpuId, used_fraction_bps: u32 },
+    VramExhaustion {
+        gpu_id: GpuId,
+        used_fraction_bps: u32,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -172,15 +179,21 @@ impl MetricsRefresher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::topology::{TopologyConfig, GpuTopology};
     use crate::topology::graph::GpuGraph;
+    use crate::topology::{GpuTopology, TopologyConfig};
 
     fn make_topology() -> Arc<GpuTopology> {
         let config = TopologyConfig::default();
         Arc::new(GpuTopology::flat(&config))
     }
 
-    fn make_metrics(gpu_id: u32, util: u32, temp: u32, total_vram: u64, free_vram: u64) -> AdapterGpuMetrics {
+    fn make_metrics(
+        gpu_id: u32,
+        util: u32,
+        temp: u32,
+        total_vram: u64,
+        free_vram: u64,
+    ) -> AdapterGpuMetrics {
         AdapterGpuMetrics {
             gpu_id,
             total_vram_bytes: total_vram,
@@ -241,7 +254,9 @@ mod tests {
         let anomalies = refresher.process_metrics(&metrics);
 
         assert_eq!(anomalies.len(), 1);
-        assert!(matches!(&anomalies[0], AnomalyFlag::VramExhaustion { gpu_id, .. } if *gpu_id == GpuId(0)));
+        assert!(
+            matches!(&anomalies[0], AnomalyFlag::VramExhaustion { gpu_id, .. } if *gpu_id == GpuId(0))
+        );
     }
 
     #[test]

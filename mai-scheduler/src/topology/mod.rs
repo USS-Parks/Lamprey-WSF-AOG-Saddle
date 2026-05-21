@@ -30,10 +30,11 @@ pub mod refresh;
 
 use std::sync::Arc;
 
-use crate::types::GpuId;
-use graph::GpuGraph;
 use analysis::PrecomputedTopology;
+use graph::GpuGraph;
 use refresh::MetricsRefresher;
+
+use crate::types::GpuId;
 
 /// Top-level topology handle. Wraps the static graph and precomputed
 /// analysis structures. Shared via `Arc<GpuTopology>` across the scheduler.
@@ -229,18 +230,42 @@ impl Default for TopologyConfig {
     }
 }
 
-fn default_latency_weight() -> f64 { 1.0 }
-fn default_bw_weight() -> f64 { 1.0 }
-fn default_refresh_interval() -> u64 { 500 }
-fn default_vram_threshold() -> f64 { 0.9 }
-fn default_util_stuck_seconds() -> u64 { 60 }
-fn default_thermal_throttle_c() -> u32 { 83 }
-fn default_nv4_bw() -> f64 { 900.0 }
-fn default_nv2_bw() -> f64 { 600.0 }
-fn default_nv1_bw() -> f64 { 300.0 }
-fn default_pxb_bw() -> f64 { 64.0 }
-fn default_phb_bw() -> f64 { 32.0 }
-fn default_sys_bw() -> f64 { 16.0 }
+fn default_latency_weight() -> f64 {
+    1.0
+}
+fn default_bw_weight() -> f64 {
+    1.0
+}
+fn default_refresh_interval() -> u64 {
+    500
+}
+fn default_vram_threshold() -> f64 {
+    0.9
+}
+fn default_util_stuck_seconds() -> u64 {
+    60
+}
+fn default_thermal_throttle_c() -> u32 {
+    83
+}
+fn default_nv4_bw() -> f64 {
+    900.0
+}
+fn default_nv2_bw() -> f64 {
+    600.0
+}
+fn default_nv1_bw() -> f64 {
+    300.0
+}
+fn default_pxb_bw() -> f64 {
+    64.0
+}
+fn default_phb_bw() -> f64 {
+    32.0
+}
+fn default_sys_bw() -> f64 {
+    16.0
+}
 
 // ---------------------------------------------------------------------------
 // Errors

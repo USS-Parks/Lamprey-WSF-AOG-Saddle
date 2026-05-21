@@ -10,8 +10,8 @@
 use std::collections::HashMap;
 use std::process::Command;
 
-use crate::types::GpuId;
 use super::TopologyError;
+use crate::types::GpuId;
 
 // ---------------------------------------------------------------------------
 // Link types parsed from nvidia-smi
@@ -169,7 +169,9 @@ pub fn parse_topo_matrix(output: &str) -> Result<ParsedTopology, TopologyError> 
 
     let gpu_count = gpu_columns.len();
     if gpu_count == 0 {
-        return Err(TopologyError::ParseError("no GPU columns found in header".to_string()));
+        return Err(TopologyError::ParseError(
+            "no GPU columns found in header".to_string(),
+        ));
     }
 
     let mut gpus = Vec::with_capacity(gpu_count);

@@ -75,10 +75,8 @@ pub async fn chat_completions(
 
     // Route through new scheduler (Session 15)
     let sched_priority = scheduler_priority_from_profile(&profile);
-    let sched_req = ScheduleRequest::new(
-        model_name.as_deref().unwrap_or("default"),
-        sched_priority,
-    );
+    let sched_req =
+        ScheduleRequest::new(model_name.as_deref().unwrap_or("default"), sched_priority);
     let session_id = sched_req.session_id;
 
     let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
@@ -93,7 +91,9 @@ pub async fn chat_completions(
     })?;
 
     // Extract adapter name from instance_id (format: "adapter:model")
-    let adapter_name = decision.instance_id.as_str()
+    let adapter_name = decision
+        .instance_id
+        .as_str()
         .split(':')
         .next()
         .unwrap_or(decision.instance_id.as_str())
@@ -155,7 +155,9 @@ pub async fn chat_completions(
     };
 
     // Release sequence in scheduler (Session 15)
-    state.scheduler.release_sequence(&decision.instance_id, session_id);
+    state
+        .scheduler
+        .release_sequence(&decision.instance_id, session_id);
 
     info!(
         request_id = %request_id,
@@ -227,12 +229,12 @@ pub async fn embeddings(
 
     let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
         warn!(error = %e, "Scheduler routing failed for embedding");
-        ApiError::ModelUnavailable(
-            model_name.unwrap_or_else(|| "default-embedding".to_string()),
-        )
+        ApiError::ModelUnavailable(model_name.unwrap_or_else(|| "default-embedding".to_string()))
     })?;
 
-    let adapter_name = decision.instance_id.as_str()
+    let adapter_name = decision
+        .instance_id
+        .as_str()
         .split(':')
         .next()
         .unwrap_or(decision.instance_id.as_str())
@@ -267,7 +269,9 @@ pub async fn embeddings(
         },
     };
 
-    state.scheduler.release_sequence(&decision.instance_id, session_id);
+    state
+        .scheduler
+        .release_sequence(&decision.instance_id, session_id);
 
     info!(
         request_id = %request_id,
@@ -329,10 +333,8 @@ pub async fn structured_generation(
     };
 
     let sched_priority = scheduler_priority_from_profile(&profile);
-    let sched_req = ScheduleRequest::new(
-        model_name.as_deref().unwrap_or("default"),
-        sched_priority,
-    );
+    let sched_req =
+        ScheduleRequest::new(model_name.as_deref().unwrap_or("default"), sched_priority);
     let session_id = sched_req.session_id;
 
     let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
@@ -342,7 +344,9 @@ pub async fn structured_generation(
         )
     })?;
 
-    let adapter_name = decision.instance_id.as_str()
+    let adapter_name = decision
+        .instance_id
+        .as_str()
         .split(':')
         .next()
         .unwrap_or(decision.instance_id.as_str())
@@ -389,7 +393,9 @@ pub async fn structured_generation(
         },
     };
 
-    state.scheduler.release_sequence(&decision.instance_id, session_id);
+    state
+        .scheduler
+        .release_sequence(&decision.instance_id, session_id);
 
     Ok(Json(response).into_response())
 }
@@ -456,10 +462,8 @@ pub async fn function_call(
     };
 
     let sched_priority = scheduler_priority_from_profile(&profile);
-    let sched_req = ScheduleRequest::new(
-        model_name.as_deref().unwrap_or("default"),
-        sched_priority,
-    );
+    let sched_req =
+        ScheduleRequest::new(model_name.as_deref().unwrap_or("default"), sched_priority);
     let session_id = sched_req.session_id;
 
     let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
@@ -469,7 +473,9 @@ pub async fn function_call(
         )
     })?;
 
-    let adapter_name = decision.instance_id.as_str()
+    let adapter_name = decision
+        .instance_id
+        .as_str()
         .split(':')
         .next()
         .unwrap_or(decision.instance_id.as_str())
@@ -535,7 +541,9 @@ pub async fn function_call(
         },
     };
 
-    state.scheduler.release_sequence(&decision.instance_id, session_id);
+    state
+        .scheduler
+        .release_sequence(&decision.instance_id, session_id);
 
     Ok(Json(response).into_response())
 }

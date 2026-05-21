@@ -96,10 +96,8 @@ pub async fn handle_sse_chat(
 
     // Route through new scheduler (Session 15)
     let sched_priority = scheduler_priority_from_profile(&profile);
-    let sched_req = ScheduleRequest::new(
-        model_name.as_deref().unwrap_or("default"),
-        sched_priority,
-    );
+    let sched_req =
+        ScheduleRequest::new(model_name.as_deref().unwrap_or("default"), sched_priority);
     let session_id = sched_req.session_id;
 
     let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
@@ -293,7 +291,9 @@ pub async fn handle_sse_chat(
         // then releases the sequence. In practice, axum drops the
         // stream when the client disconnects.
         tokio::time::sleep(Duration::from_secs(300)).await;
-        state_cleanup.scheduler.release_sequence(&cleanup_instance, session_id);
+        state_cleanup
+            .scheduler
+            .release_sequence(&cleanup_instance, session_id);
     });
 
     Ok(response)

@@ -94,7 +94,11 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
         };
 
         // Route through new scheduler (Session 15)
-        let model_alias = if req.model.is_empty() { "default" } else { &req.model };
+        let model_alias = if req.model.is_empty() {
+            "default"
+        } else {
+            &req.model
+        };
         let sched_req = ScheduleRequest::new(model_alias, SchedulerPriority::Normal);
         let session_id = sched_req.session_id;
 
@@ -129,7 +133,9 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             }),
         };
 
-        self.state.scheduler.release_sequence(&decision.instance_id, session_id);
+        self.state
+            .scheduler
+            .release_sequence(&decision.instance_id, session_id);
 
         info!(
             request_id = %request_id,
@@ -198,7 +204,11 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
         };
 
         // Route through new scheduler (Session 15)
-        let model_alias = if req.model.is_empty() { "default" } else { &req.model };
+        let model_alias = if req.model.is_empty() {
+            "default"
+        } else {
+            &req.model
+        };
         let sched_req = ScheduleRequest::new(model_alias, SchedulerPriority::Normal);
         let session_id = sched_req.session_id;
 
@@ -263,10 +273,9 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             let _ = tx.send(Ok(done_chunk)).await;
 
             // Mark request completed (Session 15)
-            state.scheduler.release_sequence(
-                &mai_scheduler::InstanceId::new(&adapter_id),
-                session_id,
-            );
+            state
+                .scheduler
+                .release_sequence(&mai_scheduler::InstanceId::new(&adapter_id), session_id);
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
@@ -318,7 +327,11 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             estimated_tokens,
         };
 
-        let model_alias = if req.model.is_empty() { "default-embedding" } else { &req.model };
+        let model_alias = if req.model.is_empty() {
+            "default-embedding"
+        } else {
+            &req.model
+        };
         let sched_req = ScheduleRequest::new(model_alias, SchedulerPriority::Normal);
         let session_id = sched_req.session_id;
 
@@ -327,7 +340,9 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             Status::internal("embedding request routing failed")
         })?;
 
-        self.state.scheduler.release_sequence(&decision.instance_id, session_id);
+        self.state
+            .scheduler
+            .release_sequence(&decision.instance_id, session_id);
 
         // NOTE: Actual embedding computation via adapter IPC wired in 11e.
         // Placeholder response with empty embeddings.

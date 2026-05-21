@@ -158,9 +158,8 @@ impl PlacementEngine {
             }
         }
 
-        let (best_id, best_state, _score) = best.ok_or_else(|| {
-            SchedulerError::NoInstanceAvailable(request.model_alias.clone())
-        })?;
+        let (best_id, best_state, _score) =
+            best.ok_or_else(|| SchedulerError::NoInstanceAvailable(request.model_alias.clone()))?;
 
         let reason = if pool.len() == 1 {
             "only-candidate".to_string()
@@ -211,7 +210,12 @@ mod tests {
         ScheduleRequest, SequenceId,
     };
 
-    fn make_state(id: &str, model: &str, queue_depth: u32, vram_used: u64) -> (InstanceId, InstanceState) {
+    fn make_state(
+        id: &str,
+        model: &str,
+        queue_depth: u32,
+        vram_used: u64,
+    ) -> (InstanceId, InstanceState) {
         (
             InstanceId::new(id),
             InstanceState {
@@ -338,7 +342,10 @@ mod tests {
     fn test_empty_candidates_error() {
         let engine = PlacementEngine::new(64);
         let result = engine.place(&make_request("llama3"), &[]);
-        assert!(matches!(result, Err(SchedulerError::NoInstanceAvailable(_))));
+        assert!(matches!(
+            result,
+            Err(SchedulerError::NoInstanceAvailable(_))
+        ));
     }
 
     #[test]
@@ -369,31 +376,71 @@ mod tests {
     fn test_topology_penalty_no_topology() {
         let engine = PlacementEngine::new(64);
         // Without topology, penalty is always 0.0
-        assert_eq!(engine.topology_penalty(&[GpuId::new(0), GpuId::new(1)]), 0.0);
+        assert_eq!(
+            engine.topology_penalty(&[GpuId::new(0), GpuId::new(1)]),
+            0.0
+        );
     }
 
     #[test]
     fn test_topology_penalty_with_topology() {
-        use crate::topology::{GpuTopology, TopologyConfig};
         use crate::topology::collector::{LinkType, ParsedGpu, ParsedLink, ParsedTopology};
         use crate::topology::graph::GpuGraph;
-        use crate::topology::LinkWeightConfig;
+        use crate::topology::{GpuTopology, LinkWeightConfig, TopologyConfig};
 
         let parsed = ParsedTopology {
             gpus: vec![
-                ParsedGpu { gpu_id: GpuId(0), name: "GPU0".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(1), name: "GPU1".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(2), name: "GPU2".into(), cpu_affinity: Some(32) },
+                ParsedGpu {
+                    gpu_id: GpuId(0),
+                    name: "GPU0".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(1),
+                    name: "GPU1".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(2),
+                    name: "GPU2".into(),
+                    cpu_affinity: Some(32),
+                },
             ],
             links: vec![
-                ParsedLink { from: GpuId(0), to: GpuId(1), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(1), to: GpuId(0), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(0), to: GpuId(2), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(2), to: GpuId(0), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(1), to: GpuId(2), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(2), to: GpuId(1), link_type: LinkType::SYS },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(1),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(0),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(2),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(0),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(2),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(1),
+                    link_type: LinkType::SYS,
+                },
             ],
-            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32)].into_iter().collect(),
+            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32)]
+                .into_iter()
+                .collect(),
         };
         let graph = GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0);
         let config = TopologyConfig::default();

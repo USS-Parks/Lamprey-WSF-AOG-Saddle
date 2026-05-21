@@ -67,8 +67,9 @@ impl VaultInterface for TestVault {
 // -- Test Setup Helper -----------------------------------------------------
 
 fn build_test_state() -> AppState {
-    let scheduler: Arc<dyn mai_scheduler::Scheduler> =
-        Arc::new(DefaultScheduler::new(mai_scheduler::SchedulerConfig::default()));
+    let scheduler: Arc<dyn mai_scheduler::Scheduler> = Arc::new(DefaultScheduler::new(
+        mai_scheduler::SchedulerConfig::default(),
+    ));
 
     let registry = ModelRegistry::new(Box::new(TestVault));
     let registry = Arc::new(RwLock::new(registry));
@@ -79,10 +80,9 @@ fn build_test_state() -> AppState {
     let power = PowerStateMachine::new(PowerConfig::default());
     let power = Arc::new(RwLock::new(power));
 
-    let legacy_scheduler = mai_core::scheduler::Scheduler::new(
-        mai_core::scheduler::SchedulerConfig::default(),
-    )
-    .unwrap();
+    let legacy_scheduler =
+        mai_core::scheduler::Scheduler::new(mai_core::scheduler::SchedulerConfig::default())
+            .unwrap();
     let legacy_scheduler = Arc::new(RwLock::new(legacy_scheduler));
     let hotswap = HotSwapManager::new(legacy_scheduler, registry.clone(), health.clone());
     let hotswap = Arc::new(RwLock::new(hotswap));

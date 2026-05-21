@@ -41,11 +41,11 @@ use mai_core::hotswap::HotSwapManager;
 use mai_core::power::{PowerConfig, PowerStateMachine};
 use mai_core::registry::ModelRegistry;
 use mai_core::vault::VaultInterface;
+use mai_hil::traits::AdapterConfig;
 use mai_scheduler::{
     DefaultScheduler, GpuId, InstanceCapabilities, InstanceConfig, InstanceId,
     SchedulerConfig as NewSchedulerConfig,
 };
-use mai_hil::traits::AdapterConfig;
 
 /// Default path for auth keys config file.
 const AUTH_KEYS_CONFIG_PATH: &str = "config/auth_keys.toml";
@@ -201,10 +201,9 @@ impl MaiServer {
         // adapter lifecycle coordination (pause_routing, resume_routing, etc.).
         // It will be migrated to the new Scheduler trait in Session 22 (health
         // integration). For now, wire it with a stub old-scheduler.
-        let legacy_scheduler = mai_core::scheduler::Scheduler::new(
-            mai_core::scheduler::SchedulerConfig::default(),
-        )
-        .map_err(|e| ServerError::Init(format!("Legacy scheduler for hotswap: {e}")))?;
+        let legacy_scheduler =
+            mai_core::scheduler::Scheduler::new(mai_core::scheduler::SchedulerConfig::default())
+                .map_err(|e| ServerError::Init(format!("Legacy scheduler for hotswap: {e}")))?;
         let legacy_scheduler = Arc::new(RwLock::new(legacy_scheduler));
         let hotswap = HotSwapManager::new(legacy_scheduler, registry.clone(), health.clone());
         let hotswap = Arc::new(RwLock::new(hotswap));

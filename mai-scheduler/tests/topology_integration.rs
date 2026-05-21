@@ -8,7 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mai_scheduler::topology::collector::{parse_topo_matrix, LinkType};
+use mai_scheduler::topology::collector::{LinkType, parse_topo_matrix};
 use mai_scheduler::topology::graph::GpuGraph;
 use mai_scheduler::topology::{GpuTopology, TopologyConfig};
 use mai_scheduler::types::GpuId;
@@ -127,13 +127,19 @@ fn test_2gpu_nvlink_topology_analysis() {
 
     // NVLink cliques should contain {0, 1}
     let cliques = topo.nvlink_cliques();
-    assert!(!cliques.is_empty(), "should find at least one NVLink clique");
+    assert!(
+        !cliques.is_empty(),
+        "should find at least one NVLink clique"
+    );
     let clique = &cliques[0];
     assert!(clique.contains(&GpuId(0)) && clique.contains(&GpuId(1)));
 
     // Penalty for the NVLink pair should be low
     let penalty = topo.topology_penalty(&[GpuId(0), GpuId(1)]);
-    assert!(penalty < 2.0, "NVLink pair penalty should be low, got {penalty}");
+    assert!(
+        penalty < 2.0,
+        "NVLink pair penalty should be low, got {penalty}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +152,11 @@ fn test_4gpu_mixed_fixture_parses() {
     let parsed = parse_topo_matrix(&raw).expect("4-GPU mixed fixture should parse");
     assert_eq!(parsed.gpus.len(), 4);
     // 4 GPUs, each has 3 links to others = 12 directed edges
-    assert_eq!(parsed.links.len(), 12, "expected 12 directed edges for 4 GPUs");
+    assert_eq!(
+        parsed.links.len(),
+        12,
+        "expected 12 directed edges for 4 GPUs"
+    );
 }
 
 #[test]
@@ -218,7 +228,10 @@ fn test_4gpu_mixed_cpu_affinity() {
 
     assert_eq!(cpu0, cpu1, "GPUs 0 and 1 should share CPU affinity");
     assert_eq!(cpu2, cpu3, "GPUs 2 and 3 should share CPU affinity");
-    assert_ne!(cpu0, cpu2, "GPU 0 and GPU 2 should have different CPU affinity");
+    assert_ne!(
+        cpu0, cpu2,
+        "GPU 0 and GPU 2 should have different CPU affinity"
+    );
 }
 
 #[test]
@@ -236,11 +249,20 @@ fn test_4gpu_mixed_nvlink_cliques() {
 
     let cliques = topo.nvlink_cliques();
     // Should find two NVLink pairs: {0,1} and {2,3}
-    assert_eq!(cliques.len(), 2, "expected 2 NVLink cliques, got {}", cliques.len());
+    assert_eq!(
+        cliques.len(),
+        2,
+        "expected 2 NVLink cliques, got {}",
+        cliques.len()
+    );
 
     // Verify the cliques contain the right GPUs
-    let has_01 = cliques.iter().any(|c| c.contains(&GpuId(0)) && c.contains(&GpuId(1)));
-    let has_23 = cliques.iter().any(|c| c.contains(&GpuId(2)) && c.contains(&GpuId(3)));
+    let has_01 = cliques
+        .iter()
+        .any(|c| c.contains(&GpuId(0)) && c.contains(&GpuId(1)));
+    let has_23 = cliques
+        .iter()
+        .any(|c| c.contains(&GpuId(2)) && c.contains(&GpuId(3)));
     assert!(has_01, "should find NVLink clique containing GPUs 0 and 1");
     assert!(has_23, "should find NVLink clique containing GPUs 2 and 3");
 }
@@ -255,7 +277,11 @@ fn test_8gpu_dgx_fixture_parses() {
     let parsed = parse_topo_matrix(&raw).expect("8-GPU DGX fixture should parse");
     assert_eq!(parsed.gpus.len(), 8);
     // 8 GPUs, each has 7 links = 56 directed edges
-    assert_eq!(parsed.links.len(), 56, "expected 56 directed edges for 8 GPUs");
+    assert_eq!(
+        parsed.links.len(),
+        56,
+        "expected 56 directed edges for 8 GPUs"
+    );
 }
 
 #[test]
@@ -264,8 +290,16 @@ fn test_8gpu_dgx_nvlink_dense() {
     let parsed = parse_topo_matrix(&raw).unwrap();
 
     // Count NVLink vs PHB edges
-    let nvlink_count = parsed.links.iter().filter(|l| l.link_type.is_nvlink()).count();
-    let phb_count = parsed.links.iter().filter(|l| l.link_type == LinkType::PHB).count();
+    let nvlink_count = parsed
+        .links
+        .iter()
+        .filter(|l| l.link_type.is_nvlink())
+        .count();
+    let phb_count = parsed
+        .links
+        .iter()
+        .filter(|l| l.link_type == LinkType::PHB)
+        .count();
 
     // DGX fixture has a dense NVLink mesh within each socket
     assert!(

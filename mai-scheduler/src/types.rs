@@ -5,9 +5,9 @@
 //! trait, instance registry, placement engine, and alias resolver all
 //! consume and produce values defined here.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 

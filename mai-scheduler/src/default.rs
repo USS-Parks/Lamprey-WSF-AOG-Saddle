@@ -27,8 +27,8 @@ use crate::registry::InstanceRegistry;
 use crate::scheduler::Scheduler;
 use crate::topology::GpuTopology;
 use crate::types::{
-    ClusterMetrics, GpuId, InstanceConfig, InstanceId, ScheduleDecision,
-    ScheduleRequest, SchedulerConfig, SchedulerError, SequenceId,
+    ClusterMetrics, GpuId, InstanceConfig, InstanceId, ScheduleDecision, ScheduleRequest,
+    SchedulerConfig, SchedulerError, SequenceId,
 };
 
 /// The production scheduler. Implements the `Scheduler` trait and is stored
@@ -123,9 +123,7 @@ impl Scheduler for DefaultScheduler {
     fn schedule(&self, request: &ScheduleRequest) -> Result<ScheduleDecision, SchedulerError> {
         // Step 0: Backpressure check
         let total_queue = self.registry.total_queue_depth();
-        if total_queue >= self.config.max_total_queue_depth
-            && request.priority as u8 > 0
-        {
+        if total_queue >= self.config.max_total_queue_depth && request.priority as u8 > 0 {
             // Only System priority requests bypass backpressure
             self.total_rejected.fetch_add(1, Ordering::Relaxed);
             return Err(SchedulerError::SystemOverloaded(
@@ -158,9 +156,8 @@ impl Scheduler for DefaultScheduler {
         // preferred and non-preferred. Try preferred first; fall back to
         // non-preferred if no preferred candidate is viable.
         let candidates = if !resolved.preferred_backends.is_empty() {
-            let (mut preferred, fallback): (Vec<_>, Vec<_>) = all_instances
-                .into_iter()
-                .partition(|(_, state)| {
+            let (mut preferred, fallback): (Vec<_>, Vec<_>) =
+                all_instances.into_iter().partition(|(_, state)| {
                     resolved
                         .preferred_backends
                         .contains(&state.config.adapter_type)
@@ -216,7 +213,10 @@ impl Scheduler for DefaultScheduler {
     fn cluster_metrics(&self) -> ClusterMetrics {
         let instances = self.registry.list_all();
         let total_instances = instances.len() as u32;
-        let total_active: u32 = instances.iter().map(|(_, s)| s.metrics.active_sequences).sum();
+        let total_active: u32 = instances
+            .iter()
+            .map(|(_, s)| s.metrics.active_sequences)
+            .sum();
         let total_queue: u32 = instances.iter().map(|(_, s)| s.metrics.queue_depth).sum();
 
         let (topo_gpus, topo_cliques) = match &self.topology {
@@ -328,7 +328,10 @@ mod tests {
         // No instances registered
         let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
         let result = sched.schedule(&req);
-        assert!(matches!(result, Err(SchedulerError::NoInstanceAvailable(_))));
+        assert!(matches!(
+            result,
+            Err(SchedulerError::NoInstanceAvailable(_))
+        ));
     }
 
     #[test]
@@ -461,7 +464,10 @@ mod tests {
         // Normal priority should be rejected
         let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
         let result = sched.schedule(&req);
-        assert!(matches!(result, Err(SchedulerError::SystemOverloaded(_, _))));
+        assert!(matches!(
+            result,
+            Err(SchedulerError::SystemOverloaded(_, _))
+        ));
     }
 
     #[test]
@@ -557,26 +563,63 @@ mod tests {
 
     #[test]
     fn test_topology_penalty_method() {
-        use crate::topology::{GpuTopology, TopologyConfig};
         use crate::topology::collector::{LinkType, ParsedGpu, ParsedLink, ParsedTopology};
         use crate::topology::graph::GpuGraph;
-        use crate::topology::LinkWeightConfig;
+        use crate::topology::{GpuTopology, LinkWeightConfig, TopologyConfig};
 
         let parsed = ParsedTopology {
             gpus: vec![
-                ParsedGpu { gpu_id: GpuId(0), name: "GPU0".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(1), name: "GPU1".into(), cpu_affinity: Some(0) },
-                ParsedGpu { gpu_id: GpuId(2), name: "GPU2".into(), cpu_affinity: Some(32) },
+                ParsedGpu {
+                    gpu_id: GpuId(0),
+                    name: "GPU0".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(1),
+                    name: "GPU1".into(),
+                    cpu_affinity: Some(0),
+                },
+                ParsedGpu {
+                    gpu_id: GpuId(2),
+                    name: "GPU2".into(),
+                    cpu_affinity: Some(32),
+                },
             ],
             links: vec![
-                ParsedLink { from: GpuId(0), to: GpuId(1), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(1), to: GpuId(0), link_type: LinkType::NV4 },
-                ParsedLink { from: GpuId(0), to: GpuId(2), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(2), to: GpuId(0), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(1), to: GpuId(2), link_type: LinkType::SYS },
-                ParsedLink { from: GpuId(2), to: GpuId(1), link_type: LinkType::SYS },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(1),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(0),
+                    link_type: LinkType::NV4,
+                },
+                ParsedLink {
+                    from: GpuId(0),
+                    to: GpuId(2),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(0),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(1),
+                    to: GpuId(2),
+                    link_type: LinkType::SYS,
+                },
+                ParsedLink {
+                    from: GpuId(2),
+                    to: GpuId(1),
+                    link_type: LinkType::SYS,
+                },
             ],
-            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32)].into_iter().collect(),
+            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32)]
+                .into_iter()
+                .collect(),
         };
         let graph = GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0);
         let topo = Arc::new(GpuTopology::from_graph(graph, TopologyConfig::default()));

@@ -63,7 +63,10 @@ impl AliasResolver {
             }
         } else {
             // Passthrough: treat the alias as a literal model name
-            debug!(alias = alias, "No alias found, treating as literal model name");
+            debug!(
+                alias = alias,
+                "No alias found, treating as literal model name"
+            );
             ResolvedAlias {
                 model: alias.to_string(),
                 preferred_backends: Vec::new(),
@@ -190,7 +193,10 @@ mod tests {
         let resolver = AliasResolver::from_config(test_aliases());
         let mut names = resolver.list_aliases();
         names.sort();
-        assert_eq!(names, vec!["lamprey/embed", "lamprey/fast", "lamprey/reason"]);
+        assert_eq!(
+            names,
+            vec!["lamprey/embed", "lamprey/fast", "lamprey/reason"]
+        );
     }
 
     #[test]
