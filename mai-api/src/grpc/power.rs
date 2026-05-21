@@ -41,9 +41,8 @@ fn parse_transition_action(action: &str) -> Result<TransitionTrigger, Status> {
         "override" | "manual_override" => Ok(TransitionTrigger::ManualOverride),
         "shutdown" | "system_shutdown" => Ok(TransitionTrigger::SystemShutdown),
         _ => Err(Status::invalid_argument(format!(
-            "unknown power action '{}'; valid: boot, wake, urgent_wake, promote, \
-             demote, deep_sleep, override, shutdown",
-            action
+            "unknown power action '{action}'; valid: boot, wake, urgent_wake, promote, \
+             demote, deep_sleep, override, shutdown"
         ))),
     }
 }

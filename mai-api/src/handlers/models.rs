@@ -188,28 +188,25 @@ pub async fn load_model(
                 operation: "load".to_string(),
                 model_id: model_id.clone(),
                 status: "loading".to_string(),
-                message: format!("Model '{}' load initiated from cold storage", model_id),
+                message: format!("Model '{model_id}' load initiated from cold storage"),
             }))
         }
         ModelStatus::Loaded | ModelStatus::Active { .. } => Ok(Json(ModelOperationResponse {
             operation: "load".to_string(),
             model_id: model_id.clone(),
             status: "already_loaded".to_string(),
-            message: format!("Model '{}' is already loaded", model_id),
+            message: format!("Model '{model_id}' is already loaded"),
         })),
         ModelStatus::Loading { progress_percent } => Ok(Json(ModelOperationResponse {
             operation: "load".to_string(),
             model_id: model_id.clone(),
             status: "loading".to_string(),
             message: format!(
-                "Model '{}' is already loading ({}% complete)",
-                model_id, progress_percent
+                "Model '{model_id}' is already loading ({progress_percent}% complete)"
             ),
         })),
         _ => Err(ApiError::ModelUnavailable(format!(
-            "Model '{}' is in state {:?} and cannot be loaded",
-            model_id,
-            status.clone()
+            "Model '{model_id}' is in state {status:?} and cannot be loaded"
         ))),
     }
 }
@@ -254,8 +251,7 @@ pub async fn unload_model(
                 model_id: model_id.clone(),
                 status: "evicting".to_string(),
                 message: format!(
-                    "Model '{}' unload initiated, draining in-flight requests",
-                    model_id
+                    "Model '{model_id}' unload initiated, draining in-flight requests"
                 ),
             }))
         }
@@ -263,12 +259,10 @@ pub async fn unload_model(
             operation: "unload".to_string(),
             model_id: model_id.clone(),
             status: "not_loaded".to_string(),
-            message: format!("Model '{}' is not currently loaded", model_id),
+            message: format!("Model '{model_id}' is not currently loaded"),
         })),
         _ => Err(ApiError::ModelUnavailable(format!(
-            "Model '{}' is in state {:?} and cannot be unloaded now",
-            model_id,
-            status.clone()
+            "Model '{model_id}' is in state {status:?} and cannot be unloaded now"
         ))),
     }
 }

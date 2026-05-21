@@ -286,9 +286,8 @@ impl HotSwapManager {
             Ok(()) => {
                 let completion_time = start.elapsed();
                 info!(
-                    "Swap completed successfully in {}ms, drained {} requests",
+                    "Swap completed successfully in {}ms, drained {drained_count} requests",
                     completion_time.as_millis(),
-                    drained_count
                 );
                 SwapResult::Success {
                     drained_requests: drained_count,
@@ -296,7 +295,7 @@ impl HotSwapManager {
                 }
             }
             Err(ref err) => {
-                warn!("Swap failed: {}", err);
+                warn!("Swap failed: {err}");
                 if request.rollback_on_failure && state.needs_rollback() {
                     match self.rollback(&request.target).await {
                         Ok(()) => {
@@ -307,23 +306,17 @@ impl HotSwapManager {
                             }
                         }
                         Err(rollback_err) => {
-                            error!("Rollback also failed: {}", rollback_err);
+                            error!("Rollback also failed: {rollback_err}");
                             SwapResult::Failed {
                                 error: SwapError::RollbackFailed(format!(
-                                    "Original error: {}. Rollback error: {}",
-                                    err, rollback_err
+                                    "Original error: {err}. Rollback error: {rollback_err}"
                                 )),
                                 partial_state: state.clone(),
                             }
                         }
                     }
-                } else if request.rollback_on_failure {
-                    // No rollback needed (drain failed before deactivation)
-                    SwapResult::Failed {
-                        error: err.clone(),
-                        partial_state: state.clone(),
-                    }
                 } else {
+                    // No rollback needed or not configured
                     SwapResult::Failed {
                         error: err.clone(),
                         partial_state: state.clone(),
@@ -339,7 +332,12 @@ impl HotSwapManager {
             operator: request.operator,
             target: request.target.clone(),
             reason: request.reason.clone(),
-            duration_ms: start.elapsed().as_millis() as u64,
+            duration_ms: {
+                // Safety: swap duration millis will never exceed u64
+                #[allow(clippy::cast_possible_truncation)]
+                let ms = start.elapsed().as_millis() as u64;
+                ms
+            },
             result: swap_result.clone(),
             requests_drained: drained_count,
             rollback_performed,
@@ -347,10 +345,9 @@ impl HotSwapManager {
 
         self.swap_in_progress = false;
 
-        match result {
-            Ok(()) => Ok(swap_result),
-            Err(_) => Ok(swap_result),
-        }
+        // Result already captured in swap_result; always return Ok with the outcome
+        let _ = result;
+        Ok(swap_result)
     }
 
     /// Internal: runs the swap sequence, returning Err on any step failure.
@@ -409,34 +406,29 @@ impl HotSwapManager {
                 if let Some(adapter_id) = registry.get_loaded_adapter(old_id) {
                     scheduler.set_adapter_health(adapter_id, false);
                     info!(
-                        "Paused routing: adapter {} marked unhealthy for model swap",
-                        adapter_id
+                        "Paused routing: adapter {adapter_id} marked unhealthy for model swap",
                     );
                 } else {
                     return Err(SwapError::ComponentNotFound(format!(
-                        "No loaded adapter for model {}",
-                        old_id
+                        "No loaded adapter for model {old_id}"
                     )));
                 }
             }
             SwapTarget::Adapter { old_adapter, .. } => {
                 scheduler.set_adapter_health(old_adapter, false);
-                info!("Paused routing: adapter {} marked unhealthy", old_adapter);
+                info!("Paused routing: adapter {old_adapter} marked unhealthy");
             }
             SwapTarget::Hardware { event } => {
-                match event {
-                    HardwareChangeEvent::GpuRemoved { gpu_id } => {
-                        // Mark all adapters on this GPU as unhealthy
-                        // In production: query HIL for adapter-to-GPU mapping
-                        // For now: log intent; the adapter ID IS the GPU mapping
-                        scheduler.set_adapter_health(gpu_id, false);
-                        info!("Paused routing: GPU {} adapters marked unhealthy", gpu_id);
-                    }
-                    _ => {
-                        // GpuAdded, MemristorCardInserted, ThermalSensorAdded
-                        // No existing routing to pause for additions
-                        info!("Hardware addition event: no routing to pause");
-                    }
+                if let HardwareChangeEvent::GpuRemoved { gpu_id } = event {
+                    // Mark all adapters on this GPU as unhealthy
+                    // In production: query HIL for adapter-to-GPU mapping
+                    // For now: log intent; the adapter ID IS the GPU mapping
+                    scheduler.set_adapter_health(gpu_id, false);
+                    info!("Paused routing: GPU {gpu_id} adapters marked unhealthy");
+                } else {
+                    // GpuAdded, MemristorCardInserted, ThermalSensorAdded
+                    // No existing routing to pause for additions
+                    info!("Hardware addition event: no routing to pause");
                 }
             }
         }
@@ -466,16 +458,14 @@ impl HotSwapManager {
 
             if in_flight == 0 {
                 info!(
-                    "Drain complete: {} requests drained for {:?}",
-                    total_drained, adapter_id
+                    "Drain complete: {total_drained} requests drained for {adapter_id:?}",
                 );
                 return Ok(total_drained);
             }
 
             if Instant::now() >= deadline {
                 warn!(
-                    "Drain timeout: {} requests still in flight for {:?}",
-                    in_flight, adapter_id
+                    "Drain timeout: {in_flight} requests still in flight for {adapter_id:?}",
                 );
                 return Err(SwapError::DrainTimeout(in_flight));
             }
@@ -492,9 +482,9 @@ impl HotSwapManager {
                 // Unload the model from the registry
                 let mut registry = self.registry.write().await;
                 registry.unload_model(old_id).await.map_err(|e| {
-                    SwapError::RegistryError(format!("Failed to unload model {}: {}", old_id, e))
+                    SwapError::RegistryError(format!("Failed to unload model {old_id}: {e}"))
                 })?;
-                info!("Deactivated model: {}", old_id);
+                info!("Deactivated model: {old_id}");
             }
             SwapTarget::Adapter { old_adapter, .. } => {
                 // Unregister adapter from scheduler
@@ -503,21 +493,18 @@ impl HotSwapManager {
                 // Unregister from health monitor
                 let mut health = self.health_monitor.write().await;
                 health.unregister_adapter(old_adapter);
-                info!("Deactivated adapter: {}", old_adapter);
+                info!("Deactivated adapter: {old_adapter}");
             }
             SwapTarget::Hardware { event } => {
-                match event {
-                    HardwareChangeEvent::GpuRemoved { gpu_id } => {
-                        let mut scheduler = self.scheduler.write().await;
-                        scheduler.unregister_adapter(gpu_id);
-                        let mut health = self.health_monitor.write().await;
-                        health.unregister_adapter(gpu_id);
-                        info!("Deactivated GPU: {}", gpu_id);
-                    }
-                    _ => {
-                        // Additions don't have an old component to deactivate
-                        info!("Hardware addition: no old component to deactivate");
-                    }
+                if let HardwareChangeEvent::GpuRemoved { gpu_id } = event {
+                    let mut scheduler = self.scheduler.write().await;
+                    scheduler.unregister_adapter(gpu_id);
+                    let mut health = self.health_monitor.write().await;
+                    health.unregister_adapter(gpu_id);
+                    info!("Deactivated GPU: {gpu_id}");
+                } else {
+                    // Additions don't have an old component to deactivate
+                    info!("Hardware addition: no old component to deactivate");
                 }
             }
         }
@@ -539,9 +526,9 @@ impl HotSwapManager {
                     .load_model(new_id, resolved_adapter.clone())
                     .await
                     .map_err(|e| {
-                        SwapError::RegistryError(format!("Failed to load model {}: {}", new_id, e))
+                        SwapError::RegistryError(format!("Failed to load model {new_id}: {e}"))
                     })?;
-                info!("Activated new model: {}", new_id);
+                info!("Activated new model: {new_id}");
             }
             SwapTarget::Adapter { new_adapter, .. } => {
                 // Register new adapter in scheduler (starts unhealthy, health check promotes)
@@ -558,8 +545,7 @@ impl HotSwapManager {
                 let mut health = self.health_monitor.write().await;
                 health.register_adapter(new_adapter.clone());
                 info!(
-                    "Activated new adapter: {} (unhealthy until health check)",
-                    new_adapter
+                    "Activated new adapter: {new_adapter} (unhealthy until health check)",
                 );
             }
             SwapTarget::Hardware { event } => {
@@ -569,7 +555,7 @@ impl HotSwapManager {
                         scheduler.register_adapter(gpu_id.clone(), vec![], 4, vec![gpu_id.clone()]);
                         let mut health = self.health_monitor.write().await;
                         health.register_adapter(gpu_id.clone());
-                        info!("Activated new GPU: {}", gpu_id);
+                        info!("Activated new GPU: {gpu_id}");
                     }
                     HardwareChangeEvent::MemristorCardInserted => {
                         // Stub: TetraMem card detection. The adapter slot is reserved
@@ -623,14 +609,14 @@ impl HotSwapManager {
                 let health = self.health_monitor.read().await;
                 if let Some(adapter_health) = health.get_adapter_health(&adapter_id) {
                     if matches!(adapter_health.status, crate::health::AdapterStatus::Healthy) {
-                        info!("Health check passed for {}", adapter_id);
+                        info!("Health check passed for {adapter_id}");
                         return Ok(true);
                     }
                 }
             }
 
             if Instant::now() >= deadline {
-                warn!("Health check timeout for {}", adapter_id);
+                warn!("Health check timeout for {adapter_id}");
                 return Ok(false);
             }
 
@@ -643,7 +629,7 @@ impl HotSwapManager {
         let adapter_id = self.new_target_adapter_id(target).await?;
         let mut scheduler = self.scheduler.write().await;
         scheduler.set_adapter_health(&adapter_id, true);
-        info!("Resumed routing to {}", adapter_id);
+        info!("Resumed routing to {adapter_id}");
         Ok(())
     }
 
@@ -664,11 +650,10 @@ impl HotSwapManager {
                 let _ = registry.unload_model(new_id).await; // Best effort
                 registry.load_model(old_id, adapter_id).await.map_err(|e| {
                     SwapError::RollbackFailed(format!(
-                        "Cannot restore original model {}: {}",
-                        old_id, e
+                        "Cannot restore original model {old_id}: {e}"
                     ))
                 })?;
-                info!("Rollback: restored model {}", old_id);
+                info!("Rollback: restored model {old_id}");
             }
             SwapTarget::Adapter {
                 old_adapter,
@@ -683,13 +668,12 @@ impl HotSwapManager {
                 let mut health = self.health_monitor.write().await;
                 health.unregister_adapter(new_adapter);
                 health.register_adapter(old_adapter.clone());
-                info!("Rollback: restored adapter {}", old_adapter);
+                info!("Rollback: restored adapter {old_adapter}");
             }
             SwapTarget::Hardware { event } => {
                 // Hardware events are generally irreversible
                 return Err(SwapError::IrreversibleEvent(format!(
-                    "Cannot rollback hardware event: {:?}",
-                    event
+                    "Cannot rollback hardware event: {event:?}"
                 )));
             }
         }
@@ -735,17 +719,21 @@ impl HotSwapManager {
             SwapTarget::Model { old_id, .. } => {
                 let registry = self.registry.read().await;
                 registry.get_loaded_adapter(old_id).cloned().ok_or_else(|| {
-                    SwapError::ComponentNotFound(format!("No adapter loaded for model {}", old_id))
+                    SwapError::ComponentNotFound(format!("No adapter loaded for model {old_id}"))
                 })
             }
             SwapTarget::Adapter { old_adapter, .. } => Ok(old_adapter.clone()),
-            SwapTarget::Hardware { event } => match event {
-                HardwareChangeEvent::GpuRemoved { gpu_id } => Ok(gpu_id.clone()),
-                HardwareChangeEvent::GpuAdded { gpu_id } => Ok(gpu_id.clone()),
-                _ => Err(SwapError::ComponentNotFound(
-                    "No adapter ID for this hardware event type".to_string(),
-                )),
-            },
+            SwapTarget::Hardware { event } => {
+                if let HardwareChangeEvent::GpuRemoved { gpu_id }
+                | HardwareChangeEvent::GpuAdded { gpu_id } = event
+                {
+                    Ok(gpu_id.clone())
+                } else {
+                    Err(SwapError::ComponentNotFound(
+                        "No adapter ID for this hardware event type".to_string(),
+                    ))
+                }
+            }
         }
     }
 
@@ -756,18 +744,20 @@ impl HotSwapManager {
                 let registry = self.registry.read().await;
                 registry.get_loaded_adapter(new_id).cloned().ok_or_else(|| {
                     SwapError::ComponentNotFound(format!(
-                        "No adapter loaded for new model {}",
-                        new_id
+                        "No adapter loaded for new model {new_id}"
                     ))
                 })
             }
             SwapTarget::Adapter { new_adapter, .. } => Ok(new_adapter.clone()),
-            SwapTarget::Hardware { event } => match event {
-                HardwareChangeEvent::GpuAdded { gpu_id } => Ok(gpu_id.clone()),
-                _ => Err(SwapError::ComponentNotFound(
-                    "No new adapter ID for this hardware event type".to_string(),
-                )),
-            },
+            SwapTarget::Hardware { event } => {
+                if let HardwareChangeEvent::GpuAdded { gpu_id } = event {
+                    Ok(gpu_id.clone())
+                } else {
+                    Err(SwapError::ComponentNotFound(
+                        "No new adapter ID for this hardware event type".to_string(),
+                    ))
+                }
+            }
         }
     }
 }
@@ -987,7 +977,7 @@ mod tests {
             } => {
                 assert_eq!(*drained_requests, 0); // No in-flight during test
             }
-            other => panic!("Expected Success, got {:?}", other),
+            other => panic!("Expected Success, got {other:?}"),
         }
 
         assert_eq!(mgr.total_swap_count(), 1);
@@ -1023,10 +1013,10 @@ mod tests {
                 timestamp: Instant::now(),
                 operator: None,
                 target: SwapTarget::Adapter {
-                    old_adapter: format!("old-{}", i),
-                    new_adapter: format!("new-{}", i),
+                    old_adapter: format!("old-{i}"),
+                    new_adapter: format!("new-{i}"),
                 },
-                reason: format!("test {}", i),
+                reason: format!("test {i}"),
                 duration_ms: 100,
                 result: SwapResult::Success {
                     drained_requests: 0,
@@ -1055,10 +1045,10 @@ mod tests {
         let thermal = HardwareChangeEvent::ThermalSensorAdded;
 
         // Just verify these construct without panic (type coverage)
-        let _ = format!("{:?}", added);
-        let _ = format!("{:?}", removed);
-        let _ = format!("{:?}", memristor);
-        let _ = format!("{:?}", thermal);
+        let _ = format!("{added:?}");
+        let _ = format!("{removed:?}");
+        let _ = format!("{memristor:?}");
+        let _ = format!("{thermal:?}");
     }
 
     #[test]

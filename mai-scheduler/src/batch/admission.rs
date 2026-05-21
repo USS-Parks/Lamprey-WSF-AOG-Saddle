@@ -149,8 +149,7 @@ impl AdmissionController {
 
         // Region 2: Selective (aggressive_threshold <= VRAM < eviction_threshold)
         if vram_usage_fraction < self.config.eviction_threshold {
-            let priority_qualifies =
-                (priority as u8) <= self.config.selective_min_priority;
+            let priority_qualifies = (priority as u8) <= self.config.selective_min_priority;
             let short_enough = prompt_tokens <= self.config.selective_max_tokens;
 
             if priority_qualifies || short_enough {
@@ -186,6 +185,7 @@ impl AdmissionController {
     }
 
     /// Convenience: compute VRAM usage fraction from used/total bytes.
+    #[allow(clippy::cast_precision_loss)] // Acceptable: VRAM ratio doesn't need full u64 precision
     pub fn vram_fraction(used_bytes: u64, total_bytes: u64) -> f64 {
         if total_bytes == 0 {
             return 1.0; // treat zero budget as full
@@ -328,7 +328,7 @@ mod tests {
 
         let new_config = AdmissionConfig {
             aggressive_threshold: 0.70,
-            ..Default::default()
+            ..AdmissionConfig::default()
         };
         ctrl.update_config(new_config);
         assert!((ctrl.config().aggressive_threshold - 0.70).abs() < f64::EPSILON);

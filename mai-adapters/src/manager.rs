@@ -279,9 +279,8 @@ impl AdapterManager {
                                 is_end_of_text: finish_reason.is_some(),
                             });
                         }
-                        Ok(IpcEventKind::Usage { .. }) => {
-                            // Usage accounting - log but don't block
-                        }
+                        // Usage accounting and unexpected Result events: log but don't block
+                        Ok(IpcEventKind::Usage { .. } | IpcEventKind::Result { .. }) => {}
                         Ok(IpcEventKind::Done) => {
                             timer.success();
                             break;
@@ -292,9 +291,6 @@ impl AdapterManager {
                                 name: adapter_name.to_string(),
                                 detail: format!("[{code}] {message}"),
                             });
-                        }
-                        Ok(IpcEventKind::Result { .. }) => {
-                            // Unexpected for inference, ignore
                         }
                         Err(e) => {
                             warn!(adapter = %adapter_name, error = %e, "Failed to parse IPC event");
@@ -524,9 +520,11 @@ impl AdapterManager {
         let backoff = process.mark_crashed();
         match backoff {
             Some(duration) => {
+                #[allow(clippy::cast_possible_truncation)]
+                let backoff_display = duration.as_millis() as u64;
                 info!(
                     adapter = %adapter_name,
-                    backoff_ms = duration.as_millis() as u64,
+                    backoff_ms = backoff_display,
                     "Waiting before restart"
                 );
                 tokio::time::sleep(duration).await;
@@ -584,7 +582,7 @@ impl AdapterManager {
 
     /// Check how many in-flight requests an adapter has.
     /// Used by the scheduler for least-loaded routing.
-    pub async fn adapter_in_flight(&self, _adapter_name: &str) -> usize {
+    pub fn adapter_in_flight(&self, _adapter_name: &str) -> usize {
         // TODO: Track in-flight request count per adapter.
         // For now returns 0; the scheduler uses its own internal tracking.
         0

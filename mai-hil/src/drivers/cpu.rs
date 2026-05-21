@@ -88,7 +88,7 @@ impl CpuDriver {
         let content = tokio::task::spawn_blocking(|| std::fs::read_to_string("/proc/cpuinfo"))
             .await
             .ok()
-            .and_then(|r| r.ok())
+            .and_then(std::result::Result::ok)
             .unwrap_or_default();
 
         let mut types = vec![ComputeType::CPUFallback];

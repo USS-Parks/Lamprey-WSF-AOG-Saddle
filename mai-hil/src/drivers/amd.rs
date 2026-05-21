@@ -82,14 +82,11 @@ impl HardwareProbe for AmdDriver {
             .get(&card_key)
             .and_then(|v| v.as_object());
 
-        let card = match card {
-            Some(c) => c,
-            None => {
-                return Err(HilError::Unavailable(format!(
-                    "AMD GPU {} not found in rocm-smi output",
-                    self.device_index
-                )));
-            }
+        let Some(card) = card else {
+            return Err(HilError::Unavailable(format!(
+                "AMD GPU {} not found in rocm-smi output",
+                self.device_index
+            )));
         };
 
         let model_name = card
@@ -136,13 +133,10 @@ impl HardwareProbe for AmdDriver {
             .get(&card_key)
             .and_then(|v| v.as_object());
 
-        let card = match card {
-            Some(c) => c,
-            None => {
-                return Err(HilError::Unavailable(
-                    "Temperature data unavailable".to_string(),
-                ));
-            }
+        let Some(card) = card else {
+            return Err(HilError::Unavailable(
+                "Temperature data unavailable".to_string(),
+            ));
         };
 
         // rocm-smi reports "Temperature (Sensor edge) (C)" or similar
@@ -153,8 +147,12 @@ impl HardwareProbe for AmdDriver {
             .and_then(|s| s.parse::<f32>().ok())
             .or_else(|| {
                 card.get("Temperature (Sensor edge) (C)")
-                    .and_then(|v| v.as_f64())
-                    .map(|f| f as f32)
+                    .and_then(serde_json::Value::as_f64)
+                    .map(|f| {
+                        #[allow(clippy::cast_possible_truncation)]
+                        let temp = f as f32;
+                        temp
+                    })
             })
             .unwrap_or(0.0);
 
@@ -225,11 +223,8 @@ impl MemoryManager for AmdDriver {
             .get(&card_key)
             .and_then(|v| v.as_object());
 
-        let card = match card {
-            Some(c) => c,
-            None => {
-                return Err(HilError::Unavailable("VRAM info unavailable".to_string()));
-            }
+        let Some(card) = card else {
+            return Err(HilError::Unavailable("VRAM info unavailable".to_string()));
         };
 
         let total = card

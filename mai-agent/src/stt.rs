@@ -327,7 +327,11 @@ impl SttManager {
         })?;
         debug_assert_eq!(request.id, *request_id);
 
-        let duration_ms = request.created_at.elapsed().as_millis() as u64;
+        let duration_ms = {
+            #[allow(clippy::cast_possible_truncation)]
+            let val = request.created_at.elapsed().as_millis() as u64;
+            val
+        };
 
         let transcription = Transcription {
             text,
@@ -398,6 +402,7 @@ impl SttManager {
     }
 
     /// Validate an audio format against supported configurations.
+    #[allow(clippy::unused_self)]
     fn validate_format(&self, format: &AudioFormat) -> Result<(), AgentError> {
         // Validate sample rate
         match format.sample_rate {

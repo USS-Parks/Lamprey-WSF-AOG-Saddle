@@ -707,6 +707,7 @@ impl From<&mai_core::health::AdapterHealth> for AdapterHealthSummary {
 }
 
 impl From<&mai_core::health::GpuHealth> for GpuHealthSummary {
+    #[allow(clippy::cast_precision_loss)]
     fn from(g: &mai_core::health::GpuHealth) -> Self {
         let vram_pct = if g.vram_total > 0 {
             (g.vram_used as f32 / g.vram_total as f32) * 100.0

@@ -78,6 +78,7 @@ impl AdapterHealthState {
         }
 
         // Calculate how many intervals have been missed
+        #[allow(clippy::cast_possible_truncation)]
         let intervals_elapsed = (elapsed.as_millis() / self.interval.as_millis()) as u32;
         self.missed_count = intervals_elapsed.saturating_sub(1);
 
@@ -113,6 +114,7 @@ impl AdapterHealthState {
             adapter_name: self.name.clone(),
             is_healthy: self.missed_count == 0 && !self.declared_dead,
             missed_heartbeats: self.missed_count,
+            #[allow(clippy::cast_possible_truncation)]
             last_heartbeat_ms_ago: self.last_heartbeat.elapsed().as_millis() as u64,
             declared_dead: self.declared_dead,
         }

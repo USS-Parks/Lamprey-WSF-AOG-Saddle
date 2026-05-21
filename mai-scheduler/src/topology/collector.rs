@@ -57,6 +57,7 @@ impl LinkType {
     }
 
     /// Latency score (lower is better). Used in edge cost calculation.
+    #[allow(clippy::match_same_arms)] // NV4 and NV2 intentionally share the same score
     pub fn latency_score(self) -> u32 {
         match self {
             Self::NV4 => 1,
@@ -140,6 +141,7 @@ pub fn collect_nvidia_smi() -> Result<String, TopologyError> {
 /// GPU2    NV4     PHB      X      NV4     32-63           N/A
 /// GPU3    PHB     NV4     NV4      X      32-63           N/A
 /// ```
+#[allow(clippy::similar_names)] // row_gpu_id vs col_gpu_id are intentionally parallel
 pub fn parse_topo_matrix(output: &str) -> Result<ParsedTopology, TopologyError> {
     let lines: Vec<&str> = output.lines().collect();
 
@@ -217,6 +219,7 @@ pub fn parse_topo_matrix(output: &str) -> Result<ParsedTopology, TopologyError> 
 
         // Parse link types to other GPUs
         for (col_offset, _) in gpu_columns.iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)] // GPU count fits in u32
             let col_gpu_id = col_offset as u32;
             if col_gpu_id == row_gpu_id {
                 continue; // Skip self-link

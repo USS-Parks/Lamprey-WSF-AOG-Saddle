@@ -38,7 +38,7 @@ pub enum CoreError {
 
 impl From<SchedulerError> for CoreError {
     fn from(err: SchedulerError) -> Self {
-        tracing::error!("Scheduler error: {:?}", err);
+        tracing::error!("Scheduler error: {err:?}");
         match err {
             SchedulerError::NoAdapterAvailable(_) => {
                 CoreError::ModelUnavailable("No compatible adapter".into())
@@ -55,7 +55,7 @@ impl From<SchedulerError> for CoreError {
 
 impl From<RegistryError> for CoreError {
     fn from(err: RegistryError) -> Self {
-        tracing::error!("Registry error: {:?}", err);
+        tracing::error!("Registry error: {err:?}");
         match err {
             RegistryError::ModelNotFound(m) => CoreError::ModelUnavailable(m),
             RegistryError::InsufficientVram { .. } => CoreError::Overloaded,
@@ -66,18 +66,18 @@ impl From<RegistryError> for CoreError {
 
 impl From<PowerError> for CoreError {
     fn from(err: PowerError) -> Self {
-        tracing::error!("Power error: {:?}", err);
-        CoreError::Internal(format!("Power subsystem: {}", err))
+        tracing::error!("Power error: {err:?}");
+        CoreError::Internal(format!("Power subsystem: {err}"))
     }
 }
 
 impl From<HealthError> for CoreError {
     fn from(err: HealthError) -> Self {
-        tracing::error!("Health error: {:?}", err);
+        tracing::error!("Health error: {err:?}");
         match err {
             HealthError::AirGapViolation(detail) => CoreError::AirGapViolation(detail),
             HealthError::AdapterNotRegistered(id) => {
-                CoreError::Internal(format!("Adapter not registered: {}", id))
+                CoreError::Internal(format!("Adapter not registered: {id}"))
             }
             HealthError::ConfigError(e) => CoreError::Internal(e),
         }
@@ -86,7 +86,7 @@ impl From<HealthError> for CoreError {
 
 impl From<SwapError> for CoreError {
     fn from(err: SwapError) -> Self {
-        tracing::error!("Swap error: {:?}", err);
-        CoreError::Internal(format!("Hot-swap: {}", err))
+        tracing::error!("Swap error: {err:?}");
+        CoreError::Internal(format!("Hot-swap: {err}"))
     }
 }

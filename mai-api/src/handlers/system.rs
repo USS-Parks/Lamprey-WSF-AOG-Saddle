@@ -63,10 +63,10 @@ pub async fn power_transition(
         warn!(error = %e, action = %req.action, "Power transition failed");
         match e {
             mai_core::power::PowerError::InvalidTransition { from, to } => {
-                ApiError::ValidationFailed(format!("Invalid power transition: {} -> {}", from, to))
+                ApiError::ValidationFailed(format!("Invalid power transition: {from} -> {to}"))
             }
             mai_core::power::PowerError::GuardFailed(reason) => {
-                ApiError::ValidationFailed(format!("Transition guard failed: {}", reason))
+                ApiError::ValidationFailed(format!("Transition guard failed: {reason}"))
             }
             _ => ApiError::InternalError,
         }
@@ -108,8 +108,7 @@ fn parse_transition_trigger(
         "manual" => Ok(TransitionTrigger::ManualOverride),
         "shutdown" => Ok(TransitionTrigger::SystemShutdown),
         other => Err(ApiError::ValidationFailed(format!(
-            "Unknown power action '{}'. Valid: boot, wake, urgent_wake, promote, demote, deep_sleep, manual, shutdown",
-            other
+            "Unknown power action '{other}'. Valid: boot, wake, urgent_wake, promote, demote, deep_sleep, manual, shutdown"
         ))),
     }
 }
@@ -326,8 +325,8 @@ pub async fn get_profile(
     // Non-admin can only view their own profile
     if profile.role != crate::types::ProfileRole::Admin && profile.profile_id != profile_id {
         return Err(ApiError::PermissionDenied(format!(
-            "Profile '{}' cannot view profile '{}'",
-            profile.profile_id, profile_id
+            "Profile '{}' cannot view profile '{profile_id}'",
+            profile.profile_id,
         )));
     }
 

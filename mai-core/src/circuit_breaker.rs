@@ -177,11 +177,7 @@ impl CircuitBreaker {
         self.open_entered_at.map(|entered| {
             let elapsed = Instant::now().duration_since(entered);
             let cooldown = self.calculate_cooldown();
-            if elapsed >= cooldown {
-                Duration::ZERO
-            } else {
-                cooldown - elapsed
-            }
+            cooldown.saturating_sub(elapsed)
         })
     }
 
@@ -202,6 +198,7 @@ impl CircuitBreaker {
     }
 
     /// Report current metrics
+    #[allow(clippy::cast_possible_truncation)] // window sizes bounded by config, never exceed u32
     pub fn metrics(&self) -> CircuitMetrics {
         let failures = self.failure_window.len() as u32;
         let total = failures + self.success_window.len() as u32;
@@ -226,6 +223,7 @@ impl CircuitBreaker {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)] // window sizes bounded by config, never exceed u32
     fn should_trip(&self) -> bool {
         // Check 1: consecutive failure count
         if self.failure_count >= self.config.trip_threshold {
@@ -237,7 +235,7 @@ impl CircuitBreaker {
         if total < self.config.rate_min_samples {
             return false;
         }
-        let rate = failures as f64 / total as f64;
+        let rate = f64::from(failures) / f64::from(total);
         rate >= self.config.rate_threshold
     }
 
@@ -246,7 +244,7 @@ impl CircuitBreaker {
         let multiplier = self
             .config
             .cooldown_multiplier
-            .powf(self.cooldown_cycles as f64);
+            .powf(f64::from(self.cooldown_cycles));
         let calculated = Duration::from_secs_f64(base * multiplier);
         calculated.min(self.config.cooldown_max)
     }

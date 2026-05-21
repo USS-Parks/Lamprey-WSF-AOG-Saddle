@@ -122,6 +122,7 @@ impl ProfileStore for ProfileManager {
         // Check max profiles limit
         if self.config.max_profiles > 0 {
             let profiles = self.profiles.read().await;
+            #[allow(clippy::cast_possible_truncation)]
             if profiles.len() as u32 >= self.config.max_profiles {
                 return Err(VaultError::ProfileStoreError(format!(
                     "Maximum profile limit reached: {}",
@@ -181,14 +182,18 @@ impl ProfileStore for ProfileManager {
             .get_mut(profile_id)
             .ok_or_else(|| VaultError::ProfileNotFound(profile_id.to_string()))?;
 
-        profile.last_active = chrono::Utc::now().timestamp() as u64;
+        #[allow(clippy::cast_sign_loss)] // Timestamp is always positive after epoch
+        let now = chrono::Utc::now().timestamp() as u64;
+        profile.last_active = now;
         debug!(profile_id, "Profile activity timestamp updated");
         Ok(())
     }
 
     async fn profile_count(&self) -> Result<u32, VaultError> {
         let profiles = self.profiles.read().await;
-        Ok(profiles.len() as u32)
+        #[allow(clippy::cast_possible_truncation)]
+        let count = profiles.len() as u32;
+        Ok(count)
     }
 }
 
@@ -212,7 +217,7 @@ mod tests {
     fn make_profile(id: &str, role: ProfileRole) -> FamilyProfile {
         FamilyProfile {
             id: id.to_string(),
-            name: format!("Test {}", id),
+            name: format!("Test {id}"),
             role,
             model_access: vec![],
             priority_level: 5,

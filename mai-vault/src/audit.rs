@@ -68,7 +68,7 @@ impl AuditWriter {
                         let mut last = self.last_hash.write().await;
 
                         if let Some(final_entry) = loaded.last() {
-                            *last = final_entry.entry_hash.clone();
+                            (*last).clone_from(&final_entry.entry_hash);
                         }
                         *entries = loaded;
                         info!(
@@ -105,8 +105,8 @@ impl AuditWriter {
         hasher.update(previous_hash.as_bytes());
         hasher.update(&timestamp.to_le_bytes());
         hasher.update(profile_id.as_bytes());
-        hasher.update(format!("{:?}", action).as_bytes());
-        hasher.update(format!("{:?}", status).as_bytes());
+        hasher.update(format!("{action:?}").as_bytes());
+        hasher.update(format!("{status:?}").as_bytes());
         hasher.finalize().to_hex().to_string()
     }
 
@@ -158,8 +158,8 @@ impl AuditStore for AuditWriter {
             return Err(VaultError::AuditChainBroken {
                 index: entries.len() as u64,
                 detail: format!(
-                    "Entry hash mismatch: got {}, expected {}",
-                    entry.entry_hash, expected_hash
+                    "Entry hash mismatch: got {}, expected {expected_hash}",
+                    entry.entry_hash
                 ),
             });
         }
@@ -170,7 +170,7 @@ impl AuditStore for AuditWriter {
             "Appending audit entry"
         );
 
-        *last = entry.entry_hash.clone();
+        (*last).clone_from(&entry.entry_hash);
         entries.push(entry.clone());
         drop(entries);
         drop(last);
@@ -225,8 +225,8 @@ impl AuditStore for AuditWriter {
                 return Err(VaultError::AuditChainBroken {
                     index: i as u64,
                     detail: format!(
-                        "previous_hash mismatch at index {}: expected {}, got {}",
-                        i, expected_prev, entry.previous_hash
+                        "previous_hash mismatch at index {i}: expected {expected_prev}, got {}",
+                        entry.previous_hash
                     ),
                 });
             }
@@ -243,13 +243,13 @@ impl AuditStore for AuditWriter {
                 return Err(VaultError::AuditChainBroken {
                     index: i as u64,
                     detail: format!(
-                        "entry_hash mismatch at index {}: expected {}, got {}",
-                        i, computed, entry.entry_hash
+                        "entry_hash mismatch at index {i}: expected {computed}, got {}",
+                        entry.entry_hash
                     ),
                 });
             }
 
-            expected_prev = entry.entry_hash.clone();
+            expected_prev.clone_from(&entry.entry_hash);
         }
 
         Ok(entries.len() as u64)
@@ -283,8 +283,10 @@ impl AuditStore for AuditWriter {
             Err(_) => (0, false),
         };
 
+        #[allow(clippy::cast_sign_loss)] // Timestamp is always positive after epoch
+        let generated_at = chrono::Utc::now().timestamp() as u64;
         Ok(ComplianceReport {
-            generated_at: chrono::Utc::now().timestamp() as u64,
+            generated_at,
             range_start: start,
             range_end: end,
             total_entries: count,

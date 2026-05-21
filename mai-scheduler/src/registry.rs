@@ -11,6 +11,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use tracing::{debug, info, warn};
 
 use crate::types::{
@@ -43,7 +44,6 @@ impl InstanceRegistry {
         };
 
         // DashMap::entry gives us atomic check-and-insert
-        use dashmap::mapref::entry::Entry;
         match self.instances.entry(id.clone()) {
             Entry::Occupied(_) => Err(SchedulerError::DuplicateInstance(id)),
             Entry::Vacant(v) => {
@@ -111,10 +111,12 @@ impl InstanceRegistry {
             metrics.queue_depth = metrics.queue_depth.saturating_add(1);
             metrics.active_sequences = metrics.active_sequences.saturating_add(1);
             metrics.last_sequence_id = Some(seq_id);
-            metrics.last_request_epoch_ms = SystemTime::now()
+            #[allow(clippy::cast_possible_truncation)] // Epoch millis fit in u64 until year 584M+
+            let epoch_ms = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64;
+            metrics.last_request_epoch_ms = epoch_ms;
         } else {
             warn!(instance = %id, "record_request_start for unknown instance");
         }

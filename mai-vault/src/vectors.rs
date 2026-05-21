@@ -53,7 +53,7 @@ impl VectorManager {
     }
 
     /// Initialize: connect to Qdrant (or verify in-memory mode).
-    pub async fn initialize(&self) -> Result<(), VaultError> {
+    pub fn initialize(&self) -> Result<(), VaultError> {
         info!(
             endpoint = %self.config.endpoint,
             "Initializing vector store (in-memory mode)"
@@ -303,7 +303,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_and_list_collections() {
         let mgr = VectorManager::new(test_vector_config());
-        mgr.initialize().await.unwrap();
+        mgr.initialize().unwrap();
 
         mgr.create_collection(&test_collection_config("docs", 384))
             .await

@@ -221,11 +221,7 @@ mod tests {
         PreemptionPolicy::new(PreemptionConfig::default())
     }
 
-    fn make_candidate(
-        priority: Priority,
-        progress: f64,
-        kv_bytes: u64,
-    ) -> PreemptionCandidate {
+    fn make_candidate(priority: Priority, progress: f64, kv_bytes: u64) -> PreemptionCandidate {
         PreemptionCandidate {
             seq_id: SequenceId::new(),
             priority,
@@ -342,7 +338,7 @@ mod tests {
 
         let new_config = PreemptionConfig {
             emergency_threshold: 0.98,
-            ..Default::default()
+            ..PreemptionConfig::default()
         };
         policy.update_config(new_config);
         assert!((policy.config().emergency_threshold - 0.98).abs() < f64::EPSILON);

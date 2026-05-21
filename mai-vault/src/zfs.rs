@@ -159,13 +159,13 @@ impl ZfsVault {
 
         let hash = manifest
             .get("sha256")
-            .and_then(|v| v.as_str())
+            .and_then(serde_json::Value::as_str)
             .ok_or_else(|| VaultError::IoError("Missing sha256 in manifest".into()))?
             .to_string();
 
         let size = manifest
             .get("size_bytes")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
 
         Ok((hash, size))
@@ -186,7 +186,7 @@ impl ZfsVault {
         use std::io::Read;
         let mut file = std::fs::File::open(path).map_err(VaultError::from)?;
         let mut hasher = blake3::Hasher::new();
-        let mut buffer = [0u8; 65536];
+        let mut buffer = vec![0u8; 65536];
         loop {
             let bytes_read = file.read(&mut buffer).map_err(VaultError::from)?;
             if bytes_read == 0 {
@@ -222,8 +222,7 @@ impl VaultInterface for ZfsVault {
         let weights_path = entry.path.join("weights.bin");
         if !weights_path.exists() {
             return Err(VaultError::ModelNotFound(format!(
-                "Weights file missing for model {}",
-                model_id
+                "Weights file missing for model {model_id}"
             )));
         }
 
@@ -348,15 +347,15 @@ impl ModelStorage for ZfsVault {
             .len();
 
         let valid = computed_hash == entry.expected_hash;
-        if !valid {
+        if valid {
+            debug!(model_id, "Model integrity check passed");
+        } else {
             warn!(
                 model_id,
                 expected = %entry.expected_hash,
                 computed = %computed_hash,
                 "Model integrity check FAILED"
             );
-        } else {
-            debug!(model_id, "Model integrity check passed");
         }
 
         Ok(IntegrityResult {
@@ -381,12 +380,14 @@ impl ModelStorage for ZfsVault {
             1_099_511_627_776
         };
         let available = total.saturating_sub(total_model_bytes);
+        #[allow(clippy::cast_possible_truncation)]
+        let model_count = index.len() as u32;
 
         Ok(StorageInfo {
             total_bytes: total,
             used_bytes: total_model_bytes,
             available_bytes: available,
-            model_count: index.len() as u32,
+            model_count,
             compression_ratio: 1.0, // ZFS compression ratio (query zfs get compressratio)
         })
     }
@@ -420,6 +421,7 @@ impl ModelStorage for ZfsVault {
 
     async fn create_snapshot(&self, reason: &str) -> Result<SnapshotInfo, VaultError> {
         let name = format!("mai-snap-{}", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+        #[allow(clippy::cast_sign_loss)] // Timestamp is always positive after epoch
         let now = chrono::Utc::now().timestamp() as u64;
 
         info!(snapshot = %name, reason, "Creating vault snapshot");

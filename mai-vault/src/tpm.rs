@@ -142,6 +142,7 @@ impl TpmProvider for TpmManager {
                     key_id: key_id.to_string(),
                     level: KeyLevel::Master,
                     algorithm: "TPM-SEAL".to_string(),
+                    #[allow(clippy::cast_sign_loss)] // Timestamp is always positive after epoch
                     created_at: chrono::Utc::now().timestamp() as u64,
                     model_id: None,
                     tpm_sealed: true,
@@ -160,7 +161,7 @@ impl TpmProvider for TpmManager {
         let keys = self.sealed_keys.read().await;
         let entry = keys
             .get(key_id)
-            .ok_or_else(|| VaultError::TpmError(format!("Key not found: {}", key_id)))?;
+            .ok_or_else(|| VaultError::TpmError(format!("Key not found: {key_id}")))?;
 
         // Verify PCR state matches seal-time state
         let current_pcr = self.current_pcr_state.read().await;
@@ -209,7 +210,7 @@ impl TpmProvider for TpmManager {
 
         let mut keys = self.sealed_keys.write().await;
         if keys.remove(key_id).is_none() {
-            return Err(VaultError::TpmError(format!("Key not found: {}", key_id)));
+            return Err(VaultError::TpmError(format!("Key not found: {key_id}")));
         }
 
         info!(key_id, "Sealed key removed from TPM");

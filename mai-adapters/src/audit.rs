@@ -61,8 +61,12 @@ impl AuditTimer {
         entry
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn build_entry(&self, success: bool, error_code: Option<String>) -> AuditEntry {
         let duration = self.start.elapsed();
+        // Safe: Unix timestamps are positive post-epoch, and u128 millis
+        // won't exceed u64 for ~584 million years
+        #[allow(clippy::cast_sign_loss)]
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)

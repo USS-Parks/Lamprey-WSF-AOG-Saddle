@@ -248,17 +248,7 @@ impl ProfileRole {
                 can_export_compliance: false,
                 can_manage_vectors: true,
             },
-            Self::Child => ProfilePermissions {
-                can_inference: true,
-                can_manage_models: false,
-                can_view_audit: false,
-                can_manage_profiles: false,
-                can_control_power: false,
-                can_access_system: false,
-                can_export_compliance: false,
-                can_manage_vectors: false,
-            },
-            Self::Guest => ProfilePermissions {
+            Self::Child | Self::Guest => ProfilePermissions {
                 can_inference: true,
                 can_manage_models: false,
                 can_view_audit: false,

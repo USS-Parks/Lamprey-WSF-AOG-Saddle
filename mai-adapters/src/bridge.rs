@@ -156,20 +156,25 @@ impl IpcEvent {
                 let text = self
                     .data
                     .get("text")
-                    .and_then(|v| v.as_str())
+                    .and_then(serde_json::Value::as_str)
                     .unwrap_or("")
                     .to_string();
                 let logprob = self
                     .data
                     .get("logprob")
-                    .and_then(|v| v.as_f64())
-                    .map(|f| f as f32);
-                let index = self.data.get("index").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                    .and_then(serde_json::Value::as_f64)
+                    .map(|f| {
+                        #[allow(clippy::cast_possible_truncation)]
+                        let val = f as f32;
+                        val
+                    });
+                #[allow(clippy::cast_possible_truncation)]
+                let index = self.data.get("index").and_then(serde_json::Value::as_u64).unwrap_or(0) as usize;
                 let finish_reason = self
                     .data
                     .get("finish_reason")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+                    .and_then(serde_json::Value::as_str)
+                    .map(String::from);
                 Ok(IpcEventKind::Token {
                     text,
                     logprob,
@@ -181,12 +186,12 @@ impl IpcEvent {
                 let prompt_tokens = self
                     .data
                     .get("prompt_tokens")
-                    .and_then(|v| v.as_u64())
+                    .and_then(serde_json::Value::as_u64)
                     .ok_or("usage event missing prompt_tokens")?;
                 let completion_tokens = self
                     .data
                     .get("completion_tokens")
-                    .and_then(|v| v.as_u64())
+                    .and_then(serde_json::Value::as_u64)
                     .ok_or("usage event missing completion_tokens")?;
                 Ok(IpcEventKind::Usage {
                     prompt_tokens,
@@ -206,13 +211,13 @@ impl IpcEvent {
                 let code = self
                     .data
                     .get("code")
-                    .and_then(|v| v.as_str())
+                    .and_then(serde_json::Value::as_str)
                     .unwrap_or("InternalError")
                     .to_string();
                 let message = self
                     .data
                     .get("message")
-                    .and_then(|v| v.as_str())
+                    .and_then(serde_json::Value::as_str)
                     .unwrap_or("unknown error")
                     .to_string();
                 Ok(IpcEventKind::Error { code, message })
@@ -231,7 +236,6 @@ pub fn ipc_error_to_adapter_error(code: &str, message: &str) -> mai_hil::traits:
         "ModelNotFound" => AdapterError::ModelNotFound {
             model: message.to_string(),
         },
-        "BackendCrashed" => AdapterError::BackendCrashed,
         "BackendUnavailable" => AdapterError::BackendUnavailable,
         "ContextExceeded" => AdapterError::ContextExceeded { max_context: 0 },
         "RateLimited" => AdapterError::RateLimited,
@@ -244,7 +248,8 @@ pub fn ipc_error_to_adapter_error(code: &str, message: &str) -> mai_hil::traits:
         "UnsupportedOperation" => AdapterError::UnsupportedOperation {
             operation: message.to_string(),
         },
-        _ => AdapterError::BackendCrashed, // InternalError and unknown codes
+        // "BackendCrashed", "InternalError", and unknown codes
+        _ => AdapterError::BackendCrashed,
     }
 }
 

@@ -73,6 +73,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             .collect();
 
         // Estimate token count from message content lengths
+        #[allow(clippy::cast_possible_truncation)]
         let estimated_tokens: u32 = messages.iter().map(|m| (m.content.len() / 4) as u32).sum();
 
         // Build InferenceRequest matching mai-core's actual struct
@@ -184,6 +185,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             })
             .collect();
 
+        #[allow(clippy::cast_possible_truncation)]
         let estimated_tokens: u32 = messages.iter().map(|m| (m.content.len() / 4) as u32).sum();
 
         let inference_req = InferenceRequest {
@@ -306,6 +308,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             "gRPC Embed request"
         );
 
+        #[allow(clippy::cast_possible_truncation)]
         let estimated_tokens: u32 = req.input.iter().map(|t| (t.len() / 4) as u32).sum();
 
         let inference_req = InferenceRequest {
@@ -353,6 +356,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             .map(|(i, _)| proto::EmbeddingData {
                 object: "embedding".to_string(),
                 embedding: Vec::new(), // Populated by adapter pipeline
+                #[allow(clippy::cast_possible_truncation)]
                 index: i as u32,
             })
             .collect();

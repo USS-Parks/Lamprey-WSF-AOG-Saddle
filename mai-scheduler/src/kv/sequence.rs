@@ -48,6 +48,7 @@ impl ModelMemoryFactor {
     ///
     /// Formula: tokens * layers * kv_heads * head_dim * 2 * dtype_size
     /// The factor of 2 accounts for both K and V tensors.
+    #[allow(clippy::cast_possible_truncation)] // usize to u64 is safe on 64-bit
     pub fn estimate_bytes(&self, tokens: usize) -> u64 {
         let per_token = u64::from(self.layers)
             * u64::from(self.kv_heads)
@@ -199,10 +200,15 @@ impl SequenceMeta {
             if self.avg_inter_request_gap == Duration::ZERO {
                 self.avg_inter_request_gap = gap;
             } else {
+                #[allow(clippy::cast_precision_loss)] // Acceptable: nanosecond EMA doesn't need full u128 precision
                 let old_nanos = self.avg_inter_request_gap.as_nanos() as f64;
+                #[allow(clippy::cast_precision_loss)]
                 let new_nanos = gap.as_nanos() as f64;
                 let avg_nanos = 0.3 * new_nanos + 0.7 * old_nanos;
-                self.avg_inter_request_gap = Duration::from_nanos(avg_nanos as u64);
+                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+                // avg_nanos is always non-negative (durations are non-negative)
+                let avg_nanos_u64 = avg_nanos as u64;
+                self.avg_inter_request_gap = Duration::from_nanos(avg_nanos_u64);
             }
         }
 

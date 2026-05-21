@@ -256,7 +256,7 @@ fn cancel_and_fail_paths() {
     // Fail path
     let t2 = mgr.submit(make_request("admin", "Fail me")).unwrap();
     mgr.start_task(t2).unwrap();
-    let resp = mgr.fail(t2, "Model crashed".to_string()).unwrap();
+    let resp = mgr.fail(t2, "Model crashed").unwrap();
     assert!(matches!(resp.status, AgentTaskStatus::Failed { .. }));
 
     // Get response for terminal tasks

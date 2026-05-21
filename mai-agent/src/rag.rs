@@ -230,7 +230,7 @@ impl RagPipeline {
 
     /// Get the collection name for a profile (profile isolation).
     pub fn collection_for_profile(&self, profile_id: &str) -> String {
-        format!("{}_{}", self.config.collection_prefix, profile_id)
+        format!("{}_{profile_id}", self.config.collection_prefix)
     }
 
     /// Prepare a batch of document chunks for embedding.
@@ -334,15 +334,12 @@ impl RagPipeline {
             return None;
         }
 
-        match self.cache.lookup(query_embedding, profile_id) {
-            Some(response) => {
-                self.metrics.cache_hits += 1;
-                Some(response)
-            }
-            None => {
-                self.metrics.cache_misses += 1;
-                None
-            }
+        if let Some(response) = self.cache.lookup(query_embedding, profile_id) {
+            self.metrics.cache_hits += 1;
+            Some(response)
+        } else {
+            self.metrics.cache_misses += 1;
+            None
         }
     }
 
@@ -376,19 +373,19 @@ impl RagPipeline {
                         document_id: r
                             .payload
                             .get("document_id")
-                            .and_then(|v| v.as_str())
+                            .and_then(serde_json::Value::as_str)
                             .unwrap_or_default()
                             .to_string(),
                         chunk_index: r
                             .payload
                             .get("chunk_index")
-                            .and_then(|v| v.as_str())
+                            .and_then(serde_json::Value::as_str)
                             .and_then(|s| s.parse().ok())
                             .unwrap_or(0),
                         text: r
                             .payload
                             .get("text")
-                            .and_then(|v| v.as_str())
+                            .and_then(serde_json::Value::as_str)
                             .unwrap_or_default()
                             .to_string(),
                         metadata: string_meta,
@@ -419,9 +416,8 @@ impl RagPipeline {
             query.to_string()
         } else {
             format!(
-                "Context from relevant documents:\n\n{}\n\nUser query: {}",
-                context_parts.join("\n\n"),
-                query
+                "Context from relevant documents:\n\n{}\n\nUser query: {query}",
+                context_parts.join("\n\n")
             )
         };
 

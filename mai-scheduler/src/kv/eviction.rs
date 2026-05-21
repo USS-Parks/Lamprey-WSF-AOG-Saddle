@@ -203,6 +203,7 @@ impl EvictionScorer {
 
     /// Size component: normalized to [0.0, 1.0].
     /// size_normalized = min(kv_bytes / max_sequence_bytes, 1.0)
+    #[allow(clippy::cast_precision_loss)] // Acceptable: byte counts don't need full u64 precision in ratio
     fn size_component(&self, meta: &SequenceMeta) -> f64 {
         if self.config.max_sequence_bytes == 0 {
             return 0.0;
@@ -212,6 +213,7 @@ impl EvictionScorer {
 
     /// Priority penalty. System priority gets a massive negative penalty
     /// (effectively preventing eviction). Others get graduated offsets.
+    #[allow(clippy::unused_self)] // Method on scorer for API consistency
     fn priority_penalty(&self, priority: Priority) -> f64 {
         match priority {
             Priority::System => -1000.0,
@@ -233,7 +235,7 @@ impl EvictionScorer {
     /// and priority components.
     fn reuse_score(&self, meta: &SequenceMeta) -> f64 {
         let age_minutes = (meta.age().as_secs_f64() / 60.0).max(1.0);
-        let frequency = meta.request_count as f64 / age_minutes;
+        let frequency = f64::from(meta.request_count) / age_minutes;
 
         let idle_secs = meta.idle_time().as_secs_f64().max(1.0);
         let recency = 1.0 / idle_secs;

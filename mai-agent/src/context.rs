@@ -85,10 +85,10 @@ impl ContextManager {
         // Enforce session limit (prevent memory exhaustion)
         self.cleanup_expired();
         if self.sessions.len() >= self.max_sessions {
+            let len = self.sessions.len();
+            let max = self.max_sessions;
             return Err(AgentError::Internal(format!(
-                "Session limit reached: {}/{}",
-                self.sessions.len(),
-                self.max_sessions
+                "Session limit reached: {len}/{max}"
             )));
         }
 
@@ -177,7 +177,7 @@ impl ContextManager {
         let token_count = estimate_tokens(&message);
 
         let segment = ContextSegment {
-            id: format!("{}:user:{}", session_id, session.turn_count),
+            id: format!("{session_id}:user:{}", session.turn_count),
             priority: ContextPriority::RecentTurn,
             content: message,
             token_count,
@@ -202,7 +202,7 @@ impl ContextManager {
         let token_count = estimate_tokens(&message);
 
         let segment = ContextSegment {
-            id: format!("{}:assistant:{}", session_id, session.turn_count),
+            id: format!("{session_id}:assistant:{}", session.turn_count),
             priority: ContextPriority::RecentTurn,
             content: message,
             token_count,
@@ -275,10 +275,10 @@ impl ContextManager {
         session_id: &SessionId,
         call_id: &str,
         tool_id: &str,
-        result_text: String,
+        result_text: &str,
     ) -> Result<(), AgentError> {
         let session = self.get_session_mut(session_id)?;
-        let token_count = estimate_tokens(&result_text);
+        let token_count = estimate_tokens(result_text);
 
         let segment = ContextSegment {
             id: format!("{session_id}:tool:{call_id}"),
@@ -339,10 +339,11 @@ impl ContextManager {
 
         for segment in &session.segments {
             let role = match segment.source {
-                SegmentSource::SystemPrompt => "system",
+                SegmentSource::SystemPrompt
+                | SegmentSource::RagRetrieval
+                | SegmentSource::FamilyMemory => "system",
                 SegmentSource::UserMessage => "user",
                 SegmentSource::AssistantMessage => "assistant",
-                SegmentSource::RagRetrieval | SegmentSource::FamilyMemory => "system",
                 SegmentSource::ToolResult => "tool",
             };
             messages.push((role.to_string(), segment.content.clone()));

@@ -313,7 +313,7 @@ pub enum ConfigError {
 /// and validate.
 pub fn load_config(path: &Path) -> Result<ServerConfig, ConfigError> {
     let content = std::fs::read_to_string(path)
-        .map_err(|e| ConfigError::IoError(format!("{}: {}", path.display(), e)))?;
+        .map_err(|e| ConfigError::IoError(format!("{}: {e}", path.display())))?;
 
     let mut config: ServerConfig =
         toml::from_str(&content).map_err(|e| ConfigError::ParseError(e.to_string()))?;

@@ -25,6 +25,7 @@ use mai_core::health::NetworkState;
 /// Returns aggregate system health: adapter statuses, hardware state,
 /// system resources, and computed alert level. Available to all profiles
 /// (health is not a privileged operation).
+#[allow(clippy::cast_precision_loss)]
 pub async fn aggregate_health(
     State(state): State<AppState>,
     profile: ProfileInfo,
@@ -63,11 +64,11 @@ pub async fn aggregate_health(
     };
 
     let overall_status = match snapshot.alert_level {
-        mai_core::health::AlertLevel::Normal => "healthy",
-        mai_core::health::AlertLevel::Warn => "healthy",
+        mai_core::health::AlertLevel::Normal | mai_core::health::AlertLevel::Warn => "healthy",
         mai_core::health::AlertLevel::Degrade => "degraded",
-        mai_core::health::AlertLevel::Critical => "unhealthy",
-        mai_core::health::AlertLevel::Shutdown => "unhealthy",
+        mai_core::health::AlertLevel::Critical | mai_core::health::AlertLevel::Shutdown => {
+            "unhealthy"
+        }
     };
 
     let response = HealthResponse {
@@ -159,6 +160,7 @@ pub async fn hardware_health(
 ///
 /// Returns disk, RAM, and CPU utilization percentages. All metrics
 /// are computed locally and never transmitted off-device.
+#[allow(clippy::cast_precision_loss)]
 pub async fn system_health(
     State(state): State<AppState>,
     _profile: ProfileInfo,

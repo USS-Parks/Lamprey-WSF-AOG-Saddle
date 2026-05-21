@@ -24,6 +24,24 @@
 #![allow(unused_variables, dead_code)]
 
 /// Generated protobuf types from proto/mai.proto
+#[allow(
+    clippy::default_trait_access,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::clone_on_ref_ptr,
+    clippy::wildcard_imports,
+    clippy::doc_markdown,
+    clippy::missing_errors_doc,
+    clippy::module_name_repetitions,
+    clippy::must_use_candidate,
+    clippy::derive_partial_eq_without_eq,
+    clippy::redundant_closure_for_method_calls,
+    clippy::return_self_not_must_use,
+    clippy::struct_excessive_bools,
+    clippy::unnecessary_wraps,
+    clippy::used_underscore_binding,
+    clippy::needless_pass_by_value
+)]
 pub mod proto {
     tonic::include_proto!("mai.v1");
 
@@ -76,8 +94,7 @@ pub fn extract_grpc_profile<T>(request: &Request<T>) -> Result<(String, String),
         "admin" | "adult" | "teen" | "child" | "guest" => {}
         _ => {
             return Err(Status::invalid_argument(format!(
-                "unknown role '{}'; expected admin, adult, teen, child, or guest",
-                role
+                "unknown role '{role}'; expected admin, adult, teen, child, or guest"
             )));
         }
     }
@@ -91,11 +108,8 @@ pub fn role_has_permission(role: &str, permission: &str) -> bool {
     match permission {
         "inference" => true, // All roles can do inference
         "list_models" => matches!(role, "admin" | "adult" | "teen"),
-        "manage_models" => role == "admin",
-        "power_control" => role == "admin",
-        "registry_write" => role == "admin",
-        "view_audit" => role == "admin",
-        "manage_profiles" => role == "admin",
+        "manage_models" | "power_control" | "registry_write" | "view_audit"
+        | "manage_profiles" => role == "admin",
         _ => false,
     }
 }

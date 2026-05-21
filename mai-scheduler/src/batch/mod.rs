@@ -41,6 +41,4 @@ pub use builder::{
 // Re-export configs for TOML deserialization
 pub use admission::{AdmissionConfig, AdmissionController, AdmissionDecision};
 pub use metrics::{BatchMetrics, BatchMetricsSnapshot, MetricsConfig};
-pub use preemption::{
-    PreemptionCandidate, PreemptionConfig, PreemptionPolicy, PreemptionResult,
-};
+pub use preemption::{PreemptionCandidate, PreemptionConfig, PreemptionPolicy, PreemptionResult};
