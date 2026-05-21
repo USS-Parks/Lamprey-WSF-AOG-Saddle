@@ -7,7 +7,6 @@
 //! - SSE [DONE] event terminates stream
 //! - 50 concurrent streaming requests complete without dropped connections
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -26,11 +25,11 @@ use mai_core::health::{HealthConfig, HealthMonitor};
 use mai_core::hotswap::HotSwapManager;
 use mai_core::power::{PowerConfig, PowerStateMachine};
 use mai_core::registry::ModelRegistry;
-use mai_core::scheduler::{Scheduler, SchedulerConfig};
 use mai_core::vault::VaultInterface;
 
 use mai_adapters::config::FrameworkConfig;
 use mai_adapters::manager::AdapterManager;
+use mai_scheduler::DefaultScheduler;
 
 // -- Test Vault Stub -------------------------------------------------------
 
@@ -68,8 +67,9 @@ impl VaultInterface for TestVault {
 // -- Test Setup Helper -----------------------------------------------------
 
 fn build_test_state() -> AppState {
-    let scheduler = Scheduler::new(SchedulerConfig::default()).unwrap();
-    let scheduler = Arc::new(RwLock::new(scheduler));
+    let scheduler: Arc<dyn mai_scheduler::Scheduler> = Arc::new(DefaultScheduler::new(
+        mai_scheduler::SchedulerConfig::default(),
+    ));
 
     let registry = ModelRegistry::new(Box::new(TestVault));
     let registry = Arc::new(RwLock::new(registry));
@@ -80,7 +80,11 @@ fn build_test_state() -> AppState {
     let power = PowerStateMachine::new(PowerConfig::default());
     let power = Arc::new(RwLock::new(power));
 
-    let hotswap = HotSwapManager::new(scheduler.clone(), registry.clone(), health.clone());
+    let legacy_scheduler =
+        mai_core::scheduler::Scheduler::new(mai_core::scheduler::SchedulerConfig::default())
+            .unwrap();
+    let legacy_scheduler = Arc::new(RwLock::new(legacy_scheduler));
+    let hotswap = HotSwapManager::new(legacy_scheduler, registry.clone(), health.clone());
     let hotswap = Arc::new(RwLock::new(hotswap));
 
     let audit_writer = Arc::new(MemoryAuditWriter::new());
@@ -89,7 +93,6 @@ fn build_test_state() -> AppState {
 
     let adapter_manager = AdapterManager::new(FrameworkConfig::default());
     let adapter_manager = Arc::new(Mutex::new(adapter_manager));
-    let model_aliases = HashMap::new();
 
     AppState::new(
         scheduler,
@@ -101,7 +104,6 @@ fn build_test_state() -> AppState {
         config,
         auth,
         adapter_manager,
-        model_aliases,
     )
 }
 
