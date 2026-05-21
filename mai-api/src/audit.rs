@@ -177,8 +177,8 @@ pub fn verify_chain(entries: &[AuditEntry]) -> Result<usize, (usize, String)> {
             return Err((
                 i,
                 format!(
-                    "Hash mismatch at entry {}: expected {}, got {}",
-                    i, expected, entry.entry_hash
+                    "Hash mismatch at entry {i}: expected {expected}, got {}",
+                    entry.entry_hash
                 ),
             ));
         }
@@ -312,6 +312,7 @@ impl AuditWriter for MemoryAuditWriter {
 
     async fn entry_count(&self) -> Result<u64, String> {
         let entries = self.entries.lock().await;
+        #[allow(clippy::cast_possible_truncation)]
         Ok(entries.len() as u64)
     }
 
@@ -369,7 +370,7 @@ impl AuditManager {
     ) -> Result<AuditEntry, String> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| format!("Clock error: {}", e))?
+            .map_err(|e| format!("Clock error: {e}"))?
             .as_secs();
 
         let mut last_hash = self.last_hash.lock().await;
@@ -386,6 +387,9 @@ impl AuditManager {
 
         let request_type = AuditRequestType::from_path(path);
 
+        #[allow(clippy::cast_possible_truncation)]
+        let duration_ms = duration.as_millis() as u64;
+
         let mut entry = AuditEntry {
             entry_id: Uuid::new_v4().to_string(),
             timestamp,
@@ -396,7 +400,7 @@ impl AuditManager {
             method: method.to_string(),
             path: path.to_string(),
             status_code,
-            duration_ms: duration.as_millis() as u64,
+            duration_ms,
             model_name,
             request_type,
             context,
@@ -451,8 +455,10 @@ pub async fn audit_middleware(audit: Arc<AuditManager>, request: Request, next: 
     let (profile_id, profile_role) = request
         .extensions()
         .get::<ProfileInfo>()
-        .map(|p| (p.profile_id.clone(), format!("{:?}", p.role)))
-        .unwrap_or_else(|| ("unknown".to_string(), "unknown".to_string()));
+        .map_or_else(
+            || ("unknown".to_string(), "unknown".to_string()),
+            |p| (p.profile_id.clone(), format!("{:?}", p.role)),
+        );
 
     let response = next.run(request).await;
 
@@ -613,7 +619,7 @@ mod tests {
                     "user1",
                     "Admin",
                     "GET",
-                    &format!("/v1/health/{}", i),
+                    &format!("/v1/health/{i}"),
                     200,
                     Duration::from_millis(1),
                     None,

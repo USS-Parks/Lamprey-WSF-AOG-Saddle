@@ -233,7 +233,11 @@ impl ToolRegistry {
         })?;
 
         // Check step limit
-        let next_step = chain.completed_steps.len() as u32 + 1;
+        let next_step = {
+            #[allow(clippy::cast_possible_truncation)]
+            let val = chain.completed_steps.len() as u32;
+            val
+        } + 1;
         if next_step > chain.max_steps {
             chain.state = ToolChainState::Aborted {
                 reason: format!("Exceeded max chain steps: {}", chain.max_steps),
@@ -243,7 +247,7 @@ impl ToolRegistry {
             });
         }
 
-        chain.pending_calls = calls.clone();
+        chain.pending_calls.clone_from(&calls);
         chain.state = ToolChainState::AwaitingExecution;
 
         debug!(
@@ -264,7 +268,7 @@ impl ToolRegistry {
     pub fn record_results(
         &mut self,
         request_id: &RequestId,
-        results: Vec<ToolResult>,
+        results: &[ToolResult],
         profile_id: &str,
     ) -> Result<bool, AgentError> {
         let chain = self.chains.get_mut(request_id).ok_or_else(|| {
@@ -282,7 +286,7 @@ impl ToolRegistry {
         // to avoid conflicting borrows on self
         let now = now_epoch_secs();
         let mut pending_audits = Vec::new();
-        for result in &results {
+        for result in results {
             // Find matching pending call
             let call_idx = chain
                 .pending_calls
@@ -356,13 +360,13 @@ impl ToolRegistry {
     pub fn abort_chain(
         &mut self,
         request_id: &RequestId,
-        reason: String,
+        reason: &str,
     ) -> Result<(), AgentError> {
         let chain = self.chains.get_mut(request_id).ok_or_else(|| {
             AgentError::Internal(format!("No active chain for request {request_id}"))
         })?;
         chain.state = ToolChainState::Aborted {
-            reason: reason.clone(),
+            reason: reason.to_string(),
         };
         warn!(%request_id, %reason, "Tool chain aborted");
         Ok(())
@@ -765,7 +769,7 @@ mod tests {
         let mut reg = ToolRegistry::new();
         let request_id = Uuid::new_v4();
         reg.start_chain(request_id, Uuid::new_v4(), None).unwrap();
-        reg.abort_chain(&request_id, "User cancelled".into())
+        reg.abort_chain(&request_id, "User cancelled")
             .unwrap();
 
         let chain = reg.get_chain(&request_id).unwrap();

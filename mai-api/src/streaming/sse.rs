@@ -63,6 +63,7 @@ const BACKPRESSURE_CAPACITY: usize = 64;
 /// It sets up the token channel, submits the request to the scheduler,
 /// and returns an SSE response that streams `ChatCompletionChunk`
 /// deltas until completion or error.
+#[allow(clippy::too_many_lines, clippy::unused_async)]
 pub async fn handle_sse_chat(
     state: AppState,
     profile: ProfileInfo,
@@ -115,7 +116,7 @@ pub async fn handle_sse_chat(
     let adapter_id = decision.instance_id.to_string();
 
     // Create token channel for adapter to feed streaming tokens into.
-    let (_tx, rx) = token_channel();
+    let (tx, rx) = token_channel();
 
     // Build prompt and generation params from the request
     let prompt = build_chat_prompt(&req.messages);
@@ -123,7 +124,7 @@ pub async fn handle_sse_chat(
 
     // Initiate streaming inference via AdapterManager and spawn a
     // producer task that reads IPC events and feeds TokenEvents.
-    let tx_producer = _tx.clone();
+    let tx_producer = tx.clone();
     let adapter_name_stream = adapter_id.clone();
     let adapter_mgr = state.adapter_manager.clone();
     let spawn_id = request_id;
@@ -322,7 +323,7 @@ fn build_sse_stream(
         let mut sequence: u64 = 0;
         let mut heartbeat_interval = interval(HEARTBEAT_INTERVAL);
         let mut last_token_time = Instant::now();
-        let response_id = format!("chatcmpl-{}", request_id);
+        let response_id = format!("chatcmpl-{request_id}");
 
         // If resuming, we skip events until we pass the resume point.
         let skip_until = resume_from.unwrap_or(0);
@@ -451,7 +452,7 @@ fn build_sse_stream(
 /// Format a ChatCompletionChunk as an SSE event with id and data fields.
 fn format_sse_event(sequence: u64, chunk: &ChatCompletionChunk) -> bytes::Bytes {
     let json = serde_json::to_string(chunk).unwrap_or_else(|_| "{}".to_string());
-    let formatted = format!("id: {}\ndata: {}\n\n", sequence, json);
+    let formatted = format!("id: {sequence}\ndata: {json}\n\n");
     bytes::Bytes::from(formatted)
 }
 
@@ -476,9 +477,9 @@ fn build_chunk(
             index: 0,
             delta: ChunkDelta {
                 role: None,
-                content: content.map(|s| s.to_string()),
+                content: content.map(std::string::ToString::to_string),
             },
-            finish_reason: finish_reason.map(|s| s.to_string()),
+            finish_reason: finish_reason.map(std::string::ToString::to_string),
         }],
     }
 }
@@ -511,8 +512,7 @@ fn validate_sse_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
     if let Some(temp) = req.temperature {
         if !(0.0..=2.0).contains(&temp) {
             return Err(ApiError::ValidationFailed(format!(
-                "Temperature must be between 0.0 and 2.0, got {}",
-                temp
+                "Temperature must be between 0.0 and 2.0, got {temp}"
             )));
         }
     }
@@ -525,9 +525,7 @@ fn priority_from_profile(profile: &ProfileInfo) -> RequestPriority {
     use crate::types::ProfileRole;
     match profile.role {
         ProfileRole::Admin => RequestPriority::High,
-        ProfileRole::Adult => RequestPriority::Normal,
-        ProfileRole::Teen => RequestPriority::Normal,
-        ProfileRole::Child => RequestPriority::Normal,
+        ProfileRole::Adult | ProfileRole::Teen | ProfileRole::Child => RequestPriority::Normal,
         ProfileRole::Guest => RequestPriority::Low,
     }
 }
@@ -537,13 +535,12 @@ fn scheduler_priority_from_profile(profile: &ProfileInfo) -> SchedulerPriority {
     use crate::types::ProfileRole;
     match profile.role {
         ProfileRole::Admin => SchedulerPriority::High,
-        ProfileRole::Adult => SchedulerPriority::Normal,
-        ProfileRole::Teen => SchedulerPriority::Normal,
-        ProfileRole::Child => SchedulerPriority::Normal,
+        ProfileRole::Adult | ProfileRole::Teen | ProfileRole::Child => SchedulerPriority::Normal,
         ProfileRole::Guest => SchedulerPriority::Background,
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn estimate_chat_tokens(req: &ChatCompletionRequest) -> u32 {
     let char_count: usize = req
         .messages
@@ -566,11 +563,12 @@ fn build_chat_prompt(messages: &[ApiChatMessage]) -> String {
     prompt
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn build_generation_params(req: &ChatCompletionRequest) -> GenerationParams {
     GenerationParams {
         temperature: req.temperature.unwrap_or(0.7),
         top_p: req.top_p.unwrap_or(1.0),
-        max_tokens: req.max_tokens.map(|v| v as usize).unwrap_or(2048),
+        max_tokens: req.max_tokens.map_or(2048, |v| v as usize),
         stop_sequences: req.stop.clone().unwrap_or_default(),
         structured_schema: None,
     }
@@ -629,7 +627,7 @@ mod tests {
                 &mut buffer,
                 &mut monitor,
                 i,
-                bytes::Bytes::from(format!("event-{}", i)),
+                bytes::Bytes::from(format!("event-{i}")),
             );
         }
 

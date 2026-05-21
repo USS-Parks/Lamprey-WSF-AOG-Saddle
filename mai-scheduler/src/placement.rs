@@ -76,10 +76,9 @@ impl PlacementEngine {
     /// NOT wired into the default scorer yet. Session 19 integrates this
     /// into the multi-factor scoring function.
     pub fn topology_penalty(&self, gpu_ids: &[GpuId]) -> f64 {
-        match &self.topology {
-            Some(topo) => topo.topology_penalty(gpu_ids),
-            None => 0.0,
-        }
+        self.topology
+            .as_ref()
+            .map_or(0.0, |topo| topo.topology_penalty(gpu_ids))
     }
 
     /// Execute placement for a request.
@@ -187,6 +186,7 @@ impl PlacementEngine {
 /// This ensures queue_depth is the primary factor and vram_used is the
 /// tiebreaker. Session 19 replaces this with a multi-factor scorer that
 /// includes topology cost, KV cache affinity, thermal headroom, etc.
+#[allow(clippy::cast_precision_loss)] // Acceptable: scoring doesn't need full u64 precision
 fn least_loaded_scorer(state: &InstanceState, _request: &ScheduleRequest) -> f64 {
     let queue_score = f64::from(state.metrics.queue_depth) * 1000.0;
     let vram_score = (state.metrics.vram_used / 1_000_000) as f64;
@@ -234,7 +234,7 @@ mod tests {
                     vram_used,
                     last_request_epoch_ms: 0,
                     last_sequence_id: None,
-                    ..Default::default()
+                    ..InstanceMetrics::default()
                 },
             },
         )
@@ -443,7 +443,7 @@ mod tests {
                 .into_iter()
                 .collect(),
         };
-        let graph = GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0);
+        let graph = GpuGraph::from_parsed(&parsed, &LinkWeightConfig::default(), 1.0, 1.0);
         let config = TopologyConfig::default();
         let topo = Arc::new(GpuTopology::from_graph(graph, config));
 

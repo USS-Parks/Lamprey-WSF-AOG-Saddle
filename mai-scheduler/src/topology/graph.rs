@@ -116,7 +116,7 @@ impl GpuGraph {
     /// `TopologyConfig` that control the relative importance of latency vs
     /// bandwidth in edge cost computation.
     pub fn from_parsed(
-        parsed: ParsedTopology,
+        parsed: &ParsedTopology,
         weights: &LinkWeightConfig,
         latency_weight: f64,
         bw_weight: f64,
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_two_gpu_nvlink_graph() {
         let parsed = make_two_gpu_nvlink();
-        let graph = GpuGraph::from_parsed(parsed, &default_weights(), 1.0, 1.0);
+        let graph = GpuGraph::from_parsed(&parsed, &default_weights(), 1.0, 1.0);
 
         assert_eq!(graph.node_count(), 2);
         assert_eq!(graph.edge_count(), 2);
@@ -408,7 +408,7 @@ mod tests {
     #[test]
     fn test_nvlink_cost_lower_than_pcie() {
         let parsed = make_four_gpu_mixed();
-        let graph = GpuGraph::from_parsed(parsed, &default_weights(), 1.0, 1.0);
+        let graph = GpuGraph::from_parsed(&parsed, &default_weights(), 1.0, 1.0);
 
         let nv4_cost = graph.link_cost(GpuId(0), GpuId(1)); // NV4
         let phb_cost = graph.link_cost(GpuId(0), GpuId(2)); // PHB
@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn test_numa_affinity_preserved() {
         let parsed = make_four_gpu_mixed();
-        let graph = GpuGraph::from_parsed(parsed, &default_weights(), 1.0, 1.0);
+        let graph = GpuGraph::from_parsed(&parsed, &default_weights(), 1.0, 1.0);
 
         assert_eq!(graph.node(GpuId(0)).unwrap().numa_node, Some(0));
         assert_eq!(graph.node(GpuId(2)).unwrap().numa_node, Some(32));
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn test_gpu_ids_sorted() {
         let parsed = make_four_gpu_mixed();
-        let graph = GpuGraph::from_parsed(parsed, &default_weights(), 1.0, 1.0);
+        let graph = GpuGraph::from_parsed(&parsed, &default_weights(), 1.0, 1.0);
         let ids = graph.gpu_ids();
         assert_eq!(ids, vec![GpuId(0), GpuId(1), GpuId(2), GpuId(3)]);
     }

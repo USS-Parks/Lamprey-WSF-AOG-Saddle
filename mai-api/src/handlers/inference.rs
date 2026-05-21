@@ -10,6 +10,7 @@
 use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
+use std::fmt::Write as _;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -36,6 +37,7 @@ use mai_scheduler::{Priority as SchedulerPriority, ScheduleRequest};
 /// returns a ChatCompletionResponse.
 ///
 /// If `stream: true`, delegates to SSE streaming handler (Session 11c).
+#[allow(clippy::too_many_lines, clippy::cast_possible_truncation)]
 pub async fn chat_completions(
     State(state): State<AppState>,
     profile: ProfileInfo,
@@ -46,7 +48,7 @@ pub async fn chat_completions(
         let last_event_id = None; // Extracted from headers in full integration (11e)
         return crate::streaming::sse::handle_sse_chat(state, profile, req, last_event_id)
             .await
-            .map(|r| r.into_response());
+            .map(axum::response::IntoResponse::into_response);
     }
 
     // Permission check
@@ -134,7 +136,7 @@ pub async fn chat_completions(
         .as_secs();
 
     let response = ChatCompletionResponse {
-        id: format!("chatcmpl-{}", request_id),
+        id: format!("chatcmpl-{request_id}"),
         object: "chat.completion".to_string(),
         created: now_epoch,
         model: decision.instance_id.to_string(),
@@ -176,6 +178,7 @@ pub async fn chat_completions(
 ///
 /// OpenAI-compatible embedding endpoint. Routes to an embedding-capable
 /// adapter and returns vector representations.
+#[allow(clippy::cast_possible_truncation)]
 pub async fn embeddings(
     State(state): State<AppState>,
     profile: ProfileInfo,
@@ -217,7 +220,7 @@ pub async fn embeddings(
         timeout: Duration::from_secs(60),
         streaming: false,
         enqueued_at: Instant::now(),
-        estimated_tokens: texts.iter().map(|t| estimate_text_tokens(t)).sum(),
+        estimated_tokens: texts.iter().map(|t| estimate_text_tokens(t.as_str())).sum(),
     };
 
     let sched_priority = scheduler_priority_from_profile(&profile);
@@ -289,6 +292,7 @@ pub async fn embeddings(
 ///
 /// Structured output generation with JSON schema constraints.
 /// Forwards the schema to the adapter for constrained decoding.
+#[allow(clippy::too_many_lines, clippy::cast_possible_truncation)]
 pub async fn structured_generation(
     State(state): State<AppState>,
     profile: ProfileInfo,
@@ -307,7 +311,7 @@ pub async fn structured_generation(
     {
         return Err(ApiError::ValidationFailed(format!(
             "Unsupported response_format type: '{}'. Use 'json_object' or 'json_schema'",
-            req.response_format.format_type
+            req.response_format.format_type,
         )));
     }
 
@@ -373,7 +377,7 @@ pub async fn structured_generation(
         .as_secs();
 
     let response = ChatCompletionResponse {
-        id: format!("structcmpl-{}", request_id),
+        id: format!("structcmpl-{request_id}"),
         object: "chat.completion".to_string(),
         created: now_epoch,
         model: decision.instance_id.to_string(),
@@ -407,6 +411,7 @@ pub async fn structured_generation(
 /// Tool calling / function calling protocol. Supports multi-step
 /// chains where the model selects tools and the caller provides
 /// tool results in subsequent messages.
+#[allow(clippy::too_many_lines, clippy::cast_possible_truncation)]
 pub async fn function_call(
     State(state): State<AppState>,
     profile: ProfileInfo,
@@ -431,7 +436,7 @@ pub async fn function_call(
         if tool.tool_type != "function" {
             return Err(ApiError::ValidationFailed(format!(
                 "Unsupported tool type '{}'. Only 'function' is supported",
-                tool.tool_type
+                tool.tool_type,
             )));
         }
         if tool.function.name.is_empty() {
@@ -484,12 +489,13 @@ pub async fn function_call(
     // Build prompt with tool definitions injected as system context
     let mut prompt = String::from("Available tools:\n");
     for tool in &req.tools {
-        prompt.push_str(&format!(
-            "- {} ({}): {}\n",
+        let _ = writeln!(
+            prompt,
+            "- {} ({}): {}",
             tool.function.name,
             tool.tool_type,
             tool.function.description.as_deref().unwrap_or(""),
-        ));
+        );
     }
     prompt.push('\n');
     prompt.push_str(&build_chat_prompt(&req.messages));
@@ -521,7 +527,7 @@ pub async fn function_call(
         .as_secs();
 
     let response = ChatCompletionResponse {
-        id: format!("fncall-{}", request_id),
+        id: format!("fncall-{request_id}"),
         object: "chat.completion".to_string(),
         created: now_epoch,
         model: decision.instance_id.to_string(),
@@ -564,22 +570,24 @@ fn build_chat_prompt(messages: &[ApiChatMessage]) -> String {
 }
 
 /// Map ChatCompletionRequest params into the HIL GenerationParams struct.
+#[allow(clippy::cast_possible_truncation)]
 fn build_generation_params(req: &ChatCompletionRequest) -> GenerationParams {
     GenerationParams {
         temperature: req.temperature.unwrap_or(0.7),
         top_p: req.top_p.unwrap_or(1.0),
-        max_tokens: req.max_tokens.map(|v| v as usize).unwrap_or(2048),
+        max_tokens: req.max_tokens.map_or(2048, |v| v as usize),
         stop_sequences: req.stop.clone().unwrap_or_default(),
         structured_schema: None,
     }
 }
 
 /// Build GenerationParams with a JSON schema constraint for structured output.
+#[allow(clippy::cast_possible_truncation)]
 fn build_structured_gen_params(req: &StructuredGenerationRequest) -> GenerationParams {
     GenerationParams {
         temperature: req.temperature.unwrap_or(0.0),
         top_p: 1.0,
-        max_tokens: req.max_tokens.map(|v| v as usize).unwrap_or(4096),
+        max_tokens: req.max_tokens.map_or(4096, |v| v as usize),
         stop_sequences: Vec::new(),
         structured_schema: req.response_format.json_schema.clone(),
     }
@@ -597,8 +605,7 @@ fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
     if let Some(temp) = req.temperature {
         if !(0.0..=2.0).contains(&temp) {
             return Err(ApiError::ValidationFailed(format!(
-                "Temperature must be between 0.0 and 2.0, got {}",
-                temp
+                "Temperature must be between 0.0 and 2.0, got {temp}"
             )));
         }
     }
@@ -606,8 +613,7 @@ fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
     if let Some(top_p) = req.top_p {
         if !(0.0..=1.0).contains(&top_p) {
             return Err(ApiError::ValidationFailed(format!(
-                "top_p must be between 0.0 and 1.0, got {}",
-                top_p
+                "top_p must be between 0.0 and 1.0, got {top_p}"
             )));
         }
     }
@@ -615,8 +621,7 @@ fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
     if let Some(fp) = req.frequency_penalty {
         if !(-2.0..=2.0).contains(&fp) {
             return Err(ApiError::ValidationFailed(format!(
-                "frequency_penalty must be between -2.0 and 2.0, got {}",
-                fp
+                "frequency_penalty must be between -2.0 and 2.0, got {fp}"
             )));
         }
     }
@@ -624,8 +629,7 @@ fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
     if let Some(pp) = req.presence_penalty {
         if !(-2.0..=2.0).contains(&pp) {
             return Err(ApiError::ValidationFailed(format!(
-                "presence_penalty must be between -2.0 and 2.0, got {}",
-                pp
+                "presence_penalty must be between -2.0 and 2.0, got {pp}"
             )));
         }
     }
@@ -637,6 +641,7 @@ fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
 
 /// Rough token estimate for chat requests (4 chars per token heuristic).
 /// This is used for complexity assessment and Sentinel promotion, not billing.
+#[allow(clippy::cast_possible_truncation)]
 fn estimate_chat_tokens(req: &ChatCompletionRequest) -> u32 {
     let char_count: usize = req
         .messages
@@ -646,6 +651,7 @@ fn estimate_chat_tokens(req: &ChatCompletionRequest) -> u32 {
     (char_count / 4).max(1) as u32
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn estimate_messages_tokens(messages: &[ApiChatMessage]) -> u32 {
     let char_count: usize = messages
         .iter()
@@ -654,6 +660,7 @@ fn estimate_messages_tokens(messages: &[ApiChatMessage]) -> u32 {
     (char_count / 4).max(1) as u32
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn estimate_text_tokens(text: &str) -> u32 {
     (text.len() / 4).max(1) as u32
 }
@@ -666,9 +673,7 @@ fn priority_from_profile(profile: &ProfileInfo) -> RequestPriority {
     use crate::types::ProfileRole;
     match profile.role {
         ProfileRole::Admin => RequestPriority::High,
-        ProfileRole::Adult => RequestPriority::Normal,
-        ProfileRole::Teen => RequestPriority::Normal,
-        ProfileRole::Child => RequestPriority::Normal,
+        ProfileRole::Adult | ProfileRole::Teen | ProfileRole::Child => RequestPriority::Normal,
         ProfileRole::Guest => RequestPriority::Low,
     }
 }
@@ -678,9 +683,7 @@ fn scheduler_priority_from_profile(profile: &ProfileInfo) -> SchedulerPriority {
     use crate::types::ProfileRole;
     match profile.role {
         ProfileRole::Admin => SchedulerPriority::High,
-        ProfileRole::Adult => SchedulerPriority::Normal,
-        ProfileRole::Teen => SchedulerPriority::Normal,
-        ProfileRole::Child => SchedulerPriority::Normal,
+        ProfileRole::Adult | ProfileRole::Teen | ProfileRole::Child => SchedulerPriority::Normal,
         ProfileRole::Guest => SchedulerPriority::Background,
     }
 }

@@ -20,9 +20,7 @@ use tracing::{debug, warn};
 
 use crate::batch::admission::{AdmissionConfig, AdmissionController, AdmissionDecision};
 use crate::batch::metrics::{BatchMetrics, MetricsConfig};
-use crate::batch::preemption::{
-    PreemptionCandidate, PreemptionConfig, PreemptionPolicy,
-};
+use crate::batch::preemption::{PreemptionCandidate, PreemptionConfig, PreemptionPolicy};
 use crate::types::{Priority, SequenceId};
 
 // ---------------------------------------------------------------------------
@@ -123,7 +121,10 @@ impl ActiveSequence {
         if self.max_tokens == 0 {
             return 1.0;
         }
-        (self.generated_tokens as f64 / self.max_tokens as f64).min(1.0)
+        // Acceptable: u32 token counts don't need full precision
+        #[allow(clippy::cast_precision_loss)]
+        let progress = f64::from(self.generated_tokens) / f64::from(self.max_tokens);
+        progress.min(1.0)
     }
 }
 
@@ -172,7 +173,10 @@ impl VramState {
         if self.total_bytes == 0 {
             return 1.0;
         }
-        self.used_bytes as f64 / self.total_bytes as f64
+        // Acceptable: VRAM byte counts don't need full u64 precision in ratio
+        #[allow(clippy::cast_precision_loss)]
+        let frac = self.used_bytes as f64 / self.total_bytes as f64;
+        frac
     }
 }
 
@@ -261,22 +265,14 @@ impl BatchBuilder {
     /// Mark a sequence as completed. It will be removed in the next
     /// `build_step()` call.
     pub fn mark_completed(&mut self, seq_id: SequenceId) {
-        if let Some(active) = self
-            .active_batch
-            .iter_mut()
-            .find(|s| s.seq_id == seq_id)
-        {
+        if let Some(active) = self.active_batch.iter_mut().find(|s| s.seq_id == seq_id) {
             active.completed = true;
         }
     }
 
     /// Update the generated token count for an active sequence.
     pub fn update_progress(&mut self, seq_id: SequenceId, generated_tokens: u32) {
-        if let Some(active) = self
-            .active_batch
-            .iter_mut()
-            .find(|s| s.seq_id == seq_id)
-        {
+        if let Some(active) = self.active_batch.iter_mut().find(|s| s.seq_id == seq_id) {
             active.generated_tokens = generated_tokens;
         }
     }
@@ -288,6 +284,7 @@ impl BatchBuilder {
     /// 2. Check for emergency preemption if VRAM is critical.
     /// 3. Drain waiting queue through admission control.
     /// 4. Record metrics and return what changed.
+    // Core batching logic is cohesive; splitting would obscure flow
     pub fn build_step(&mut self, vram: &VramState) -> BatchDecision {
         let mut decision = BatchDecision::default();
 
@@ -304,8 +301,9 @@ impl BatchBuilder {
         decision.completed = completed;
 
         if !decision.completed.is_empty() {
-            self.metrics
-                .record_completions(decision.completed.len() as u64);
+            #[allow(clippy::cast_possible_truncation)] // Completed count fits in u64
+            let completed_count = decision.completed.len() as u64;
+            self.metrics.record_completions(completed_count);
             debug!(
                 removed = decision.completed.len(),
                 "Completed sequences removed from batch"
@@ -330,8 +328,7 @@ impl BatchBuilder {
             let needed = self
                 .waiting_queue
                 .front()
-                .map(|r| r.estimated_kv_bytes)
-                .unwrap_or(0);
+                .map_or(0, |r| r.estimated_kv_bytes);
 
             let result = self
                 .preemption
@@ -352,8 +349,9 @@ impl BatchBuilder {
         // Process queue front-to-back. We use an index to avoid borrow issues.
         let mut i = 0;
         while i < self.waiting_queue.len() {
-            let batch_has_room =
-                (self.active_batch.len() as u32) < self.max_batch_size;
+            #[allow(clippy::cast_possible_truncation)] // Batch size fits in u32
+            let batch_len = self.active_batch.len() as u32;
+            let batch_has_room = batch_len < self.max_batch_size;
 
             if !batch_has_room {
                 break; // Batch is full, stop trying
@@ -409,6 +407,7 @@ impl BatchBuilder {
 
         // Record rejected count: items still in queue that weren't admitted
         // (only count those we actually evaluated and rejected this step)
+        #[allow(clippy::cast_possible_truncation)] // Queue depth fits in u64
         let rejected_this_step = self.waiting_queue.len() as u64;
         if rejected_this_step > 0 && admitted_count == 0 && eviction_admission_count == 0 {
             // Only record rejections if we had items but admitted none
@@ -416,10 +415,14 @@ impl BatchBuilder {
         }
 
         // --- Phase 4: Record metrics ---
-        self.metrics.record_step(self.active_batch.len() as u32);
+        #[allow(clippy::cast_possible_truncation)] // Batch/queue sizes fit in u32
+        let active_len = self.active_batch.len() as u32;
+        self.metrics.record_step(active_len);
 
-        decision.active_batch_size = self.active_batch.len() as u32;
-        decision.waiting_queue_depth = self.waiting_queue.len() as u32;
+        decision.active_batch_size = active_len;
+        #[allow(clippy::cast_possible_truncation)] // Queue depth fits in u32
+        let queue_len = self.waiting_queue.len() as u32;
+        decision.waiting_queue_depth = queue_len;
 
         decision
     }
@@ -429,11 +432,13 @@ impl BatchBuilder {
     // -----------------------------------------------------------------------
 
     /// Current active batch size.
+    #[allow(clippy::cast_possible_truncation)] // Batch size fits in u32
     pub fn active_batch_size(&self) -> u32 {
         self.active_batch.len() as u32
     }
 
     /// Current waiting queue depth.
+    #[allow(clippy::cast_possible_truncation)] // Queue depth fits in u32
     pub fn waiting_queue_depth(&self) -> u32 {
         self.waiting_queue.len() as u32
     }
@@ -474,6 +479,7 @@ impl BatchBuilder {
     }
 }
 
+#[allow(clippy::missing_fields_in_debug)] // Intentionally omitting internal state details
 impl std::fmt::Debug for BatchBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BatchBuilder")
@@ -550,7 +556,7 @@ mod tests {
     fn test_queue_full_rejects_non_system() {
         let config = BatchConfig {
             max_queue_depth: 2,
-            ..Default::default()
+            ..BatchConfig::default()
         };
         let mut builder = BatchBuilder::new("llama3-8b", config);
 
@@ -585,7 +591,7 @@ mod tests {
     fn test_batch_size_limit() {
         let config = BatchConfig {
             max_batch_size: 2,
-            ..Default::default()
+            ..BatchConfig::default()
         };
         let mut builder = BatchBuilder::new("llama3-8b", config);
 
@@ -645,7 +651,7 @@ mod tests {
     fn test_preemption_at_emergency() {
         let config = BatchConfig {
             max_batch_size: 4,
-            ..Default::default()
+            ..BatchConfig::default()
         };
         let mut builder = BatchBuilder::new("llama3-8b", config);
 

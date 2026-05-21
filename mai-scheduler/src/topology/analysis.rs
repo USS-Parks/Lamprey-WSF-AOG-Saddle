@@ -382,7 +382,7 @@ mod tests {
             ],
             cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0)].into_iter().collect(),
         };
-        GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0)
+        GpuGraph::from_parsed(&parsed, &LinkWeightConfig::default(), 1.0, 1.0)
     }
 
     fn make_four_gpu_mixed_graph() -> GpuGraph {
@@ -475,7 +475,7 @@ mod tests {
                 .into_iter()
                 .collect(),
         };
-        GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0)
+        GpuGraph::from_parsed(&parsed, &LinkWeightConfig::default(), 1.0, 1.0)
     }
 
     #[test]

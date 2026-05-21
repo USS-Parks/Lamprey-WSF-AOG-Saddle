@@ -92,44 +92,47 @@ impl FrameworkConfig {
         // Extract adapter framework section
         let fw_section = table
             .get("adapter_framework")
-            .and_then(|v| v.as_table())
+            .and_then(toml::Value::as_table)
             .cloned()
             .unwrap_or_default();
 
         let mut config = Self::default();
 
-        if let Some(v) = fw_section.get("adapters_dir").and_then(|v| v.as_str()) {
+        if let Some(v) = fw_section.get("adapters_dir").and_then(toml::Value::as_str) {
             config.adapters_dir = PathBuf::from(v);
         }
-        if let Some(v) = fw_section.get("python_path").and_then(|v| v.as_str()) {
+        if let Some(v) = fw_section.get("python_path").and_then(toml::Value::as_str) {
             config.python_path = PathBuf::from(v);
         }
-        if let Some(v) = fw_section.get("runner_script").and_then(|v| v.as_str()) {
+        if let Some(v) = fw_section.get("runner_script").and_then(toml::Value::as_str) {
             config.runner_script = PathBuf::from(v);
         }
-        if let Some(v) = fw_section
-            .get("heartbeat_interval_ms")
-            .and_then(|v| v.as_integer())
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         {
-            config.heartbeat_interval_ms = v as u64;
-        }
-        if let Some(v) = fw_section
-            .get("missed_heartbeat_threshold")
-            .and_then(|v| v.as_integer())
-        {
-            config.missed_heartbeat_threshold = v as u32;
-        }
-        if let Some(v) = fw_section
-            .get("max_restart_attempts")
-            .and_then(|v| v.as_integer())
-        {
-            config.max_restart_attempts = v as u32;
-        }
-        if let Some(v) = fw_section
-            .get("request_timeout_ms")
-            .and_then(|v| v.as_integer())
-        {
-            config.request_timeout_ms = v as u64;
+            if let Some(v) = fw_section
+                .get("heartbeat_interval_ms")
+                .and_then(toml::Value::as_integer)
+            {
+                config.heartbeat_interval_ms = v as u64;
+            }
+            if let Some(v) = fw_section
+                .get("missed_heartbeat_threshold")
+                .and_then(toml::Value::as_integer)
+            {
+                config.missed_heartbeat_threshold = v as u32;
+            }
+            if let Some(v) = fw_section
+                .get("max_restart_attempts")
+                .and_then(toml::Value::as_integer)
+            {
+                config.max_restart_attempts = v as u32;
+            }
+            if let Some(v) = fw_section
+                .get("request_timeout_ms")
+                .and_then(toml::Value::as_integer)
+            {
+                config.request_timeout_ms = v as u64;
+            }
         }
 
         info!(
@@ -165,7 +168,7 @@ impl FrameworkConfig {
 
             let dir_name = path
                 .file_name()
-                .and_then(|n| n.to_str())
+                .and_then(std::ffi::OsStr::to_str)
                 .unwrap_or("")
                 .to_string();
 
@@ -224,7 +227,7 @@ fn parse_adapter_decorator(source: &str) -> Option<(String, String)> {
     let decorator_start = source.find("@mai_adapter(")?;
     let after_start = &source[decorator_start..];
     let paren_end = after_start.find(')')?;
-    let decorator_content = &after_start[..paren_end + 1];
+    let decorator_content = &after_start[..=paren_end];
 
     // Extract name="..."
     let name = extract_kwarg(decorator_content, "name")?;

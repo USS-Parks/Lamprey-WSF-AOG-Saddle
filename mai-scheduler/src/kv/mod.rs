@@ -124,8 +124,10 @@ impl HeuristicKvCacheManager {
         let scorer = EvictionScorer::new(config.eviction.clone());
         let guard = ThrashGuard::new(config.anti_thrash.clone());
 
+        #[allow(clippy::cast_precision_loss)] // Acceptable: display-only metric
+        let budget_gb = config.total_budget_bytes as f64 / 1_000_000_000.0;
         info!(
-            budget_gb = config.total_budget_bytes as f64 / 1_000_000_000.0,
+            budget_gb = budget_gb,
             model_count = config.model_factors.len(),
             "HeuristicKvCacheManager initialized"
         );
@@ -172,7 +174,7 @@ impl HeuristicKvCacheManager {
         }
 
         let mut total_freed = 0_u64;
-        let mut guard = self.guard.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.guard.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         for (seq_id, _bytes, score) in &candidates {
             if total_freed >= needed_bytes {
@@ -235,7 +237,7 @@ impl HeuristicKvCacheManager {
     /// Get all sequences scored for eviction, sorted descending by score
     /// (highest = most evictable first). Includes anti-thrashing adjustments.
     fn scored_candidates(&self) -> Vec<(SequenceId, u64, f64)> {
-        let guard = self.guard.lock().unwrap_or_else(|e| e.into_inner());
+        let guard = self.guard.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let mut candidates: Vec<(SequenceId, u64, f64)> = self
             .sequences
@@ -293,6 +295,7 @@ impl KvCacheManager for HeuristicKvCacheManager {
     }
 
     fn can_fit(&self, estimated_tokens: usize, model_factor: f64) -> bool {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss, clippy::cast_sign_loss)]
         let estimated_bytes = (estimated_tokens as f64 * model_factor) as u64;
         let used = self.used_bytes.load(Ordering::Relaxed);
         used + estimated_bytes <= self.total_budget
@@ -350,11 +353,12 @@ impl KvCacheManager for HeuristicKvCacheManager {
     }
 
     fn sequence_meta(&self, seq_id: SequenceId) -> Option<SequenceMeta> {
-        self.sequences.get(&seq_id).map(|entry| entry.clone())
+        self.sequences.get(&seq_id).map(|entry| (*entry).clone())
     }
 }
 
 // Allow debug printing even though DashMap doesn't impl Debug in a useful way
+#[allow(clippy::missing_fields_in_debug)] // Intentionally omitting internal DashMap/Mutex state
 impl std::fmt::Debug for HeuristicKvCacheManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HeuristicKvCacheManager")

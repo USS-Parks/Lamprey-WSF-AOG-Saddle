@@ -56,13 +56,17 @@ impl proto::mai_audit_server::MaiAudit for MaiAuditService {
         // Use the AuditWriter trait methods: read_recent or read_by_profile
         let raw_entries = if req.profile_filter.is_empty() {
             // Read recent entries (offset + limit to get enough, then slice)
+            #[allow(clippy::cast_possible_truncation)]
+            let count = (req.offset + limit) as usize;
             audit_writer
-                .read_recent((req.offset + limit) as usize)
+                .read_recent(count)
                 .await
                 .map_err(|e| Status::internal(format!("audit read failed: {e}")))?
         } else {
+            #[allow(clippy::cast_possible_truncation)]
+            let count = (req.offset + limit) as usize;
             audit_writer
-                .read_by_profile(&req.profile_filter, (req.offset + limit) as usize)
+                .read_by_profile(&req.profile_filter, count)
                 .await
                 .map_err(|e| Status::internal(format!("audit read failed: {e}")))?
         };
@@ -74,29 +78,37 @@ impl proto::mai_audit_server::MaiAudit for MaiAuditService {
             .map_err(|e| Status::internal(format!("audit count failed: {e}")))?;
 
         // Apply offset (skip first N entries)
+        #[allow(clippy::cast_possible_truncation)]
         let offset = req.offset as usize;
+        #[allow(clippy::cast_possible_truncation)]
+        let limit_usize = limit as usize;
         let page_entries: Vec<_> = raw_entries
             .into_iter()
             .skip(offset)
-            .take(limit as usize)
+            .take(limit_usize)
             .collect();
 
         let entries: Vec<proto::AuditEntry> = page_entries
             .iter()
             .enumerate()
-            .map(|(i, e)| proto::AuditEntry {
-                sequence: (offset + i) as u64,
-                timestamp: e.timestamp.to_string(),
-                profile_id: e.profile_id.clone(),
-                method: e.method.clone(),
-                endpoint: e.path.clone(),
-                model: e.model_name.clone().unwrap_or_default(),
-                tokens_in: 0,  // Not tracked in AuditEntry
-                tokens_out: 0, // Not tracked in AuditEntry
-                latency_ms: e.duration_ms,
-                status_code: e.status_code as u32,
-                request_id: e.entry_id.clone(),
-                chain_hash: e.entry_hash.clone(),
+            .map(|(i, e)| {
+                #[allow(clippy::cast_possible_truncation)]
+                let sequence = (offset + i) as u64;
+                let status_code = u32::from(e.status_code);
+                proto::AuditEntry {
+                    sequence,
+                    timestamp: e.timestamp.to_string(),
+                    profile_id: e.profile_id.clone(),
+                    method: e.method.clone(),
+                    endpoint: e.path.clone(),
+                    model: e.model_name.clone().unwrap_or_default(),
+                    tokens_in: 0,  // Not tracked in AuditEntry
+                    tokens_out: 0, // Not tracked in AuditEntry
+                    latency_ms: e.duration_ms,
+                    status_code,
+                    request_id: e.entry_id.clone(),
+                    chain_hash: e.entry_hash.clone(),
+                }
             })
             .collect();
 

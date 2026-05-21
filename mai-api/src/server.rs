@@ -128,6 +128,7 @@ impl MaiServer {
     }
 
     /// Set the adapter configuration file path.
+    #[must_use]
     pub fn with_adapter_config(mut self, path: PathBuf) -> Self {
         self.adapter_config_path = Some(path);
         self
@@ -144,6 +145,7 @@ impl MaiServer {
     /// 5. Start REST + gRPC servers concurrently
     /// 6. Block on shutdown signal (SIGTERM / SIGINT / ctrl-c)
     /// 7. Graceful drain (up to 5 seconds)
+    #[allow(clippy::too_many_lines)]
     pub async fn run(self) -> Result<(), ServerError> {
         info!(
             tier = ?self.config.tier,
@@ -164,10 +166,10 @@ impl MaiServer {
             let reader = Arc::new(DevSwitchReader::new());
             let checker = AirGapChecker::with_default_interval(reader);
             match checker.verify().await {
-                Ok(result) if result.air_gapped => {
+                Ok(ref result) if result.air_gapped => {
                     info!("Air-gap verification passed");
                 }
-                Ok(result) => {
+                Ok(_) => {
                     warn!(
                         "Air-gap verification: switch reports non-air-gapped state, \
                          proceeding (simulated reader)"
@@ -267,12 +269,13 @@ impl MaiServer {
                             entry.gpu_ids.iter().map(|id| GpuId::new(*id)).collect();
 
                         for model in &entry.models {
-                            let instance_id = format!("{}:{}", name, model);
+                            let instance_id = format!("{name}:{model}");
                             let instance_cfg = InstanceConfig {
                                 id: InstanceId::new(&instance_id),
                                 model_name: model.clone(),
                                 adapter_type: name.clone(),
                                 gpu_ids: gpu_ids.clone(),
+                                #[allow(clippy::cast_possible_truncation)]
                                 max_batch_size: entry.max_concurrent as u32,
                                 vram_allocated: 0, // Populated by health monitor (Session 22)
                                 capabilities: InstanceCapabilities::default(),
@@ -342,10 +345,7 @@ impl MaiServer {
 
         info!(addr = %grpc_addr, "gRPC server listening");
 
-        info!(
-            "MAI server ready — REST on {}, gRPC on {}",
-            rest_addr, grpc_addr
-        );
+        info!("MAI server ready — REST on {rest_addr}, gRPC on {grpc_addr}");
 
         // -- Step 6: Block on shutdown signal--
         let shutdown = shutdown_signal();
@@ -426,14 +426,14 @@ fn load_auth_state() -> AuthState {
     println!("========================================");
     println!("  MAI FIRST-BOOT: Admin API Key");
     println!("========================================");
-    println!("  Key:  {}", admin_key);
-    println!("  Hash: {}", admin_hash);
+    println!("  Key:  {admin_key}");
+    println!("  Hash: {admin_hash}");
     println!();
     println!("  Save the KEY somewhere safe. Add the HASH");
     println!("  to config/auth_keys.toml to persist it:");
     println!();
     println!("  [[keys]]");
-    println!("  hash = \"{}\"", admin_hash);
+    println!("  hash = \"{admin_hash}\"");
     println!("  profile_id = \"admin\"");
     println!("  role = \"admin\"");
     println!("  display_name = \"System Admin\"");
@@ -474,8 +474,8 @@ async fn shutdown_signal() {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => { info!("ctrl-c received"); }
-        _ = terminate => { info!("SIGTERM received"); }
+        () = ctrl_c => { info!("ctrl-c received"); }
+        () = terminate => { info!("SIGTERM received"); }
     }
 }
 
@@ -483,18 +483,18 @@ async fn shutdown_signal() {
 ///
 /// If no path is provided, returns defaults (no adapters configured).
 /// If the file cannot be read, logs a warning and returns defaults.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
-    let path = match path {
-        Some(p) => p,
-        None => {
-            // Try the default location relative to the working directory
-            let default_path = Path::new("config/adapters.toml");
-            if default_path.exists() {
-                default_path
-            } else {
-                info!("No adapter config file found, starting without adapters");
-                return AdapterBootConfig::default();
-            }
+    let path = if let Some(p) = path {
+        p
+    } else {
+        // Try the default location relative to the working directory
+        let default_path = Path::new("config/adapters.toml");
+        if default_path.exists() {
+            default_path
+        } else {
+            info!("No adapter config file found, starting without adapters");
+            return AdapterBootConfig::default();
         }
     };
 
@@ -521,18 +521,17 @@ fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
     let mut adapter_configs = HashMap::new();
     if let Some(adapters_section) = table.get("adapters").and_then(|v| v.as_table()) {
         for (name, adapter_table) in adapters_section {
-            let at = match adapter_table.as_table() {
-                Some(t) => t,
-                None => continue,
+            let Some(at) = adapter_table.as_table() else {
+                continue;
             };
             let entry = AdapterBootEntry {
-                enabled: at.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false),
+                enabled: at.get("enabled").and_then(toml::Value::as_bool).unwrap_or(false),
                 host: at
                     .get("host")
                     .and_then(|v| v.as_str())
                     .unwrap_or("127.0.0.1")
                     .to_string(),
-                port: at.get("port").and_then(|v| v.as_integer()).unwrap_or(11434) as u16,
+                port: at.get("port").and_then(toml::Value::as_integer).unwrap_or(11434) as u16,
                 gpu_ids: at
                     .get("gpu_ids")
                     .and_then(|v| v.as_array())
@@ -544,14 +543,14 @@ fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
                     .unwrap_or_default(),
                 max_concurrent: at
                     .get("max_concurrent")
-                    .and_then(|v| v.as_integer())
+                    .and_then(toml::Value::as_integer)
                     .unwrap_or(4) as usize,
                 models: at
                     .get("models")
                     .and_then(|v| v.as_array())
                     .map(|arr| {
                         arr.iter()
-                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
                             .collect()
                     })
                     .unwrap_or_default(),

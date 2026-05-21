@@ -121,6 +121,7 @@ impl DefaultScheduler {
     /// - Includes eviction cost in instance scoring
     /// - Calls `touch()` on routed sequences
     /// - Calls `deallocate()` on released sequences
+    #[allow(clippy::cast_precision_loss)] // Acceptable: display-only metric
     pub fn set_kv_manager(&mut self, kv_manager: Arc<dyn KvCacheManager>) {
         info!(
             budget_gb = kv_manager.total_bytes() as f64 / 1_000_000_000.0,
@@ -210,7 +211,9 @@ impl Scheduler for DefaultScheduler {
         // If preferred_backends is specified, partition candidates into
         // preferred and non-preferred. Try preferred first; fall back to
         // non-preferred if no preferred candidate is viable.
-        let candidates = if !resolved.preferred_backends.is_empty() {
+        let candidates = if resolved.preferred_backends.is_empty() {
+            all_instances
+        } else {
             let (mut preferred, fallback): (Vec<_>, Vec<_>) =
                 all_instances.into_iter().partition(|(_, state)| {
                     resolved
@@ -229,8 +232,6 @@ impl Scheduler for DefaultScheduler {
                 preferred.extend(fallback);
                 preferred
             }
-        } else {
-            all_instances
         };
 
         // Step 4: Placement
@@ -290,10 +291,7 @@ impl Scheduler for DefaultScheduler {
 
     fn register_instance(&self, config: InstanceConfig) -> Result<(), SchedulerError> {
         // Create a batch builder for this instance (Session 18)
-        let batch_builder = BatchBuilder::new(
-            config.model_name.clone(),
-            self.batch_config.clone(),
-        );
+        let batch_builder = BatchBuilder::new(config.model_name.clone(), self.batch_config.clone());
         self.batch_builders
             .insert(config.id.clone(), Mutex::new(batch_builder));
 
@@ -305,6 +303,7 @@ impl Scheduler for DefaultScheduler {
         self.registry.remove(instance);
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
     fn cluster_metrics(&self) -> ClusterMetrics {
         let instances = self.registry.list_all();
         let total_instances = instances.len() as u32;
@@ -314,9 +313,10 @@ impl Scheduler for DefaultScheduler {
             .sum();
         let total_queue: u32 = instances.iter().map(|(_, s)| s.metrics.queue_depth).sum();
 
-        let (topo_gpus, topo_cliques) = match &self.topology {
-            Some(topo) => (topo.gpu_count() as u32, topo.nvlink_cliques().len() as u32),
-            None => (0, 0),
+        let (topo_gpus, topo_cliques) = if let Some(topo) = &self.topology {
+            (topo.gpu_count() as u32, topo.nvlink_cliques().len() as u32)
+        } else {
+            (0, 0)
         };
 
         // Aggregate batch metrics from all builders (Session 18)
@@ -326,7 +326,7 @@ impl Scheduler for DefaultScheduler {
         let mut batch_admission_rate_sum = 0.0_f64;
         let mut batch_builder_count = 0_u32;
 
-        for entry in self.batch_builders.iter() {
+        for entry in &self.batch_builders {
             if let Ok(builder) = entry.value().lock() {
                 let snap = builder.metrics().snapshot();
                 batch_size_sum += snap.avg_batch_size;
@@ -338,17 +338,17 @@ impl Scheduler for DefaultScheduler {
         }
 
         let avg_batch_size = if batch_builder_count > 0 {
-            batch_size_sum / batch_builder_count as f64
+            batch_size_sum / f64::from(batch_builder_count)
         } else {
             0.0
         };
         let avg_batch_utilization = if batch_builder_count > 0 {
-            batch_util_sum / batch_builder_count as f64
+            batch_util_sum / f64::from(batch_builder_count)
         } else {
             0.0
         };
         let batch_admission_rate = if batch_builder_count > 0 {
-            batch_admission_rate_sum / batch_builder_count as f64
+            batch_admission_rate_sum / f64::from(batch_builder_count)
         } else {
             1.0
         };
@@ -367,18 +367,15 @@ impl Scheduler for DefaultScheduler {
             kv_active_sequences: self
                 .kv_manager
                 .as_ref()
-                .map(|kv| kv.active_sequences() as u32)
-                .unwrap_or(0),
+                .map_or(0, |kv| kv.active_sequences() as u32),
             kv_used_bytes: self
                 .kv_manager
                 .as_ref()
-                .map(|kv| kv.total_bytes() - kv.free_bytes())
-                .unwrap_or(0),
+                .map_or(0, |kv| kv.total_bytes() - kv.free_bytes()),
             kv_total_bytes: self
                 .kv_manager
                 .as_ref()
-                .map(|kv| kv.total_bytes())
-                .unwrap_or(0),
+                .map_or(0, |kv| kv.total_bytes()),
             avg_batch_size,
             avg_batch_utilization,
             total_batch_waiting: batch_waiting_total,
@@ -772,7 +769,7 @@ mod tests {
                 .into_iter()
                 .collect(),
         };
-        let graph = GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0);
+        let graph = GpuGraph::from_parsed(&parsed, &LinkWeightConfig::default(), 1.0, 1.0);
         let topo = Arc::new(GpuTopology::from_graph(graph, TopologyConfig::default()));
 
         let config = test_config();
@@ -805,7 +802,7 @@ mod tests {
                 let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
                 let result = sched.schedule(&req);
                 // All should succeed (we have plenty of capacity)
-                assert!(result.is_ok(), "thread {} failed: {:?}", i, result);
+                assert!(result.is_ok(), "thread {i} failed: {result:?}");
             }));
         }
 
@@ -825,7 +822,7 @@ mod tests {
         use crate::kv::KvCacheConfig;
         let config = KvCacheConfig {
             total_budget_bytes: budget,
-            ..Default::default()
+            ..KvCacheConfig::default()
         };
         Arc::new(crate::kv::HeuristicKvCacheManager::new(config))
     }

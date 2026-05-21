@@ -101,9 +101,14 @@ impl proto::mai_registry_server::MaiRegistry for MaiRegistryService {
         let models: Vec<proto::ModelDetail> =
             filtered.iter().map(|m| summary_to_proto(m)).collect();
 
+        #[allow(clippy::cast_possible_truncation)]
+        let total_models = models.len() as u32;
+        #[allow(clippy::cast_possible_truncation)]
+        let loaded_models = loaded_count as u32;
+
         Ok(Response::new(proto::RegistryQueryResponse {
-            total_models: models.len() as u32,
-            loaded_models: loaded_count as u32,
+            total_models,
+            loaded_models,
             models,
         }))
     }
@@ -128,15 +133,15 @@ impl proto::mai_registry_server::MaiRegistry for MaiRegistryService {
 
         let registry = self.state.registry.read().await;
         let all_models = registry.list_models(None);
+        #[allow(clippy::cast_possible_truncation)]
         let count = all_models.len() as u32;
 
         Ok(Response::new(proto::ScanModelsResponse {
             models_found: count,
             new_models: 0,
             message: format!(
-                "scan placeholder: {} models currently registered; \
-                 full filesystem scan available in Session 15",
-                count
+                "scan placeholder: {count} models currently registered; \
+                 full filesystem scan available in Session 15"
             ),
         }))
     }

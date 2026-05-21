@@ -173,7 +173,7 @@ pub fn generate_api_key() -> String {
     hasher.update(seed.as_bytes());
     let hash = hex::encode(hasher.finalize());
     // Prefix with "im-" for easy identification
-    format!("im-{}", hash)
+    format!("im-{hash}")
 }
 
 // -- Rate Limiter --
@@ -225,6 +225,7 @@ impl RateLimiter {
         }
 
         timestamps.push(now);
+        #[allow(clippy::cast_possible_truncation)]
         let remaining = self.max_requests - timestamps.len() as u32;
         Ok(remaining)
     }
@@ -240,17 +241,14 @@ impl RateLimiter {
 /// If the header is missing, returns a Guest profile.
 /// If the header is malformed, returns an error.
 pub fn extract_profile(headers: &HeaderMap) -> Result<ProfileInfo, ApiError> {
-    let header_value = match headers.get(PROFILE_HEADER) {
-        Some(v) => v,
-        None => {
-            debug!("No profile header present, defaulting to guest");
-            return Ok(ProfileInfo {
-                profile_id: "guest".to_string(),
-                role: ProfileRole::Guest,
-                display_name: Some("Guest".to_string()),
-                permissions: ProfileRole::Guest.permissions(),
-            });
-        }
+    let Some(header_value) = headers.get(PROFILE_HEADER) else {
+        debug!("No profile header present, defaulting to guest");
+        return Ok(ProfileInfo {
+            profile_id: "guest".to_string(),
+            role: ProfileRole::Guest,
+            display_name: Some("Guest".to_string()),
+            permissions: ProfileRole::Guest.permissions(),
+        });
     };
 
     let header_str = header_value.to_str().map_err(|_| {
@@ -268,8 +266,7 @@ fn parse_profile_header(value: &str) -> Result<ProfileInfo, ApiError> {
 
     if parts.len() < 2 {
         return Err(ApiError::BadRequest(format!(
-            "Invalid X-IM-Profile header: expected 'profile_id:role', got '{}'",
-            value
+            "Invalid X-IM-Profile header: expected 'profile_id:role', got '{value}'"
         )));
     }
 
@@ -312,8 +309,7 @@ fn parse_role(s: &str) -> Result<ProfileRole, ApiError> {
         "child" => Ok(ProfileRole::Child),
         "guest" => Ok(ProfileRole::Guest),
         other => Err(ApiError::BadRequest(format!(
-            "Unknown role '{}' in X-IM-Profile header. Valid: admin, adult, teen, child, guest",
-            other
+            "Unknown role '{other}' in X-IM-Profile header. Valid: admin, adult, teen, child, guest"
         ))),
     }
 }
@@ -526,8 +522,8 @@ pub fn check_permission(profile: &ProfileInfo, permission: &str) -> Result<(), A
 
     if !allowed {
         return Err(ApiError::PermissionDenied(format!(
-            "Profile '{}' (role: {:?}) lacks '{}' permission",
-            profile.profile_id, profile.role, permission
+            "Profile '{}' (role: {:?}) lacks '{permission}' permission",
+            profile.profile_id, profile.role
         )));
     }
 
@@ -570,7 +566,7 @@ pub fn can_access_model(
 /// ```
 pub fn load_api_keys_from_toml(path: &std::path::Path) -> Result<ApiKeyStore, String> {
     let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("Cannot read auth config {}: {}", path.display(), e))?;
+        .map_err(|e| format!("Cannot read auth config {}: {e}", path.display()))?;
 
     let table: toml::Table =
         toml::from_str(&content).map_err(|e| format!("Invalid auth config TOML: {e}"))?;
@@ -581,7 +577,7 @@ pub fn load_api_keys_from_toml(path: &std::path::Path) -> Result<ApiKeyStore, St
     if let Some(settings) = table.get("settings").and_then(|v| v.as_table()) {
         store.allow_internal_profile_header = settings
             .get("allow_internal_profile_header")
-            .and_then(|v| v.as_bool())
+            .and_then(toml::Value::as_bool)
             .unwrap_or(false);
     }
 
@@ -620,7 +616,7 @@ pub fn load_api_keys_from_toml(path: &std::path::Path) -> Result<ApiKeyStore, St
             let display_name = key_table
                 .get("display_name")
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
 
             store.add_key_hashed(key_hash, profile_id, role, display_name);
         }

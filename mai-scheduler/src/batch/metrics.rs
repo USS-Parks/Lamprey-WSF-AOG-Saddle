@@ -9,8 +9,8 @@
 //! and exposed through ClusterMetrics.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Configuration for batch metrics collection.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct MetricsConfig {
     /// Rolling window size for average calculations.
     #[serde(default = "default_window_size")]
@@ -138,7 +138,7 @@ impl BatchMetrics {
     pub fn record_step(&self, batch_size: u32) {
         self.total_steps.fetch_add(1, Ordering::Relaxed);
 
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if inner.batch_sizes.len() >= inner.window_size {
             inner.batch_sizes.pop_front();
         }
@@ -148,17 +148,20 @@ impl BatchMetrics {
     /// Record that `count` sequences were admitted to the batch.
     pub fn record_admissions(&self, count: u64) {
         self.total_admitted.fetch_add(count, Ordering::Relaxed);
-        self.total_admission_attempts.fetch_add(count, Ordering::Relaxed);
+        self.total_admission_attempts
+            .fetch_add(count, Ordering::Relaxed);
     }
 
     /// Record that `count` admission attempts were rejected (queued).
     pub fn record_rejections(&self, count: u64) {
-        self.total_admission_attempts.fetch_add(count, Ordering::Relaxed);
+        self.total_admission_attempts
+            .fetch_add(count, Ordering::Relaxed);
     }
 
     /// Record that `count` admissions required eviction to make room.
     pub fn record_eviction_admissions(&self, count: u64) {
-        self.total_eviction_admissions.fetch_add(count, Ordering::Relaxed);
+        self.total_eviction_admissions
+            .fetch_add(count, Ordering::Relaxed);
     }
 
     /// Record that `count` sequences completed generation.
@@ -168,7 +171,7 @@ impl BatchMetrics {
 
     /// Record a queue wait time for a sequence that was admitted.
     pub fn record_wait_time(&self, wait: Duration) {
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if inner.wait_times.len() >= inner.max_wait_samples {
             inner.wait_times.pop_front();
         }
@@ -177,8 +180,9 @@ impl BatchMetrics {
 
     /// Take a snapshot of current metrics. This is the read path for
     /// the scheduler scoring engine and ClusterMetrics aggregation.
+    #[allow(clippy::cast_precision_loss)] // Acceptable: metric values don't need full u64 precision
     pub fn snapshot(&self) -> BatchMetricsSnapshot {
-        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let avg_batch_size = if inner.batch_sizes.is_empty() {
             0.0
@@ -233,12 +237,16 @@ impl BatchMetrics {
     }
 }
 
+#[allow(clippy::missing_fields_in_debug)] // Intentionally omitting internal Mutex state
 impl std::fmt::Debug for BatchMetrics {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BatchMetrics")
             .field("max_batch_size", &self.max_batch_size)
             .field("total_steps", &self.total_steps.load(Ordering::Relaxed))
-            .field("total_admitted", &self.total_admitted.load(Ordering::Relaxed))
+            .field(
+                "total_admitted",
+                &self.total_admitted.load(Ordering::Relaxed),
+            )
             .finish()
     }
 }

@@ -146,8 +146,7 @@ impl ResponseCache {
         let expired = self
             .entries
             .get(key)
-            .map(|e| Instant::now().duration_since(e.created_at) > self.config.ttl)
-            .unwrap_or(true);
+            .is_none_or(|e| Instant::now().duration_since(e.created_at) > self.config.ttl);
 
         if expired {
             // Remove stale entry if it exists
@@ -383,7 +382,7 @@ mod tests {
     fn test_excluded_model_not_cacheable() {
         let config = CacheConfig {
             exclude_models: vec!["unstable-model".to_string()],
-            ..Default::default()
+            ..CacheConfig::default()
         };
         let cache = ResponseCache::new(config);
         let req = make_request("test", Some("unstable-model"), Uuid::new_v4());
@@ -394,7 +393,7 @@ mod tests {
     fn test_ttl_expiration() {
         let config = CacheConfig {
             ttl: Duration::from_millis(50),
-            ..Default::default()
+            ..CacheConfig::default()
         };
         let mut cache = ResponseCache::new(config);
         let profile = Uuid::new_v4();
@@ -504,19 +503,19 @@ mod tests {
         let config = CacheConfig {
             max_memory_bytes: 300,
             min_response_bytes: 10,
-            ..Default::default()
+            ..CacheConfig::default()
         };
         let mut cache = ResponseCache::new(config);
         let profile = Uuid::new_v4();
 
         // Each entry is ~80+ bytes (text + overhead). Fill past budget.
         for i in 0..10 {
-            let req = make_request(&format!("query number {}", i), Some("m"), profile);
+            let req = make_request(&format!("query number {i}"), Some("m"), profile);
             let key = ResponseCache::compute_key(&req);
             cache.put(
                 key,
                 CachedResponse {
-                    text: format!("response for query number {}", i),
+                    text: format!("response for query number {i}"),
                     tokens_used: 5,
                     finish_reason: "stop".into(),
                 },
@@ -527,7 +526,7 @@ mod tests {
 
         // Memory budget should have forced evictions
         let mem: usize = cache.entries.values().map(|e| e.byte_size).sum();
-        assert!(mem <= 300, "Memory budget violated: {} > 300", mem);
+        assert!(mem <= 300, "Memory budget violated: {mem} > 300");
         assert!(cache.metrics().evictions > 0);
     }
 
@@ -567,7 +566,7 @@ mod tests {
     fn test_below_min_size_not_cached() {
         let config = CacheConfig {
             min_response_bytes: 200,
-            ..Default::default()
+            ..CacheConfig::default()
         };
         let mut cache = ResponseCache::new(config);
         let profile = Uuid::new_v4();

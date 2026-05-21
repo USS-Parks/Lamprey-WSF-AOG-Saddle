@@ -143,6 +143,7 @@ impl AdapterProcess {
     }
 
     /// Spawn the adapter subprocess.
+    #[allow(clippy::too_many_lines)]
     pub async fn spawn(&mut self) -> Result<(), FrameworkError> {
         let name = &self.info.name;
         info!(adapter = %name, "Spawning adapter process");
@@ -589,7 +590,7 @@ impl AdapterProcess {
     }
 
     /// Check if the child process has exited.
-    pub async fn check_alive(&mut self) -> bool {
+    pub fn check_alive(&mut self) -> bool {
         if let Some(ref mut child) = self.child {
             match child.try_wait() {
                 Ok(Some(status)) => {

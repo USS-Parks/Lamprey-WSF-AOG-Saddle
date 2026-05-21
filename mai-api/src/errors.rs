@@ -106,27 +106,25 @@ impl ApiError {
     /// HTTP status code for this error
     pub fn status(&self) -> StatusCode {
         match self {
-            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::BadRequest(_) | Self::ModelIncompatible(_) => StatusCode::BAD_REQUEST,
             Self::ValidationFailed(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::UnsupportedContentType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
             Self::ModelNotFound(_) => StatusCode::NOT_FOUND,
-            Self::ModelUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
-            Self::ModelIncompatible(_) => StatusCode::BAD_REQUEST,
-            Self::ModelLoading => StatusCode::SERVICE_UNAVAILABLE,
-            Self::SystemOverloaded => StatusCode::TOO_MANY_REQUESTS,
-            Self::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::HardwareFault => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
-            Self::AdapterCrashed(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::ModelUnavailable(_)
+            | Self::ModelLoading
+            | Self::ServiceUnavailable
+            | Self::AdapterCrashed(_)
+            | Self::AirGapViolation(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::SystemOverloaded | Self::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
+            Self::InternalError | Self::HardwareFault | Self::ConfigError(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
             Self::PermissionDenied(_) => StatusCode::FORBIDDEN,
-            Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::ProfileNotFound(_) => StatusCode::UNAUTHORIZED,
-            Self::TokenInvalid => StatusCode::UNAUTHORIZED,
-            Self::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
-            Self::ConfigError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::AirGapViolation(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Unauthorized | Self::ProfileNotFound(_) | Self::TokenInvalid => {
+                StatusCode::UNAUTHORIZED
+            }
         }
     }
 

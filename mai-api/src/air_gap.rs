@@ -202,8 +202,8 @@ impl VerificationResult {
         // Check consistency between switch and network
         let consistent = if switch_position.is_air_gapped() && network_state.any_link_active {
             anomalies.push(format!(
-                "Switch is {} but {} network interface(s) active: {:?}",
-                switch_position, network_state.active_count, network_state.active_interfaces
+                "Switch is {switch_position} but {} network interface(s) active: {:?}",
+                network_state.active_count, network_state.active_interfaces
             ));
             false
         } else if switch_position.network_allowed() && !network_state.any_link_active {
@@ -349,13 +349,13 @@ impl AirGapChecker {
 
                 match checker.verify().await {
                     Ok(result) => {
-                        if !result.consistent {
-                            error!("Periodic air-gap check FAILED: {}", result.message);
-                        } else {
+                        if result.consistent {
                             debug!(
                                 air_gapped = result.air_gapped,
                                 "Periodic air-gap check passed"
                             );
+                        } else {
+                            error!("Periodic air-gap check FAILED: {}", result.message);
                         }
                     }
                     Err(e) => {

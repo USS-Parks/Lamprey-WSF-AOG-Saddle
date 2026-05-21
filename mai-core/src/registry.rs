@@ -147,14 +147,13 @@ impl ModelStatus {
         matches!(
             (self, target),
             (ModelStatus::ColdStorage, ModelStatus::Loading { .. })
-                | (ModelStatus::Loading { .. }, ModelStatus::Loaded)
-                | (ModelStatus::Loading { .. }, ModelStatus::ColdStorage)
-                | (ModelStatus::Loaded, ModelStatus::Active { .. })
-                | (ModelStatus::Active { .. }, ModelStatus::Loaded)
+                | (ModelStatus::Loading { .. } | ModelStatus::Active { .. },
+                    ModelStatus::Loaded)
+                | (ModelStatus::Loading { .. } | ModelStatus::Evicted,
+                    ModelStatus::ColdStorage)
+                | (ModelStatus::Loaded, ModelStatus::Active { .. } | ModelStatus::Evicting)
                 | (ModelStatus::Active { .. }, ModelStatus::Evicting)
-                | (ModelStatus::Loaded, ModelStatus::Evicting)
                 | (ModelStatus::Evicting, ModelStatus::Evicted)
-                | (ModelStatus::Evicted, ModelStatus::ColdStorage)
         )
     }
 
@@ -294,6 +293,7 @@ impl ModelRegistry {
 
     /// Register a model in cold storage (after integrity verification).
     /// The model package must already exist in the vault at `vault_path`.
+    #[allow(clippy::unused_async)] // async for API consistency with vault operations
     pub async fn register_cold_model(
         &mut self,
         model_id: ModelId,
@@ -390,6 +390,7 @@ impl ModelRegistry {
 
     /// Unload a model from VRAM back to cold storage.
     /// Valid from Loaded or Active states. Transitions through Evicting -> Evicted -> ColdStorage.
+    #[allow(clippy::unused_async)] // async for API consistency with vault operations
     pub async fn unload_model(&mut self, model_id: &ModelId) -> Result<(), RegistryError> {
         let entry = self
             .models
@@ -436,9 +437,8 @@ impl ModelRegistry {
         let manifest_path = package_dir.join("manifest.toml");
         let manifest_content = std::fs::read_to_string(&manifest_path).map_err(|e| {
             RegistryError::UsbPackageError(format!(
-                "Cannot read manifest at {}: {}",
+                "Cannot read manifest at {}: {e}",
                 manifest_path.display(),
-                e
             ))
         })?;
 
@@ -448,9 +448,8 @@ impl ModelRegistry {
         let weights_path = package_dir.join("weights.bin");
         let weights_data = std::fs::read(&weights_path).map_err(|e| {
             RegistryError::UsbPackageError(format!(
-                "Cannot read weights at {}: {}",
+                "Cannot read weights at {}: {e}",
                 weights_path.display(),
-                e
             ))
         })?;
 
@@ -458,9 +457,8 @@ impl ModelRegistry {
         let sig_path = package_dir.join("signature.mldsa");
         let signature_data = std::fs::read(&sig_path).map_err(|e| {
             RegistryError::UsbPackageError(format!(
-                "Cannot read signature at {}: {}",
+                "Cannot read signature at {}: {e}",
                 sig_path.display(),
-                e
             ))
         })?;
 
@@ -489,14 +487,13 @@ impl ModelRegistry {
             .await?;
 
         // Register in cold storage
-        let vault_path = PathBuf::from(format!("/vault/models/{}", model_id));
+        let vault_path = PathBuf::from(format!("/vault/models/{model_id}"));
         self.register_cold_model(model_id.clone(), manifest, vault_path)
             .await?;
 
         // Audit the installation
         let audit_entry = format!(
-            "{{\"event\":\"model_installed\",\"model_id\":\"{}\",\"source\":\"usb\"}}",
-            model_id
+            "{{\"event\":\"model_installed\",\"model_id\":\"{model_id}\",\"source\":\"usb\"}}"
         );
         if let Err(e) = self.vault.append_audit_entry(audit_entry.as_bytes()).await {
             warn!(error = %e, "Failed to write audit entry for USB install");

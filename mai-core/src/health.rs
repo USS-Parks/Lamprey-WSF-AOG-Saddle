@@ -349,12 +349,13 @@ impl HealthMonitor {
 
         // Assess status based on metrics
         if error_rate > 0.5 {
+            let pct = error_rate * 100.0;
             health.status = AdapterStatus::Degraded {
-                reason: format!("High error rate: {:.1}%", error_rate * 100.0),
+                reason: format!("High error rate: {pct:.1}%"),
             };
         } else if avg_latency_ms > 10_000.0 {
             health.status = AdapterStatus::Degraded {
-                reason: format!("High latency: {:.0}ms", avg_latency_ms),
+                reason: format!("High latency: {avg_latency_ms:.0}ms"),
             };
         } else {
             health.status = AdapterStatus::Healthy;
@@ -380,13 +381,15 @@ impl HealthMonitor {
             if let Some(last) = health.last_heartbeat {
                 let elapsed = now.duration_since(last);
                 if elapsed > interval {
+                    // Safety: missed heartbeat count is bounded by practical time/interval ratios
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let missed = (elapsed.as_secs_f64() / interval.as_secs_f64()) as u32;
                     health.missed_heartbeats = missed;
 
                     if missed >= max_missed {
                         warn!(
                             adapter = %health.adapter_id,
-                            missed = missed,
+                            missed,
                             "Adapter declared unhealthy"
                         );
                         health.status = AdapterStatus::Unhealthy {
@@ -424,12 +427,10 @@ impl HealthMonitor {
     /// Verify air-gap compliance. Returns error if violation detected.
     pub fn verify_air_gap(&self) -> Result<(), HealthError> {
         match &self.hardware_health.network_state {
-            NetworkState::AirGapCompliant => Ok(()),
-            NetworkState::Connected => Ok(()), // air-gap switch not engaged
+            NetworkState::AirGapCompliant | NetworkState::Connected => Ok(()),
             NetworkState::NonCompliant { interfaces_up } => {
                 Err(HealthError::AirGapViolation(format!(
-                    "Air-gap switch engaged but interfaces up: {:?}",
-                    interfaces_up
+                    "Air-gap switch engaged but interfaces up: {interfaces_up:?}"
                 )))
             }
         }
@@ -514,18 +515,20 @@ impl HealthMonitor {
     // ─── Internal helpers ─────────────────────────────────────────────
 
     /// Get current value of a health metric
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_precision_loss)]
     fn get_metric_value(&self, metric: &HealthMetric) -> Option<f64> {
         match metric {
             HealthMetric::GpuTemperature => self
                 .hardware_health
                 .gpus
                 .iter()
-                .map(|g| g.temperature_celsius as f64)
+                .map(|g| f64::from(g.temperature_celsius))
                 .reduce(f64::max),
             HealthMetric::VramUtilization => {
                 let total: u64 = self.hardware_health.gpus.iter().map(|g| g.vram_total).sum();
                 let used: u64 = self.hardware_health.gpus.iter().map(|g| g.vram_used).sum();
                 if total > 0 {
+                    // Safety: u64 -> f64 may lose precision for very large values, acceptable for percentages
                     Some((used as f64 / total as f64) * 100.0)
                 } else {
                     None
@@ -534,15 +537,16 @@ impl HealthMonitor {
             HealthMetric::AdapterErrorRate => self
                 .adapter_health
                 .values()
-                .map(|h| h.error_rate as f64)
+                .map(|h| f64::from(h.error_rate))
                 .reduce(f64::max),
             HealthMetric::MissedHeartbeats => self
                 .adapter_health
                 .values()
-                .map(|h| h.missed_heartbeats as f64)
+                .map(|h| f64::from(h.missed_heartbeats))
                 .reduce(f64::max),
             HealthMetric::DiskUsage => {
                 if self.system_health.disk_total_bytes > 0 {
+                    // Safety: u64 -> f64 may lose precision for very large values, acceptable for percentages
                     Some(
                         (self.system_health.disk_used_bytes as f64
                             / self.system_health.disk_total_bytes as f64)
@@ -554,6 +558,7 @@ impl HealthMonitor {
             }
             HealthMetric::RamUsage => {
                 if self.system_health.ram_total_bytes > 0 {
+                    // Safety: u64 -> f64 may lose precision for very large values, acceptable for percentages
                     Some(
                         (self.system_health.ram_used_bytes as f64
                             / self.system_health.ram_total_bytes as f64)
@@ -563,7 +568,7 @@ impl HealthMonitor {
                     None
                 }
             }
-            HealthMetric::CpuUtilization => Some(self.system_health.cpu_utilization as f64 * 100.0),
+            HealthMetric::CpuUtilization => Some(f64::from(self.system_health.cpu_utilization) * 100.0),
             HealthMetric::AirGapCompliance => {
                 match self.hardware_health.network_state {
                     NetworkState::NonCompliant { .. } => Some(1.0), // violation

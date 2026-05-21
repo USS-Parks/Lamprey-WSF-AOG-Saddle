@@ -254,6 +254,7 @@ pub async fn ws_upgrade(State(state): State<AppState>, ws: WebSocketUpgrade) -> 
 ///
 /// Manages auth handshake, message routing, keepalive pings,
 /// and graceful cleanup on disconnect.
+#[allow(clippy::too_many_lines)]
 async fn handle_ws_connection(socket: WebSocket, state: AppState) {
     let (mut ws_tx, mut ws_rx) = socket.split();
     let mut conn = ConnectionState::new();
@@ -390,6 +391,7 @@ async fn handle_ws_connection(socket: WebSocket, state: AppState) {
 /// Returns an optional response message. Some messages (like inference
 /// tokens) generate responses asynchronously via the token channel
 /// rather than returning a direct response.
+#[allow(clippy::too_many_lines)]
 async fn handle_text_message(
     text: &str,
     conn: &mut ConnectionState,
@@ -403,7 +405,7 @@ async fn handle_text_message(
                 None,
                 serde_json::json!({
                     "code": "MAI-1001",
-                    "message": format!("Invalid message format: {}", e),
+                    "message": format!("Invalid message format: {e}"),
                 }),
             ));
         }
@@ -426,7 +428,7 @@ async fn handle_text_message(
             client_msg.request_id,
             serde_json::json!({
                 "code": "MAI-1002",
-                "message": format!("Unknown message type: '{}'", other),
+                "message": format!("Unknown message type: '{other}'"),
             }),
         )),
     }
@@ -439,6 +441,7 @@ async fn handle_text_message(
 /// Validates the profile token and populates connection state.
 /// All subsequent messages on this connection use the authenticated
 /// profile for permission checks.
+#[allow(clippy::unnecessary_wraps)]
 fn handle_auth_handshake(conn: &mut ConnectionState, msg: &ClientMessage) -> Option<ServerMessage> {
     if conn.authenticated {
         return Some(ServerMessage::new(
@@ -455,8 +458,7 @@ fn handle_auth_handshake(conn: &mut ConnectionState, msg: &ClientMessage) -> Opt
         Ok(h) => h,
         Err(e) => {
             return Some(ServerMessage::auth_error(&format!(
-                "Invalid handshake payload: {}",
-                e
+                "Invalid handshake payload: {e}"
             )));
         }
     };
@@ -470,8 +472,7 @@ fn handle_auth_handshake(conn: &mut ConnectionState, msg: &ClientMessage) -> Opt
         "guest" => ProfileRole::Guest,
         other => {
             return Some(ServerMessage::auth_error(&format!(
-                "Unknown role: '{}'",
-                other
+                "Unknown role: '{other}'"
             )));
         }
     };
@@ -503,23 +504,21 @@ fn handle_auth_handshake(conn: &mut ConnectionState, msg: &ClientMessage) -> Opt
 /// Validates the request, checks concurrent request limits, and
 /// registers the request. In full integration, this spawns a
 /// streaming task that feeds tokens back via the WebSocket.
+#[allow(clippy::unused_async)] // will await adapter calls in future sessions
 async fn handle_inference_request(
     conn: &mut ConnectionState,
     state: &AppState,
     msg: &ClientMessage,
 ) -> Option<ServerMessage> {
-    let request_id = match &msg.request_id {
-        Some(id) => id.clone(),
-        None => {
-            return Some(ServerMessage::new(
-                "error",
-                None,
-                serde_json::json!({
-                    "code": "MAI-1002",
-                    "message": "inference.request requires request_id",
-                }),
-            ));
-        }
+    let Some(request_id) = msg.request_id.clone() else {
+        return Some(ServerMessage::new(
+            "error",
+            None,
+            serde_json::json!({
+                "code": "MAI-1002",
+                "message": "inference.request requires request_id",
+            }),
+        ));
     };
 
     // Check concurrent request limit
@@ -528,8 +527,7 @@ async fn handle_inference_request(
             &request_id,
             "MAI-3001",
             &format!(
-                "Maximum concurrent requests ({}) reached",
-                MAX_CONCURRENT_REQUESTS
+                "Maximum concurrent requests ({MAX_CONCURRENT_REQUESTS}) reached"
             ),
         ));
     }
@@ -550,7 +548,7 @@ async fn handle_inference_request(
             return Some(ServerMessage::inference_error(
                 &request_id,
                 "MAI-1001",
-                &format!("Invalid inference request: {}", e),
+                &format!("Invalid inference request: {e}"),
             ));
         }
     };
@@ -599,22 +597,20 @@ async fn handle_inference_request(
 ///
 /// Marks the request as cancelled. The streaming task checks this
 /// flag and stops producing tokens.
+#[allow(clippy::unnecessary_wraps)]
 fn handle_inference_cancel(
     conn: &mut ConnectionState,
     msg: &ClientMessage,
 ) -> Option<ServerMessage> {
-    let request_id = match &msg.request_id {
-        Some(id) => id.clone(),
-        None => {
-            return Some(ServerMessage::new(
-                "error",
-                None,
-                serde_json::json!({
-                    "code": "MAI-1002",
-                    "message": "inference.cancel requires request_id",
-                }),
-            ));
-        }
+    let Some(request_id) = msg.request_id.clone() else {
+        return Some(ServerMessage::new(
+            "error",
+            None,
+            serde_json::json!({
+                "code": "MAI-1002",
+                "message": "inference.cancel requires request_id",
+            }),
+        ));
     };
 
     match conn.active_requests.get_mut(&request_id) {
@@ -641,19 +637,17 @@ fn handle_inference_cancel(
 ///
 /// Tool calling integration is built in Session 13. This handler
 /// validates the message format and acknowledges receipt.
+#[allow(clippy::unnecessary_wraps)]
 fn handle_tool_result(conn: &mut ConnectionState, msg: &ClientMessage) -> Option<ServerMessage> {
-    let request_id = match &msg.request_id {
-        Some(id) => id.clone(),
-        None => {
-            return Some(ServerMessage::new(
-                "error",
-                None,
-                serde_json::json!({
-                    "code": "MAI-1002",
-                    "message": "tool.result requires request_id",
-                }),
-            ));
-        }
+    let Some(request_id) = msg.request_id.clone() else {
+        return Some(ServerMessage::new(
+            "error",
+            None,
+            serde_json::json!({
+                "code": "MAI-1002",
+                "message": "tool.result requires request_id",
+            }),
+        ));
     };
 
     let tool_result: ToolResultPayload = match serde_json::from_value(msg.payload.clone()) {
@@ -662,7 +656,7 @@ fn handle_tool_result(conn: &mut ConnectionState, msg: &ClientMessage) -> Option
             return Some(ServerMessage::inference_error(
                 &request_id,
                 "MAI-1001",
-                &format!("Invalid tool result: {}", e),
+                &format!("Invalid tool result: {e}"),
             ));
         }
     };

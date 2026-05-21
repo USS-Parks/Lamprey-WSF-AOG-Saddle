@@ -63,19 +63,16 @@ impl GpuTopology {
     pub fn discover(config: &TopologyConfig) -> Result<Self, TopologyError> {
         let raw = if let Some(ref manual) = config.manual_topology {
             manual.clone()
+        } else if let Ok(output) = collector::collect_nvidia_smi() {
+            output
         } else {
-            match collector::collect_nvidia_smi() {
-                Ok(output) => output,
-                Err(_) => {
-                    tracing::warn!("nvidia-smi unavailable, using flat topology");
-                    return Ok(Self::flat(config));
-                }
-            }
+            tracing::warn!("nvidia-smi unavailable, using flat topology");
+            return Ok(Self::flat(config));
         };
 
         let parsed = collector::parse_topo_matrix(&raw)?;
         let graph = GpuGraph::from_parsed(
-            parsed,
+            &parsed,
             &config.link_weights,
             config.latency_weight,
             config.bw_weight,

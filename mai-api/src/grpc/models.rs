@@ -106,8 +106,7 @@ impl proto::mai_models_server::MaiModels for MaiModelsService {
             }),
             status: registry
                 .get_status(&req.model_id)
-                .map(|s| format!("{s:?}"))
-                .unwrap_or_else(|| "unknown".to_string()),
+                .map_or_else(|| "unknown".to_string(), |s| format!("{s:?}")),
             size_bytes: manifest.model.size_bytes,
             required_vram_bytes: manifest.model.required_vram_bytes,
         }))

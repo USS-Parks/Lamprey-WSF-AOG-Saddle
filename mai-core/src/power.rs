@@ -281,11 +281,21 @@ impl PowerStateMachine {
             from,
             to: target,
             trigger,
-            timestamp_epoch_ms: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64,
-            duration_ms: Some(started.elapsed().as_millis() as u64),
+            timestamp_epoch_ms: {
+                // Safety: u128 millis since epoch fits in u64 for centuries
+                #[allow(clippy::cast_possible_truncation)]
+                let ts = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                ts
+            },
+            duration_ms: Some({
+                // Safety: transition duration millis will never exceed u64
+                #[allow(clippy::cast_possible_truncation)]
+                let dur = started.elapsed().as_millis() as u64;
+                dur
+            }),
             success: true,
         };
         self.transition_log.push(record);
@@ -409,30 +419,32 @@ impl PowerStateMachine {
         match trigger {
             TransitionTrigger::SystemBoot => Ok(PowerState::DeepVaultSleep),
             TransitionTrigger::WakeTrigger(_) => Ok(PowerState::Sentinel),
-            TransitionTrigger::UrgentWake(_) => Ok(PowerState::FullInference),
-            TransitionTrigger::SentinelPromotion => Ok(PowerState::FullInference),
+            TransitionTrigger::UrgentWake(_)
+            | TransitionTrigger::SentinelPromotion
+            | TransitionTrigger::ThermalRecovery { .. } => Ok(PowerState::FullInference),
             TransitionTrigger::InactivityTimeout => {
                 // From FullInference -> Sentinel
-                match self.current_state {
-                    PowerState::FullInference => Ok(PowerState::Sentinel),
-                    _ => Err(PowerError::InvalidTransition {
+                if self.current_state == PowerState::FullInference {
+                    Ok(PowerState::Sentinel)
+                } else {
+                    Err(PowerError::InvalidTransition {
                         from: self.current_state.as_str().to_string(),
                         to: "Sentinel (inactivity)".to_string(),
-                    }),
+                    })
                 }
             }
             TransitionTrigger::ExtendedInactivity => {
                 // From Sentinel -> DeepVaultSleep
-                match self.current_state {
-                    PowerState::Sentinel => Ok(PowerState::DeepVaultSleep),
-                    _ => Err(PowerError::InvalidTransition {
+                if self.current_state == PowerState::Sentinel {
+                    Ok(PowerState::DeepVaultSleep)
+                } else {
+                    Err(PowerError::InvalidTransition {
                         from: self.current_state.as_str().to_string(),
                         to: "DeepVaultSleep (extended inactivity)".to_string(),
-                    }),
+                    })
                 }
             }
             TransitionTrigger::ThermalLimitExceeded { .. } => Ok(PowerState::ThermalThrottle),
-            TransitionTrigger::ThermalRecovery { .. } => Ok(PowerState::FullInference),
             TransitionTrigger::ManualOverride => {
                 // Manual can go to any adjacent state, but we default to Sentinel
                 Ok(PowerState::Sentinel)
@@ -453,21 +465,19 @@ impl PowerStateMachine {
     ///   ThermalThrottle -> FullInference (thermal recovery)
     ///   ThermalThrottle -> Sentinel (thermal + demotion)
     ///   Any -> Off (shutdown)
+    #[allow(clippy::unused_self)] // self reserved for future guard conditions
     fn is_valid_transition(&self, from: PowerState, to: PowerState) -> bool {
         if to == PowerState::Off {
             return true; // shutdown always valid
         }
         matches!(
             (from, to),
-            (PowerState::Off, PowerState::DeepVaultSleep)
-                | (PowerState::DeepVaultSleep, PowerState::Sentinel)
-                | (PowerState::DeepVaultSleep, PowerState::FullInference)
-                | (PowerState::Sentinel, PowerState::FullInference)
-                | (PowerState::Sentinel, PowerState::DeepVaultSleep)
-                | (PowerState::FullInference, PowerState::Sentinel)
+            (PowerState::Off | PowerState::Sentinel, PowerState::DeepVaultSleep)
+                | (PowerState::DeepVaultSleep | PowerState::FullInference
+                    | PowerState::ThermalThrottle, PowerState::Sentinel)
+                | (PowerState::DeepVaultSleep | PowerState::Sentinel
+                    | PowerState::ThermalThrottle, PowerState::FullInference)
                 | (PowerState::FullInference, PowerState::ThermalThrottle)
-                | (PowerState::ThermalThrottle, PowerState::FullInference)
-                | (PowerState::ThermalThrottle, PowerState::Sentinel)
         )
     }
 }
@@ -588,7 +598,7 @@ mod tests {
         ] {
             let mut psm = PowerStateMachine::with_state(PowerConfig::default(), state);
             let result = psm.request_transition(TransitionTrigger::SystemShutdown);
-            assert!(result.is_ok(), "Shutdown failed from {:?}", state);
+            assert!(result.is_ok(), "Shutdown failed from {state:?}");
             assert_eq!(psm.current_state(), PowerState::Off);
         }
     }

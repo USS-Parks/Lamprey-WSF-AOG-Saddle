@@ -29,7 +29,7 @@ fn adapter_status_str(status: &AdapterStatus) -> String {
     }
 }
 
-fn alert_level_str(level: &AlertLevel) -> String {
+fn alert_level_str(level: AlertLevel) -> String {
     level.as_str().to_string()
 }
 
@@ -50,7 +50,7 @@ fn thermal_state_str(state: &ThermalState) -> String {
     }
 }
 
-fn overall_status_str(level: &AlertLevel) -> String {
+fn overall_status_str(level: AlertLevel) -> String {
     match level {
         AlertLevel::Normal => "healthy".to_string(),
         AlertLevel::Warn | AlertLevel::Degrade => "degraded".to_string(),
@@ -58,6 +58,7 @@ fn overall_status_str(level: &AlertLevel) -> String {
     }
 }
 
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 fn vram_utilization(used: u64, total: u64) -> f32 {
     if total == 0 {
         0.0
@@ -66,6 +67,7 @@ fn vram_utilization(used: u64, total: u64) -> f32 {
     }
 }
 
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 fn disk_utilization(used: u64, total: u64) -> f32 {
     if total == 0 {
         0.0
@@ -74,6 +76,7 @@ fn disk_utilization(used: u64, total: u64) -> f32 {
     }
 }
 
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 fn ram_utilization(used: u64, total: u64) -> f32 {
     if total == 0 {
         0.0
@@ -127,8 +130,8 @@ impl MaiHealthService {
             .collect();
 
         proto::HealthResponse {
-            status: overall_status_str(&snapshot.alert_level),
-            alert_level: alert_level_str(&snapshot.alert_level),
+            status: overall_status_str(snapshot.alert_level),
+            alert_level: alert_level_str(snapshot.alert_level),
             adapters,
             hardware: Some(proto::HardwareHealthSummary {
                 gpus,
@@ -248,7 +251,7 @@ impl proto::mai_health_server::MaiHealth for MaiHealthService {
     ) -> Result<Response<Self::WatchStream>, Status> {
         let req = request.into_inner();
         let interval = Duration::from_secs(if req.interval_secs > 0 {
-            req.interval_secs as u64
+            u64::from(req.interval_secs)
         } else {
             5
         });
@@ -268,7 +271,7 @@ impl proto::mai_health_server::MaiHealth for MaiHealthService {
 
                 let health = state.health.read().await;
                 let snapshot = health.get_snapshot();
-                let current_status = overall_status_str(&snapshot.alert_level);
+                let current_status = overall_status_str(snapshot.alert_level);
 
                 if current_status != last_status || last_status.is_empty() {
                     last_status.clone_from(&current_status);
@@ -300,7 +303,7 @@ impl proto::mai_health_server::MaiHealth for MaiHealthService {
 
                     let resp = proto::HealthResponse {
                         status: current_status,
-                        alert_level: alert_level_str(&snapshot.alert_level),
+                        alert_level: alert_level_str(snapshot.alert_level),
                         adapters,
                         hardware: Some(proto::HardwareHealthSummary {
                             gpus,
@@ -485,8 +488,8 @@ mod tests {
 
     #[test]
     fn test_overall_status_mapping() {
-        assert_eq!(overall_status_str(&AlertLevel::Normal), "healthy");
-        assert_eq!(overall_status_str(&AlertLevel::Warn), "degraded");
-        assert_eq!(overall_status_str(&AlertLevel::Critical), "unhealthy");
+        assert_eq!(overall_status_str(AlertLevel::Normal), "healthy");
+        assert_eq!(overall_status_str(AlertLevel::Warn), "degraded");
+        assert_eq!(overall_status_str(AlertLevel::Critical), "unhealthy");
     }
 }

@@ -181,7 +181,9 @@ impl ThrashGuard {
             }
         }
 
-        self.recent_eviction_times.len() < self.config.max_evictions_per_sec as usize
+        #[allow(clippy::cast_possible_truncation)] // u32 max_evictions fits in usize
+        let limit = self.config.max_evictions_per_sec as usize;
+        self.recent_eviction_times.len() < limit
     }
 
     /// Record that an eviction just occurred. Updates rate limiter state
@@ -202,6 +204,7 @@ impl ThrashGuard {
     }
 
     /// Current eviction rate (evictions in the last second).
+    #[allow(clippy::cast_possible_truncation)] // eviction count won't exceed u32::MAX
     pub fn current_rate(&mut self) -> u32 {
         let now = Instant::now();
         let window = Duration::from_secs(1);

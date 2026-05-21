@@ -447,6 +447,8 @@ impl Scheduler {
         self.metrics.total_routed += 1;
         let latency = started.elapsed().as_secs_f64() * 1000.0;
         // Running average
+        // Safety: u64 counter -> f64 loses precision only above 2^53, acceptable for averaging
+        #[allow(clippy::cast_precision_loss)]
         let n = self.metrics.total_routed as f64;
         self.metrics.avg_routing_latency_ms =
             self.metrics.avg_routing_latency_ms * ((n - 1.0) / n) + latency / n;
@@ -705,11 +707,12 @@ impl Scheduler {
     }
 
     /// Helper for Hybrid strategy: apply a specific strategy to candidates
+    #[allow(clippy::only_used_in_recursion)] // request threaded for future strategy use
     fn select_with_strategy(
         &self,
         strategy: &SchedulingStrategy,
         candidates: &[AdapterId],
-        _request: &InferenceRequest,
+        request: &InferenceRequest,
     ) -> Result<AdapterId, SchedulerError> {
         match strategy {
             SchedulingStrategy::LeastLoaded | SchedulingStrategy::PriorityQueued => candidates
@@ -717,15 +720,12 @@ impl Scheduler {
                 .min_by_key(|id| self.adapters.get(*id).map_or(usize::MAX, |a| a.in_flight))
                 .cloned()
                 .ok_or_else(|| SchedulerError::NoAdapterAvailable("empty".to_string())),
-            SchedulingStrategy::RoundRobin => {
+            SchedulingStrategy::RoundRobin | SchedulingStrategy::ModelAffinity => {
                 // Can't mutate round_robin_index in &self, use first candidate
                 Ok(candidates.first().cloned().unwrap_or_default())
             }
-            SchedulingStrategy::ModelAffinity => {
-                Ok(candidates.first().cloned().unwrap_or_default())
-            }
             SchedulingStrategy::Hybrid { primary, .. } => {
-                self.select_with_strategy(primary, candidates, _request)
+                self.select_with_strategy(primary, candidates, request)
             }
         }
     }

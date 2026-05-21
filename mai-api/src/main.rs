@@ -39,15 +39,12 @@ async fn main() -> ExitCode {
     // Parse config path from command line arguments.
     let config_path = parse_config_path();
 
-    let server = match config_path {
-        Some(ref path) => {
-            info!(path = %path.display(), "Loading configuration from file");
-            MaiServer::from_config_path(path)
-        }
-        None => {
-            info!("No config file specified, using Scout tier defaults");
-            MaiServer::default_scout()
-        }
+    let server = if let Some(ref path) = config_path {
+        info!(path = %path.display(), "Loading configuration from file");
+        MaiServer::from_config_path(path)
+    } else {
+        info!("No config file specified, using Scout tier defaults");
+        MaiServer::default_scout()
     };
 
     // Run the server (blocks until shutdown signal).

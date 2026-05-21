@@ -101,7 +101,7 @@ impl TaskManager {
 
         let task_id = Uuid::new_v4();
         let now_ms = epoch_ms();
-        let budget = self.build_budget(&request.budget, now_ms);
+        let budget = self.build_budget(request.budget.as_ref(), now_ms);
 
         let task = ManagedTask {
             id: task_id,
@@ -212,7 +212,7 @@ impl TaskManager {
         task.current_step = step;
         task.total_steps = total_steps;
         if intermediate.is_some() {
-            task.intermediate_result = intermediate.clone();
+            task.intermediate_result.clone_from(&intermediate);
         }
 
         let progress = TaskProgress {
@@ -272,13 +272,13 @@ impl TaskManager {
     pub fn fail(
         &mut self,
         task_id: TaskId,
-        reason: String,
+        reason: &str,
     ) -> Result<AgentTaskResponse, AgentError> {
         let task = self.get_task_mut(task_id)?;
         Self::assert_active(&task.status)?;
 
         task.status = AgentTaskStatus::Failed {
-            reason: reason.clone(),
+            reason: reason.to_string(),
         };
         task.completed_at = epoch_ms();
 
@@ -362,7 +362,11 @@ impl TaskManager {
         }
 
         let elapsed_ms = epoch_ms().saturating_sub(task.started_at);
-        let max_ms = task.budget.max_duration.as_millis() as u64;
+        let max_ms = {
+            #[allow(clippy::cast_possible_truncation)]
+            let val = task.budget.max_duration.as_millis() as u64;
+            val
+        };
 
         if elapsed_ms >= max_ms {
             let task = self.get_task_mut(task_id)?;
@@ -387,8 +391,7 @@ impl TaskManager {
             .filter(|t| t.profile_id == profile_id)
             .filter(|t| {
                 status_filter
-                    .map(|f| std::mem::discriminant(&t.status) == std::mem::discriminant(f))
-                    .unwrap_or(true)
+                    .is_none_or(|f| std::mem::discriminant(&t.status) == std::mem::discriminant(f))
             })
             .map(|t| TaskProgress {
                 task_id: t.id.to_string(),
@@ -489,7 +492,7 @@ impl TaskManager {
 
     fn build_budget(
         &self,
-        overrides: &Option<ResourceBudgetRequest>,
+        overrides: Option<&ResourceBudgetRequest>,
         now_ms: u64,
     ) -> ResourceBudget {
         let defaults = &self.config;
@@ -509,8 +512,7 @@ impl TaskManager {
                 tool_calls_used: 0,
                 max_duration: req
                     .max_duration_secs
-                    .map(|s| Duration::from_secs(s).min(max_dur))
-                    .unwrap_or(defaults.default_timeout),
+                    .map_or(defaults.default_timeout, |s| Duration::from_secs(s).min(max_dur)),
                 started_at: now_ms,
             },
             None => ResourceBudget {
@@ -657,7 +659,7 @@ mod tests {
         let id = mgr.submit(test_request("profile-1")).unwrap();
         mgr.start_task(id).unwrap();
 
-        let resp = mgr.fail(id, "model unavailable".to_string()).unwrap();
+        let resp = mgr.fail(id, "model unavailable").unwrap();
         assert!(matches!(resp.status, AgentTaskStatus::Failed { .. }));
     }
 
