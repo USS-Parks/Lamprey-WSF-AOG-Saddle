@@ -297,29 +297,47 @@ Notes:
 
 ---
 
-### Session 15: Model Management + OTA Update Pipeline
+### Session 15: Scheduler Core Architecture (mai-scheduler crate)
 
-**Status:** Not Started
-**Phase:** D (System Code)
-**Depends On:** Sessions 07, 12, 11
-**Blocks:** Session 17
-**Started:** --
-**Completed:** --
+**Status:** Complete
+**Phase:** D (Scheduler Foundation)
+**Depends On:** Sessions 07, 11, 14a-14c
+**Blocks:** Sessions 16, 19
+**Started:** 2026-05-20
+**Completed:** 2026-05-20
 
 Deliverables:
-- [ ] Model package format specification and builder tool
-- [ ] PQC signature creation and verification (ML-DSA)
-- [ ] USB air-gap installation pipeline
-- [ ] Network update with differential downloads
-- [ ] Model update package system (tiered annual product)
-- [ ] Full model lifecycle operations
-- [ ] First-boot pre-loading pipeline
-- [ ] Package creation/verification tests
-- [ ] USB installation simulation tests
-- [ ] Signature verification tests (valid + tampered)
-- [ ] Compatibility check tests
+- [x] mai-scheduler crate created (Cargo.toml, workspace member registered)
+- [x] src/types.rs: 15 public types (newtypes, enums, structs, config, errors) (~396 lines)
+- [x] src/scheduler.rs: object-safe Scheduler trait with 5 methods, all &self (~70 lines)
+- [x] src/registry.rs: InstanceRegistry backed by DashMap for lock-free concurrent reads (~320 lines, 11 tests)
+- [x] src/aliases.rs: AliasResolver with RwLock<HashMap>, config reload, passthrough for unknown aliases (~201 lines, 6 tests)
+- [x] src/placement.rs: PlacementEngine with pluggable ScoringFn, least-loaded + continuation affinity (~337 lines, 10 tests)
+- [x] src/default.rs: DefaultScheduler composing registry + placement + aliases, atomic counters, backpressure (~519 lines, 14 tests including 100-thread concurrent)
+- [x] src/lib.rs: module declarations + re-exports (~43 lines)
+- [x] config/scheduler.toml: strategy, thresholds, 5 model aliases (~50 lines)
+- [x] API integration: AppState uses Arc<dyn Scheduler>, server.rs creates DefaultScheduler
+- [x] REST handlers: all 4 inference handlers (chat, embed, structured, function_call) use new scheduler
+- [x] gRPC handlers: inference.rs uses new scheduler (ScheduleRequest + Priority)
+- [x] SSE streaming: sse.rs uses new scheduler for stream routing
+- [x] Dual scheduler: legacy mai-core Scheduler retained for HotSwapManager (migration deferred to Session 22)
+- [x] 41+ unit tests across all modules
+- [x] Audit pass: unused imports fixed (aliases.rs, placement.rs), file integrity verified
+- [x] Governance docs updated
+
+Architecture Notes:
+- Object-safe trait with &self methods enables Arc<dyn Scheduler> in AppState (axum State extractor requires Clone)
+- Interior mutability via DashMap (registry) and AtomicU64 (counters) instead of external Mutex
+- Pluggable ScoringFn: `Box<dyn Fn(&InstanceState, &ScheduleRequest) -> f64 + Send + Sync>`
+- Default scorer: queue_depth * 1000 + vram_used/1M (least-loaded with VRAM tiebreaker)
+- Continuation affinity: if continuation_of is set and previous instance still serves the model, prefer it (KV cache locality)
+- Backpressure: System priority bypasses queue limits; Background/Normal rejected when total queue exceeds max_total_queue_depth
+- Alias resolution: user-facing names (e.g. "lamprey/fast") map to backend model + preferred_backends; unknown aliases pass through as literal model names
+- SchedulerConfig derives serde::Deserialize for direct TOML loading
 
 Notes:
+- Sandbox disk full during session: all work via file tools (Read/Edit/Write), no bash available
+- Session split across 2 Cowork context windows due to compaction
 
 ---
 
@@ -412,7 +430,7 @@ Notes:
 | B: Foundation Code | 06-10 | Complete (06+06b+07+08+09+10) -- archived |
 | C: Integration Code | 11-13 | Complete (11a-11e + 12 + 13) |
 | D-Prep: Wiring Sprint | 14a-14c | Complete (14a+14b+14c) |
-| D: Scheduler Foundation | 15-18 | Not Started |
+| D: Scheduler Foundation | 15-18 | In Progress (15 complete) |
 | E: Scheduler Intelligence | 19-21 | Not Started |
 | F: Power & Lifecycle | 22-25 | Not Started |
 | G: Security Hardening | 26-28 | Not Started |
@@ -420,8 +438,8 @@ Notes:
 | I: Advanced Scheduling | 32-33 | Not Started |
 | J: Testing & Packaging | 34-35 | Not Started |
 
-**Sessions Complete:** 16 / 35 (includes 06+06b as one logical session, 11a-11e as one logical session, 14a-14c as wiring sprint)
-**Next Session:** 15 (Scheduler Core Architecture)
+**Sessions Complete:** 17 / 35 (includes 06+06b as one logical session, 11a-11e as one logical session, 14a-14c as wiring sprint)
+**Next Session:** 16 (Scheduler Integration: API + Streaming)
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---

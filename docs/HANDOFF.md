@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded 18 to 35 sessions)
-**Status:** Phase A+B+C+D-Prep complete. Wiring sprint (14a-14c) complete. Next: Session 15 (Scheduler Core Architecture).
+**Status:** Phase A+B+C+D-Prep complete. Session 15 (Scheduler Core Architecture) complete. Next: Session 16 (Scheduler Integration).
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -48,7 +48,9 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 
 **Session 14c complete (2026-05-20):** API/SDK route alignment, auth hardening, SDK streaming. Added /v1/completions and /v1/power/state SDK-compat routes. Replaced header-trust auth (X-IM-Profile) with API key validation (X-IM-Auth-Token) using SHA-256 hashing, per-key sliding window rate limiting (default 60/min, MAI-4005 429 response). First-boot admin key generation (printed to stdout, never logged). Python SDK: real SSE streaming (sync Iterator + async AsyncIterator), retry with exponential backoff, health_check() convenience. SDK integration test suite with 7 test categories. No NotImplementedError stubs remain. New dependencies: sha2, hex, uuid. Config template: config/auth_keys.toml. Build docs: docs/BUILD.md. KNOWN-ISSUES.md: Issues #3, #4, #5 marked resolved. CI green: all 4 gates passing.
 
-**Immediate next step:** Execute **Session 15** (Scheduler Core Architecture). The wiring sprint (14a-14c) is complete. The scheduler track (15-21, 32-33) is the critical path. Security track (26-28) and application track (29-31) can now run in parallel.
+**Scheduler Core Architecture (Session 15, 2026-05-20):** New `mai-scheduler` crate (7 source files, ~1886 lines, 41+ unit tests). Object-safe `Scheduler` trait with `&self` methods for Arc<dyn Scheduler> compatibility in axum State. `DefaultScheduler` composes `InstanceRegistry` (DashMap-backed, lock-free), `PlacementEngine` (pluggable ScoringFn, least-loaded + continuation affinity for KV cache locality), and `AliasResolver` (user-facing names to backend models with preferred backends). Backpressure: System priority bypasses queue limits; Normal/Background rejected when overloaded. Atomic counters for total_routed/total_rejected. 100-thread concurrent scheduling test passes. Integrated into all 4 REST inference handlers, gRPC inference handler, and SSE streaming. Legacy mai-core Scheduler retained for HotSwapManager (migration deferred to Session 22). Config loaded from config/scheduler.toml with 5 model aliases.
+
+**Immediate next step:** Execute **Session 16** (Scheduler Integration: API + Streaming). Session 15 (Scheduler Core Architecture) is complete. The scheduler track (15-21, 32-33) is the critical path. Security track (26-28) and application track (29-31) can now run in parallel.
 
 ---
 

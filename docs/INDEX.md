@@ -1,7 +1,7 @@
 # MAI Build Index
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-19
+**Last Updated:** 2026-05-20
 
 ---
 
@@ -11,7 +11,7 @@ These documents govern the MAI build. Read them before writing code.
 
 | File | Purpose | Read When |
 |---|---|---|
-| [MAI-BUILD-PROMPT-ROSTER.md](MAI-BUILD-PROMPT-ROSTER.md) | Complete session prompts, deliverables, and acceptance criteria for all 18 sessions | Starting any session |
+| [MAI-BUILD-PROMPT-ROSTER-v2.md](MAI-BUILD-PROMPT-ROSTER-v2.md) | Complete session prompts, deliverables, and acceptance criteria for all 35 sessions (v2 restructured) | Starting any session |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Tock-to-MAI architecture map, trust boundaries, component catalog, data flows, power state machine | Understanding system structure |
 | [CONVENTIONS.md](CONVENTIONS.md) | Language assignments, code quality gates, monorepo layout, testing rules, git conventions | Writing any code |
 | [HANDOFF.md](HANDOFF.md) | Founding engineer orientation, critical warnings, current state, what will bite you | First day on the project |
@@ -58,13 +58,22 @@ Each session produces specific deliverables. This table maps sessions to their p
 | 12 | Vault Integration (L2 Interface) | ZFS vault interface, PQC encryption (ML-KEM/ML-DSA), profile store, audit trail, Qdrant |
 | 13 | Agent/RAG Interface (L4 Integration) | Context management, RAG pipeline interface, tool calling, speech-to-text, agentic tasks |
 
-### Phase D: System Code (Sessions 14-16)
+### Phase D-Prep: Wiring Sprint (Sessions 14a-14c)
 
 | Session | Title | Primary Outputs |
 |---|---|---|
-| 14 | Sleep Mode + Power State Machine | Full power state machine, Sentinel mode, promotion path, auto-demotion, hardware integration |
-| 15 | Model Management + OTA Update Pipeline | Model package format, USB air-gap install, network updates, lifecycle operations |
-| 16 | L4-L5 Application Integration Scaffolds | 7 app scaffolds (Summit Chat, FamilyVault, Scribe, Legacy Engine, MedRecord, HomeBase, Estate AI) |
+| 14a | Adapter IPC Contract + NDJSON Protocol | IPC-PROTOCOL.md, bridge.rs, process.rs, manager.rs, runner.py, test_ipc_protocol.py |
+| 14b | Real Inference Path Wiring | AdapterManager in server.rs, real adapter calls in inference.rs, SSE streaming, e2e_inference.sh |
+| 14c | API/SDK Route Alignment + Auth | Auth hardening, rate limiting, SDK streaming, first-boot admin key, BUILD.md |
+
+### Phase D: Scheduler Foundation (Sessions 15-18)
+
+| Session | Title | Primary Outputs |
+|---|---|---|
+| 15 | Scheduler Core Architecture | mai-scheduler crate (7 files, 41+ tests), Scheduler trait, DefaultScheduler, API integration |
+| 16 | Scheduler Integration: API + Streaming | (Not yet started) |
+| 17 | Multi-Factor Placement | (Not yet started) |
+| 18 | Topology-Aware Scheduling | (Not yet started) |
 
 ### Phase E: Testing + Packaging (Sessions 17-18)
 
@@ -89,6 +98,7 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | mai-sdk-rs | Rust | N/A (SDK) | 06 (scaffold) | 05 (skeleton), 11 (full) |
 | mai-vault | Rust | Trusted | 12 | 12 |
 | mai-agent | Rust | Trusted (L3-L4 boundary) | 13 | 13 |
+| mai-scheduler | Rust | Trusted | 15 | 15 |
 | adapters/ollama | Python | Untrusted | 06 (scaffold) | 08 |
 | adapters/vllm | Python | Untrusted | 06 (scaffold) | 09 |
 | adapters/llamacpp | Python | Untrusted | 06 (scaffold) | 09 |
@@ -99,17 +109,7 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 
 ---
 
-## Configuration Files Index (Post-Session 06)
-
-| File | Purpose | Session |
-|---|---|---|
-| configs/scout.toml | Scout tier defaults (1x GPU, Ollama, Phi-4-mini Sentinel) | 06 |
-| configs/ranger.toml | Ranger tier defaults (2x GPU, vLLM tensor parallel) | 06 |
-| configs/pack-leader.toml | Pack Leader tier defaults (4+ GPU, full adapter fleet) | 06 |
-
----
-
-## Test Suites Index (Updated Session 13)
+## Test Suites Index (Updated Session 15)
 
 | Suite | Location | Purpose | Session |
 |---|---|---|---|
@@ -144,5 +144,28 @@ After the project scaffold is created in Session 06, the monorepo will contain:
 | IPC protocol tests | `adapters/tests/test_ipc_protocol.py` | NDJSON wire format contract verification (26 tests across 7 classes) | 14a |
 | Adapter boot config | `mai-api/config/adapters.toml` | Development adapter defaults (Ollama), model alias map | 14b |
 | E2E inference tests | `mai-api/tests/e2e_inference.sh` | Curl-based verification: chat, embed, SSE, aliases, errors | 14b |
+| SDK integration tests | `mai-api/tests/sdk_integration.py` | Chat, streaming, embeddings, models, health, auth, rate limiting (7 categories) | 14c |
+| Scheduler registry tests | `mai-scheduler/src/registry.rs` `#[cfg(test)]` | Register, duplicate, remove, find by model/GPU, request tracking, overload (11 tests) | 15 |
+| Scheduler alias tests | `mai-scheduler/src/aliases.rs` `#[cfg(test)]` | Resolve known, passthrough unknown, has_alias, reload, list (6 tests) | 15 |
+| Scheduler placement tests | `mai-scheduler/src/placement.rs` `#[cfg(test)]` | Least-loaded, VRAM tiebreaker, overload filter, continuation affinity, custom scorer (10 tests) | 15 |
+| Scheduler default tests | `mai-scheduler/src/default.rs` `#[cfg(test)]` | Schedule, alias passthrough, backpressure, preferred backend, 100-thread concurrent (14 tests) | 15 |
 | Security tests | tests/integration/ | PQC integrity, tamper detection, sandbox enforcement | 17 |
-| Scenario 
+| Scenario tests | tests/integration/ | 7 real-world end-to-end scenarios | 17 |
+| Performance baseline | tests/benchmarks/ | 8 performance metrics stored as JSON | 17 |
+
+---
+
+## Configuration Files Index (Post-Session 15)
+
+| File | Purpose | Session |
+|---|---|---|
+| configs/scout.toml | Scout tier defaults (1x GPU, Ollama, Phi-4-mini Sentinel) | 06 |
+| configs/ranger.toml | Ranger tier defaults (2x GPU, vLLM tensor parallel) | 06 |
+| configs/pack-leader.toml | Pack Leader tier defaults (4+ GPU, full adapter fleet) | 06 |
+| config/adapters.toml | Adapter boot config (Ollama defaults, model aliases) | 14b |
+| config/scheduler.toml | Scheduler config (strategy, thresholds, model aliases) | 15 |
+| config/auth_keys.toml | API key auth config template (key hashes, rate limits) | 14c |
+
+---
+
+*Document derived from MAI-BUILD-PROMPT-ROSTER.md | 2026-05-15 | Island Mountain AI | Confidential*
