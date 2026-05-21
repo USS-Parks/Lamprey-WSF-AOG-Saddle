@@ -1,0 +1,52 @@
+# MAI Scheduler Configuration - Development Defaults
+#
+# Controls inference request routing, model alias resolution,
+# and backpressure thresholds.
+#
+# Production configurations are generated from the product tier
+# TOML files (scout.toml, ranger.toml, pack-leader.toml).
+
+# Placement strategy. Phase 1 only supports "least-loaded".
+# Session 19 adds "multi-factor" with topology + KV cache awareness.
+strategy = "least-loaded"
+
+# Per-instance queue depth at which the instance is considered overloaded.
+# Overloaded instances are skipped during placement unless all instances
+# are overloaded (graceful degradation).
+overload_queue_threshold = 32
+
+# Global maximum queue depth. When total queue across all instances
+# reaches this value, non-System requests are rejected with backpressure.
+max_total_queue_depth = 256
+
+# Model aliases: map user-facing names to backend model + preferred backends.
+#
+# Format:
+#   [aliases."user-facing-name"]
+#   model = "backend-model-name"
+#   preferred_backends = ["adapter_type_1", "adapter_type_2"]
+#
+# If preferred_backends is empty or omitted, any backend serving the
+# model is equally eligible. If no alias matches, the input is treated
+# as a literal backend model name (passthrough).
+
+[aliases."lamprey/fast"]
+model = "llama3"
+preferred_backends = ["ollama", "vllm"]
+
+[aliases."lamprey/reason"]
+model = "qwen3-70b"
+preferred_backends = ["vllm"]
+
+[aliases."lamprey/embed"]
+model = "nomic-embed-text"
+preferred_backends = ["ollama"]
+
+# Direct model name aliases (passthrough convenience)
+[aliases."llama3"]
+model = "llama3"
+preferred_backends = []
+
+[aliases."nomic-embed-text"]
+model = "nomic-embed-text"
+preferred_backends = []

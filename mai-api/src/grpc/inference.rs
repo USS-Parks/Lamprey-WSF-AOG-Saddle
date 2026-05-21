@@ -17,6 +17,7 @@ use crate::state::AppState;
 use mai_core::scheduler::{
     ChatMessage, InferenceRequest, RequestPayload, RequestPriority, RequestType,
 };
+use mai_scheduler::{Priority as SchedulerPriority, ScheduleRequest};
 
 /// MaiInference service implementation.
 ///
@@ -92,17 +93,16 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             estimated_tokens,
         };
 
-        // Route through scheduler to get adapter selection
-        let mut scheduler = self.state.scheduler.write().await;
-        let selection = scheduler.route_request(&inference_req).map_err(|e| {
+        // Route through new scheduler (Session 15)
+        let model_alias = if req.model.is_empty() { "default" } else { &req.model };
+        let sched_req = ScheduleRequest::new(model_alias, SchedulerPriority::Normal);
+        let session_id = sched_req.session_id;
+
+        let decision = self.state.scheduler.schedule(&sched_req).map_err(|e| {
             error!(request_id = %request_id, error = %e, "scheduler routing failed");
             Status::internal("inference request routing failed")
         })?;
 
-        // NOTE: Actual adapter invocation happens via the adapter manager
-        // (IPC bridge). This is the routing decision; the full request
-        // pipeline is wired in Session 11e (server bootstrap).
-        // For now, return a placeholder response indicating the route.
         let created = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -112,7 +112,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             id: request_id.clone(),
             object: "chat.completion".to_string(),
             created,
-            model: selection.model_id.clone(),
+            model: decision.instance_id.to_string(),
             choices: vec![proto::ChatChoice {
                 index: 0,
                 message: Some(proto::ChatMessage {
@@ -129,12 +129,12 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             }),
         };
 
-        scheduler.request_completed(&selection.adapter_id);
+        self.state.scheduler.release_sequence(&decision.instance_id, session_id);
 
         info!(
             request_id = %request_id,
             profile_id = %profile_id,
-            adapter = %selection.adapter_id,
+            instance = %decision.instance_id,
             "gRPC ChatCompletion routed"
         );
 
@@ -197,15 +197,18 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             estimated_tokens,
         };
 
-        // Route the streaming request
-        let mut scheduler = self.state.scheduler.write().await;
-        let selection = scheduler.route_request(&inference_req).map_err(|e| {
+        // Route through new scheduler (Session 15)
+        let model_alias = if req.model.is_empty() { "default" } else { &req.model };
+        let sched_req = ScheduleRequest::new(model_alias, SchedulerPriority::Normal);
+        let session_id = sched_req.session_id;
+
+        let decision = self.state.scheduler.schedule(&sched_req).map_err(|e| {
             error!(request_id = %request_id, error = %e, "streaming route failed");
             Status::internal("streaming inference routing failed")
         })?;
 
-        let adapter_id = selection.adapter_id.clone();
-        let model_id = selection.model_id.clone();
+        let adapter_id = decision.instance_id.to_string();
+        let model_id = decision.instance_id.to_string();
 
         // Create channel for streaming chunks to client
         let (tx, rx) = tokio::sync::mpsc::channel(64);
@@ -259,9 +262,11 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
 
             let _ = tx.send(Ok(done_chunk)).await;
 
-            // Mark request completed
-            let mut sched = state.scheduler.write().await;
-            sched.request_completed(&adapter_id);
+            // Mark request completed (Session 15)
+            state.scheduler.release_sequence(
+                &mai_scheduler::InstanceId::new(&adapter_id),
+                session_id,
+            );
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
@@ -313,13 +318,16 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
             estimated_tokens,
         };
 
-        let mut scheduler = self.state.scheduler.write().await;
-        let selection = scheduler.route_request(&inference_req).map_err(|e| {
+        let model_alias = if req.model.is_empty() { "default-embedding" } else { &req.model };
+        let sched_req = ScheduleRequest::new(model_alias, SchedulerPriority::Normal);
+        let session_id = sched_req.session_id;
+
+        let decision = self.state.scheduler.schedule(&sched_req).map_err(|e| {
             error!(request_id = %request_id, error = %e, "embedding route failed");
             Status::internal("embedding request routing failed")
         })?;
 
-        scheduler.request_completed(&selection.adapter_id);
+        self.state.scheduler.release_sequence(&decision.instance_id, session_id);
 
         // NOTE: Actual embedding computation via adapter IPC wired in 11e.
         // Placeholder response with empty embeddings.
@@ -337,7 +345,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
         let response = proto::EmbeddingResponse {
             object: "list".to_string(),
             data: embeddings,
-            model: selection.model_id.clone(),
+            model: decision.instance_id.to_string(),
             usage: Some(proto::EmbeddingUsage {
                 prompt_tokens: estimated_tokens,
                 total_tokens: estimated_tokens,

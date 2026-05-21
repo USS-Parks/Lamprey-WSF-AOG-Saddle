@@ -1,6 +1,8 @@
 //! Placement engine: decides which instance handles a request.
 //!
-//! Phase 1 (this session): least-loaded placement with continuation affinity.
+//! Phase 1: least-loaded placement with continuation affinity.
+//! Phase 2 (Session 16): topology_penalty method added for hardware-aware
+//! placement. NOT wired into the default scorer yet (Session 19 does that).
 //! The scoring function is pluggable via `ScoringFn`, so Session 19 can
 //! replace it with a multi-factor scorer without changing the placement
 //! engine's structure.
@@ -15,10 +17,13 @@
 //! 5. Score remaining candidates with the pluggable scoring function
 //! 6. Return the lowest-scored candidate as the placement decision
 
+use std::sync::Arc;
+
 use tracing::{debug, warn};
 
+use crate::topology::GpuTopology;
 use crate::types::{
-    InstanceId, InstanceState, ScheduleDecision, ScheduleRequest, SchedulerError, ScoringFn,
+    GpuId, InstanceId, InstanceState, ScheduleDecision, ScheduleRequest, SchedulerError, ScoringFn,
 };
 
 /// The placement engine. Holds references to the registry and alias resolver,
@@ -28,6 +33,9 @@ pub struct PlacementEngine {
     scoring_fn: ScoringFn,
     /// Queue depth threshold for overload filtering.
     overload_threshold: u32,
+    /// GPU topology for hardware-aware placement scoring.
+    /// None until topology is initialized (Session 16+).
+    topology: Option<Arc<GpuTopology>>,
 }
 
 impl PlacementEngine {
@@ -36,6 +44,7 @@ impl PlacementEngine {
         Self {
             scoring_fn: Box::new(least_loaded_scorer),
             overload_threshold,
+            topology: None,
         }
     }
 
@@ -44,12 +53,33 @@ impl PlacementEngine {
         Self {
             scoring_fn: scorer,
             overload_threshold,
+            topology: None,
         }
     }
 
     /// Replace the scoring function at runtime (used by Session 19).
     pub fn set_scorer(&mut self, scorer: ScoringFn) {
         self.scoring_fn = scorer;
+    }
+
+    /// Set the GPU topology for hardware-aware placement (Session 16).
+    pub fn set_topology(&mut self, topology: Arc<GpuTopology>) {
+        self.topology = Some(topology);
+    }
+
+    /// Compute topology penalty for an instance's GPU assignment.
+    ///
+    /// Returns the worst-case interconnect cost between assigned GPUs.
+    /// Higher penalty means worse interconnect quality for tensor-parallel
+    /// workloads. Returns 0.0 if topology is not set or instance has <= 1 GPU.
+    ///
+    /// NOT wired into the default scorer yet. Session 19 integrates this
+    /// into the multi-factor scoring function.
+    pub fn topology_penalty(&self, gpu_ids: &[GpuId]) -> f64 {
+        match &self.topology {
+            Some(topo) => topo.topology_penalty(gpu_ids),
+            None => 0.0,
+        }
     }
 
     /// Execute placement for a request.
@@ -333,5 +363,54 @@ mod tests {
     fn test_latency_estimate() {
         let (_, state) = make_state("a:0", "llama3", 5, 0);
         assert_eq!(estimate_latency(&state), 50 + 5 * 20); // 150ms
+    }
+
+    #[test]
+    fn test_topology_penalty_no_topology() {
+        let engine = PlacementEngine::new(64);
+        // Without topology, penalty is always 0.0
+        assert_eq!(engine.topology_penalty(&[GpuId::new(0), GpuId::new(1)]), 0.0);
+    }
+
+    #[test]
+    fn test_topology_penalty_with_topology() {
+        use crate::topology::{GpuTopology, TopologyConfig};
+        use crate::topology::collector::{LinkType, ParsedGpu, ParsedLink, ParsedTopology};
+        use crate::topology::graph::GpuGraph;
+        use crate::topology::LinkWeightConfig;
+
+        let parsed = ParsedTopology {
+            gpus: vec![
+                ParsedGpu { gpu_id: GpuId(0), name: "GPU0".into(), cpu_affinity: Some(0) },
+                ParsedGpu { gpu_id: GpuId(1), name: "GPU1".into(), cpu_affinity: Some(0) },
+                ParsedGpu { gpu_id: GpuId(2), name: "GPU2".into(), cpu_affinity: Some(32) },
+            ],
+            links: vec![
+                ParsedLink { from: GpuId(0), to: GpuId(1), link_type: LinkType::NV4 },
+                ParsedLink { from: GpuId(1), to: GpuId(0), link_type: LinkType::NV4 },
+                ParsedLink { from: GpuId(0), to: GpuId(2), link_type: LinkType::SYS },
+                ParsedLink { from: GpuId(2), to: GpuId(0), link_type: LinkType::SYS },
+                ParsedLink { from: GpuId(1), to: GpuId(2), link_type: LinkType::SYS },
+                ParsedLink { from: GpuId(2), to: GpuId(1), link_type: LinkType::SYS },
+            ],
+            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32)].into_iter().collect(),
+        };
+        let graph = GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0);
+        let config = TopologyConfig::default();
+        let topo = Arc::new(GpuTopology::from_graph(graph, config));
+
+        let mut engine = PlacementEngine::new(64);
+        engine.set_topology(topo);
+
+        // NVLink pair should have lower penalty than cross-socket pair
+        let nv_penalty = engine.topology_penalty(&[GpuId(0), GpuId(1)]);
+        let sys_penalty = engine.topology_penalty(&[GpuId(0), GpuId(2)]);
+        assert!(
+            nv_penalty < sys_penalty,
+            "NV4 penalty ({nv_penalty}) should be less than SYS penalty ({sys_penalty})"
+        );
+
+        // Single GPU has zero penalty
+        assert_eq!(engine.topology_penalty(&[GpuId(0)]), 0.0);
     }
 }

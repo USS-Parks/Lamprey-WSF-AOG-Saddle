@@ -40,6 +40,7 @@ use crate::types::{
 use mai_adapters::bridge::IpcEventKind;
 use mai_core::scheduler::{InferenceRequest, RequestPayload, RequestPriority, RequestType};
 use mai_hil::traits::GenerationParams;
+use mai_scheduler::{Priority as SchedulerPriority, ScheduleRequest};
 
 use super::{BackpressureMonitor, StreamId, TokenEvent, TokenReceiver, token_channel};
 
@@ -93,23 +94,27 @@ pub async fn handle_sse_chat(
         estimated_tokens: estimate_chat_tokens(&req),
     };
 
-    // Route through scheduler
-    let selection = {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.route_request(&inference_req).map_err(|e| {
-            warn!(error = %e, "Scheduler routing failed for SSE stream");
-            match e {
-                mai_core::scheduler::SchedulerError::NoAdapterAvailable(_) => {
-                    ApiError::ModelUnavailable(model_name.unwrap_or_else(|| "default".to_string()))
-                }
-                mai_core::scheduler::SchedulerError::QueueFull(_, _) => ApiError::SystemOverloaded,
-                _ => ApiError::InternalError,
-            }
-        })?
-    };
+    // Route through new scheduler (Session 15)
+    let sched_priority = scheduler_priority_from_profile(&profile);
+    let sched_req = ScheduleRequest::new(
+        model_name.as_deref().unwrap_or("default"),
+        sched_priority,
+    );
+    let session_id = sched_req.session_id;
 
-    let model_id = selection.model_id.clone();
-    let adapter_id = selection.adapter_id.clone();
+    let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
+        warn!(error = %e, "Scheduler routing failed for SSE stream");
+        match e {
+            mai_scheduler::SchedulerError::NoInstanceAvailable(_) => {
+                ApiError::ModelUnavailable(model_name.unwrap_or_else(|| "default".to_string()))
+            }
+            mai_scheduler::SchedulerError::SystemOverloaded(_, _) => ApiError::SystemOverloaded,
+            _ => ApiError::InternalError,
+        }
+    })?;
+
+    let model_id = decision.instance_id.to_string();
+    let adapter_id = decision.instance_id.to_string();
 
     // Create token channel for adapter to feed streaming tokens into.
     let (_tx, rx) = token_channel();
@@ -282,14 +287,13 @@ pub async fn handle_sse_chat(
     // Mark request as streaming in scheduler (completed on stream end).
     // Cleanup happens when the stream is dropped.
     let state_cleanup = state.clone();
-    let cleanup_adapter = adapter_id.clone();
+    let cleanup_instance = decision.instance_id.clone();
     tokio::spawn(async move {
         // This task waits for the response body to be fully sent,
-        // then marks the request as completed. In practice, axum
-        // drops the stream when the client disconnects.
+        // then releases the sequence. In practice, axum drops the
+        // stream when the client disconnects.
         tokio::time::sleep(Duration::from_secs(300)).await;
-        let mut scheduler = state_cleanup.scheduler.write().await;
-        scheduler.request_completed(&cleanup_adapter);
+        state_cleanup.scheduler.release_sequence(&cleanup_instance, session_id);
     });
 
     Ok(response)
@@ -525,6 +529,18 @@ fn priority_from_profile(profile: &ProfileInfo) -> RequestPriority {
         ProfileRole::Teen => RequestPriority::Normal,
         ProfileRole::Child => RequestPriority::Normal,
         ProfileRole::Guest => RequestPriority::Low,
+    }
+}
+
+/// Map a profile role to the new scheduler priority (Session 15).
+fn scheduler_priority_from_profile(profile: &ProfileInfo) -> SchedulerPriority {
+    use crate::types::ProfileRole;
+    match profile.role {
+        ProfileRole::Admin => SchedulerPriority::High,
+        ProfileRole::Adult => SchedulerPriority::Normal,
+        ProfileRole::Teen => SchedulerPriority::Normal,
+        ProfileRole::Child => SchedulerPriority::Normal,
+        ProfileRole::Guest => SchedulerPriority::Background,
     }
 }
 

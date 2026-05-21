@@ -40,8 +40,11 @@ use mai_core::health::{HealthConfig, HealthMonitor};
 use mai_core::hotswap::HotSwapManager;
 use mai_core::power::{PowerConfig, PowerStateMachine};
 use mai_core::registry::ModelRegistry;
-use mai_core::scheduler::{Scheduler, SchedulerConfig};
 use mai_core::vault::VaultInterface;
+use mai_scheduler::{
+    DefaultScheduler, GpuId, InstanceCapabilities, InstanceConfig, InstanceId,
+    SchedulerConfig as NewSchedulerConfig,
+};
 use mai_hil::traits::AdapterConfig;
 
 /// Default path for auth keys config file.
@@ -177,9 +180,11 @@ impl MaiServer {
         }
 
         // -- Step 3: Initialize mai-core components--
-        let scheduler = Scheduler::new(SchedulerConfig::default())
-            .map_err(|e| ServerError::Init(format!("Scheduler: {e}")))?;
-        let scheduler = Arc::new(RwLock::new(scheduler));
+
+        // Load scheduler config from scheduler.toml (Session 15)
+        let scheduler_config = load_scheduler_config();
+        let scheduler: Arc<dyn mai_scheduler::Scheduler> =
+            Arc::new(DefaultScheduler::new(scheduler_config));
 
         // until Session 12 provides the real vault.
         let vault = StubVault;
@@ -192,7 +197,16 @@ impl MaiServer {
         let power = PowerStateMachine::new(PowerConfig::default());
         let power = Arc::new(RwLock::new(power));
 
-        let hotswap = HotSwapManager::new(scheduler.clone(), registry.clone(), health.clone());
+        // HotSwapManager still uses the old mai-core scheduler internally for
+        // adapter lifecycle coordination (pause_routing, resume_routing, etc.).
+        // It will be migrated to the new Scheduler trait in Session 22 (health
+        // integration). For now, wire it with a stub old-scheduler.
+        let legacy_scheduler = mai_core::scheduler::Scheduler::new(
+            mai_core::scheduler::SchedulerConfig::default(),
+        )
+        .map_err(|e| ServerError::Init(format!("Legacy scheduler for hotswap: {e}")))?;
+        let legacy_scheduler = Arc::new(RwLock::new(legacy_scheduler));
+        let hotswap = HotSwapManager::new(legacy_scheduler, registry.clone(), health.clone());
         let hotswap = Arc::new(RwLock::new(hotswap));
 
         let audit_writer = Arc::new(MemoryAuditWriter::new());
@@ -248,18 +262,30 @@ impl MaiServer {
                             "Adapter started, registering with scheduler"
                         );
 
-                        // Register adapter with scheduler so route_request
-                        // can find it. Models come from config, not capabilities.
-                        let gpu_ids: Vec<String> =
-                            entry.gpu_ids.iter().map(|id| format!("gpu:{id}")).collect();
+                        // Register each model served by this adapter as an
+                        // instance in the new scheduler (Session 15).
+                        let gpu_ids: Vec<GpuId> =
+                            entry.gpu_ids.iter().map(|id| GpuId::new(*id)).collect();
 
-                        let mut sched = scheduler.write().await;
-                        sched.register_adapter(
-                            name.clone(),
-                            entry.models.clone(),
-                            entry.max_concurrent,
-                            gpu_ids,
-                        );
+                        for model in &entry.models {
+                            let instance_id = format!("{}:{}", name, model);
+                            let instance_cfg = InstanceConfig {
+                                id: InstanceId::new(&instance_id),
+                                model_name: model.clone(),
+                                adapter_type: name.clone(),
+                                gpu_ids: gpu_ids.clone(),
+                                max_batch_size: entry.max_concurrent as u32,
+                                vram_allocated: 0, // Populated by health monitor (Session 22)
+                                capabilities: InstanceCapabilities::default(),
+                            };
+                            if let Err(e) = scheduler.register_instance(instance_cfg) {
+                                warn!(
+                                    instance = %instance_id,
+                                    error = %e,
+                                    "Failed to register instance with scheduler"
+                                );
+                            }
+                        }
                     }
                     Err(e) => {
                         error!(adapter = %name, error = %e, "Failed to start adapter");
@@ -279,7 +305,6 @@ impl MaiServer {
             config,
             auth,
             adapter_manager.clone(),
-            adapter_boot.model_aliases,
         );
 
         info!("All components initialized, building servers");
@@ -568,6 +593,43 @@ fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
         framework,
         adapter_configs,
         model_aliases,
+    }
+}
+
+/// Load scheduler configuration from config/scheduler.toml.
+///
+/// Falls back to defaults if the file is missing or invalid.
+/// Aliases are loaded from the `[aliases]` section.
+fn load_scheduler_config() -> NewSchedulerConfig {
+    let path = Path::new("config/scheduler.toml");
+    if !path.exists() {
+        info!("No scheduler config file found, using defaults");
+        return NewSchedulerConfig::default();
+    }
+
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) => {
+            warn!(path = %path.display(), error = %e, "Cannot read scheduler config, using defaults");
+            return NewSchedulerConfig::default();
+        }
+    };
+
+    match toml::from_str::<NewSchedulerConfig>(&content) {
+        Ok(config) => {
+            info!(
+                strategy = %config.strategy,
+                aliases = config.aliases.len(),
+                overload_threshold = config.overload_queue_threshold,
+                max_queue = config.max_total_queue_depth,
+                "Loaded scheduler configuration"
+            );
+            config
+        }
+        Err(e) => {
+            warn!(error = %e, "Invalid scheduler config TOML, using defaults");
+            NewSchedulerConfig::default()
+        }
     }
 }
 

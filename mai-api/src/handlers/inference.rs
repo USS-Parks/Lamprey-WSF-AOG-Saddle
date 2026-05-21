@@ -25,6 +25,7 @@ use crate::types::{
 
 use mai_core::scheduler::{InferenceRequest, RequestPayload, RequestPriority, RequestType};
 use mai_hil::traits::GenerationParams;
+use mai_scheduler::{Priority as SchedulerPriority, ScheduleRequest, SequenceId};
 
 // ─── Chat Completions ──────────────────────────────────────────────
 
@@ -72,27 +73,31 @@ pub async fn chat_completions(
         estimated_tokens: estimate_chat_tokens(&req),
     };
 
-    // Route through scheduler
-    let selection = {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.route_request(&inference_req).map_err(|e| {
-            warn!(error = %e, "Scheduler routing failed");
-            match e {
-                mai_core::scheduler::SchedulerError::NoAdapterAvailable(_) => {
-                    ApiError::ModelUnavailable(model_name.unwrap_or_else(|| "default".to_string()))
-                }
-                mai_core::scheduler::SchedulerError::QueueFull(_, _) => ApiError::SystemOverloaded,
-                mai_core::scheduler::SchedulerError::RequestTimeout(_, _) => {
-                    ApiError::RequestTimeout
-                }
-                _ => ApiError::InternalError,
-            }
-        })?
-    };
+    // Route through new scheduler (Session 15)
+    let sched_priority = scheduler_priority_from_profile(&profile);
+    let sched_req = ScheduleRequest::new(
+        model_name.as_deref().unwrap_or("default"),
+        sched_priority,
+    );
+    let session_id = sched_req.session_id;
 
-    // Resolve model alias to adapter name. The scheduler selection gives us
-    // the adapter_id (which matches the adapter name registered at boot).
-    let adapter_name = selection.adapter_id.clone();
+    let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
+        warn!(error = %e, "Scheduler routing failed");
+        match e {
+            mai_scheduler::SchedulerError::NoInstanceAvailable(_) => {
+                ApiError::ModelUnavailable(model_name.unwrap_or_else(|| "default".to_string()))
+            }
+            mai_scheduler::SchedulerError::SystemOverloaded(_, _) => ApiError::SystemOverloaded,
+            _ => ApiError::InternalError,
+        }
+    })?;
+
+    // Extract adapter name from instance_id (format: "adapter:model")
+    let adapter_name = decision.instance_id.as_str()
+        .split(':')
+        .next()
+        .unwrap_or(decision.instance_id.as_str())
+        .to_string();
 
     // Build prompt from chat messages (concatenated for adapter consumption)
     let prompt = build_chat_prompt(&req.messages);
@@ -132,7 +137,7 @@ pub async fn chat_completions(
         id: format!("chatcmpl-{}", request_id),
         object: "chat.completion".to_string(),
         created: now_epoch,
-        model: selection.model_id.clone(),
+        model: decision.instance_id.to_string(),
         choices: vec![ChatChoice {
             index: 0,
             message: ApiChatMessage {
@@ -149,15 +154,12 @@ pub async fn chat_completions(
         },
     };
 
-    // Mark request completed in scheduler
-    {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.request_completed(&selection.adapter_id);
-    }
+    // Release sequence in scheduler (Session 15)
+    state.scheduler.release_sequence(&decision.instance_id, session_id);
 
     info!(
         request_id = %request_id,
-        model = %selection.model_id,
+        instance = %decision.instance_id,
         profile = %profile.profile_id,
         tokens = completion_tokens,
         "Chat completion served"
@@ -216,17 +218,25 @@ pub async fn embeddings(
         estimated_tokens: texts.iter().map(|t| estimate_text_tokens(t)).sum(),
     };
 
-    let selection = {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.route_request(&inference_req).map_err(|e| {
-            warn!(error = %e, "Scheduler routing failed for embedding");
-            ApiError::ModelUnavailable(
-                model_name.unwrap_or_else(|| "default-embedding".to_string()),
-            )
-        })?
-    };
+    let sched_priority = scheduler_priority_from_profile(&profile);
+    let sched_req = ScheduleRequest::new(
+        model_name.as_deref().unwrap_or("default-embedding"),
+        sched_priority,
+    );
+    let session_id = sched_req.session_id;
 
-    let adapter_name = selection.adapter_id.clone();
+    let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
+        warn!(error = %e, "Scheduler routing failed for embedding");
+        ApiError::ModelUnavailable(
+            model_name.unwrap_or_else(|| "default-embedding".to_string()),
+        )
+    })?;
+
+    let adapter_name = decision.instance_id.as_str()
+        .split(':')
+        .next()
+        .unwrap_or(decision.instance_id.as_str())
+        .to_string();
 
     // Route to real adapter for embedding
     let embeddings = {
@@ -250,21 +260,18 @@ pub async fn embeddings(
     let response = EmbeddingResponse {
         object: "list".to_string(),
         data,
-        model: selection.model_id.clone(),
+        model: decision.instance_id.to_string(),
         usage: EmbeddingUsage {
             prompt_tokens: inference_req.estimated_tokens,
             total_tokens: inference_req.estimated_tokens,
         },
     };
 
-    {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.request_completed(&selection.adapter_id);
-    }
+    state.scheduler.release_sequence(&decision.instance_id, session_id);
 
     info!(
         request_id = %request_id,
-        model = %selection.model_id,
+        instance = %decision.instance_id,
         texts = texts.len(),
         "Embedding request served"
     );
@@ -321,17 +328,25 @@ pub async fn structured_generation(
         estimated_tokens: estimate_messages_tokens(&req.messages),
     };
 
-    let selection = {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.route_request(&inference_req).map_err(|e| {
-            warn!(error = %e, "Scheduler routing failed for structured generation");
-            ApiError::ModelIncompatible(
-                "No adapter supports structured output for this model".to_string(),
-            )
-        })?
-    };
+    let sched_priority = scheduler_priority_from_profile(&profile);
+    let sched_req = ScheduleRequest::new(
+        model_name.as_deref().unwrap_or("default"),
+        sched_priority,
+    );
+    let session_id = sched_req.session_id;
 
-    let adapter_name = selection.adapter_id.clone();
+    let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
+        warn!(error = %e, "Scheduler routing failed for structured generation");
+        ApiError::ModelIncompatible(
+            "No adapter supports structured output for this model".to_string(),
+        )
+    })?;
+
+    let adapter_name = decision.instance_id.as_str()
+        .split(':')
+        .next()
+        .unwrap_or(decision.instance_id.as_str())
+        .to_string();
     let prompt = build_chat_prompt(&req.messages);
     let gen_params = build_structured_gen_params(&req);
 
@@ -357,7 +372,7 @@ pub async fn structured_generation(
         id: format!("structcmpl-{}", request_id),
         object: "chat.completion".to_string(),
         created: now_epoch,
-        model: selection.model_id.clone(),
+        model: decision.instance_id.to_string(),
         choices: vec![ChatChoice {
             index: 0,
             message: ApiChatMessage {
@@ -374,10 +389,7 @@ pub async fn structured_generation(
         },
     };
 
-    {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.request_completed(&selection.adapter_id);
-    }
+    state.scheduler.release_sequence(&decision.instance_id, session_id);
 
     Ok(Json(response).into_response())
 }
@@ -443,17 +455,25 @@ pub async fn function_call(
         estimated_tokens: estimate_messages_tokens(&req.messages),
     };
 
-    let selection = {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.route_request(&inference_req).map_err(|e| {
-            warn!(error = %e, "Scheduler routing failed for function_call");
-            ApiError::ModelIncompatible(
-                "No adapter supports function calling for this model".to_string(),
-            )
-        })?
-    };
+    let sched_priority = scheduler_priority_from_profile(&profile);
+    let sched_req = ScheduleRequest::new(
+        model_name.as_deref().unwrap_or("default"),
+        sched_priority,
+    );
+    let session_id = sched_req.session_id;
 
-    let adapter_name = selection.adapter_id.clone();
+    let decision = state.scheduler.schedule(&sched_req).map_err(|e| {
+        warn!(error = %e, "Scheduler routing failed for function_call");
+        ApiError::ModelIncompatible(
+            "No adapter supports function calling for this model".to_string(),
+        )
+    })?;
+
+    let adapter_name = decision.instance_id.as_str()
+        .split(':')
+        .next()
+        .unwrap_or(decision.instance_id.as_str())
+        .to_string();
 
     // Build prompt with tool definitions injected as system context
     let mut prompt = String::from("Available tools:\n");
@@ -498,7 +518,7 @@ pub async fn function_call(
         id: format!("fncall-{}", request_id),
         object: "chat.completion".to_string(),
         created: now_epoch,
-        model: selection.model_id.clone(),
+        model: decision.instance_id.to_string(),
         choices: vec![ChatChoice {
             index: 0,
             message: ApiChatMessage {
@@ -515,10 +535,7 @@ pub async fn function_call(
         },
     };
 
-    {
-        let mut scheduler = state.scheduler.write().await;
-        scheduler.request_completed(&selection.adapter_id);
-    }
+    state.scheduler.release_sequence(&decision.instance_id, session_id);
 
     Ok(Json(response).into_response())
 }
@@ -635,7 +652,7 @@ fn estimate_text_tokens(text: &str) -> u32 {
 
 // ─── Profile-to-Priority Mapping ───────────────────────────────────
 
-/// Map a profile role to request priority.
+/// Map a profile role to request priority (legacy mai-core type).
 /// Admin/Adult get Normal, Teen/Child get Normal, Guest gets Low.
 fn priority_from_profile(profile: &ProfileInfo) -> RequestPriority {
     use crate::types::ProfileRole;
@@ -645,5 +662,17 @@ fn priority_from_profile(profile: &ProfileInfo) -> RequestPriority {
         ProfileRole::Teen => RequestPriority::Normal,
         ProfileRole::Child => RequestPriority::Normal,
         ProfileRole::Guest => RequestPriority::Low,
+    }
+}
+
+/// Map a profile role to the new scheduler priority (Session 15).
+fn scheduler_priority_from_profile(profile: &ProfileInfo) -> SchedulerPriority {
+    use crate::types::ProfileRole;
+    match profile.role {
+        ProfileRole::Admin => SchedulerPriority::High,
+        ProfileRole::Adult => SchedulerPriority::Normal,
+        ProfileRole::Teen => SchedulerPriority::Normal,
+        ProfileRole::Child => SchedulerPriority::Normal,
+        ProfileRole::Guest => SchedulerPriority::Background,
     }
 }

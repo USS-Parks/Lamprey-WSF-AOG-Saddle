@@ -16,7 +16,7 @@ use mai_core::health::HealthMonitor;
 use mai_core::hotswap::HotSwapManager;
 use mai_core::power::PowerStateMachine;
 use mai_core::registry::ModelRegistry;
-use mai_core::scheduler::Scheduler;
+use mai_scheduler::Scheduler;
 
 /// Shared application state for all request handlers.
 ///
@@ -24,8 +24,8 @@ use mai_core::scheduler::Scheduler;
 /// All inner fields are behind Arc so cloning is cheap (pointer bump).
 #[derive(Clone)]
 pub struct AppState {
-    /// Model scheduler: routes inference requests to adapters
-    pub scheduler: Arc<RwLock<Scheduler>>,
+    /// Model scheduler: routes inference requests to instances (mai-scheduler)
+    pub scheduler: Arc<dyn Scheduler>,
     /// Model registry: manifest management and lifecycle tracking
     pub registry: Arc<RwLock<ModelRegistry>>,
     /// Health monitor: adapter heartbeats, hardware telemetry, alerts
@@ -42,8 +42,6 @@ pub struct AppState {
     pub auth: AuthState,
     /// Adapter manager: spawns and manages Python adapter subprocesses
     pub adapter_manager: Arc<Mutex<AdapterManager>>,
-    /// Model alias map: maps user-facing model names to (adapter_name, backend_model)
-    pub model_aliases: Arc<RwLock<std::collections::HashMap<String, (String, String)>>>,
 }
 
 impl AppState {
@@ -53,7 +51,7 @@ impl AppState {
     /// The API server does not own component lifecycle; it borrows via Arc.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        scheduler: Arc<RwLock<Scheduler>>,
+        scheduler: Arc<dyn Scheduler>,
         registry: Arc<RwLock<ModelRegistry>>,
         health: Arc<RwLock<HealthMonitor>>,
         power: Arc<RwLock<PowerStateMachine>>,
@@ -62,7 +60,6 @@ impl AppState {
         config: Arc<RwLock<ServerConfig>>,
         auth: AuthState,
         adapter_manager: Arc<Mutex<AdapterManager>>,
-        model_aliases: std::collections::HashMap<String, (String, String)>,
     ) -> Self {
         Self {
             scheduler,
@@ -74,7 +71,6 @@ impl AppState {
             config,
             auth,
             adapter_manager,
-            model_aliases: Arc::new(RwLock::new(model_aliases)),
         }
     }
 }

@@ -1,0 +1,627 @@
+//! DefaultScheduler: the production implementation of the Scheduler trait.
+//!
+//! Composes the InstanceRegistry, PlacementEngine, and AliasResolver into
+//! a single Scheduler implementation. All methods take `&self` and use
+//! interior mutability for thread safety.
+//!
+//! # Concurrency Model
+//!
+//! - Registry reads (find_by_model, scoring) use DashMap's lock-free reads.
+//! - Registry writes (register, remove, metric updates) use per-entry locks.
+//! - Alias resolution uses RwLock (read-heavy, write-rare).
+//! - Placement scoring holds no locks (operates on cloned snapshots).
+//! - ClusterMetrics and routing counters use std::sync::atomic.
+//!
+//! Multiple concurrent `schedule()` calls proceed in parallel without
+//! contention unless they're writing to the same instance's metrics
+//! (which is a DashMap per-entry lock, not a global lock).
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use tracing::{debug, info, warn};
+
+use crate::aliases::AliasResolver;
+use crate::placement::PlacementEngine;
+use crate::registry::InstanceRegistry;
+use crate::scheduler::Scheduler;
+use crate::topology::GpuTopology;
+use crate::types::{
+    ClusterMetrics, GpuId, InstanceConfig, InstanceId, InstanceState, ScheduleDecision,
+    ScheduleRequest, SchedulerConfig, SchedulerError, SequenceId,
+};
+
+/// The production scheduler. Implements the `Scheduler` trait and is stored
+/// as `Arc<dyn Scheduler>` in AppState.
+pub struct DefaultScheduler {
+    /// Instance registry (DashMap-backed, concurrent).
+    registry: InstanceRegistry,
+    /// Placement engine (scoring + candidate selection).
+    placement: PlacementEngine,
+    /// Model alias resolver.
+    aliases: AliasResolver,
+    /// Scheduler configuration.
+    config: SchedulerConfig,
+    /// GPU topology for hardware-aware placement (Session 16).
+    topology: Option<Arc<GpuTopology>>,
+    /// Atomic counters for cluster metrics.
+    total_routed: AtomicU64,
+    total_rejected: AtomicU64,
+}
+
+impl DefaultScheduler {
+    /// Create a new DefaultScheduler from configuration.
+    pub fn new(config: SchedulerConfig) -> Self {
+        let placement = PlacementEngine::new(config.overload_queue_threshold);
+        let aliases = AliasResolver::from_config(config.aliases.clone());
+
+        info!(
+            strategy = %config.strategy,
+            overload_threshold = config.overload_queue_threshold,
+            max_queue = config.max_total_queue_depth,
+            alias_count = aliases.count(),
+            "DefaultScheduler initialized"
+        );
+
+        Self {
+            registry: InstanceRegistry::new(),
+            placement,
+            aliases,
+            config,
+            topology: None,
+            total_routed: AtomicU64::new(0),
+            total_rejected: AtomicU64::new(0),
+        }
+    }
+
+    /// Create a scheduler with GPU topology for hardware-aware placement.
+    pub fn with_topology(config: SchedulerConfig, topology: Arc<GpuTopology>) -> Self {
+        let mut placement = PlacementEngine::new(config.overload_queue_threshold);
+        placement.set_topology(Arc::clone(&topology));
+        let aliases = AliasResolver::from_config(config.aliases.clone());
+
+        info!(
+            strategy = %config.strategy,
+            gpu_count = topology.gpu_count(),
+            "DefaultScheduler initialized with GPU topology"
+        );
+
+        Self {
+            registry: InstanceRegistry::new(),
+            placement,
+            aliases,
+            config,
+            topology: Some(topology),
+            total_routed: AtomicU64::new(0),
+            total_rejected: AtomicU64::new(0),
+        }
+    }
+
+    /// Access the alias resolver (for config reload).
+    pub fn alias_resolver(&self) -> &AliasResolver {
+        &self.aliases
+    }
+
+    /// Access the registry (for health endpoint introspection).
+    pub fn instance_registry(&self) -> &InstanceRegistry {
+        &self.registry
+    }
+
+    /// Access the GPU topology (if set).
+    pub fn topology(&self) -> Option<&Arc<GpuTopology>> {
+        self.topology.as_ref()
+    }
+
+    /// Compute topology penalty for a set of GPUs.
+    /// Returns 0.0 if topology is not configured.
+    pub fn topology_penalty(&self, gpu_ids: &[GpuId]) -> f64 {
+        self.placement.topology_penalty(gpu_ids)
+    }
+}
+
+impl Scheduler for DefaultScheduler {
+    fn schedule(&self, request: &ScheduleRequest) -> Result<ScheduleDecision, SchedulerError> {
+        // Step 0: Backpressure check
+        let total_queue = self.registry.total_queue_depth();
+        if total_queue >= self.config.max_total_queue_depth
+            && request.priority as u8 > 0
+        {
+            // Only System priority requests bypass backpressure
+            self.total_rejected.fetch_add(1, Ordering::Relaxed);
+            return Err(SchedulerError::SystemOverloaded(
+                total_queue,
+                self.config.max_total_queue_depth,
+            ));
+        }
+
+        // Step 1: Resolve model alias
+        let resolved = self.aliases.resolve(&request.model_alias);
+        debug!(
+            alias = %request.model_alias,
+            model = %resolved.model,
+            preferred = ?resolved.preferred_backends,
+            "Alias resolved"
+        );
+
+        // Step 2: Find candidate instances for the backend model
+        let all_instances = self.registry.find_by_model(&resolved.model);
+
+        if all_instances.is_empty() {
+            self.total_rejected.fetch_add(1, Ordering::Relaxed);
+            return Err(SchedulerError::NoInstanceAvailable(
+                request.model_alias.clone(),
+            ));
+        }
+
+        // Step 3: Apply backend preference ordering.
+        // If preferred_backends is specified, partition candidates into
+        // preferred and non-preferred. Try preferred first; fall back to
+        // non-preferred if no preferred candidate is viable.
+        let candidates = if !resolved.preferred_backends.is_empty() {
+            let (mut preferred, fallback): (Vec<_>, Vec<_>) = all_instances
+                .into_iter()
+                .partition(|(_, state)| {
+                    resolved
+                        .preferred_backends
+                        .contains(&state.config.adapter_type)
+                });
+
+            if preferred.is_empty() {
+                debug!(
+                    model = %resolved.model,
+                    "No preferred backend instances, falling back to all"
+                );
+                fallback
+            } else {
+                // Include fallbacks at the end (lower priority but available)
+                preferred.extend(fallback);
+                preferred
+            }
+        } else {
+            all_instances
+        };
+
+        // Step 4: Placement
+        let decision = self.placement.place(request, &candidates)?;
+
+        // Step 5: Update instance metrics
+        self.registry
+            .record_request_start(&decision.instance_id, request.session_id);
+
+        self.total_routed.fetch_add(1, Ordering::Relaxed);
+
+        debug!(
+            request_session = %request.session_id,
+            instance = %decision.instance_id,
+            reason = %decision.placement_reason,
+            "Request scheduled"
+        );
+
+        Ok(decision)
+    }
+
+    fn release_sequence(&self, instance: &InstanceId, _seq_id: SequenceId) {
+        self.registry.record_request_complete(instance);
+        debug!(instance = %instance, "Sequence released");
+    }
+
+    fn register_instance(&self, config: InstanceConfig) -> Result<(), SchedulerError> {
+        self.registry.register(config)
+    }
+
+    fn remove_instance(&self, instance: &InstanceId) {
+        self.registry.remove(instance);
+    }
+
+    fn cluster_metrics(&self) -> ClusterMetrics {
+        let instances = self.registry.list_all();
+        let total_instances = instances.len() as u32;
+        let total_active: u32 = instances.iter().map(|(_, s)| s.metrics.active_sequences).sum();
+        let total_queue: u32 = instances.iter().map(|(_, s)| s.metrics.queue_depth).sum();
+
+        let (topo_gpus, topo_cliques) = match &self.topology {
+            Some(topo) => (topo.gpu_count() as u32, topo.nvlink_cliques().len() as u32),
+            None => (0, 0),
+        };
+
+        ClusterMetrics {
+            total_instances,
+            healthy_instances: total_instances, // TODO: health integration (Session 22)
+            total_active_sequences: total_active,
+            total_queue_depth: total_queue,
+            total_requests_routed: self.total_routed.load(Ordering::Relaxed),
+            total_requests_rejected: self.total_rejected.load(Ordering::Relaxed),
+            avg_routing_latency_us: 0, // TODO: latency tracking (Session 19)
+            topology_gpu_count: topo_gpus,
+            topology_nvlink_cliques: topo_cliques,
+            topology_has_anomalies: false, // TODO: wire to MetricsRefresher (Session 19)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{
+        GpuId, InstanceCapabilities, InstanceConfig, ModelAlias, Priority, ScheduleRequest,
+        SchedulerConfig, SequenceId,
+    };
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    fn test_config() -> SchedulerConfig {
+        let mut aliases = HashMap::new();
+        aliases.insert(
+            "lamprey/fast".to_string(),
+            ModelAlias {
+                model: "llama3-8b".to_string(),
+                preferred_backends: vec!["ollama".to_string(), "vllm".to_string()],
+            },
+        );
+        aliases.insert(
+            "lamprey/reason".to_string(),
+            ModelAlias {
+                model: "qwen3-70b".to_string(),
+                preferred_backends: vec!["vllm".to_string()],
+            },
+        );
+        aliases.insert(
+            "lamprey/embed".to_string(),
+            ModelAlias {
+                model: "nomic-embed-text".to_string(),
+                preferred_backends: vec!["ollama".to_string()],
+            },
+        );
+        SchedulerConfig {
+            strategy: "least-loaded".to_string(),
+            overload_queue_threshold: 32,
+            max_total_queue_depth: 256,
+            aliases,
+        }
+    }
+
+    fn make_instance(id: &str, model: &str, adapter: &str) -> InstanceConfig {
+        InstanceConfig {
+            id: InstanceId::new(id),
+            model_name: model.to_string(),
+            adapter_type: adapter.to_string(),
+            gpu_ids: vec![GpuId::new(0)],
+            max_batch_size: 16,
+            vram_allocated: 8_000_000_000,
+            capabilities: InstanceCapabilities::default(),
+        }
+    }
+
+    #[test]
+    fn test_schedule_basic() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_schedule_unknown_alias_passthrough() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "raw-model", "ollama"))
+            .unwrap();
+
+        // No alias for "raw-model", should passthrough
+        let req = ScheduleRequest::new("raw-model", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_schedule_no_instance_error() {
+        let sched = DefaultScheduler::new(test_config());
+        // No instances registered
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let result = sched.schedule(&req);
+        assert!(matches!(result, Err(SchedulerError::NoInstanceAvailable(_))));
+    }
+
+    #[test]
+    fn test_schedule_prefers_least_loaded() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+        sched
+            .register_instance(make_instance("vllm:0", "llama3-8b", "vllm"))
+            .unwrap();
+
+        // Load up ollama:0
+        for _ in 0..5 {
+            let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+            sched.schedule(&req).unwrap();
+        }
+
+        // Next request should go to vllm:0 (less loaded)
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("vllm:0"));
+    }
+
+    #[test]
+    fn test_schedule_preferred_backend() {
+        let sched = DefaultScheduler::new(test_config());
+
+        // lamprey/reason prefers vllm
+        sched
+            .register_instance(make_instance("ollama:0", "qwen3-70b", "ollama"))
+            .unwrap();
+        sched
+            .register_instance(make_instance("vllm:0", "qwen3-70b", "vllm"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/reason", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        // vllm is preferred, both have zero load, vllm should be first in partition
+        assert_eq!(decision.instance_id, InstanceId::new("vllm:0"));
+    }
+
+    #[test]
+    fn test_release_decrements() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.total_queue_depth, 1);
+
+        sched.release_sequence(&decision.instance_id, req.session_id);
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.total_queue_depth, 0);
+    }
+
+    #[test]
+    fn test_register_and_remove() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.total_instances, 1);
+
+        sched.remove_instance(&InstanceId::new("ollama:0"));
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.total_instances, 0);
+    }
+
+    #[test]
+    fn test_duplicate_register_error() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+        let result = sched.register_instance(make_instance("ollama:0", "other", "ollama"));
+        assert!(matches!(result, Err(SchedulerError::DuplicateInstance(_))));
+    }
+
+    #[test]
+    fn test_continuation_affinity() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+        sched
+            .register_instance(make_instance("vllm:0", "llama3-8b", "vllm"))
+            .unwrap();
+
+        // First request goes to one instance
+        let req1 = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision1 = sched.schedule(&req1).unwrap();
+        let first_instance = decision1.instance_id.clone();
+        sched.release_sequence(&first_instance, req1.session_id);
+
+        // Second request with continuation_of pointing at first session
+        let mut req2 = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        req2.continuation_of = Some(req1.session_id);
+        let decision2 = sched.schedule(&req2).unwrap();
+
+        // Should go to the same instance (affinity)
+        assert_eq!(decision2.instance_id, first_instance);
+        assert_eq!(decision2.placement_reason, "continuation-affinity");
+    }
+
+    #[test]
+    fn test_backpressure_rejects_non_system() {
+        let mut config = test_config();
+        config.max_total_queue_depth = 2;
+        let sched = DefaultScheduler::new(config);
+
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        // Fill to max
+        for _ in 0..2 {
+            let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+            sched.schedule(&req).unwrap();
+        }
+
+        // Normal priority should be rejected
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let result = sched.schedule(&req);
+        assert!(matches!(result, Err(SchedulerError::SystemOverloaded(_, _))));
+    }
+
+    #[test]
+    fn test_backpressure_allows_system() {
+        let mut config = test_config();
+        config.max_total_queue_depth = 2;
+        let sched = DefaultScheduler::new(config);
+
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        // Fill to max
+        for _ in 0..2 {
+            let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+            sched.schedule(&req).unwrap();
+        }
+
+        // System priority should still work
+        let req = ScheduleRequest::new("lamprey/fast", Priority::System);
+        let result = sched.schedule(&req);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cluster_metrics() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+        sched
+            .register_instance(make_instance("vllm:0", "qwen3-70b", "vllm"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        sched.schedule(&req).unwrap();
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.total_instances, 2);
+        assert_eq!(metrics.total_active_sequences, 1);
+        assert_eq!(metrics.total_requests_routed, 1);
+        assert_eq!(metrics.total_requests_rejected, 0);
+    }
+
+    #[test]
+    fn test_remove_makes_instance_unroutable() {
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        // Works before remove
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        assert!(sched.schedule(&req).is_ok());
+        sched.release_sequence(&InstanceId::new("ollama:0"), req.session_id);
+
+        // Remove
+        sched.remove_instance(&InstanceId::new("ollama:0"));
+
+        // Should fail now
+        let req2 = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        assert!(matches!(
+            sched.schedule(&req2),
+            Err(SchedulerError::NoInstanceAvailable(_))
+        ));
+    }
+
+    #[test]
+    fn test_with_topology() {
+        use crate::topology::{GpuTopology, TopologyConfig};
+
+        let config = test_config();
+        let topo_config = TopologyConfig::default();
+        let topo = Arc::new(GpuTopology::flat(&topo_config));
+        let sched = DefaultScheduler::with_topology(config, topo);
+
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+
+        // Topology should be accessible
+        assert!(sched.topology().is_some());
+        assert_eq!(sched.topology().unwrap().gpu_count(), 1);
+
+        // Cluster metrics should include topology info
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.topology_gpu_count, 1);
+    }
+
+    #[test]
+    fn test_topology_penalty_method() {
+        use crate::topology::{GpuTopology, TopologyConfig};
+        use crate::topology::collector::{LinkType, ParsedGpu, ParsedLink, ParsedTopology};
+        use crate::topology::graph::GpuGraph;
+        use crate::topology::LinkWeightConfig;
+
+        let parsed = ParsedTopology {
+            gpus: vec![
+                ParsedGpu { gpu_id: GpuId(0), name: "GPU0".into(), cpu_affinity: Some(0) },
+                ParsedGpu { gpu_id: GpuId(1), name: "GPU1".into(), cpu_affinity: Some(0) },
+                ParsedGpu { gpu_id: GpuId(2), name: "GPU2".into(), cpu_affinity: Some(32) },
+            ],
+            links: vec![
+                ParsedLink { from: GpuId(0), to: GpuId(1), link_type: LinkType::NV4 },
+                ParsedLink { from: GpuId(1), to: GpuId(0), link_type: LinkType::NV4 },
+                ParsedLink { from: GpuId(0), to: GpuId(2), link_type: LinkType::SYS },
+                ParsedLink { from: GpuId(2), to: GpuId(0), link_type: LinkType::SYS },
+                ParsedLink { from: GpuId(1), to: GpuId(2), link_type: LinkType::SYS },
+                ParsedLink { from: GpuId(2), to: GpuId(1), link_type: LinkType::SYS },
+            ],
+            cpu_affinity: [(GpuId(0), 0), (GpuId(1), 0), (GpuId(2), 32)].into_iter().collect(),
+        };
+        let graph = GpuGraph::from_parsed(parsed, &LinkWeightConfig::default(), 1.0, 1.0);
+        let topo = Arc::new(GpuTopology::from_graph(graph, TopologyConfig::default()));
+
+        let config = test_config();
+        let sched = DefaultScheduler::with_topology(config, topo);
+
+        // NVLink pair should have lower penalty
+        let nv_penalty = sched.topology_penalty(&[GpuId(0), GpuId(1)]);
+        let sys_penalty = sched.topology_penalty(&[GpuId(0), GpuId(2)]);
+        assert!(nv_penalty < sys_penalty);
+    }
+
+    // Concurrency test: 100 parallel schedule() calls
+    #[test]
+    fn test_concurrent_scheduling() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let sched = Arc::new(DefaultScheduler::new(test_config()));
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+        sched
+            .register_instance(make_instance("vllm:0", "llama3-8b", "vllm"))
+            .unwrap();
+
+        let mut handles = Vec::new();
+        for i in 0..100 {
+            let sched = Arc::clone(&sched);
+            handles.push(thread::spawn(move || {
+                let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+                let result = sched.schedule(&req);
+                // All should succeed (we have plenty of capacity)
+                assert!(result.is_ok(), "thread {} failed: {:?}", i, result);
+            }));
+        }
+
+        for h in handles {
+            h.join().expect("thread panicked");
+        }
+
+        let metrics = sched.cluster_metrics();
+        assert_eq!(metrics.total_requests_routed, 100);
+        // Queue depth should be 100 (no releases)
+        assert_eq!(metrics.total_queue_depth, 100);
+    }
+}
