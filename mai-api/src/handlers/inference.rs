@@ -25,7 +25,7 @@ use crate::types::{
 
 use mai_core::scheduler::{InferenceRequest, RequestPayload, RequestPriority, RequestType};
 use mai_hil::traits::GenerationParams;
-use mai_scheduler::{Priority as SchedulerPriority, ScheduleRequest, SequenceId};
+use mai_scheduler::{Priority as SchedulerPriority, ScheduleRequest};
 
 // ─── Chat Completions ──────────────────────────────────────────────
 

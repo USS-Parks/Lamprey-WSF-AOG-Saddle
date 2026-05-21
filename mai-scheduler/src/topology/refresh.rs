@@ -16,8 +16,6 @@ use std::time::{Duration, Instant};
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
-
 use crate::types::GpuId;
 use super::GpuTopology;
 use super::collector::AdapterGpuMetrics;
@@ -37,7 +35,7 @@ pub enum AnomalyFlag {
     ThermalThrottle { gpu_id: GpuId, temperature_celsius: u32 },
 
     /// VRAM usage exceeds the configured threshold fraction.
-    VramExhaustion { gpu_id: GpuId, used_fraction: f64 },
+    VramExhaustion { gpu_id: GpuId, used_fraction_bps: u32 },
 }
 
 // ---------------------------------------------------------------------------
@@ -154,7 +152,7 @@ impl MetricsRefresher {
                 if fraction >= config.vram_anomaly_threshold {
                     new_anomalies.push(AnomalyFlag::VramExhaustion {
                         gpu_id,
-                        used_fraction: fraction,
+                        used_fraction_bps: (fraction * 10_000.0) as u32,
                     });
                 }
             }

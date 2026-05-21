@@ -19,7 +19,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::aliases::AliasResolver;
 use crate::placement::PlacementEngine;
@@ -27,7 +27,7 @@ use crate::registry::InstanceRegistry;
 use crate::scheduler::Scheduler;
 use crate::topology::GpuTopology;
 use crate::types::{
-    ClusterMetrics, GpuId, InstanceConfig, InstanceId, InstanceState, ScheduleDecision,
+    ClusterMetrics, GpuId, InstanceConfig, InstanceId, ScheduleDecision,
     ScheduleRequest, SchedulerConfig, SchedulerError, SequenceId,
 };
 

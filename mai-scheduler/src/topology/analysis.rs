@@ -35,7 +35,7 @@ pub struct PrecomputedTopology {
     path_costs: HashMap<(u32, u32), f64>,
 
     /// Ordered GPU IDs for matrix indexing.
-    gpu_ids: Vec<GpuId>,
+    _gpu_ids: Vec<GpuId>,
 }
 
 impl PrecomputedTopology {
@@ -54,7 +54,7 @@ impl PrecomputedTopology {
             nvlink_cliques,
             cpu_affinity_groups,
             path_costs,
-            gpu_ids,
+            _gpu_ids: gpu_ids,
         }
     }
 
@@ -167,7 +167,7 @@ fn compute_best_pairs(graph: &GpuGraph, gpu_ids: &[GpuId]) -> Vec<(GpuId, GpuId,
 
 /// Find all GPU quads sorted by aggregate cost (sum of all 6 pairwise costs).
 fn compute_best_quads(
-    graph: &GpuGraph,
+    _graph: &GpuGraph,
     gpu_ids: &[GpuId],
     path_costs: &HashMap<(u32, u32), f64>,
 ) -> Vec<([GpuId; 4], f64)> {
