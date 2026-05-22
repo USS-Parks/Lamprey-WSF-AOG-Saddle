@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use thiserror::Error;
 use tracing::{info, warn};
 
-use crate::registry::ModelRegistry;
+use crate::registry::ModelEntry;
 use crate::vault::{ModelStorage, VaultInterface};
 
 /// Options for model removal
@@ -55,19 +57,15 @@ pub enum RemoveError {
 /// 2. Removal from vault storage
 /// 3. Removal from registry
 /// 4. Audit trail entry
-pub async fn remove_model<V, S>(
+pub(crate) async fn remove_model(
     model_id: &str,
-    registry: &mut ModelRegistry,
-    vault: &V,
-    storage: &S,
+    models: &mut HashMap<String, ModelEntry>,
+    vault: &dyn VaultInterface,
+    storage: Option<&dyn ModelStorage>,
     options: &RemoveOptions,
-) -> Result<RemovalResult, RemoveError>
-where
-    V: VaultInterface,
-    S: ModelStorage,
-{
+) -> Result<RemovalResult, RemoveError> {
     // Check model can be removed (must not be loaded)
-    let status = registry.get_status(&model_id.to_string()).ok_or_else(|| {
+    let status = models.get(model_id).map(|e| &e.status).ok_or_else(|| {
         RemoveError::RegistryError(format!("Model {model_id} not found in registry"))
     })?;
 
@@ -84,38 +82,42 @@ where
 
     let mut snapshot_created = false;
 
-    // Create pre-removal snapshot
+    // Create pre-removal snapshot (if storage is available)
     if options.create_snapshot {
-        match storage
-            .create_snapshot(&format!("pre-remove-{model_id}"))
-            .await
-        {
-            Ok(_) => {
-                info!(model_id, "Pre-removal snapshot created");
-                snapshot_created = true;
-            }
-            Err(e) => {
-                warn!(error = %e, "Failed to create pre-removal snapshot, continuing");
+        if let Some(storage) = storage {
+            match storage
+                .create_snapshot(&format!("pre-remove-{model_id}"))
+                .await
+            {
+                Ok(_) => {
+                    info!(model_id, "Pre-removal snapshot created");
+                    snapshot_created = true;
+                }
+                Err(e) => {
+                    warn!(error = %e, "Failed to create pre-removal snapshot, continuing");
+                }
             }
         }
     }
 
     // Remove from vault with secure deletion
     if options.secure_overwrite_passes > 0 {
-        info!(
-            model_id,
-            passes = options.secure_overwrite_passes,
-            "Securely removing model weights from vault"
-        );
-        storage.remove_model(model_id).await.map_err(|e| {
-            RemoveError::VaultError(format!("Failed to remove model from vault: {e}"))
-        })?;
+        if let Some(storage) = storage {
+            info!(
+                model_id,
+                passes = options.secure_overwrite_passes,
+                "Securely removing model weights from vault"
+            );
+            storage.remove_model(model_id).await.map_err(|e| {
+                RemoveError::VaultError(format!("Failed to remove model from vault: {e}"))
+            })?;
+        } else {
+            info!(model_id, "No ModelStorage attached, skipping vault removal");
+        }
     }
 
     // Remove from registry
-    registry
-        .remove_model_entry(model_id)
-        .map_err(|e| RemoveError::RegistryError(e.to_string()))?;
+    models.remove(model_id);
 
     // Write audit entry
     let audit_entry = format!(
@@ -275,11 +277,13 @@ mod tests {
         let mut registry =
             setup_registry_with_model(Box::new(MockVault), "test-model:1.0.0:Q4_K_M").await;
 
+        let vault_ref: &dyn VaultInterface = &vault;
+        let storage_ref: Option<&dyn ModelStorage> = Some(&vault);
         let result = remove_model(
             "test-model:1.0.0:Q4_K_M",
-            &mut registry,
-            &vault,
-            &vault,
+            &mut registry.models,
+            vault_ref,
+            storage_ref,
             &RemoveOptions::default(),
         )
         .await;
@@ -290,7 +294,7 @@ mod tests {
         assert!(removal.secure_wipe);
 
         let model_id = "test-model:1.0.0:Q4_K_M".to_string();
-        assert!(registry.get_model(&model_id).is_none());
+        assert!(registry.models.get(&model_id).is_none());
     }
 
     #[tokio::test]
@@ -298,11 +302,13 @@ mod tests {
         let vault = MockVault;
         let mut registry = setup_registry_with_model(Box::new(MockVault), "test:1:Q4").await;
 
+        let vault_ref: &dyn VaultInterface = &vault;
+        let storage_ref: Option<&dyn ModelStorage> = Some(&vault);
         let result = remove_model(
             "nonexistent-model",
-            &mut registry,
-            &vault,
-            &vault,
+            &mut registry.models,
+            vault_ref,
+            storage_ref,
             &RemoveOptions::default(),
         )
         .await;
@@ -321,11 +327,13 @@ mod tests {
             .await
             .unwrap();
 
+        let vault_ref: &dyn VaultInterface = &vault;
+        let storage_ref: Option<&dyn ModelStorage> = Some(&vault);
         let result = remove_model(
             "test-model:1.0.0:Q4_K_M",
-            &mut registry,
-            &vault,
-            &vault,
+            &mut registry.models,
+            vault_ref,
+            storage_ref,
             &RemoveOptions::default(),
         )
         .await;

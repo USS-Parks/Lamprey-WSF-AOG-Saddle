@@ -144,7 +144,7 @@ pub fn verify_hash_tree(pkg: &ModelPackage) -> Result<bool, VerifyError> {
     Ok(computed == expected)
 }
 
-/// Compute a SHA-256 Merkle tree root for the given data
+/// Compute a BLAKE3 Merkle tree root for the given data
 ///
 /// For simplicity with models under ~64GB, this computes the root of a
 /// binary Merkle tree over 1MB chunks. Production deployments should use

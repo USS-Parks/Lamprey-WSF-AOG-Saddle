@@ -5,7 +5,7 @@
 //! exposed in responses.
 
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::{FromRequest, Path, State};
 use axum::response::IntoResponse;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info, warn};
@@ -19,6 +19,77 @@ use crate::types::{
 };
 
 use mai_core::registry::ModelStatus;
+
+/// Raw handler for POST /v1/models/install.
+///
+/// Registered via `post_service(service_fn(...))` in routes.rs to sidestep
+/// the axum 0.7 vs 0.8 `Handler` trait conflict. The axum version mismatch
+/// (tonic pulls axum 0.7, mai-api uses axum 0.8) prevents 2+-extractor
+/// async handlers from implementing the axum 0.8 `Handler` trait when any
+/// extractor has a `FromRequest` (body) impl — the compiler sees duplicate
+/// `Handler` trait names and cannot resolve.
+///
+/// This function receives the raw `Request<Body>` + cloned state and performs
+/// all extraction manually.
+pub async fn install_handler_raw(
+    req: axum::http::Request<axum::body::Body>,
+    state: AppState,
+) -> axum::response::Response {
+    let (parts, body) = req.into_parts();
+
+    // Extract profile from headers (before consuming body)
+    let profile = match crate::auth::extract_profile(&parts.headers) {
+        Ok(p) => p,
+        Err(e) => return e.into_response(),
+    };
+
+    // Check permission
+    if let Err(e) = check_permission(&profile, "manage_models") {
+        return e.into_response();
+    }
+
+    // Reconstruct request and extract JSON body via axum's built-in Json
+    // extractor (passing () as state since Json doesn't use it).
+    let req = axum::http::Request::from_parts(parts, body);
+    let install_req = match Json::<InstallRequest>::from_request(req, &()).await {
+        Ok(Json(r)) => r,
+        Err(e) => {
+            return ApiError::BadRequest(format!("Invalid request body: {e}")).into_response();
+        }
+    };
+
+    let mount = std::path::PathBuf::from(&install_req.usb_mount_point);
+    let mut registry = state.registry.write().await;
+
+    match registry
+        .install_from_usb(&mount, &install_req.package_name)
+        .await
+    {
+        Ok(result) => {
+            info!(
+                model_id = %result.model_id,
+                profile = %profile.profile_id,
+                "Model installed from USB"
+            );
+            Json(ModelInstallResponse {
+                model_id: result.model_id,
+                status: "installed".to_string(),
+                integrity_verified: result.integrity_verified,
+                signature_verified: result.signature_verified,
+                message: "Model installed successfully from USB".to_string(),
+            })
+            .into_response()
+        }
+        Err(e) => {
+            warn!(
+                error = %e,
+                profile = %profile.profile_id,
+                "USB install failed"
+            );
+            ApiError::BadRequest(format!("Install failed: {e}")).into_response()
+        }
+    }
+}
 
 // ─── List Models ───────────────────────────────────────────────────
 
@@ -76,7 +147,7 @@ pub async fn list_models(
             capabilities: ModelCapabilities::from(&summary.capabilities),
             status: status_str.to_string(),
             size_bytes: summary.size_bytes,
-            required_vram_bytes: 0, // Not in ModelSummary; available in full manifest
+            required_vram_bytes: summary.required_vram_bytes,
         });
     }
 
@@ -304,45 +375,10 @@ pub async fn discover_packages(
 }
 
 // ─── Install Model from USB ──────────────────────────────────────────
-
-/// POST /v1/models/install
-///
-/// Admin-only: install a model package from USB into the registry.
-pub async fn install_model(
-    State(state): State<AppState>,
-    profile: ProfileInfo,
-    Json(body): Json<InstallRequest>,
-) -> Result<impl IntoResponse, ApiError> {
-    check_permission(&profile, "manage_models")?;
-
-    let mount = std::path::PathBuf::from(&body.usb_mount_point);
-    let mut registry = state.registry.write().await;
-
-    match registry.install_from_usb(&mount, &body.package_name).await {
-        Ok(result) => {
-            info!(
-                model_id = %result.model_id,
-                profile = %profile.profile_id,
-                "Model installed from USB"
-            );
-            Ok(Json(ModelInstallResponse {
-                model_id: result.model_id,
-                status: "installed".to_string(),
-                integrity_verified: result.integrity_verified,
-                signature_verified: result.signature_verified,
-                message: "Model installed successfully from USB".to_string(),
-            }))
-        }
-        Err(e) => {
-            warn!(
-                error = %e,
-                profile = %profile.profile_id,
-                "USB install failed"
-            );
-            Err(ApiError::BadRequest(format!("Install failed: {e}")))
-        }
-    }
-}
+//
+// install_model handler has been replaced by install_handler_raw,
+// registered via post_service(service_fn(...)) in routes.rs
+// to avoid the axum 0.7 vs 0.8 Handler trait version conflict.
 
 // ─── Remove Model ────────────────────────────────────────────────────
 

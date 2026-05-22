@@ -1,11 +1,10 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Instant;
 
-use tokio::sync::RwLock;
 use tracing::{info, warn};
 
-use crate::registry::{InstallResult, ModelRegistry, RegistryError};
+use crate::registry::{InstallResult, ModelEntry, ModelStatus, RegistryError};
 use crate::vault::{ModelStorage, VaultInterface};
 
 use super::package::ModelPackage;
@@ -67,25 +66,23 @@ impl InstallProgress {
 ///
 /// Returns the model ID on success. Progress is reported through the
 /// optional `progress` callback.
-pub async fn install_package<V, S>(
+pub(crate) async fn install_package(
     pkg: &ModelPackage,
-    registry: &Arc<RwLock<ModelRegistry>>,
-    vault: &V,
-    storage: &S,
+    models: &mut HashMap<String, ModelEntry>,
+    vault: &dyn VaultInterface,
+    storage: Option<&dyn ModelStorage>,
     current_mai_version: &str,
-    progress: Option<&dyn Fn(InstallProgress)>,
-) -> Result<InstallResult, RegistryError>
-where
-    V: VaultInterface,
-    S: ModelStorage,
-{
+    progress: Option<&(dyn Fn(InstallProgress) + Sync)>,
+) -> Result<InstallResult, RegistryError> {
     let start = Instant::now();
     let _ = progress.map(|p| p(InstallProgress::Discovering));
 
     // 1. Create ZFS snapshot before installation
     let _ = progress.map(|p| p(InstallProgress::Snapshotting));
-    if let Err(e) = storage.create_snapshot("pre-install").await {
-        warn!(error = %e, "Failed to create pre-install snapshot, continuing");
+    if let Some(storage) = storage {
+        if let Err(e) = storage.create_snapshot("pre-install").await {
+            warn!(error = %e, "Failed to create pre-install snapshot, continuing");
+        }
     }
 
     // 2. Verify package
@@ -118,10 +115,17 @@ where
     let vault_path = PathBuf::from(format!("/vault/models/{model_id}"));
     let _ = progress.map(|p| p(InstallProgress::Registering));
 
-    let mut reg = registry.write().await;
-    reg.register_cold_model(model_id.clone(), pkg.manifest.clone(), vault_path)
-        .await?;
-    drop(reg);
+    if models.contains_key(&model_id) {
+        return Err(RegistryError::AlreadyRegistered(model_id));
+    }
+    let entry = ModelEntry {
+        manifest: pkg.manifest.clone(),
+        status: ModelStatus::ColdStorage,
+        vault_path,
+        loaded_adapter: None,
+        loaded_gpu: None,
+    };
+    models.insert(model_id.clone(), entry);
 
     let _ = progress.map(|p| p(InstallProgress::Auditing));
 
@@ -162,10 +166,8 @@ where
 mod tests {
     use super::*;
     use crate::registry::ModelRegistry;
-    use crate::vault::{SnapshotInfo, VaultError};
+    use crate::vault::{SnapshotInfo, VaultError, VaultInterface as _};
     use std::path::Path;
-    use std::sync::Arc;
-    use tokio::sync::RwLock as TokioRwLock;
 
     struct MockVault;
 
@@ -300,9 +302,19 @@ changelog = "Initial"
 
         let pkg = create_test_package(&dir);
         let vault = MockVault;
-        let registry = Arc::new(TokioRwLock::new(ModelRegistry::new(Box::new(MockVault))));
+        let mut registry = ModelRegistry::new(Box::new(MockVault));
+        let vault_ref: &dyn VaultInterface = &vault;
+        let storage_ref: Option<&dyn ModelStorage> = Some(&vault);
 
-        let result = install_package(&pkg, &registry, &vault, &vault, "0.2.0", None).await;
+        let result = install_package(
+            &pkg,
+            &mut registry.models,
+            vault_ref,
+            storage_ref,
+            "0.2.0",
+            None,
+        )
+        .await;
 
         assert!(result.is_ok());
         let install_result = result.unwrap();
@@ -310,9 +322,8 @@ changelog = "Initial"
         assert!(install_result.signature_verified);
         assert!(install_result.integrity_verified);
 
-        let reg = registry.read().await;
         let model_id = "test-model:1.0.0:Q4_K_M".to_string();
-        assert!(reg.get_model(&model_id).is_some());
+        assert!(registry.models.contains_key(&model_id));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -394,8 +405,18 @@ changelog = "Initial"
             }
         }
 
-        let registry = Arc::new(TokioRwLock::new(ModelRegistry::new(Box::new(BadVault))));
-        let result = install_package(&pkg, &registry, &BadVault, &BadVault, "0.2.0", None).await;
+        let mut registry = ModelRegistry::new(Box::new(BadVault));
+        let vault_ref: &dyn VaultInterface = &BadVault;
+        let storage_ref: Option<&dyn ModelStorage> = Some(&BadVault);
+        let result = install_package(
+            &pkg,
+            &mut registry.models,
+            vault_ref,
+            storage_ref,
+            "0.2.0",
+            None,
+        )
+        .await;
         assert!(result.is_err());
 
         let _ = std::fs::remove_dir_all(&dir);

@@ -15,9 +15,14 @@
 //! - `/v1/audit/*` - Audit trail access
 //! - `/v1/profiles/*` - Family profile queries
 
+use std::convert::Infallible;
+
 use axum::Router;
+use axum::body::Body;
+use axum::http::Request;
 use axum::middleware;
-use axum::routing::{any, get, post};
+use axum::routing::{any, get, post, post_service};
+use tower::service_fn;
 
 use crate::auth::auth_middleware;
 use crate::handlers;
@@ -54,6 +59,7 @@ pub fn build_router(state: AppState) -> Router {
         );
 
     // Model routes (list/detail open, load/unload admin-only)
+    let state_for_install = state.clone();
     let model_routes = Router::new()
         .route("/v1/models", get(handlers::models::list_models))
         .route("/v1/models/{model_id}", get(handlers::models::get_model))
@@ -69,7 +75,15 @@ pub fn build_router(state: AppState) -> Router {
             "/v1/models/discover",
             post(handlers::models::discover_packages),
         )
-        .route("/v1/models/install", post(handlers::models::install_model))
+        .route(
+            "/v1/models/install",
+            post_service(service_fn(move |req: Request<Body>| {
+                let state = state_for_install.clone();
+                async move {
+                    Ok::<_, Infallible>(handlers::models::install_handler_raw(req, state).await)
+                }
+            })),
+        )
         .route(
             "/v1/models/{model_id}/remove",
             post(handlers::models::remove_model_handler),

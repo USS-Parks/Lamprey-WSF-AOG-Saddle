@@ -11,8 +11,6 @@ pub mod remove;
 pub mod usb;
 pub mod verify;
 
-pub use install::{InstallProgress, install_package};
 pub use package::ModelPackage;
-pub use remove::{RemovalResult, RemoveOptions, remove_model};
 pub use usb::{DiscoveryResult, discover_usb_packages, scan_path_for_packages};
 pub use verify::{VerificationResult, verify_package};

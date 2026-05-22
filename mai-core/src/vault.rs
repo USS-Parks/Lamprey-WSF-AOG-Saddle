@@ -212,13 +212,15 @@ pub struct FamilyProfile {
 }
 
 /// Profile roles with hierarchical permissions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ProfileRole {
     /// Full system access: all models, configuration, audit, power control.
     Admin,
     /// Standard access: all models appropriate for adults, usage history.
     Adult,
-    /// Restricted access: filtered models only, no system operations.
+    /// Teen access: filtered models with content safety, own history.
+    Teen,
+    /// Restricted access: child-safe models only, no system operations.
     Child,
     /// Minimal access: default models only, no history, rate-limited.
     Guest,
@@ -241,7 +243,17 @@ impl ProfileRole {
             Self::Adult => ProfilePermissions {
                 can_inference: true,
                 can_manage_models: false,
-                can_view_audit: true, // own entries only
+                can_view_audit: true,
+                can_manage_profiles: false,
+                can_control_power: false,
+                can_access_system: false,
+                can_export_compliance: false,
+                can_manage_vectors: true,
+            },
+            Self::Teen => ProfilePermissions {
+                can_inference: true,
+                can_manage_models: false,
+                can_view_audit: false,
                 can_manage_profiles: false,
                 can_control_power: false,
                 can_access_system: false,

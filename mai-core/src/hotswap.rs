@@ -475,7 +475,7 @@ impl HotSwapManager {
             SwapTarget::Model { old_id, .. } => {
                 // Unload the model from the registry
                 let mut registry = self.registry.write().await;
-                registry.unload_model(old_id).await.map_err(|e| {
+                registry.unload_model(old_id).map_err(|e| {
                     SwapError::RegistryError(format!("Failed to unload model {old_id}: {e}"))
                 })?;
                 info!("Deactivated model: {old_id}");
@@ -639,7 +639,7 @@ impl HotSwapManager {
                         .unwrap_or_else(|| "unknown-adapter".to_string())
                 };
                 let mut registry = self.registry.write().await;
-                let _ = registry.unload_model(new_id).await; // Best effort
+                let _ = registry.unload_model(new_id); // Best effort
                 registry.load_model(old_id, adapter_id).await.map_err(|e| {
                     SwapError::RollbackFailed(format!(
                         "Cannot restore original model {old_id}: {e}"

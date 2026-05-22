@@ -40,7 +40,7 @@ fn model_summary_to_proto(m: &mai_core::registry::ModelSummary) -> proto::ModelD
         }),
         status: format!("{:?}", m.status),
         size_bytes: m.size_bytes,
-        required_vram_bytes: 0, // Not in ModelSummary; available via ModelManifest
+        required_vram_bytes: m.required_vram_bytes,
     }
 }
 
@@ -159,7 +159,6 @@ impl proto::mai_models_server::MaiModels for MaiModelsService {
         let mut registry = self.state.registry.write().await;
         registry
             .unload_model(&req.model_id)
-            .await
             .map_err(|e| Status::internal(format!("unload failed: {e}")))?;
 
         Ok(Response::new(proto::ModelOperationResponse {

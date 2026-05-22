@@ -150,7 +150,7 @@ pub async fn get_registry(
                 capabilities: ModelCapabilities::from(&s.capabilities),
                 status: status_str.to_string(),
                 size_bytes: s.size_bytes,
-                required_vram_bytes: 0,
+                required_vram_bytes: s.required_vram_bytes,
             }
         })
         .collect();

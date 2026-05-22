@@ -41,7 +41,7 @@ fn summary_to_proto(m: &mai_core::registry::ModelSummary) -> proto::ModelDetail 
         }),
         status: format!("{:?}", m.status),
         size_bytes: m.size_bytes,
-        required_vram_bytes: 0,
+        required_vram_bytes: m.required_vram_bytes,
     }
 }
 

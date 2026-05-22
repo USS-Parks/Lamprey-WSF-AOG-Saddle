@@ -233,18 +233,18 @@ impl From<VaultError> for RegistryError {
 
 /// Model registry main struct
 pub struct ModelRegistry {
-    models: HashMap<ModelId, ModelEntry>,
+    pub(crate) models: HashMap<ModelId, ModelEntry>,
     vault: Box<dyn VaultInterface>,
     storage: Option<Box<dyn ModelStorage>>,
 }
 
 /// Internal entry tracking model state and location
-struct ModelEntry {
-    manifest: ModelManifest,
-    status: ModelStatus,
-    vault_path: PathBuf,
-    loaded_adapter: Option<AdapterId>,
-    loaded_gpu: Option<String>,
+pub(crate) struct ModelEntry {
+    pub(crate) manifest: ModelManifest,
+    pub(crate) status: ModelStatus,
+    pub(crate) vault_path: PathBuf,
+    pub(crate) loaded_adapter: Option<AdapterId>,
+    pub(crate) loaded_gpu: Option<String>,
 }
 
 impl ModelRegistry {
@@ -409,8 +409,7 @@ impl ModelRegistry {
 
     /// Unload a model from VRAM back to cold storage.
     /// Valid from Loaded or Active states. Transitions through Evicting -> Evicted -> ColdStorage.
-    #[allow(clippy::unused_async)] // async for API consistency with vault operations
-    pub async fn unload_model(&mut self, model_id: &ModelId) -> Result<(), RegistryError> {
+    pub fn unload_model(&mut self, model_id: &ModelId) -> Result<(), RegistryError> {
         let entry = self
             .models
             .get_mut(model_id)
@@ -444,88 +443,38 @@ impl ModelRegistry {
     }
 
     /// Install model from USB drive (air-gap safe).
-    /// Reads manifest, verifies PQC signature, checks integrity, stores in vault.
+    /// Delegates to `models::install::install_package` for canonical logic.
     pub async fn install_from_usb(
         &mut self,
         usb_mount_point: &Path,
         package_name: &str,
     ) -> Result<InstallResult, RegistryError> {
+        use crate::models::package::ModelPackage;
+
         let package_dir = usb_mount_point.join(package_name);
-
-        // Read manifest from USB
-        let manifest_path = package_dir.join("manifest.toml");
-        let manifest_content = std::fs::read_to_string(&manifest_path).map_err(|e| {
+        let pkg = ModelPackage::open(&package_dir).map_err(|e| {
             RegistryError::UsbPackageError(format!(
-                "Cannot read manifest at {}: {e}",
-                manifest_path.display(),
+                "Cannot open package at {}: {e}",
+                package_dir.display(),
             ))
         })?;
 
-        let manifest = Self::parse_manifest(&manifest_content)?;
+        let current_version = env!("CARGO_PKG_VERSION");
+        let &mut Self {
+            ref mut models,
+            ref vault,
+            ref storage,
+        } = self;
 
-        // Read model weights
-        let weights_path = package_dir.join("weights.bin");
-        let weights_data = std::fs::read(&weights_path).map_err(|e| {
-            RegistryError::UsbPackageError(format!(
-                "Cannot read weights at {}: {e}",
-                weights_path.display(),
-            ))
-        })?;
-
-        // Read PQC signature
-        let sig_path = package_dir.join("signature.mldsa");
-        let signature_data = std::fs::read(&sig_path).map_err(|e| {
-            RegistryError::UsbPackageError(format!(
-                "Cannot read signature at {}: {e}",
-                sig_path.display(),
-            ))
-        })?;
-
-        // Verify PQC signature via vault
-        let sig_valid = self
-            .vault
-            .verify_signature(&weights_data, &signature_data)
-            .await?;
-
-        if !sig_valid {
-            return Err(RegistryError::SignatureVerificationFailed(
-                "ML-DSA signature does not verify against package weights".to_string(),
-            ));
-        }
-
-        // Store in vault
-        let model_id = format!(
-            "{}:{}:{}",
-            manifest.model.name,
-            manifest.model.version,
-            manifest.model.quantization.as_deref().unwrap_or("native")
-        );
-
-        self.vault
-            .store_model_package(&model_id, &weights_data)
-            .await?;
-
-        // Register in cold storage
-        let vault_path = PathBuf::from(format!("/vault/models/{model_id}"));
-        self.register_cold_model(model_id.clone(), manifest, vault_path)
-            .await?;
-
-        // Audit the installation
-        let audit_entry = format!(
-            "{{\"event\":\"model_installed\",\"model_id\":\"{model_id}\",\"source\":\"usb\"}}"
-        );
-        if let Err(e) = self.vault.append_audit_entry(audit_entry.as_bytes()).await {
-            warn!(error = %e, "Failed to write audit entry for USB install");
-        }
-
-        info!(model_id = %model_id, "Model installed from USB successfully");
-
-        Ok(InstallResult {
-            model_id,
-            installed_at: Instant::now(),
-            integrity_verified: true,
-            signature_verified: true,
-        })
+        crate::models::install::install_package(
+            &pkg,
+            models,
+            &**vault as &dyn VaultInterface,
+            storage.as_deref(),
+            current_version,
+            None,
+        )
+        .await
     }
 
     /// Get model manifest by ID
@@ -584,82 +533,44 @@ impl ModelRegistry {
                 version: entry.manifest.model.version.clone(),
                 status: entry.status.clone(),
                 size_bytes: entry.manifest.model.size_bytes,
+                required_vram_bytes: entry.manifest.model.required_vram_bytes,
                 capabilities: entry.manifest.capabilities.clone(),
             })
             .collect()
     }
 
-    /// Securely remove a model from the vault and registry
+    /// Securely remove a model from the vault and registry.
+    /// Delegates to `models::remove::remove_model` for canonical logic.
     pub async fn secure_remove_model(
         &mut self,
         model_id: &str,
         options: &super::models::remove::RemoveOptions,
     ) -> Result<super::models::remove::RemovalResult, RegistryError> {
-        let model_id_owned = model_id.to_string();
-        let status = self
-            .get_status(&model_id_owned)
-            .ok_or_else(|| RegistryError::ModelNotFound(model_id_owned.clone()))?;
+        let &mut Self {
+            ref mut models,
+            ref vault,
+            ref storage,
+            ..
+        } = self;
 
-        let is_loaded = matches!(
-            status,
-            ModelStatus::Loaded | ModelStatus::Active { .. } | ModelStatus::Loading { .. }
-        );
-        if is_loaded {
-            return Err(RegistryError::RemovalFailed(format!(
-                "Model {model_id} is currently loaded"
-            )));
-        }
-
-        let mut snapshot_created = false;
-        if let Some(ref storage) = self.storage {
-            if options.create_snapshot {
-                match storage
-                    .create_snapshot(&format!("pre-remove-{model_id}"))
-                    .await
-                {
-                    Ok(_) => {
-                        info!(model_id, "Pre-removal snapshot created");
-                        snapshot_created = true;
-                    }
-                    Err(e) => {
-                        warn!(
-                            error = %e,
-                            "Failed to create pre-removal snapshot"
-                        );
-                    }
-                }
+        crate::models::remove::remove_model(
+            model_id,
+            models,
+            &**vault as &dyn VaultInterface,
+            storage.as_deref(),
+            options,
+        )
+        .await
+        .map_err(|e| match e {
+            super::models::remove::RemoveError::ModelInUse(id) => {
+                RegistryError::RemovalFailed(format!("Model {id} is currently loaded"))
             }
-
-            if options.secure_overwrite_passes > 0 {
-                info!(
-                    model_id,
-                    passes = options.secure_overwrite_passes,
-                    "Securely removing from vault"
-                );
-                storage.remove_model(model_id).await.map_err(|e| {
-                    RegistryError::RemovalFailed(format!("Vault removal failed: {e}"))
-                })?;
+            super::models::remove::RemoveError::VaultError(msg) => {
+                RegistryError::RemovalFailed(msg)
             }
-        } else {
-            info!("No ModelStorage attached, skipping vault removal");
-        }
-
-        self.models.remove(model_id);
-
-        let audit_entry = format!(
-            "{{\"event\":\"model_removed\",\"model_id\":\"{model_id}\",\"secure_wipe\":{}}}",
-            options.secure_overwrite_passes > 0,
-        );
-        if let Err(e) = self.vault.append_audit_entry(audit_entry.as_bytes()).await {
-            warn!(error = %e, "Failed to write removal audit entry");
-        }
-
-        info!(model_id, "Model securely removed");
-        Ok(super::models::remove::RemovalResult {
-            model_id: model_id.to_string(),
-            secure_wipe: options.secure_overwrite_passes > 0,
-            registry_cleared: true,
-            snapshot_created,
+            super::models::remove::RemoveError::RegistryError(msg) => {
+                RegistryError::RemovalFailed(msg)
+            }
         })
     }
 
@@ -854,6 +765,8 @@ pub struct ModelSummary {
     pub status: ModelStatus,
     /// Size on disk
     pub size_bytes: u64,
+    /// VRAM required for inference
+    pub required_vram_bytes: u64,
     /// Model capabilities
     pub capabilities: CapabilityInfo,
 }
@@ -1062,7 +975,7 @@ changelog = "Initial quantized release for MAI"
             .await
             .unwrap();
 
-        let result = registry.unload_model(&id).await;
+        let result = registry.unload_model(&id);
         assert!(result.is_ok());
         assert!(matches!(
             registry.get_status(&id),
