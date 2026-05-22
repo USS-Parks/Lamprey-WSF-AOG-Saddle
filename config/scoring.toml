@@ -1,0 +1,27 @@
+[scoring]
+latency_weight = 2.0
+memory_weight = 1.5
+topology_weight = 1.0
+eviction_weight = 1.0
+batching_weight = 1.5
+continuation_bonus = 10.0
+
+[scoring.latency]
+target_latency_ms = 500
+avg_step_time_ms = 20
+per_token_time_ms = 5
+
+[scoring.memory]
+pressure_exponent = 2.0
+
+[scoring.topology]
+max_penalty = 10.0
+
+[scoring.eviction]
+max_eviction_cost = 50.0
+default_bytes_per_token = 131072
+
+[scoring.batching]
+aggressive_threshold = 0.80
+eviction_threshold = 0.90
+max_queue_depth = 128

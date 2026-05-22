@@ -29,10 +29,11 @@ use crate::kv::manager::KvCacheManager;
 use crate::placement::PlacementEngine;
 use crate::registry::InstanceRegistry;
 use crate::scheduler::Scheduler;
+use crate::scoring::{build_multi_factor_scorer, ScoringConfig};
 use crate::topology::GpuTopology;
 use crate::types::{
     ClusterMetrics, GpuId, InstanceConfig, InstanceId, ScheduleDecision, ScheduleRequest,
-    SchedulerConfig, SchedulerError, SequenceId,
+    SchedulerConfig, SchedulerError, ScoringFn, SequenceId,
 };
 
 /// The production scheduler. Implements the `Scheduler` trait and is stored
@@ -55,9 +56,9 @@ pub struct DefaultScheduler {
     batch_builders: DashMap<InstanceId, Mutex<BatchBuilder>>,
     /// Batch configuration template for new instances.
     batch_config: BatchConfig,
-    /// Atomic counters for cluster metrics.
     total_routed: AtomicU64,
     total_rejected: AtomicU64,
+    scoring_config: Option<ScoringConfig>,
 }
 
 impl DefaultScheduler {
@@ -85,6 +86,7 @@ impl DefaultScheduler {
             batch_config: BatchConfig::default(),
             total_routed: AtomicU64::new(0),
             total_rejected: AtomicU64::new(0),
+            scoring_config: None,
         }
     }
 
@@ -100,7 +102,7 @@ impl DefaultScheduler {
             "DefaultScheduler initialized with GPU topology"
         );
 
-        Self {
+        let mut sched = Self {
             registry: InstanceRegistry::new(),
             placement,
             aliases,
@@ -111,7 +113,10 @@ impl DefaultScheduler {
             batch_config: BatchConfig::default(),
             total_routed: AtomicU64::new(0),
             total_rejected: AtomicU64::new(0),
-        }
+            scoring_config: None,
+        };
+        sched.rebuild_scorer();
+        sched
     }
 
     /// Set the KV cache manager for VRAM-aware placement (Session 17).
@@ -128,6 +133,7 @@ impl DefaultScheduler {
             "KV cache manager attached to scheduler"
         );
         self.kv_manager = Some(kv_manager);
+        self.rebuild_scorer();
     }
 
     /// Access the KV cache manager (if set).
@@ -172,6 +178,31 @@ impl DefaultScheduler {
         instance: &InstanceId,
     ) -> Option<dashmap::mapref::one::Ref<'_, InstanceId, Mutex<BatchBuilder>>> {
         self.batch_builders.get(instance)
+    }
+
+    /// Set the scoring configuration and rebuild the scorer.
+    pub fn set_scoring_config(&mut self, config: ScoringConfig) {
+        self.scoring_config = Some(config);
+        self.rebuild_scorer();
+    }
+
+    /// Directly set a scoring function on the placement engine.
+    ///
+    /// This bypasses the `MultiFactorScorer` builder and is useful for tests
+    /// or custom scoring strategies. Clears the stored `scoring_config`.
+    pub fn set_scorer(&mut self, scorer: ScoringFn) {
+        self.scoring_config = None;
+        self.placement.set_scorer(scorer);
+    }
+
+    /// Rebuild the `MultiFactorScorer` from the current config, topology,
+    /// and KV manager, then set it on the placement engine.
+    fn rebuild_scorer(&mut self) {
+        let Some(ref config) = self.scoring_config else {
+            return;
+        };
+        let scorer = build_multi_factor_scorer(config.clone(), self.topology.clone(), self.kv_manager.clone());
+        self.placement.set_scorer(scorer);
     }
 }
 
@@ -388,9 +419,10 @@ impl Scheduler for DefaultScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scoring::ScoringConfig;
     use crate::types::{
         GpuId, InstanceCapabilities, InstanceConfig, ModelAlias, Priority, ScheduleRequest,
-        SchedulerConfig, SequenceId,
+        SchedulerConfig, ScoringFn, SequenceId,
     };
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -970,5 +1002,158 @@ mod tests {
         assert_eq!(metrics.avg_batch_size, 0.0);
         // Admission rate defaults to 1.0 when no attempts
         assert!((metrics.batch_admission_rate - 1.0).abs() < f64::EPSILON);
+    }
+
+    // --- Session 19e: Scorer integration tests ---
+
+    #[test]
+    fn test_scorer_wired_with_scoring_config() {
+        let mut sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let config = ScoringConfig::default();
+        sched.set_scoring_config(config);
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_set_scoring_config_rebuilds_scorer() {
+        let mut sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let config = ScoringConfig::default();
+        sched.set_scoring_config(config);
+
+        // Second call should rebuild without panic
+        let config2 = ScoringConfig {
+            latency_weight: 5.0,
+            ..ScoringConfig::default()
+        };
+        sched.set_scoring_config(config2);
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_custom_scorer_bypasses_build() {
+        let mut sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        // A custom scorer that always returns a high score
+        let custom: ScoringFn = Box::new(|_state, _request| 42.0);
+        sched.set_scorer(custom);
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_rebuild_scorer_called_after_kv_manager() {
+        use crate::kv::KvCacheConfig;
+        use crate::kv::HeuristicKvCacheManager;
+        let kv_config = KvCacheConfig {
+            total_budget_bytes: 8_000_000_000,
+            ..KvCacheConfig::default()
+        };
+        let kv = Arc::new(HeuristicKvCacheManager::new(kv_config));
+
+        let mut sched = DefaultScheduler::new(test_config());
+        sched.set_scoring_config(ScoringConfig::default());
+
+        // set_kv_manager should trigger rebuild_scorer internally
+        sched.set_kv_manager(kv);
+
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_rebuild_scorer_called_with_topology() {
+        use crate::topology::{GpuTopology, TopologyConfig};
+        let topo = Arc::new(GpuTopology::flat(&TopologyConfig::default()));
+        let mut sched = DefaultScheduler::with_topology(test_config(), topo);
+        sched.set_scoring_config(ScoringConfig::default());
+
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+        assert!(sched.topology().is_some());
+    }
+
+    #[test]
+    fn test_scoring_config_none_defaults() {
+        // Without any scoring config, the default least-loaded strategy applies
+        let sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
+    }
+
+    #[test]
+    fn test_scorer_affects_placement_order() {
+        let mut sched = DefaultScheduler::new(test_config());
+        let inst_a = make_instance("inst-a", "llama3-8b", "ollama");
+        let inst_b = make_instance("inst-b", "llama3-8b", "vllm");
+        sched.register_instance(inst_a).unwrap();
+        sched.register_instance(inst_b).unwrap();
+
+        // Make inst-a heavily loaded so the default scorer would avoid it
+        let id_a = InstanceId::new("inst-a");
+        for _ in 0..100 {
+            sched.registry
+                .record_request_start(&id_a, SequenceId::new());
+        }
+
+        // Set scoring config — the multi-factor scorer should penalize inst-a
+        sched.set_scoring_config(ScoringConfig::default());
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        // Should pick inst-b (less loaded)
+        assert_eq!(decision.instance_id, InstanceId::new("inst-b"));
+    }
+
+    #[test]
+    fn test_set_scorer_overrides_scoring_config() {
+        let mut sched = DefaultScheduler::new(test_config());
+        sched
+            .register_instance(make_instance("ollama:0", "llama3-8b", "ollama"))
+            .unwrap();
+
+        // First set a scoring config
+        sched.set_scoring_config(ScoringConfig::default());
+
+        // Then override with a custom scorer
+        let custom: ScoringFn = Box::new(|_state, _request| 42.0);
+        sched.set_scorer(custom);
+
+        let req = ScheduleRequest::new("lamprey/fast", Priority::Normal);
+        let decision = sched.schedule(&req).unwrap();
+        assert_eq!(decision.instance_id, InstanceId::new("ollama:0"));
     }
 }
