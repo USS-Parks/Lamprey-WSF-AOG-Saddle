@@ -1,0 +1,20 @@
+[package]
+name = "rule-tester"
+description = "CLI: evaluate a Lamprey rules config against scenario fixtures"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+toml = { workspace = true }
+mai-router = { path = "../../mai-router" }
+
+[[bin]]
+name = "rule-tester"
+path = "src/main.rs"
+
+[lints]
+workspace = true

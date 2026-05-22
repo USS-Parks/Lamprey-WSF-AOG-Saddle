@@ -602,6 +602,42 @@ Verification:
 - `python -m pytest tools/ adapters/` on 2026-05-22: 114/114 passed (18 new Session 32 tests across `tools/trace-tools/tests/`, `tools/simulator/tests/test_simulator_extensions.py`, `tools/simulator/tests/test_replay_compare.py`).
 - End-to-end CLI smoke test: 40-event synthetic trace replayed through all 4 KV policies produced a complete Markdown comparison table with headline findings; deterministic across two identical runs.
 
+## Session 37 Completion
+
+**Date:** 2026-05-22
+**Status:** Complete (BUILD-EXECUTION-PLAN Session 37 acceptance — Lamprey policy framework)
+**Summary:** Programmable rule engine + policy module registry + pre-processing pipeline layered on top of the Session 36 router primitives. Three baseline modules ship (HIPAA, ITAR, OCAP) plus a CLI rule-tester for regression validation of compliance changes.
+**Files Changed:**
+- New: mai-router/src/rules/engine.rs (~540 lines) — `Rule` { name, priority, condition, action, audit_level }; `Condition` enum (Match / All / Any / Not); `Action` enum (Allow / Deny / Reroute / Flag) with restrictiveness ranking; `Operator` (Equals / NotEquals / Contains / GreaterEqual / LessEqual / In); `Value` (Str / Int / Bool / List); `FactSet` with `classification`, `role`, `profile_id`, `estimated_tokens`, `has_entity.{medical,tribal,export_controlled}`, `upstream_flags`; `evaluate()` returns priority-sorted hits, `resolve()` picks the winner with tie-break by restrictiveness
+- New: mai-router/src/rules/modules.rs (~325 lines) — `PolicyModule` + `PolicyModuleRegistry` with `install`, `load_from_path` (full + rules-only TOML shapes), `set_enabled`, `enabled_rules`; thread-safe via RwLock
+- New: mai-router/src/rules/mod.rs — module wiring + re-exports
+- New: mai-router/src/pipeline.rs (~535 lines) — `Pipeline` composing classifier + entities + modules + budget; `PipelineResult` with `decision`, `classification`, `entity_kinds`, `rule_hits`, `StageMetrics` (per-stage microsecond timings); rule winners override default router precedence; defaults take over for Allow/Flag actions
+- New: mai-router/rules-config/hipaa.toml — baseline HIPAA policy (PHI force-local, regulated-PHI explicit deny, admin flag)
+- New: mai-router/rules-config/itar.toml — baseline ITAR policy (export-controlled deny + flag)
+- New: mai-router/rules-config/ocap.toml — baseline OCAP tribal data sovereignty (tribal force-local, sensitive-tribal deny)
+- New: mai-router/tests/baseline_policy_load.rs — 4 tests verifying all three baseline TOMLs load + compose
+- New: tools/rule-tester/Cargo.toml + src/main.rs (~215 lines) — CLI that takes a rules TOML + scenarios TOML, evaluates each scenario, prints rules-fired with winning action; optional `expect_action` / `expect_rule` assertions per scenario; exit code = number of mismatches
+- New: tools/rule-tester/examples/hipaa-scenarios.toml — example scenarios demonstrating the format
+- Modified: mai-router/src/lib.rs — module wiring + re-exports
+- Modified: Cargo.toml — added `tools/rule-tester` to workspace members
+**Tests Run:**
+- `cargo test -p mai-router --lib`: 62/62 (39 Session 36 + 23 new Session 37: engine 10, modules 6, pipeline 7).
+- `cargo test -p mai-router --test baseline_policy_load`: 4/4 (HIPAA / ITAR / OCAP individually + compose).
+- `cargo run -p rule-tester -- ../../mai-router/rules-config/hipaa.toml examples/hipaa-scenarios.toml`: 3/3 scenarios match expectations (PHI from adult → reroute; PHI from admin → reroute + flag; public query → no rules fire).
+- `cargo fmt --all -- --check`: clean.
+- `cargo clippy --workspace -- -D warnings -A clippy::pedantic`: clean.
+- `cargo test --workspace`: every crate green, zero failures.
+**Acceptance Criteria Verified:**
+- Policy modules correctly enforce compliance rules per domain (`baseline_policy_load.rs` + rule-tester scenarios).
+- Higher-priority rules correctly override lower-priority rules (`test_higher_priority_rule_wins`).
+- Rule tester produces same results as production evaluation (rule-tester uses the same `evaluate()` and `resolve()` functions as the pipeline).
+- Pipeline stages are measured and logged independently (`StageMetrics.classify_us / entities_us / policy_us / budget_us / total_us`).
+- Default modules provide working compliance enforcement out of the box (rule-tester demo shows HIPAA PHI is rerouted on first load).
+**Known Issues Added or Closed:** Hot-reload via SIGHUP is documented as Session 41 scope (policy runtime). The in-process reload primitive (`PolicyModuleRegistry::load_from_path`) is already in place — Session 41 wires the OS signal handler.
+**Next Session Notes:** Session 38 (HIPAA Compliance Engine) is the first of the per-regulation deep modules — new `mai-compliance` crate with the full 18-PHI-identifier detector and BAA enforcement. Session 37's framework is the substrate it plugs into.
+
+---
+
 ## Session 36 Completion
 
 **Date:** 2026-05-22
@@ -797,10 +833,10 @@ Verification:
 | I: Application Integration | 29-31 | Not Started |
 | J: Advanced Scheduling | 32-33 | Complete (32, 33) |
 | K: Testing & Packaging | 34-35 | Complete (34, 35) — Gate C closed |
-| L: Compliance Governance | 36-46 | Partial (36 complete — first Lamprey layer) |
+| L: Compliance Governance | 36-46 | Partial (36, 37 complete — Lamprey policy framework) |
 
-**Sessions Complete:** Sessions 1-26 and 32-36 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) underway — first layer (Router) shipped.
-**Next Session:** Session 37 (Router Policy Integration) — programmable HIPAA / ITAR / OCAP / cost-control / admin-override rule engine on top of the Session 36 router. Security track (27-28) and developer track (29-31) remain safe parallel candidates before the final acquisition prep in Session 45.
+**Sessions Complete:** Sessions 1-26 and 32-37 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) underway — first two layers (Router + Policy Framework) shipped.
+**Next Session:** Session 38 (HIPAA Compliance Engine) — new `mai-compliance` crate with the 18-PHI-identifier detector and BAA enforcement, plugging into the Session 37 policy framework. Security track (27-28) and developer track (29-31) remain safe parallel candidates before final acquisition prep in Session 45.
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---

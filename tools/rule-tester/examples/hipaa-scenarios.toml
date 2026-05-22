@@ -1,0 +1,32 @@
+# Example scenario set for the HIPAA baseline module.
+# Run with:
+#   rule-tester ../../mai-router/rules-config/hipaa.toml hipaa-scenarios.toml
+
+[[scenarios]]
+name = "phi_request_from_adult_must_force_local"
+classification = "regulated"
+role = "adult"
+profile_id = "alice"
+estimated_tokens = 200
+entities = ["medical"]
+expect_action = "reroute"
+expect_rule = "hipaa_phi"
+
+[[scenarios]]
+name = "phi_request_from_admin_still_flags"
+classification = "regulated"
+role = "admin"
+estimated_tokens = 200
+entities = ["medical"]
+# admin profile fires the explicit-deny rule (highest priority), so the
+# winning action is still reroute. The admin flag rule fires alongside.
+expect_action = "reroute"
+
+[[scenarios]]
+name = "public_query_fires_no_hipaa_rules"
+classification = "public"
+role = "adult"
+estimated_tokens = 50
+entities = []
+# No rule should fire. expect_action and expect_rule are intentionally
+# omitted — the tester treats an empty winning_action as `(none)`.
