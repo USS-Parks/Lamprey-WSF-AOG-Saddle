@@ -764,13 +764,8 @@ mod tests {
 
         mgr.add_user_message(&sid, "Turn on lights".to_string())
             .unwrap();
-        mgr.inject_tool_result(
-            &sid,
-            "call-1",
-            "homebase.lights",
-            "Lights turned on",
-        )
-        .unwrap();
+        mgr.inject_tool_result(&sid, "call-1", "homebase.lights", "Lights turned on")
+            .unwrap();
 
         let messages = mgr.assemble_context(&sid).unwrap();
         assert_eq!(messages.len(), 2);
