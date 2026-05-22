@@ -16,6 +16,7 @@
 //! contention unless they're writing to the same instance's metrics
 //! (which is a DashMap per-entry lock, not a global lock).
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -413,6 +414,48 @@ impl Scheduler for DefaultScheduler {
             total_batch_waiting: batch_waiting_total,
             batch_admission_rate,
         }
+    }
+    // -----------------------------------------------------------------------
+    // Power state integration (Session 22)
+    // -----------------------------------------------------------------------
+
+    fn can_demote(&self, instance: &InstanceId) -> bool {
+        self.registry
+            .get(instance)
+            .is_some_and(|state| state.metrics.active_sequences == 0)
+    }
+
+    fn all_gpu_set(&self) -> Vec<GpuId> {
+        let mut gpus = HashSet::new();
+        for entry in &self.registry.list_all() {
+            for gpu in &entry.1.config.gpu_ids {
+                gpus.insert(*gpu);
+            }
+        }
+        gpus.into_iter().collect()
+    }
+
+    fn instances_on_gpu(&self, gpu_id: GpuId) -> Vec<InstanceId> {
+        self.registry
+            .find_by_gpu(gpu_id)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect()
+    }
+
+    fn on_wake_gpu(&self, gpu_id: GpuId) -> Result<(), SchedulerError> {
+        let instances = self.registry.find_by_gpu(gpu_id);
+        if instances.is_empty() {
+            return Err(SchedulerError::InstanceNotFound(InstanceId::new(format!("gpu:{gpu_id}"))));
+        }
+        // Mark all instances on this GPU as healthy by resetting their metrics.
+        // In a full implementation, the adapter layer would re-register instances
+        // after GPU wake. Here we ensure the scheduler's view is consistent.
+        for (id, _) in &instances {
+            self.registry.reset_metrics(id);
+            info!(instance = %id, gpu = %gpu_id, "Instance marked healthy after GPU wake");
+        }
+        Ok(())
     }
 }
 

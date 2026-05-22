@@ -156,6 +156,15 @@ impl InstanceRegistry {
             .map(|entry| entry.metrics.queue_depth)
             .sum()
     }
+
+    /// Reset metrics for an instance to default values. Used by power management
+    /// after GPU wake to clear drained state.
+    pub fn reset_metrics(&self, id: &InstanceId) {
+        if let Some(mut entry) = self.instances.get_mut(id) {
+            entry.metrics = InstanceMetrics::default();
+            debug!(instance = %id, "Instance metrics reset (power state transition)");
+        }
+    }
 }
 
 impl Default for InstanceRegistry {

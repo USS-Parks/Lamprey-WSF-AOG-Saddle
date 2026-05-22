@@ -18,8 +18,8 @@
 //!    those additions without breaking changes.
 
 use crate::types::{
-    ClusterMetrics, InstanceConfig, InstanceId, ScheduleDecision, ScheduleRequest, SchedulerError,
-    SequenceId,
+    ClusterMetrics, GpuId, InstanceConfig, InstanceId, ScheduleDecision, ScheduleRequest,
+    SchedulerError, SequenceId,
 };
 
 /// The scheduler trait. Implemented by `DefaultScheduler` (this crate) and
@@ -66,4 +66,22 @@ pub trait Scheduler: Send + Sync {
     /// Return aggregate metrics across all instances. Used by health endpoints
     /// and operational dashboards. Must not block.
     fn cluster_metrics(&self) -> ClusterMetrics;
+
+    // -----------------------------------------------------------------------
+    // Power state integration methods (Session 22)
+    // -----------------------------------------------------------------------
+
+    /// Check if a specific instance can be safely demoted. Returns true if the
+    /// instance exists and has no active sequences.
+    fn can_demote(&self, instance: &InstanceId) -> bool;
+
+    /// Return all GPU IDs that have registered instances.
+    fn all_gpu_set(&self) -> Vec<GpuId>;
+
+    /// Return all instance IDs registered on a specific GPU.
+    fn instances_on_gpu(&self, gpu_id: GpuId) -> Vec<InstanceId>;
+
+    /// Called when a GPU wakes up so the scheduler can re-register instances
+    /// or mark them as healthy. Returns an error if the GPU is unknown.
+    fn on_wake_gpu(&self, gpu_id: GpuId) -> Result<(), SchedulerError>;
 }

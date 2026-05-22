@@ -32,6 +32,7 @@ pub mod default;
 pub mod kv;
 pub mod metrics;
 pub mod placement;
+pub mod power;
 pub mod registry;
 pub mod scheduler;
 pub mod scoring;
@@ -41,6 +42,7 @@ pub mod types;
 // Re-exports for convenience
 pub use batch::{BatchBuilder, BatchConfig, BatchDecision};
 pub use default::DefaultScheduler;
+pub use power::{PowerControllerConfig, PowerStateController};
 pub use kv::manager::KvCacheManager;
 pub use kv::{HeuristicKvCacheManager, KvCacheConfig};
 pub use metrics::{MetricsCollector, MetricsConfig};
