@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{InstanceId, InstanceMetrics, SequenceId};
 
+use super::anomaly::{AnomalyConfig, AnomalyDetector, AnomalyEvent, AnomalyKind};
 use super::health::{HealthConfig, InstanceHealthTracker};
 use super::lifecycle::{LifecycleConfig, PerInstanceLifecycle, RequestLifecycle};
-use super::anomaly::{AnomalyConfig, AnomalyDetector, AnomalyEvent, AnomalyKind};
 
 /// Configuration for the feedback processor.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -77,7 +77,8 @@ impl FeedbackProcessor {
         self.lifecycle.record(lifecycle);
 
         // Update health tracking
-        let mut health = self.health_trackers
+        let mut health = self
+            .health_trackers
             .entry(report.instance_id.clone())
             .or_insert_with(|| InstanceHealthTracker::new(&self.config.health));
         health.record_completion(
@@ -88,10 +89,15 @@ impl FeedbackProcessor {
         );
 
         // Update anomaly detection
-        let mut anomaly = self.anomaly_detectors
+        let mut anomaly = self
+            .anomaly_detectors
             .entry(report.instance_id.clone())
             .or_insert_with(|| AnomalyDetector::new(self.config.anomaly.clone()));
-        anomaly.record(report.actual_latency_ms, report.vram_used_after, report.tokens_per_sec);
+        anomaly.record(
+            report.actual_latency_ms,
+            report.vram_used_after,
+            report.tokens_per_sec,
+        );
 
         // Check for anomalies
         let now = report.actual_latency_ms + report.scheduled_at;
@@ -143,7 +149,11 @@ impl FeedbackProcessor {
     }
 
     /// Get the health score for an instance.
-    pub fn health_score(&self, instance_id: &InstanceId, metrics: &InstanceMetrics) -> Option<crate::metrics::health::HealthScore> {
+    pub fn health_score(
+        &self,
+        instance_id: &InstanceId,
+        metrics: &InstanceMetrics,
+    ) -> Option<crate::metrics::health::HealthScore> {
         self.health_trackers
             .get(instance_id)
             .map(|t| t.score(metrics, &self.config.health))
@@ -223,7 +233,9 @@ mod tests {
             &metrics,
         );
         let anomalies = processor.recent_anomalies();
-        let has_spike = anomalies.iter().any(|a| a.kind == AnomalyKind::LatencySpike);
+        let has_spike = anomalies
+            .iter()
+            .any(|a| a.kind == AnomalyKind::LatencySpike);
         assert!(has_spike, "should have latency spike anomaly");
     }
 

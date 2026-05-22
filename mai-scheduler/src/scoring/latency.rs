@@ -80,8 +80,8 @@ pub fn latency_penalty(state: &InstanceState, config: &LatencyConfig) -> f64 {
     }
 
     // Queue wait: each queued + batch-waiting request adds avg_step_time
-    let queue_items = f64::from(state.metrics.queue_depth)
-        + f64::from(state.metrics.batch_waiting_count);
+    let queue_items =
+        f64::from(state.metrics.queue_depth) + f64::from(state.metrics.batch_waiting_count);
     let queue_wait = queue_items * config.avg_step_time_ms;
 
     // Batch drain: estimate how long the active batch's remaining work takes.
@@ -137,7 +137,10 @@ mod tests {
         let config = LatencyConfig::default(); // target=500ms, step=20ms
         let low = latency_penalty(&make_state(2, 0, 0), &config);
         let high = latency_penalty(&make_state(10, 0, 0), &config);
-        assert!(high > low, "higher queue depth should produce higher penalty");
+        assert!(
+            high > low,
+            "higher queue depth should produce higher penalty"
+        );
     }
 
     #[test]

@@ -110,8 +110,7 @@ pub fn batching_benefit(state: &InstanceState, config: &BatchBenefitConfig) -> f
     let queue_ratio = if config.max_queue_depth == 0 {
         1.0
     } else {
-        f64::from(state.metrics.batch_waiting_count)
-            / f64::from(config.max_queue_depth)
+        f64::from(state.metrics.batch_waiting_count) / f64::from(config.max_queue_depth)
     };
     let queue_factor = 1.0 - queue_ratio.clamp(0.0, 1.0);
 
@@ -204,18 +203,9 @@ mod tests {
     #[test]
     fn test_queue_reduces_benefit() {
         let config = BatchBenefitConfig::default(); // max_queue=128
-        let no_queue = batching_benefit(
-            &make_state(0.0, 0, 16_000_000_000, 0),
-            &config,
-        );
-        let with_queue = batching_benefit(
-            &make_state(0.0, 0, 16_000_000_000, 64),
-            &config,
-        );
-        assert!(
-            no_queue > with_queue,
-            "queue should reduce benefit"
-        );
+        let no_queue = batching_benefit(&make_state(0.0, 0, 16_000_000_000, 0), &config);
+        let with_queue = batching_benefit(&make_state(0.0, 0, 16_000_000_000, 64), &config);
+        assert!(no_queue > with_queue, "queue should reduce benefit");
     }
 
     #[test]

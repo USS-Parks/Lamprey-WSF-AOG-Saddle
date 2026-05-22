@@ -16,8 +16,8 @@ use mai_core::health::HealthMonitor;
 use mai_core::hotswap::HotSwapManager;
 use mai_core::power::PowerStateMachine;
 use mai_core::registry::ModelRegistry;
-use mai_scheduler::metrics::MetricsCollector;
 use mai_scheduler::Scheduler;
+use mai_scheduler::metrics::MetricsCollector;
 
 /// Shared application state for all request handlers.
 ///

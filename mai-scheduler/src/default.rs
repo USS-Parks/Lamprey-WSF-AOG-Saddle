@@ -29,7 +29,7 @@ use crate::kv::manager::KvCacheManager;
 use crate::placement::PlacementEngine;
 use crate::registry::InstanceRegistry;
 use crate::scheduler::Scheduler;
-use crate::scoring::{build_multi_factor_scorer, ScoringConfig};
+use crate::scoring::{ScoringConfig, build_multi_factor_scorer};
 use crate::topology::GpuTopology;
 use crate::types::{
     ClusterMetrics, GpuId, InstanceConfig, InstanceId, ScheduleDecision, ScheduleRequest,
@@ -201,7 +201,11 @@ impl DefaultScheduler {
         let Some(ref config) = self.scoring_config else {
             return;
         };
-        let scorer = build_multi_factor_scorer(config.clone(), self.topology.clone(), self.kv_manager.clone());
+        let scorer = build_multi_factor_scorer(
+            config.clone(),
+            self.topology.clone(),
+            self.kv_manager.clone(),
+        );
         self.placement.set_scorer(scorer);
     }
 }
@@ -1061,8 +1065,8 @@ mod tests {
 
     #[test]
     fn test_rebuild_scorer_called_after_kv_manager() {
-        use crate::kv::KvCacheConfig;
         use crate::kv::HeuristicKvCacheManager;
+        use crate::kv::KvCacheConfig;
         let kv_config = KvCacheConfig {
             total_budget_bytes: 8_000_000_000,
             ..KvCacheConfig::default()
@@ -1125,7 +1129,8 @@ mod tests {
         // Make inst-a heavily loaded so the default scorer would avoid it
         let id_a = InstanceId::new("inst-a");
         for _ in 0..100 {
-            sched.registry
+            sched
+                .registry
                 .record_request_start(&id_a, SequenceId::new());
         }
 

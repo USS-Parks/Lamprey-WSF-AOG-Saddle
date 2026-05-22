@@ -64,8 +64,13 @@ impl ScoreBreakdown {
     pub fn to_reason_string(&self) -> String {
         format!(
             "multi-factor(lat={:.3} mem={:.3} topo={:.3} evict={:.3} batch=-{:.3} cont={} total={:.3})",
-            self.latency, self.memory, self.topology, self.eviction,
-            self.batch, self.continuation_hit, self.total
+            self.latency,
+            self.memory,
+            self.topology,
+            self.eviction,
+            self.batch,
+            self.continuation_hit,
+            self.total
         )
     }
 }
@@ -212,11 +217,7 @@ impl MultiFactorScorer {
     /// Score a candidate instance for a given request.
     ///
     /// Returns the composite score and a detailed breakdown.
-    pub fn score(
-        &self,
-        state: &InstanceState,
-        request: &ScheduleRequest,
-    ) -> (f64, ScoreBreakdown) {
+    pub fn score(&self, state: &InstanceState, request: &ScheduleRequest) -> (f64, ScoreBreakdown) {
         let lat = latency_penalty(state, &self.config.latency);
         let mem = memory_penalty(state, &self.config.memory);
         let topo = topology_penalty(state, self.topology.as_ref(), &self.config.topology);
@@ -257,11 +258,7 @@ impl MultiFactorScorer {
 
     /// Check whether this instance has a warm KV cache for the continuation
     /// sequence. A warm cache hit means re-prefill is skipped entirely.
-    fn check_continuation(
-        &self,
-        state: &InstanceState,
-        request: &ScheduleRequest,
-    ) -> bool {
+    fn check_continuation(&self, state: &InstanceState, request: &ScheduleRequest) -> bool {
         let continuation_seq = match &request.continuation_of {
             Some(seq) => seq,
             None => return false,
@@ -395,7 +392,10 @@ mod tests {
 
         // Empty instance: latency=0, memory=0, topo=0, evict=0, batch=1.0 (max benefit)
         // score = -1.5 * 1.0 = -1.5
-        assert!(score < 0.0, "empty instance should have negative score (batch benefit), got {score}");
+        assert!(
+            score < 0.0,
+            "empty instance should have negative score (batch benefit), got {score}"
+        );
         assert!(breakdown.latency.abs() < f64::EPSILON);
         assert!(breakdown.memory.abs() < f64::EPSILON);
         assert!(!breakdown.continuation_hit);
@@ -484,7 +484,15 @@ mod tests {
         let scorer = MultiFactorScorer::new(config);
 
         let state_a = make_state_full(1, 1_000_000_000, 16_000_000_000, 0.1, 0, 0, vec![GpuId(0)]);
-        let state_b = make_state_full(10, 14_000_000_000, 16_000_000_000, 0.9, 5, 8, vec![GpuId(0)]);
+        let state_b = make_state_full(
+            10,
+            14_000_000_000,
+            16_000_000_000,
+            0.9,
+            5,
+            8,
+            vec![GpuId(0)],
+        );
 
         let (score_a, _) = scorer.score(&state_a, &make_request());
         let (score_b, _) = scorer.score(&state_b, &make_request());
@@ -503,7 +511,8 @@ mod tests {
         };
 
         let seq_id = SequenceId::new();
-        let mut state = make_state_full(5, 8_000_000_000, 16_000_000_000, 0.5, 0, 0, vec![GpuId(0)]);
+        let mut state =
+            make_state_full(5, 8_000_000_000, 16_000_000_000, 0.5, 0, 0, vec![GpuId(0)]);
         state.metrics.last_sequence_id = Some(seq_id);
 
         // Without continuation

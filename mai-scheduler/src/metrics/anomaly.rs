@@ -16,10 +16,18 @@ pub struct AnomalyConfig {
     pub queue_buildup_window: usize,
 }
 
-fn default_latency_spike_multiplier() -> f64 { 3.0 }
-fn default_vram_trend_window() -> usize { 10 }
-fn default_throughput_drop_ratio() -> f64 { 0.5 }
-fn default_queue_buildup_window() -> usize { 5 }
+fn default_latency_spike_multiplier() -> f64 {
+    3.0
+}
+fn default_vram_trend_window() -> usize {
+    10
+}
+fn default_throughput_drop_ratio() -> f64 {
+    0.5
+}
+fn default_queue_buildup_window() -> usize {
+    5
+}
 
 impl Default for AnomalyConfig {
     fn default() -> Self {
@@ -103,7 +111,9 @@ impl AnomalyDetector {
         let indices: Vec<f64> = (0..count).map(|i| i as f64).collect();
         let mean_x = indices.iter().sum::<f64>() / count as f64;
         let mean_y = samples.iter().sum::<u64>() as f64 / count as f64;
-        let numerator: f64 = indices.iter().zip(samples.iter())
+        let numerator: f64 = indices
+            .iter()
+            .zip(samples.iter())
             .map(|(&x, &y)| (x - mean_x) * (y as f64 - mean_y))
             .sum();
         let denominator: f64 = indices.iter().map(|&x| (x - mean_x).powi(2)).sum();
@@ -145,18 +155,19 @@ impl AnomalyDetector {
         if count < self.config.queue_buildup_window {
             return None;
         }
-        let recent: Vec<u32> = previous_depths.iter().rev().take(self.config.queue_buildup_window).copied().collect();
+        let recent: Vec<u32> = previous_depths
+            .iter()
+            .rev()
+            .take(self.config.queue_buildup_window)
+            .copied()
+            .collect();
         let increasing = recent.windows(2).all(|w| w[1] >= w[0]);
         if !increasing {
             return None;
         }
         let first = *recent.first().unwrap_or(&1).max(&1);
         let growth = current_depth as f64 / first as f64;
-        if growth > 1.5 {
-            Some(growth)
-        } else {
-            None
-        }
+        if growth > 1.5 { Some(growth) } else { None }
     }
 }
 

@@ -167,9 +167,7 @@ mod tests {
         let state = make_state();
         let req = make_request(100, 200);
         let config = EvictionCostConfig::default();
-        assert!(
-            (eviction_penalty(&state, &req, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((eviction_penalty(&state, &req, None, &config)).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -186,9 +184,7 @@ mod tests {
         let req = make_request(100, 200);
         let config = EvictionCostConfig::default();
 
-        assert!(
-            (eviction_penalty(&state, &req, Some(&kv), &config)).abs() < f64::EPSILON
-        );
+        assert!((eviction_penalty(&state, &req, Some(&kv), &config)).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -199,8 +195,6 @@ mod tests {
         };
         let state = make_state();
         let req = make_request(100, 200);
-        assert!(
-            (eviction_penalty(&state, &req, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((eviction_penalty(&state, &req, None, &config)).abs() < f64::EPSILON);
     }
 }

@@ -62,8 +62,7 @@ pub fn memory_penalty(state: &InstanceState, config: &MemoryConfig) -> f64 {
         return 1.0; // No VRAM allocated = treat as fully pressured
     }
 
-    let usage_ratio =
-        state.metrics.vram_used as f64 / state.config.vram_allocated as f64;
+    let usage_ratio = state.metrics.vram_used as f64 / state.config.vram_allocated as f64;
     let clamped_ratio = usage_ratio.clamp(0.0, 1.0);
 
     clamped_ratio.powf(config.pressure_exponent).clamp(0.0, 1.0)

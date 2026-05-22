@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
-use crate::types::{InstanceId, SequenceId};
 use super::store::RingBuffer;
+use crate::types::{InstanceId, SequenceId};
 
 /// Configuration for request lifecycle tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,10 +77,9 @@ impl PerInstanceLifecycle {
     }
 
     pub fn recent(&self) -> Vec<RequestLifecycle> {
-        self.lifecycles.lock().map_or_else(
-            |_| Vec::new(),
-            |buf| buf.iter().cloned().collect(),
-        )
+        self.lifecycles
+            .lock()
+            .map_or_else(|_| Vec::new(), |buf| buf.iter().cloned().collect())
     }
 
     pub fn rolling_prediction_error(&self) -> Option<f64> {

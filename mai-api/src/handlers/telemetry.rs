@@ -15,7 +15,9 @@ use crate::state::AppState;
 /// GET /v1/scheduler/metrics
 ///
 /// Returns global scheduler metrics.
-pub async fn scheduler_metrics(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+pub async fn scheduler_metrics(
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, ApiError> {
     let cluster = state.scheduler.cluster_metrics();
     match serde_json::to_value(&cluster) {
         Ok(val) => Ok(Json(val)),

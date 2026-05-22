@@ -74,7 +74,10 @@ impl MetricsCollector {
     }
 
     /// Get health scores for all instances that have received requests.
-    pub fn all_health_scores(&self, registry_metrics: &DashMap<InstanceId, InstanceMetrics>) -> Vec<(InstanceId, HealthScore)> {
+    pub fn all_health_scores(
+        &self,
+        registry_metrics: &DashMap<InstanceId, InstanceMetrics>,
+    ) -> Vec<(InstanceId, HealthScore)> {
         let mut scores = Vec::new();
         for entry in registry_metrics {
             let id = entry.key().clone();
@@ -87,7 +90,11 @@ impl MetricsCollector {
     }
 
     /// Get health score for a specific instance.
-    pub fn instance_health_score(&self, instance_id: &InstanceId, metrics: &InstanceMetrics) -> Option<HealthScore> {
+    pub fn instance_health_score(
+        &self,
+        instance_id: &InstanceId,
+        metrics: &InstanceMetrics,
+    ) -> Option<HealthScore> {
         self.processor.health_score(instance_id, metrics)
     }
 

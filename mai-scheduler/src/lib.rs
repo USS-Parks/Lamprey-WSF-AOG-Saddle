@@ -46,7 +46,7 @@ pub use kv::{HeuristicKvCacheManager, KvCacheConfig};
 pub use metrics::{MetricsCollector, MetricsConfig};
 pub use scheduler::Scheduler;
 pub use scoring::{
-    build_multi_factor_scorer, build_scorer, MultiFactorScorer, ScoreBreakdown, ScoringConfig,
+    MultiFactorScorer, ScoreBreakdown, ScoringConfig, build_multi_factor_scorer, build_scorer,
 };
 pub use topology::{GpuTopology, TopologyConfig, TopologyError};
 pub use types::{

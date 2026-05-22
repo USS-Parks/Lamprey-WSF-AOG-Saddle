@@ -130,27 +130,21 @@ mod tests {
     fn test_single_gpu_zero_penalty() {
         let state = make_state_gpus(vec![GpuId::new(0)]);
         let config = TopologyScoreConfig::default();
-        assert!(
-            (topology_penalty(&state, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((topology_penalty(&state, None, &config)).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_no_topology_zero_penalty() {
         let state = make_state_gpus(vec![GpuId::new(0), GpuId::new(1)]);
         let config = TopologyScoreConfig::default();
-        assert!(
-            (topology_penalty(&state, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((topology_penalty(&state, None, &config)).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_empty_gpu_ids_zero_penalty() {
         let state = make_state_gpus(vec![]);
         let config = TopologyScoreConfig::default();
-        assert!(
-            (topology_penalty(&state, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((topology_penalty(&state, None, &config)).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -159,18 +153,14 @@ mod tests {
         let config = TopologyScoreConfig { max_penalty: 0.01 };
         // No real topology to test with here, but the function returns 0 without topo
         let state = make_state_gpus(vec![GpuId::new(0), GpuId::new(1)]);
-        assert!(
-            (topology_penalty(&state, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((topology_penalty(&state, None, &config)).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_zero_max_penalty_returns_zero() {
         let config = TopologyScoreConfig { max_penalty: 0.0 };
         let state = make_state_gpus(vec![GpuId::new(0), GpuId::new(1)]);
-        assert!(
-            (topology_penalty(&state, None, &config)).abs() < f64::EPSILON
-        );
+        assert!((topology_penalty(&state, None, &config)).abs() < f64::EPSILON);
     }
 
     #[test]

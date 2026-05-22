@@ -79,7 +79,13 @@ impl InstanceHealthTracker {
         }
     }
 
-    pub fn record_completion(&mut self, actual_latency_ms: u64, is_error: bool, vram_used: u64, tokens_per_sec: f64) {
+    pub fn record_completion(
+        &mut self,
+        actual_latency_ms: u64,
+        is_error: bool,
+        vram_used: u64,
+        tokens_per_sec: f64,
+    ) {
         self.latency_samples.push(actual_latency_ms);
         self.total_count += 1;
         if is_error {
@@ -117,10 +123,14 @@ impl InstanceHealthTracker {
         if mean < 1.0 {
             return 1.0;
         }
-        let variance = samples.iter().map(|&v| {
-            let diff = v as f64 - mean;
-            diff * diff
-        }).sum::<f64>() / count as f64;
+        let variance = samples
+            .iter()
+            .map(|&v| {
+                let diff = v as f64 - mean;
+                diff * diff
+            })
+            .sum::<f64>()
+            / count as f64;
         let std_dev = variance.sqrt();
         let cv = std_dev / mean; // coefficient of variation
         (1.0 - cv.min(1.0)).max(0.0)
@@ -144,7 +154,9 @@ impl InstanceHealthTracker {
         let indices: Vec<f64> = (0..count).map(|i| i as f64).collect();
         let mean_x = indices.iter().sum::<f64>() / count as f64;
         let mean_y = samples.iter().sum::<u64>() as f64 / count as f64;
-        let numerator: f64 = indices.iter().zip(samples.iter())
+        let numerator: f64 = indices
+            .iter()
+            .zip(samples.iter())
             .map(|(&x, &y)| (x - mean_x) * (y as f64 - mean_y))
             .sum();
         let denominator: f64 = indices.iter().map(|&x| (x - mean_x).powi(2)).sum();
@@ -251,13 +263,22 @@ mod tests {
         }
         // Leak: VRAM increasing dramatically over time (10x growth)
         for i in 0..10 {
-            leak_tracker.record_completion(50, false, 1_000_000_000 + i as u64 * 10_000_000_000, 100.0);
+            leak_tracker.record_completion(
+                50,
+                false,
+                1_000_000_000 + i as u64 * 10_000_000_000,
+                100.0,
+            );
         }
 
         let stable_score = stable_tracker.score(&metrics, &default_config());
         let leak_score = leak_tracker.score(&metrics, &default_config());
-        assert!(leak_score.memory_stability < stable_score.memory_stability,
-            "leak={} should be < stable={}", leak_score.memory_stability, stable_score.memory_stability);
+        assert!(
+            leak_score.memory_stability < stable_score.memory_stability,
+            "leak={} should be < stable={}",
+            leak_score.memory_stability,
+            stable_score.memory_stability
+        );
     }
 
     #[test]
