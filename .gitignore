@@ -29,7 +29,9 @@ Thumbs.db
 venv/
 
 # Test artifacts
+results/
 tests/benchmarks/results/
 tests/burn-in/results/
+.tmp/
 # Junk from sandbox sed failures
 .integrity/scripts/c *
