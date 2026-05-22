@@ -82,13 +82,27 @@ impl TransitionExecutor {
         }
     }
 
-    pub fn from_state(&self) -> PowerState { self.from }
-    pub fn to_state(&self) -> PowerState { self.to }
-    pub fn trigger(&self) -> &TransitionTrigger { &self.trigger }
-    pub fn phase(&self) -> TransitionPhase { self.phase }
-    pub fn elapsed(&self) -> Duration { self.started_at.elapsed() }
-    pub fn phase_elapsed(&self) -> Duration { self.phase_started_at.elapsed() }
-    pub fn has_timed_out(&self) -> bool { self.timed_out }
+    pub fn from_state(&self) -> PowerState {
+        self.from
+    }
+    pub fn to_state(&self) -> PowerState {
+        self.to
+    }
+    pub fn trigger(&self) -> &TransitionTrigger {
+        &self.trigger
+    }
+    pub fn phase(&self) -> TransitionPhase {
+        self.phase
+    }
+    pub fn elapsed(&self) -> Duration {
+        self.started_at.elapsed()
+    }
+    pub fn phase_elapsed(&self) -> Duration {
+        self.phase_started_at.elapsed()
+    }
+    pub fn has_timed_out(&self) -> bool {
+        self.timed_out
+    }
 
     /// Advance to the next phase. Returns false if already completed.
     pub fn advance(&mut self) -> bool {
@@ -121,7 +135,9 @@ impl TransitionExecutor {
 
     /// Check if the current phase has exceeded the timeout.
     pub fn check_timeout(&mut self) -> bool {
-        if self.timed_out { return true; }
+        if self.timed_out {
+            return true;
+        }
         if self.phase == TransitionPhase::Completed || self.phase == TransitionPhase::RolledBack {
             return false;
         }
@@ -143,7 +159,10 @@ impl TransitionExecutor {
 
     /// Whether the transition is in a terminal state.
     pub fn is_terminal(&self) -> bool {
-        matches!(self.phase, TransitionPhase::Completed | TransitionPhase::RolledBack)
+        matches!(
+            self.phase,
+            TransitionPhase::Completed | TransitionPhase::RolledBack
+        )
     }
 
     /// Build a TransitionRecord for the audit log.
@@ -174,23 +193,42 @@ mod tests {
 
     #[test]
     fn test_initial_phase_is_requested() {
-        let ex = TransitionExecutor::new(PowerState::Off, PowerState::DeepVaultSleep, TransitionTrigger::SystemBoot, Duration::from_secs(30));
+        let ex = TransitionExecutor::new(
+            PowerState::Off,
+            PowerState::DeepVaultSleep,
+            TransitionTrigger::SystemBoot,
+            Duration::from_secs(30),
+        );
         assert_eq!(ex.phase(), TransitionPhase::Requested);
     }
 
     #[test]
     fn test_advance_through_phases() {
-        let mut ex = TransitionExecutor::new(PowerState::Sentinel, PowerState::FullInference, TransitionTrigger::SentinelPromotion, Duration::from_secs(30));
-        assert!(ex.advance()); assert_eq!(ex.phase(), TransitionPhase::PreHook);
-        assert!(ex.advance()); assert_eq!(ex.phase(), TransitionPhase::Waiting);
-        assert!(ex.advance()); assert_eq!(ex.phase(), TransitionPhase::PostHook);
-        assert!(ex.advance()); assert_eq!(ex.phase(), TransitionPhase::Completed);
+        let mut ex = TransitionExecutor::new(
+            PowerState::Sentinel,
+            PowerState::FullInference,
+            TransitionTrigger::SentinelPromotion,
+            Duration::from_secs(30),
+        );
+        assert!(ex.advance());
+        assert_eq!(ex.phase(), TransitionPhase::PreHook);
+        assert!(ex.advance());
+        assert_eq!(ex.phase(), TransitionPhase::Waiting);
+        assert!(ex.advance());
+        assert_eq!(ex.phase(), TransitionPhase::PostHook);
+        assert!(ex.advance());
+        assert_eq!(ex.phase(), TransitionPhase::Completed);
         assert!(!ex.advance()); // terminal
     }
 
     #[test]
     fn test_timeout_detection() {
-        let mut ex = TransitionExecutor::new(PowerState::FullInference, PowerState::Sentinel, TransitionTrigger::InactivityTimeout, Duration::from_millis(1));
+        let mut ex = TransitionExecutor::new(
+            PowerState::FullInference,
+            PowerState::Sentinel,
+            TransitionTrigger::InactivityTimeout,
+            Duration::from_millis(1),
+        );
         std::thread::sleep(Duration::from_millis(5));
         assert!(ex.check_timeout());
         assert!(ex.has_timed_out());
@@ -198,21 +236,41 @@ mod tests {
 
     #[test]
     fn test_no_timeout_when_completed() {
-        let mut ex = TransitionExecutor::new(PowerState::FullInference, PowerState::Sentinel, TransitionTrigger::InactivityTimeout, Duration::from_millis(1));
-        ex.advance(); ex.advance(); ex.advance(); ex.advance();
+        let mut ex = TransitionExecutor::new(
+            PowerState::FullInference,
+            PowerState::Sentinel,
+            TransitionTrigger::InactivityTimeout,
+            Duration::from_millis(1),
+        );
+        ex.advance();
+        ex.advance();
+        ex.advance();
+        ex.advance();
         assert!(!ex.check_timeout()); // completed doesn't timeout
     }
 
     #[test]
     fn test_rollback() {
-        let mut ex = TransitionExecutor::new(PowerState::FullInference, PowerState::ThermalThrottle, TransitionTrigger::ThermalLimitExceeded { temperature_celsius: 90.0 }, Duration::from_secs(30));
+        let mut ex = TransitionExecutor::new(
+            PowerState::FullInference,
+            PowerState::ThermalThrottle,
+            TransitionTrigger::ThermalLimitExceeded {
+                temperature_celsius: 90.0,
+            },
+            Duration::from_secs(30),
+        );
         ex.rollback();
         assert_eq!(ex.phase(), TransitionPhase::RolledBack);
     }
 
     #[test]
     fn test_record() {
-        let ex = TransitionExecutor::new(PowerState::Off, PowerState::DeepVaultSleep, TransitionTrigger::SystemBoot, Duration::from_secs(30));
+        let ex = TransitionExecutor::new(
+            PowerState::Off,
+            PowerState::DeepVaultSleep,
+            TransitionTrigger::SystemBoot,
+            Duration::from_secs(30),
+        );
         let record = ex.to_record();
         assert_eq!(record.from, PowerState::Off);
         assert_eq!(record.to, PowerState::DeepVaultSleep);

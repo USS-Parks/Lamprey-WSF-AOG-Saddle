@@ -42,10 +42,10 @@ pub mod types;
 // Re-exports for convenience
 pub use batch::{BatchBuilder, BatchConfig, BatchDecision};
 pub use default::DefaultScheduler;
-pub use power::{PowerControllerConfig, PowerStateController};
 pub use kv::manager::KvCacheManager;
 pub use kv::{HeuristicKvCacheManager, KvCacheConfig};
 pub use metrics::{MetricsCollector, MetricsConfig};
+pub use power::{PowerControllerConfig, PowerStateController};
 pub use scheduler::Scheduler;
 pub use scoring::{
     MultiFactorScorer, ScoreBreakdown, ScoringConfig, build_multi_factor_scorer, build_scorer,

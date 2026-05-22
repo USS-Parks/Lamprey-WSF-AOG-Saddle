@@ -446,7 +446,9 @@ impl Scheduler for DefaultScheduler {
     fn on_wake_gpu(&self, gpu_id: GpuId) -> Result<(), SchedulerError> {
         let instances = self.registry.find_by_gpu(gpu_id);
         if instances.is_empty() {
-            return Err(SchedulerError::InstanceNotFound(InstanceId::new(format!("gpu:{gpu_id}"))));
+            return Err(SchedulerError::InstanceNotFound(InstanceId::new(format!(
+                "gpu:{gpu_id}"
+            ))));
         }
         // Mark all instances on this GPU as healthy by resetting their metrics.
         // In a full implementation, the adapter layer would re-register instances

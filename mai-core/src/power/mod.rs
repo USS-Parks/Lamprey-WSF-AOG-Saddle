@@ -82,9 +82,21 @@ pub enum WakeSource {
 
 #[derive(Debug, Clone)]
 pub enum TransitionResult {
-    Completed { from: PowerState, to: PowerState, duration: Duration },
-    InProgress { from: PowerState, to: PowerState, started_at: Instant },
-    Rejected { from: PowerState, to: PowerState, reason: String },
+    Completed {
+        from: PowerState,
+        to: PowerState,
+        duration: Duration,
+    },
+    InProgress {
+        from: PowerState,
+        to: PowerState,
+        started_at: Instant,
+    },
+    Rejected {
+        from: PowerState,
+        to: PowerState,
+        reason: String,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -225,7 +237,11 @@ impl PowerStateMachine {
             phase: None,
         };
         self.transition_log.push(record);
-        Ok(TransitionResult::Completed { from, to: target, duration: started.elapsed() })
+        Ok(TransitionResult::Completed {
+            from,
+            to: target,
+            duration: started.elapsed(),
+        })
     }
 
     pub fn set_transition_in_progress(&mut self, in_progress: bool) {
@@ -240,11 +256,19 @@ impl PowerStateMachine {
         let idle = self.last_activity.elapsed();
         match self.current_state {
             PowerState::FullInference if idle >= self.config.auto_demotion.full_to_sentinel => {
-                debug!(idle_secs = idle.as_secs(), threshold_secs = self.config.auto_demotion.full_to_sentinel.as_secs(), "Auto-demotion: FullInference -> Sentinel");
+                debug!(
+                    idle_secs = idle.as_secs(),
+                    threshold_secs = self.config.auto_demotion.full_to_sentinel.as_secs(),
+                    "Auto-demotion: FullInference -> Sentinel"
+                );
                 Some(TransitionTrigger::InactivityTimeout)
             }
             PowerState::Sentinel if idle >= self.config.auto_demotion.sentinel_to_sleep => {
-                debug!(idle_secs = idle.as_secs(), threshold_secs = self.config.auto_demotion.sentinel_to_sleep.as_secs(), "Auto-demotion: Sentinel -> DeepVaultSleep");
+                debug!(
+                    idle_secs = idle.as_secs(),
+                    threshold_secs = self.config.auto_demotion.sentinel_to_sleep.as_secs(),
+                    "Auto-demotion: Sentinel -> DeepVaultSleep"
+                );
                 Some(TransitionTrigger::ExtendedInactivity)
             }
             _ => None,
@@ -256,8 +280,7 @@ impl PowerStateMachine {
     }
 
     pub fn should_promote_to_full(&self, estimated_tokens: u32, is_complex_task: bool) -> bool {
-        self.current_state == PowerState::Sentinel
-            && (estimated_tokens > 4096 || is_complex_task)
+        self.current_state == PowerState::Sentinel && (estimated_tokens > 4096 || is_complex_task)
     }
 
     pub fn handle_thermal_event(
@@ -267,7 +290,11 @@ impl PowerStateMachine {
         if temperature_celsius >= self.config.thermal_throttle_celsius
             && self.current_state == PowerState::FullInference
         {
-            warn!(temp = temperature_celsius, threshold = self.config.thermal_throttle_celsius, "Thermal throttle triggered");
+            warn!(
+                temp = temperature_celsius,
+                threshold = self.config.thermal_throttle_celsius,
+                "Thermal throttle triggered"
+            );
             let result = self.request_transition(TransitionTrigger::ThermalLimitExceeded {
                 temperature_celsius,
             })?;
@@ -275,7 +302,11 @@ impl PowerStateMachine {
         } else if temperature_celsius <= self.config.thermal_recovery_celsius
             && self.current_state == PowerState::ThermalThrottle
         {
-            info!(temp = temperature_celsius, threshold = self.config.thermal_recovery_celsius, "Thermal recovery");
+            info!(
+                temp = temperature_celsius,
+                threshold = self.config.thermal_recovery_celsius,
+                "Thermal recovery"
+            );
             let result = self.request_transition(TransitionTrigger::ThermalRecovery {
                 temperature_celsius,
             })?;
@@ -301,7 +332,10 @@ impl PowerStateMachine {
         self.last_activity.elapsed()
     }
 
-    pub fn resolve_target_state(&self, trigger: &TransitionTrigger) -> Result<PowerState, PowerError> {
+    pub fn resolve_target_state(
+        &self,
+        trigger: &TransitionTrigger,
+    ) -> Result<PowerState, PowerError> {
         match trigger {
             TransitionTrigger::SystemBoot => Ok(PowerState::DeepVaultSleep),
             TransitionTrigger::WakeTrigger(_) => Ok(PowerState::Sentinel),
@@ -312,14 +346,20 @@ impl PowerStateMachine {
                 if self.current_state == PowerState::FullInference {
                     Ok(PowerState::Sentinel)
                 } else {
-                    Err(PowerError::InvalidTransition { from: self.current_state.as_str().to_string(), to: "Sentinel (inactivity)".to_string() })
+                    Err(PowerError::InvalidTransition {
+                        from: self.current_state.as_str().to_string(),
+                        to: "Sentinel (inactivity)".to_string(),
+                    })
                 }
             }
             TransitionTrigger::ExtendedInactivity => {
                 if self.current_state == PowerState::Sentinel {
                     Ok(PowerState::DeepVaultSleep)
                 } else {
-                    Err(PowerError::InvalidTransition { from: self.current_state.as_str().to_string(), to: "DeepVaultSleep (extended inactivity)".to_string() })
+                    Err(PowerError::InvalidTransition {
+                        from: self.current_state.as_str().to_string(),
+                        to: "DeepVaultSleep (extended inactivity)".to_string(),
+                    })
                 }
             }
             TransitionTrigger::ThermalLimitExceeded { .. } => Ok(PowerState::ThermalThrottle),
@@ -329,13 +369,23 @@ impl PowerStateMachine {
     }
 
     fn is_valid_transition(&self, from: PowerState, to: PowerState) -> bool {
-        if to == PowerState::Off { return true; }
+        if to == PowerState::Off {
+            return true;
+        }
         matches!(
             (from, to),
-            (PowerState::Off | PowerState::Sentinel, PowerState::DeepVaultSleep)
-                | (PowerState::DeepVaultSleep | PowerState::FullInference | PowerState::ThermalThrottle, PowerState::Sentinel)
-                | (PowerState::DeepVaultSleep | PowerState::Sentinel | PowerState::ThermalThrottle, PowerState::FullInference)
-                | (PowerState::FullInference, PowerState::ThermalThrottle)
+            (
+                PowerState::Off | PowerState::Sentinel,
+                PowerState::DeepVaultSleep
+            ) | (
+                PowerState::DeepVaultSleep
+                    | PowerState::FullInference
+                    | PowerState::ThermalThrottle,
+                PowerState::Sentinel
+            ) | (
+                PowerState::DeepVaultSleep | PowerState::Sentinel | PowerState::ThermalThrottle,
+                PowerState::FullInference
+            ) | (PowerState::FullInference, PowerState::ThermalThrottle)
         )
     }
 }
@@ -356,13 +406,17 @@ mod tests {
     #[test]
     fn test_boot_sequence() {
         let mut psm = default_machine();
-        assert!(psm.request_transition(TransitionTrigger::SystemBoot).is_ok());
+        assert!(
+            psm.request_transition(TransitionTrigger::SystemBoot)
+                .is_ok()
+        );
         assert_eq!(psm.current_state(), PowerState::DeepVaultSleep);
     }
 
     #[test]
     fn test_wake_to_sentinel() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
         let r = psm.request_transition(TransitionTrigger::WakeTrigger(WakeSource::ApiRequest));
         assert!(r.is_ok());
         assert_eq!(psm.current_state(), PowerState::Sentinel);
@@ -370,28 +424,40 @@ mod tests {
 
     #[test]
     fn test_urgent_wake_to_full() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
-        assert!(psm.request_transition(TransitionTrigger::UrgentWake(WakeSource::Manual)).is_ok());
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::DeepVaultSleep);
+        assert!(
+            psm.request_transition(TransitionTrigger::UrgentWake(WakeSource::Manual))
+                .is_ok()
+        );
         assert_eq!(psm.current_state(), PowerState::FullInference);
     }
 
     #[test]
     fn test_sentinel_promotion() {
         let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::Sentinel);
-        assert!(psm.request_transition(TransitionTrigger::SentinelPromotion).is_ok());
+        assert!(
+            psm.request_transition(TransitionTrigger::SentinelPromotion)
+                .is_ok()
+        );
         assert_eq!(psm.current_state(), PowerState::FullInference);
     }
 
     #[test]
     fn test_inactivity_demotion() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
-        assert!(psm.request_transition(TransitionTrigger::InactivityTimeout).is_ok());
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        assert!(
+            psm.request_transition(TransitionTrigger::InactivityTimeout)
+                .is_ok()
+        );
         assert_eq!(psm.current_state(), PowerState::Sentinel);
     }
 
     #[test]
     fn test_thermal_throttle() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
         let r = psm.handle_thermal_event(85.0).unwrap();
         assert!(r.is_some());
         assert_eq!(psm.current_state(), PowerState::ThermalThrottle);
@@ -399,7 +465,8 @@ mod tests {
 
     #[test]
     fn test_thermal_recovery() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::ThermalThrottle);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::ThermalThrottle);
         let r = psm.handle_thermal_event(70.0).unwrap();
         assert!(r.is_some());
         assert_eq!(psm.current_state(), PowerState::FullInference);
@@ -409,15 +476,26 @@ mod tests {
     fn test_invalid_transition_rejected() {
         let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::Sentinel);
         // Can't go from Sentinel directly to ThermalThrottle
-        let r = psm.request_transition(TransitionTrigger::ThermalLimitExceeded { temperature_celsius: 90.0 });
+        let r = psm.request_transition(TransitionTrigger::ThermalLimitExceeded {
+            temperature_celsius: 90.0,
+        });
         assert!(r.is_err());
     }
 
     #[test]
     fn test_shutdown_from_any_state() {
-        for state in [PowerState::Off, PowerState::DeepVaultSleep, PowerState::Sentinel, PowerState::FullInference, PowerState::ThermalThrottle] {
+        for state in [
+            PowerState::Off,
+            PowerState::DeepVaultSleep,
+            PowerState::Sentinel,
+            PowerState::FullInference,
+            PowerState::ThermalThrottle,
+        ] {
             let mut psm = PowerStateMachine::with_state(PowerConfig::default(), state);
-            assert!(psm.request_transition(TransitionTrigger::SystemShutdown).is_ok());
+            assert!(
+                psm.request_transition(TransitionTrigger::SystemShutdown)
+                    .is_ok()
+            );
             assert_eq!(psm.current_state(), PowerState::Off);
         }
     }
@@ -425,8 +503,10 @@ mod tests {
     #[test]
     fn test_transition_log_recorded() {
         let mut psm = default_machine();
-        psm.request_transition(TransitionTrigger::SystemBoot).unwrap();
-        psm.request_transition(TransitionTrigger::WakeTrigger(WakeSource::ApiRequest)).unwrap();
+        psm.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
+        psm.request_transition(TransitionTrigger::WakeTrigger(WakeSource::ApiRequest))
+            .unwrap();
         assert_eq!(psm.transition_log().len(), 2);
     }
 
@@ -438,7 +518,8 @@ mod tests {
 
     #[test]
     fn test_reset_demotion_timer() {
-        let mut psm = PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
+        let mut psm =
+            PowerStateMachine::with_state(PowerConfig::default(), PowerState::FullInference);
         let before = psm.idle_duration();
         psm.reset_demotion_timer();
         assert!(psm.idle_duration() <= before);

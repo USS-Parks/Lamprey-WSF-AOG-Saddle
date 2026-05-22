@@ -65,8 +65,7 @@ impl PowerStateController {
     /// Create a new PowerStateController.
     pub fn new(config: PowerControllerConfig, scheduler: Arc<dyn Scheduler>) -> Self {
         let state_machine = PowerStateMachine::new(config.power_config.clone());
-        let demotion_tracker =
-            DemotionTracker::new(config.demotion_config.clone());
+        let demotion_tracker = DemotionTracker::new(config.demotion_config.clone());
 
         info!("PowerStateController initialized");
 
@@ -223,11 +222,7 @@ impl PowerStateController {
 
     /// Access the transition log for auditing.
     pub fn transition_log(&self) -> Vec<TransitionRecord> {
-        self.state_machine
-            .read()
-            .unwrap()
-            .transition_log()
-            .to_vec()
+        self.state_machine.read().unwrap().transition_log().to_vec()
     }
 
     /// Number of registered GPU groups.
@@ -270,7 +265,10 @@ impl PowerStateController {
 mod tests {
     use super::*;
     use crate::default::DefaultScheduler;
-    use crate::types::{InstanceCapabilities, InstanceConfig, InstanceId, Priority, ScheduleRequest, SchedulerConfig};
+    use crate::types::{
+        InstanceCapabilities, InstanceConfig, InstanceId, Priority, ScheduleRequest,
+        SchedulerConfig,
+    };
 
     fn make_scheduler() -> Arc<dyn Scheduler> {
         let config = SchedulerConfig::default();
@@ -314,7 +312,8 @@ mod tests {
     fn test_wake_to_sentinel() {
         let sched = make_scheduler();
         let ctrl = make_controller(sched);
-        ctrl.request_transition(TransitionTrigger::SystemBoot).unwrap();
+        ctrl.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
         let result = ctrl.request_transition(TransitionTrigger::WakeTrigger(
             mai_core::power::WakeSource::ApiRequest,
         ));
@@ -329,7 +328,8 @@ mod tests {
         let ctrl = make_controller(sched.clone());
 
         // Boot and promote to FullInference
-        ctrl.request_transition(TransitionTrigger::SystemBoot).unwrap();
+        ctrl.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
         ctrl.request_transition(TransitionTrigger::UrgentWake(
             mai_core::power::WakeSource::Manual,
         ))
@@ -351,7 +351,8 @@ mod tests {
         register_instance(&sched, "test:0", "model-a", 0);
         let ctrl = make_controller(sched);
 
-        ctrl.request_transition(TransitionTrigger::SystemBoot).unwrap();
+        ctrl.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
         ctrl.request_transition(TransitionTrigger::UrgentWake(
             mai_core::power::WakeSource::Manual,
         ))
@@ -367,7 +368,8 @@ mod tests {
     fn test_thermal_throttle() {
         let sched = make_scheduler();
         let ctrl = make_controller(sched);
-        ctrl.request_transition(TransitionTrigger::SystemBoot).unwrap();
+        ctrl.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
         ctrl.request_transition(TransitionTrigger::UrgentWake(
             mai_core::power::WakeSource::Manual,
         ))
@@ -403,7 +405,8 @@ mod tests {
         register_instance(&sched, "test:0", "model-a", 0);
         let ctrl = make_controller(sched.clone());
 
-        ctrl.request_transition(TransitionTrigger::SystemBoot).unwrap();
+        ctrl.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
         // Before promotion, verify GPU set includes GPU 0
         let gpus = sched.all_gpu_set();
         assert!(!gpus.is_empty());
@@ -420,7 +423,8 @@ mod tests {
     fn test_transition_log_accessible() {
         let sched = make_scheduler();
         let ctrl = make_controller(sched);
-        ctrl.request_transition(TransitionTrigger::SystemBoot).unwrap();
+        ctrl.request_transition(TransitionTrigger::SystemBoot)
+            .unwrap();
         let log = ctrl.transition_log();
         assert_eq!(log.len(), 1);
     }
