@@ -76,7 +76,7 @@ impl DecisionKey {
 }
 
 fn bucket(value: u32, size: u32) -> u32 {
-    if size == 0 { value } else { value / size }
+    value.checked_div(size).unwrap_or(value)
 }
 
 /// Cached entry: a decision plus the time it was inserted.
@@ -147,6 +147,11 @@ impl DecisionCache {
     /// Number of live entries (including stale ones not yet pruned).
     pub fn len(&self) -> usize {
         self.cache.lock().unwrap().len()
+    }
+
+    /// True when the cache currently holds no entries.
+    pub fn is_empty(&self) -> bool {
+        self.cache.lock().unwrap().is_empty()
     }
 
     /// `(hits, misses)` counters.
