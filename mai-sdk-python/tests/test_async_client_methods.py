@@ -159,10 +159,44 @@ async def test_async_404_maps_to_not_found() -> None:
             await client.models.get("ghost")
 
 
-async def test_async_trust_stub_raises() -> None:
-    async with _async_client(lambda _r: httpx.Response(200, json={})) as client:
-        with pytest.raises(TrustNotProvisionedError):
-            await client.trust.bundle_status()
+async def test_async_trust_bundle_status_decodes_envelope() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "bundle_version": "v1",
+            "last_refresh_secs": 12345,
+            "age_secs": 60,
+            "connectivity": "connected",
+            "is_emergency_only": False,
+        })
+
+    async with _async_client(handler) as client:
+        bs = await client.trust.bundle_status()
+        assert bs.connectivity == "connected"
+
+
+async def test_async_compliance_status_decodes_envelope() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "modules": [{"module": "hipaa", "enabled": True, "priority": 0}],
+            "priority": ["hipaa"],
+            "reload_count": 0,
+            "audit_integrity": {
+                "entry_count": 0, "chain_count": 0,
+                "head_hash": "00" * 32, "last_verify": "unknown",
+                "last_verify_error": None,
+            },
+            "subscribers": 0,
+        })
+
+    async with _async_client(handler) as client:
+        s = await client.compliance.get_status()
+        assert s.modules[0].module == "hipaa"
+
+
+# `TrustNotProvisionedError` is still exported for application code that
+# wants to detect missing backends.
+def test_trust_not_provisioned_error_still_exported() -> None:
+    assert issubclass(TrustNotProvisionedError, Exception)
 
 
 async def test_async_health_check_returns_false_on_error() -> None:

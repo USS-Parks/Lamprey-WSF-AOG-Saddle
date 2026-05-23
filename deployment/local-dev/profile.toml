@@ -1,0 +1,38 @@
+# MAI deployment profile: local-dev
+#
+# Laptop / workstation development. Everything runs in one process;
+# Trust Bridge is not contacted. Claims are minted by the local
+# `/v1/auth/exchange_token` stub. Cache thresholds are short so
+# operators see the warn / expire transitions during a normal coding
+# session.
+
+[profile]
+name = "local-dev"
+description = "Single-process development. Cloud route allowed via loopback only."
+
+[trust]
+# No live Trust Bridge — claims come from /v1/auth/exchange_token.
+trust_bridge_url = ""
+# Bundle verifier: accept-all (matches mai-compliance::AcceptAllBundleVerifier).
+# Production replaces this with `ml-dsa` and an anchor registry.
+verifier = "accept-all"
+# Tight thresholds so the warn / expire ladder is observable.
+warn_after_secs = 300        # 5 minutes
+expire_after_secs = 1800     # 30 minutes
+# When true the policy runtime treats every claim as backed by a
+# synthetic event id; useful for exercising audit correlation locally.
+synthesise_credential_events = true
+
+[compliance]
+template = "standard"
+# Optional: pre-load tenants for repeatable demos.
+tenants = ["local-dev-tenant"]
+
+[airgap]
+# Air-gap switch is off; cloud route is permitted (subject to policy).
+switch_state = "open"
+allow_cloud_route = true
+
+[server]
+bind_address = "127.0.0.1:8080"
+log_level = "debug"

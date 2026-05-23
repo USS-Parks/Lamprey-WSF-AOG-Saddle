@@ -1,0 +1,49 @@
+# MAI deployment profile: local-mai-node
+#
+# The production MAI appliance. Pulls signed bundles from a
+# `cloud-trust-core` peer, verifies them locally, and serves inference
+# according to the connectivity ladder:
+#
+#   connected → degraded → stale_not_expired → expired → air-gapped
+#
+# Switch position wins when the operator throws the hardware air-gap;
+# otherwise the bundle age decides.
+
+[profile]
+name = "local-mai-node"
+description = "Production MAI appliance. Local verification + degraded fallback."
+
+[trust]
+trust_bridge_url = "https://trust.example.org"
+verifier = "ml-dsa"
+# Production thresholds: degraded after 1h, hard-expired after 24h.
+# Matches `CacheThresholds::default()`.
+warn_after_secs = 3600
+expire_after_secs = 86400
+# Refresh cadence (consumed by the background refresher; not enforced
+# by the cache itself).
+refresh_interval_secs = 600
+# Pin the tenant this appliance is bound to so cross-tenant bundles are
+# rejected by `LocalTrustCache::record_signed_refresh`.
+bound_tenant = "acme"
+
+[compliance]
+# Per-deployment template — operators choose Standard / Healthcare /
+# Defense / TribalGovernment based on the tenant.
+template = "healthcare"
+tenants = ["acme"]
+
+[airgap]
+# Switch state is driven by the hardware reader. The toml value is the
+# fallback when the reader is unavailable at boot.
+switch_state = "open"
+allow_cloud_route = true
+# Hardware switch wins over policy.
+hardware_switch_reader = "gpio"
+
+[server]
+bind_address = "0.0.0.0:8443"
+log_level = "info"
+# Compliance dashboard lives here so it has line-of-sight to the
+# audit chain and trust cache.
+enable_compliance_dashboard = true

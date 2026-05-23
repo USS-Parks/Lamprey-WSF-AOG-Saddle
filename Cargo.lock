@@ -1600,6 +1600,7 @@ dependencies = [
  "hex",
  "hyper",
  "mai-adapters",
+ "mai-compliance",
  "mai-core",
  "mai-hil",
  "mai-scheduler",

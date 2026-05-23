@@ -14,6 +14,9 @@
 //! - `/v1/adapters` - Adapter listing
 //! - `/v1/audit/*` - Audit trail access
 //! - `/v1/profiles/*` - Family profile queries
+//! - `/v1/trust/*` - Local trust cache surface (BF-6)
+//! - `/v1/auth/exchange_token` - Local-dev token exchange stub (BF-6)
+//! - `/v1/compliance/*` - Compliance policy / audit / reports / feed (S44)
 
 use std::convert::Infallible;
 
@@ -160,6 +163,90 @@ pub fn build_router(state: AppState) -> Router {
     // WebSocket streaming route (Session 11c)
     let ws_routes = Router::new().route("/v1/ws", any(streaming::ws::ws_upgrade));
 
+    // Trust Manifold routes (BF-6)
+    let trust_routes = Router::new()
+        .route("/v1/trust/status", get(handlers::trust::get_trust_status))
+        .route("/v1/trust/claims", get(handlers::trust::list_claims))
+        .route(
+            "/v1/trust/bundle_status",
+            get(handlers::trust::bundle_status),
+        )
+        .route(
+            "/v1/trust/revocation_status",
+            get(handlers::trust::revocation_status),
+        )
+        .route(
+            "/v1/auth/exchange_token",
+            post(handlers::trust::exchange_token),
+        );
+
+    // Compliance management routes (Session 44)
+    let compliance_routes = Router::new()
+        .route(
+            "/v1/compliance/status",
+            get(handlers::compliance::compliance_status),
+        )
+        .route(
+            "/v1/compliance/policies",
+            get(handlers::compliance::list_policies),
+        )
+        .route(
+            "/v1/compliance/policies/reload",
+            post(handlers::compliance::reload_policy),
+        )
+        .route(
+            "/v1/compliance/policies/template",
+            post(handlers::compliance::apply_template),
+        )
+        .route(
+            "/v1/compliance/policies/{module}",
+            get(handlers::compliance::get_policy).put(handlers::compliance::update_policy),
+        )
+        .route(
+            "/v1/compliance/modules/{name}/enable",
+            post(handlers::compliance::enable_module),
+        )
+        .route(
+            "/v1/compliance/modules/{name}/disable",
+            post(handlers::compliance::disable_module),
+        )
+        .route(
+            "/v1/compliance/audit",
+            get(handlers::compliance::query_audit),
+        )
+        .route(
+            "/v1/compliance/audit/verify",
+            get(handlers::compliance::verify_audit),
+        )
+        .route(
+            "/v1/compliance/audit/integrity",
+            get(handlers::compliance::audit_integrity),
+        )
+        .route(
+            "/v1/compliance/audit/{id}",
+            get(handlers::compliance::get_audit_entry),
+        )
+        .route(
+            "/v1/compliance/reports",
+            get(handlers::compliance::list_reports),
+        )
+        .route(
+            "/v1/compliance/reports/generate",
+            post(handlers::compliance::generate_report),
+        )
+        .route(
+            "/v1/compliance/reports/{id}",
+            get(handlers::compliance::get_report).delete(handlers::compliance::delete_report),
+        )
+        .route(
+            "/v1/compliance/reports/{id}/download",
+            get(handlers::compliance::download_report),
+        )
+        .route(
+            "/v1/compliance/feed",
+            get(handlers::compliance::compliance_feed),
+        );
+
     // Merge all route groups and apply middleware
     Router::new()
         .merge(inference_routes)
@@ -169,6 +256,8 @@ pub fn build_router(state: AppState) -> Router {
         .merge(system_routes)
         .merge(telemetry_routes)
         .merge(ws_routes)
+        .merge(trust_routes)
+        .merge(compliance_routes)
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

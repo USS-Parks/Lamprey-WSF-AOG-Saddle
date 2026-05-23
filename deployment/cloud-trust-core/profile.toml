@@ -1,0 +1,42 @@
+# MAI deployment profile: cloud-trust-core
+#
+# The central Trust Bridge node. Hosts OpenBao (or an equivalent
+# enterprise vault), signs policy bundles, publishes revocation
+# snapshots, and exchanges short-lived Lamprey claims. Does NOT serve
+# inference traffic — local MAI nodes (`local-mai-node`) consume from
+# this profile.
+
+[profile]
+name = "cloud-trust-core"
+description = "Central Trust Bridge; signs bundles and issues claims. Inference disabled."
+
+[trust]
+# This node *is* the Trust Bridge. The URL is published to mai nodes.
+trust_bridge_url = "https://trust.example.org"
+# Production verifier with ML-DSA-87 anchor registry.
+verifier = "ml-dsa"
+# Long thresholds: this node's cache is authoritative.
+warn_after_secs = 21600      # 6 hours
+expire_after_secs = 604800   # 7 days
+# OpenBao integration points (consumed by Sessions 26b–28c work).
+openbao_endpoint = "https://vault.example.org:8200"
+openbao_namespace = "lamprey"
+
+[compliance]
+# Central node carries a baseline template; per-tenant overrides ship as
+# signed bundles to the downstream nodes.
+template = "standard"
+tenants = []
+publish_bundles = true
+
+[airgap]
+switch_state = "open"
+allow_cloud_route = true
+
+[server]
+bind_address = "0.0.0.0:8443"
+log_level = "info"
+# Inference paths are disabled on this profile; the only HTTP surface
+# that matters is /v1/trust/*, /v1/auth/*, and the bundle publication
+# endpoints (BF-6 server-side wiring).
+disable_inference = true

@@ -17,7 +17,12 @@ from mai.errors import MaiError
 from mai.types import (
     AirgapStatusResponse,
     AuditLogResponse,
+    AuditQueryResponse,
     BenchmarkResult,
+    ComplianceReport,
+    ComplianceReportList,
+    ComplianceStatus,
+    ExchangeTokenResponse,
     HardwareHealthResponse,
     InstanceHealthResponse,
     InstanceMetricsResponse,
@@ -38,6 +43,8 @@ from mai.types import (
     SystemHealthResponse,
     TrustBundleStatus,
     TrustClaim,
+    TrustClaimsResponse,
+    TrustStatusResponse,
     UpdateCheckResponse,
     UpdateStatusResponse,
 )
@@ -315,71 +322,232 @@ class Admin:
 class Auth:
     """Auth/token operations (``client.auth``).
 
-    Stubbed in Session 29. The ``/v1/auth/exchange_token`` endpoint is
-    declared in the plan but not yet on the server — calls raise a
-    clear error so applications can detect it.
+    Implements ``POST /v1/auth/exchange_token`` against the local-dev
+    BF-6 stub. The token is opaque to consumers — pass it back to the
+    server as part of the request envelope; the real OpenBao-backed
+    exchange replaces the body of the server handler without changing
+    the wire shape.
     """
 
     def __init__(self, client: MaiClient) -> None:
         self._client = client
 
-    def exchange_token(self, claim: TrustClaim) -> str:  # noqa: ARG002
-        """POST /v1/auth/exchange_token — trade a trust claim for a session token.
-
-        Not yet implemented server-side (BF-6). Raises
-        :class:`TrustNotProvisionedError`.
-        """
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+    def exchange_token(
+        self,
+        subject_id: str,
+        *,
+        tenant_id: str | None = None,
+        scopes: list[str] | None = None,
+    ) -> ExchangeTokenResponse:
+        """POST /v1/auth/exchange_token — mint a short-lived access token."""
+        body: dict[str, Any] = {"subject_id": subject_id}
+        if tenant_id is not None:
+            body["tenant_id"] = tenant_id
+        if scopes is not None:
+            body["scopes"] = scopes
+        resp = self._client._request_with_retry("POST", "/auth/exchange_token", json=body)
+        return ExchangeTokenResponse.model_validate(resp.json())
 
 
 # ---------------------------------------------------------------------------
-# Trust (BF-6 stubs)
+# Trust (BF-6)
 # ---------------------------------------------------------------------------
 
 class Trust:
     """Trust Manifold namespace (``client.trust``).
 
-    Stubbed in Session 29 per S29 acceptance criteria (the surface
-    must exist). Real wiring lands in BF-6 (before S44 closes).
-    All methods raise :class:`TrustNotProvisionedError` with a clear
-    message until then.
+    Reads the local trust cache via the BF-6 server endpoints. Every
+    method is metadata-only — no prompt, completion, embedding, or
+    regulated payload travels through this surface (Trust Manifold
+    hard rule §A.2.4).
     """
 
     def __init__(self, client: MaiClient) -> None:
         self._client = client
 
-    def claims(self) -> list[TrustClaim]:
-        """GET /v1/trust/claims — list active claims for the current session."""
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+    def status(self) -> TrustStatusResponse:
+        """GET /v1/trust/status — consolidated trust mode."""
+        resp = self._client._request_with_retry("GET", "/trust/status")
+        return TrustStatusResponse.model_validate(resp.json())
+
+    def claims(self) -> TrustClaimsResponse:
+        """GET /v1/trust/claims — every claim held in the local cache."""
+        resp = self._client._request_with_retry("GET", "/trust/claims")
+        return TrustClaimsResponse.model_validate(resp.json())
 
     def bundle_status(self) -> TrustBundleStatus:
-        """GET /v1/trust/bundle — local trust cache state."""
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+        """GET /v1/trust/bundle_status — bundle version + freshness."""
+        resp = self._client._request_with_retry("GET", "/trust/bundle_status")
+        return TrustBundleStatus.model_validate(resp.json())
 
-    def revocation_status(self, subject_hash: str) -> RevocationStatusResponse:  # noqa: ARG002
-        """GET /v1/trust/revocation/{subject_hash} — revocation snapshot lookup."""
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+    def revocation_status(self, claim_id: str) -> RevocationStatusResponse:
+        """GET /v1/trust/revocation_status — per-claim snapshot lookup."""
+        resp = self._client._request_with_retry(
+            "GET", "/trust/revocation_status", params={"claim_id": claim_id},
+        )
+        return RevocationStatusResponse.model_validate(resp.json())
 
 
 # ---------------------------------------------------------------------------
-# Compliance (Session 36-44 surface — declared early per S29 spec)
+# Compliance (Session 44)
 # ---------------------------------------------------------------------------
 
 class Compliance:
     """Lamprey compliance namespace (``client.compliance``).
 
-    Reserved for Sessions 36-44 (router, HIPAA, ITAR/EAR, OCAP, policy
-    runtime, audit, reports, dashboard). Session 29 only declares the
-    attribute so application code can do feature detection.
+    Wires the S41 PolicyManager, S42 AuditLog, and S43 ReportManager
+    onto the SDK. Mirrors the dashboard surface so SDK callers can
+    do everything the dashboard can do programmatically.
     """
 
     def __init__(self, client: MaiClient) -> None:
         self._client = client
 
-    def __getattr__(self, name: str) -> Any:
-        raise NotImplementedError(
-            f"compliance.{name} not yet available (Sessions 36-44 land Lamprey)",
+    # --- status / policy ----------------------------------------------
+
+    def get_status(self) -> ComplianceStatus:
+        """GET /v1/compliance/status — composer + module + audit snapshot."""
+        resp = self._client._request_with_retry("GET", "/compliance/status")
+        return ComplianceStatus.model_validate(resp.json())
+
+    def get_policies(self) -> list[dict[str, Any]]:
+        """GET /v1/compliance/policies — per-module status rows."""
+        resp = self._client._request_with_retry("GET", "/compliance/policies")
+        data = resp.json()
+        return list(data.get("modules", []))
+
+    def get_policy(self, module: str) -> dict[str, Any]:
+        """GET /v1/compliance/policies/{module} — single module status."""
+        resp = self._client._request_with_retry("GET", f"/compliance/policies/{module}")
+        return resp.json()  # type: ignore[no-any-return]
+
+    def update_policy(self, module: str, *, enabled: bool) -> dict[str, Any]:
+        """PUT /v1/compliance/policies/{module} — flip a module on/off."""
+        resp = self._client._request_with_retry(
+            "PUT", f"/compliance/policies/{module}", json={"enabled": enabled},
         )
+        return resp.json()  # type: ignore[no-any-return]
+
+    def reload_policy(self) -> dict[str, Any]:
+        """POST /v1/compliance/policies/reload — re-apply the active config."""
+        resp = self._client._request_with_retry("POST", "/compliance/policies/reload")
+        return resp.json()  # type: ignore[no-any-return]
+
+    def apply_template(self, template: str) -> dict[str, Any]:
+        """POST /v1/compliance/policies/template — swap to a named template."""
+        resp = self._client._request_with_retry(
+            "POST", "/compliance/policies/template", json={"template": template},
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    def enable_module(self, module: str) -> dict[str, Any]:
+        """POST /v1/compliance/modules/{name}/enable."""
+        resp = self._client._request_with_retry(
+            "POST", f"/compliance/modules/{module}/enable",
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    def disable_module(self, module: str) -> dict[str, Any]:
+        """POST /v1/compliance/modules/{name}/disable."""
+        resp = self._client._request_with_retry(
+            "POST", f"/compliance/modules/{module}/disable",
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    # --- audit --------------------------------------------------------
+
+    def query_audit(
+        self,
+        *,
+        from_unix_nanos: int | None = None,
+        to_unix_nanos: int | None = None,
+        module: str | None = None,
+        decision: str | None = None,
+        tenant: str | None = None,
+        limit: int | None = None,
+    ) -> AuditQueryResponse:
+        """GET /v1/compliance/audit — query the tamper-evident log."""
+        params: dict[str, Any] = {}
+        if from_unix_nanos is not None:
+            params["from"] = from_unix_nanos
+        if to_unix_nanos is not None:
+            params["to"] = to_unix_nanos
+        if module is not None:
+            params["module"] = module
+        if decision is not None:
+            params["decision"] = decision
+        if tenant is not None:
+            params["tenant"] = tenant
+        if limit is not None:
+            params["limit"] = limit
+        resp = self._client._request_with_retry("GET", "/compliance/audit", params=params)
+        return AuditQueryResponse.model_validate(resp.json())
+
+    def get_audit_entry(self, entry_id: int) -> dict[str, Any]:
+        """GET /v1/compliance/audit/{id} — single row by id."""
+        resp = self._client._request_with_retry("GET", f"/compliance/audit/{entry_id}")
+        return resp.json()  # type: ignore[no-any-return]
+
+    def verify_audit(self) -> dict[str, Any]:
+        """GET /v1/compliance/audit/verify — full-chain verification."""
+        resp = self._client._request_with_retry("GET", "/compliance/audit/verify")
+        return resp.json()  # type: ignore[no-any-return]
+
+    def audit_integrity(self) -> dict[str, Any]:
+        """GET /v1/compliance/audit/integrity — cheap integrity snapshot."""
+        resp = self._client._request_with_retry("GET", "/compliance/audit/integrity")
+        return resp.json()  # type: ignore[no-any-return]
+
+    # --- reports ------------------------------------------------------
+
+    def list_reports(self) -> ComplianceReportList:
+        """GET /v1/compliance/reports — every record (newest first)."""
+        resp = self._client._request_with_retry("GET", "/compliance/reports")
+        return ComplianceReportList.model_validate(resp.json())
+
+    def generate_report(
+        self,
+        *,
+        report_type: str,
+        from_unix_nanos: int,
+        to_unix_nanos: int,
+        tenant: str | None = None,
+        format: str = "json",
+        policy_version: str = "local-dev",
+    ) -> ComplianceReport:
+        """POST /v1/compliance/reports/generate — synchronous generation."""
+        body: dict[str, Any] = {
+            "report_type": report_type,
+            "from_unix_nanos": from_unix_nanos,
+            "to_unix_nanos": to_unix_nanos,
+            "format": format,
+            "policy_version": policy_version,
+        }
+        if tenant is not None:
+            body["tenant"] = tenant
+        resp = self._client._request_with_retry(
+            "POST", "/compliance/reports/generate", json=body,
+        )
+        return ComplianceReport.model_validate(resp.json())
+
+    def get_report(self, report_id: str) -> ComplianceReport:
+        """GET /v1/compliance/reports/{id} — record metadata (no body bytes)."""
+        resp = self._client._request_with_retry("GET", f"/compliance/reports/{report_id}")
+        return ComplianceReport.model_validate(resp.json())
+
+    def download_report(self, report_id: str) -> bytes:
+        """GET /v1/compliance/reports/{id}/download — rendered body bytes."""
+        resp = self._client._request_with_retry(
+            "GET", f"/compliance/reports/{report_id}/download",
+        )
+        return resp.content
+
+    def delete_report(self, report_id: str) -> ComplianceReport:
+        """DELETE /v1/compliance/reports/{id} — refuses protected records."""
+        resp = self._client._request_with_retry(
+            "DELETE", f"/compliance/reports/{report_id}",
+        )
+        return ComplianceReport.model_validate(resp.json())
 
 
 __all__ = [

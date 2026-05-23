@@ -700,21 +700,131 @@ class TrustClaim(BaseModel):
 
 
 class TrustBundleStatus(BaseModel):
-    """Local trust cache state (BF-4 shape, stubbed in Session 29)."""
-    bundle_version: str
-    fetched_at_unix: int
-    expires_at_unix: int
-    connectivity: str  # connected | degraded | stale | expired | air_gapped
-    signature_verified: bool
+    """Local trust cache state (BF-4 / BF-6 shape).
+
+    Matches the JSON returned by ``GET /v1/trust/bundle_status``.
+    """
+    bundle_version: str | None = None
+    last_refresh_secs: int | None = None
+    age_secs: int | None = None
+    connectivity: str  # connected | degraded | stale_not_expired | expired | air-gapped
+    is_emergency_only: bool
+
+
+class TrustClaimSnapshot(BaseModel):
+    """One row of ``GET /v1/trust/claims``.
+
+    Thin projection over a single :class:`TrustClaim` — only the
+    fields the local trust cache actually holds (``claim_id``,
+    ``status``, and the time the snapshot was recorded).
+    """
+    claim_id: str
+    status: str  # valid | revoked | unknown
+    recorded_at_secs: int
+
+
+class TrustClaimsResponse(BaseModel):
+    """``GET /v1/trust/claims`` envelope."""
+    claims: list[TrustClaimSnapshot] = Field(default_factory=list)
+    total: int = 0
+
+
+class TrustStatusResponse(BaseModel):
+    """``GET /v1/trust/status`` envelope.
+
+    Consolidated trust mode — combines the cache freshness ladder with
+    the canonical air-gap state for the compliance dashboard.
+    """
+    mode: str  # connected | degraded | stale_not_expired | expired | air-gapped
+    bundle_version: str | None = None
+    last_refresh_secs: int | None = None
+    age_secs: int | None = None
     claim_count: int = 0
+    airgap: dict[str, Any] = Field(default_factory=dict)
+    offline_backlog: int = 0
 
 
 class RevocationStatusResponse(BaseModel):
-    """Revocation snapshot lookup result."""
-    subject_hash: str
-    revoked: bool
-    snapshot_version: str
-    snapshot_age_seconds: int = 0
+    """``GET /v1/trust/revocation_status`` envelope."""
+    claim_id: str
+    status: str  # valid | revoked | unknown
+
+
+class ExchangeTokenResponse(BaseModel):
+    """``POST /v1/auth/exchange_token`` envelope."""
+    token: str
+    token_type: str = "Bearer"
+    subject_id: str
+    tenant_id: str
+    scopes: list[str] = Field(default_factory=list)
+    issued_at_secs: int
+    expires_at_secs: int
+    mode: str = "local-dev"
+
+
+# ---------------------------------------------------------------------------
+# Compliance (Session 44 / BF-6)
+# ---------------------------------------------------------------------------
+
+class ComplianceModuleStatus(BaseModel):
+    """One row of ``GET /v1/compliance/policies``."""
+    module: str
+    enabled: bool
+    priority: int | None = None
+
+
+class ComplianceIntegrity(BaseModel):
+    """Audit chain integrity snapshot."""
+    entry_count: int
+    chain_count: int
+    head_hash: str
+    last_verify: str
+    last_verify_error: str | None = None
+
+
+class ComplianceStatus(BaseModel):
+    """``GET /v1/compliance/status`` envelope."""
+    modules: list[ComplianceModuleStatus] = Field(default_factory=list)
+    priority: list[str] = Field(default_factory=list)
+    reload_count: int = 0
+    audit_integrity: ComplianceIntegrity
+    subscribers: int = 0
+
+
+class AuditRow(BaseModel):
+    """``GET /v1/compliance/audit`` row."""
+    entry: dict[str, Any]
+    status: str
+
+
+class AuditQueryResponse(BaseModel):
+    """``GET /v1/compliance/audit`` envelope."""
+    rows: list[AuditRow] = Field(default_factory=list)
+    total: int = 0
+
+
+class ComplianceReport(BaseModel):
+    """One row of ``GET /v1/compliance/reports``."""
+    id: str
+    report_type: str
+    status: str
+    output_format: str
+    from_unix_nanos: int
+    to_unix_nanos: int
+    tenant: str | None = None
+    created_at_unix_nanos: int
+    completed_at_unix_nanos: int | None = None
+    content_hash_hex: str | None = None
+    signature_hex: str | None = None
+    error: str | None = None
+    protected: bool = False
+    schedule_id: str | None = None
+
+
+class ComplianceReportList(BaseModel):
+    """``GET /v1/compliance/reports`` envelope."""
+    reports: list[ComplianceReport] = Field(default_factory=list)
+    total: int = 0
 
 
 # ---------------------------------------------------------------------------

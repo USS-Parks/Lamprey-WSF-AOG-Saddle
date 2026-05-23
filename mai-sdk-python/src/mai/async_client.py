@@ -47,6 +47,11 @@ from mai.types import (
     PowerTransitionRequest,
     PowerTransitionResponse,
     ProfileObject,
+    AuditQueryResponse,
+    ComplianceReport,
+    ComplianceReportList,
+    ComplianceStatus,
+    ExchangeTokenResponse,
     RevocationStatusResponse,
     SchedulerAnomaliesResponse,
     SchedulerMetricsResponse,
@@ -55,6 +60,8 @@ from mai.types import (
     SystemHealthResponse,
     TrustBundleStatus,
     TrustClaim,
+    TrustClaimsResponse,
+    TrustStatusResponse,
     UpdateCheckResponse,
     UpdateStatusResponse,
 )
@@ -273,32 +280,168 @@ class AsyncAuth:
     def __init__(self, client: AsyncMaiClient) -> None:
         self._client = client
 
-    async def exchange_token(self, claim: TrustClaim) -> str:  # noqa: ARG002
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+    async def exchange_token(
+        self,
+        subject_id: str,
+        *,
+        tenant_id: str | None = None,
+        scopes: list[str] | None = None,
+    ) -> ExchangeTokenResponse:
+        body: dict[str, Any] = {"subject_id": subject_id}
+        if tenant_id is not None:
+            body["tenant_id"] = tenant_id
+        if scopes is not None:
+            body["scopes"] = scopes
+        resp = await self._client._request_with_retry(
+            "POST", "/auth/exchange_token", json=body,
+        )
+        return ExchangeTokenResponse.model_validate(resp.json())
 
 
 class AsyncTrust:
     def __init__(self, client: AsyncMaiClient) -> None:
         self._client = client
 
-    async def claims(self) -> list[TrustClaim]:
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+    async def status(self) -> TrustStatusResponse:
+        resp = await self._client._request_with_retry("GET", "/trust/status")
+        return TrustStatusResponse.model_validate(resp.json())
+
+    async def claims(self) -> TrustClaimsResponse:
+        resp = await self._client._request_with_retry("GET", "/trust/claims")
+        return TrustClaimsResponse.model_validate(resp.json())
 
     async def bundle_status(self) -> TrustBundleStatus:
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+        resp = await self._client._request_with_retry("GET", "/trust/bundle_status")
+        return TrustBundleStatus.model_validate(resp.json())
 
-    async def revocation_status(self, subject_hash: str) -> RevocationStatusResponse:  # noqa: ARG002
-        raise TrustNotProvisionedError(_TRUST_STUB_MESSAGE)
+    async def revocation_status(self, claim_id: str) -> RevocationStatusResponse:
+        resp = await self._client._request_with_retry(
+            "GET", "/trust/revocation_status", params={"claim_id": claim_id},
+        )
+        return RevocationStatusResponse.model_validate(resp.json())
 
 
 class AsyncCompliance:
     def __init__(self, client: AsyncMaiClient) -> None:
         self._client = client
 
-    def __getattr__(self, name: str) -> Any:
-        raise NotImplementedError(
-            f"compliance.{name} not yet available (Sessions 36-44 land Lamprey)",
+    async def get_status(self) -> ComplianceStatus:
+        resp = await self._client._request_with_retry("GET", "/compliance/status")
+        return ComplianceStatus.model_validate(resp.json())
+
+    async def get_policies(self) -> list[dict[str, Any]]:
+        resp = await self._client._request_with_retry("GET", "/compliance/policies")
+        return list(resp.json().get("modules", []))
+
+    async def get_policy(self, module: str) -> dict[str, Any]:
+        resp = await self._client._request_with_retry(
+            "GET", f"/compliance/policies/{module}",
         )
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def update_policy(self, module: str, *, enabled: bool) -> dict[str, Any]:
+        resp = await self._client._request_with_retry(
+            "PUT", f"/compliance/policies/{module}", json={"enabled": enabled},
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def reload_policy(self) -> dict[str, Any]:
+        resp = await self._client._request_with_retry(
+            "POST", "/compliance/policies/reload",
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def apply_template(self, template: str) -> dict[str, Any]:
+        resp = await self._client._request_with_retry(
+            "POST", "/compliance/policies/template", json={"template": template},
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def query_audit(
+        self,
+        *,
+        from_unix_nanos: int | None = None,
+        to_unix_nanos: int | None = None,
+        module: str | None = None,
+        decision: str | None = None,
+        tenant: str | None = None,
+        limit: int | None = None,
+    ) -> AuditQueryResponse:
+        params: dict[str, Any] = {}
+        if from_unix_nanos is not None:
+            params["from"] = from_unix_nanos
+        if to_unix_nanos is not None:
+            params["to"] = to_unix_nanos
+        if module is not None:
+            params["module"] = module
+        if decision is not None:
+            params["decision"] = decision
+        if tenant is not None:
+            params["tenant"] = tenant
+        if limit is not None:
+            params["limit"] = limit
+        resp = await self._client._request_with_retry(
+            "GET", "/compliance/audit", params=params,
+        )
+        return AuditQueryResponse.model_validate(resp.json())
+
+    async def verify_audit(self) -> dict[str, Any]:
+        resp = await self._client._request_with_retry(
+            "GET", "/compliance/audit/verify",
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def audit_integrity(self) -> dict[str, Any]:
+        resp = await self._client._request_with_retry(
+            "GET", "/compliance/audit/integrity",
+        )
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def list_reports(self) -> ComplianceReportList:
+        resp = await self._client._request_with_retry("GET", "/compliance/reports")
+        return ComplianceReportList.model_validate(resp.json())
+
+    async def generate_report(
+        self,
+        *,
+        report_type: str,
+        from_unix_nanos: int,
+        to_unix_nanos: int,
+        tenant: str | None = None,
+        format: str = "json",
+        policy_version: str = "local-dev",
+    ) -> ComplianceReport:
+        body: dict[str, Any] = {
+            "report_type": report_type,
+            "from_unix_nanos": from_unix_nanos,
+            "to_unix_nanos": to_unix_nanos,
+            "format": format,
+            "policy_version": policy_version,
+        }
+        if tenant is not None:
+            body["tenant"] = tenant
+        resp = await self._client._request_with_retry(
+            "POST", "/compliance/reports/generate", json=body,
+        )
+        return ComplianceReport.model_validate(resp.json())
+
+    async def get_report(self, report_id: str) -> ComplianceReport:
+        resp = await self._client._request_with_retry(
+            "GET", f"/compliance/reports/{report_id}",
+        )
+        return ComplianceReport.model_validate(resp.json())
+
+    async def download_report(self, report_id: str) -> bytes:
+        resp = await self._client._request_with_retry(
+            "GET", f"/compliance/reports/{report_id}/download",
+        )
+        return resp.content
+
+    async def delete_report(self, report_id: str) -> ComplianceReport:
+        resp = await self._client._request_with_retry(
+            "DELETE", f"/compliance/reports/{report_id}",
+        )
+        return ComplianceReport.model_validate(resp.json())
 
 
 # ---------------------------------------------------------------------------

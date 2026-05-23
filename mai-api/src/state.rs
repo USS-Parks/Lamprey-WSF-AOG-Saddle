@@ -12,6 +12,11 @@ use crate::auth::AuthState;
 use crate::config::ServerConfig;
 
 use mai_adapters::manager::AdapterManager;
+use mai_compliance::audit::AuditLog as ComplianceAuditLog;
+use mai_compliance::bundle::{AcceptAllBundleVerifier, BundleVerifier};
+use mai_compliance::policy::{PolicyManager, PolicyTemplate};
+use mai_compliance::reports::ReportManager;
+use mai_compliance::trust_cache::{CacheThresholds, LocalTrustCache};
 use mai_core::airgap::AirGapPolicy;
 use mai_core::health::HealthMonitor;
 use mai_core::hotswap::HotSwapManager;
@@ -50,6 +55,22 @@ pub struct AppState {
     /// and mai-compliance. Defaults to `AirGapped` when constructed via
     /// [`AppState::new`]; override with [`AppState::with_airgap_policy`].
     pub airgap_policy: AirGapPolicy,
+    /// BF-4: local trust cache. Holds the most recent signed policy
+    /// bundle plus per-claim revocation snapshots. Defaults to an empty
+    /// cache with stock thresholds; production wires a real refresher.
+    pub trust_cache: Arc<RwLock<LocalTrustCache>>,
+    /// BF-3: verifier used when ingesting a signed bundle. Defaults to
+    /// [`AcceptAllBundleVerifier`] so bring-up works without a key
+    /// material; production wires `MlDsaBundleVerifier` with the
+    /// vault-anchored registry.
+    pub bundle_verifier: Arc<dyn BundleVerifier + Send + Sync>,
+    /// S41: policy runtime (composer + decision cache + audit feed).
+    /// Internally `Arc<Mutex<…>>` so cloning the AppState is cheap.
+    pub policy_manager: PolicyManager,
+    /// S42: tamper-evident compliance audit log.
+    pub compliance_audit: ComplianceAuditLog,
+    /// S43: compliance report generator façade.
+    pub report_manager: Arc<ReportManager>,
 }
 
 impl AppState {
@@ -70,6 +91,10 @@ impl AppState {
         adapter_manager: Arc<Mutex<AdapterManager>>,
         metrics_collector: Arc<MetricsCollector>,
     ) -> Self {
+        let compliance_audit = ComplianceAuditLog::builder().build();
+        let report_manager = Arc::new(ReportManager::builder(compliance_audit.clone()).build());
+        let trust_cache = LocalTrustCache::new(CacheThresholds::default())
+            .expect("default trust-cache thresholds are valid");
         Self {
             scheduler,
             registry,
@@ -82,6 +107,11 @@ impl AppState {
             adapter_manager,
             metrics_collector,
             airgap_policy: AirGapPolicy::default(),
+            trust_cache: Arc::new(RwLock::new(trust_cache)),
+            bundle_verifier: Arc::new(AcceptAllBundleVerifier),
+            policy_manager: PolicyManager::from_template(PolicyTemplate::Standard),
+            compliance_audit,
+            report_manager,
         }
     }
 
@@ -91,6 +121,51 @@ impl AppState {
     #[must_use]
     pub fn with_airgap_policy(mut self, policy: AirGapPolicy) -> Self {
         self.airgap_policy = policy;
+        self
+    }
+
+    /// Override the local trust cache. Used at bootstrap to inject a
+    /// cache that's already pre-loaded from disk or wired to a
+    /// background refresher.
+    #[must_use]
+    pub fn with_trust_cache(mut self, cache: Arc<RwLock<LocalTrustCache>>) -> Self {
+        self.trust_cache = cache;
+        self
+    }
+
+    /// Override the bundle verifier. Production wires
+    /// `MlDsaBundleVerifier` with the vault-anchored registry; tests
+    /// keep the [`AcceptAllBundleVerifier`] default.
+    #[must_use]
+    pub fn with_bundle_verifier(mut self, verifier: Arc<dyn BundleVerifier + Send + Sync>) -> Self {
+        self.bundle_verifier = verifier;
+        self
+    }
+
+    /// Override the policy manager. Bootstrap may wire a manager
+    /// pre-loaded from a tenant-specific template (Healthcare /
+    /// Defense / TribalGovernment).
+    #[must_use]
+    pub fn with_policy_manager(mut self, manager: PolicyManager) -> Self {
+        self.policy_manager = manager;
+        self
+    }
+
+    /// Override the compliance audit log and rebuild the dependent
+    /// [`ReportManager`] so the report engine queries the new log.
+    #[must_use]
+    pub fn with_compliance_audit(mut self, audit: ComplianceAuditLog) -> Self {
+        let report_manager = Arc::new(ReportManager::builder(audit.clone()).build());
+        self.compliance_audit = audit;
+        self.report_manager = report_manager;
+        self
+    }
+
+    /// Override the report manager directly (e.g. when a custom
+    /// template registry has been registered).
+    #[must_use]
+    pub fn with_report_manager(mut self, manager: Arc<ReportManager>) -> Self {
+        self.report_manager = manager;
         self
     }
 }

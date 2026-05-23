@@ -253,6 +253,15 @@ impl LocalTrustCache {
             .map_or(SnapshotStatus::Unknown, |s| s.status)
     }
 
+    /// Snapshot of every claim currently held in the cache, in stable
+    /// `claim_id` order. The returned vector is owned so callers do not
+    /// hold the cache lock across the boundary; this is the canonical
+    /// read path used by `GET /v1/trust/claims` (BF-6).
+    #[must_use]
+    pub fn claims(&self) -> Vec<RevocationSnapshot> {
+        self.revocations.values().cloned().collect()
+    }
+
     /// Currently-held bundle version, if any.
     #[must_use]
     pub fn bundle_version(&self) -> Option<&str> {
