@@ -1041,14 +1041,14 @@ Verification:
 | F: Power & Lifecycle | 22-23, 25 | Complete (22, 23, 25) |
 | G: Model Lifecycle | 24-25 | Complete (24, 25) |
 | H: Security Hardening | 26-28 | Complete (26, 27, 28; hardware-only Linux enforcement remains deployment-scoped) |
-| I: Application Integration | 29-31 | In Progress (29 active; 30-31 pending) |
+| I: Application Integration | 29-31 | In Progress (29 complete; 30-31 pending) |
 | J: Advanced Scheduling | 32-33 | Complete (32, 33) |
 | K: Testing & Packaging | 34-35 | Complete (34, 35) — Gate C closed |
-| L: Compliance Governance | 36-46 | Partial (36-40 complete; BF-1, BF-2, BF-4 complete; BF-3 active before S41 closure) |
+| L: Compliance Governance | 36-46 | Partial (36-41 complete; BF-1, BF-2, BF-3, BF-4 complete) |
 
-**Sessions Complete:** Sessions 1-28 and 32-40 are complete or have completion entries in this log; BF-1, BF-2, and BF-4 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) is underway with Router, Policy Framework, HIPAA, ITAR/EAR trust alignment, and OCAP surfaces present.
-**Active Work:** Session 29 (SDK Completeness + Developer Experience) is active in the application-integration lane. BF-3 (signed claim + policy bundle verification) is active as a pre-Session-41 closure gate; do not mark Session 41 complete until signed/expired/tampered/revoked bundle behavior is validated.
-**Next Coordination Gate:** Close Session 29 and BF-3 cleanly, then use Session 41 to normalize `RequestMetadata + TrustContext + ConnectivityState + PolicyBundleVersion + ClassificationResult` into one policy-runtime input.
+**Sessions Complete:** Sessions 1-29 and 32-41 are complete or have completion entries in this log; BF-1, BF-2, BF-3, and BF-4 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) now has Router, Policy Framework, HIPAA, ITAR/EAR trust alignment, OCAP, signed trust bundles, and the Session 41 policy runtime in place.
+**Active Work:** Mainline moves to Session 42 (tamper-evident audit log + BF-5 audit correlation). Sessions 30-31 remain the application scaffold lane and can proceed from the completed Session 29 SDK.
+**Next Coordination Gate:** Use Session 42 to bind Session 41 decisions, BF-3 verified trust bundles, and BF-5 claim/audit correlation into the hash-chain audit surface before reports and dashboard work in Sessions 43-44.
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---
@@ -1536,3 +1536,30 @@ All 6 files rewritten from scratch against verified APIs. v2 files verified: zer
 - Modified: `mai-sdk-python/src/mai/{client,types,__init__}.py`; `mai-sdk-python/pyproject.toml`.
 
 **Remaining:** Sessions 30–31 (application scaffolds) can now be built on this SDK. BF-6 still has to wire the real `/v1/trust/*` and `/v1/auth/exchange_token` endpoints on the server before S44 closes — at that point the four trust stub raisers in `_namespaces.py` and `async_client.py` flip from `raise TrustNotProvisionedError(...)` to real HTTP calls. Mainline next is S41 (Policy Runtime).
+
+---
+
+### 2026-05-22: Session 41 - Policy Runtime, Conflict Resolution, Decision Cache, Audit Feed
+
+**Status:** Complete and pushed (`0bb8173`, `origin/main`).
+
+**Scope:** Session 41 normalizes HIPAA, ITAR/EAR, OCAP, trust context, connectivity state, policy bundle version, and classification results into a shared policy-runtime surface. The runtime adds conflict resolution, decision caching, policy templates, management API primitives, and an in-process audit feed for Session 42.
+
+**Deliverables:**
+- [x] `mai-compliance/src/policy/composer.rs`: pure policy composer with deny-wins behavior, most-restrictive routing, priority-ordered reasons, and enabled-module filtering.
+- [x] `mai-compliance/src/policy/cache.rs`: TTL decision cache keyed on stable policy inputs; request id and timestamp intentionally excluded.
+- [x] `mai-compliance/src/policy/audit_feed.rs`: in-process broadcast feed for policy decisions, policy changes, module state changes, and violations.
+- [x] `mai-compliance/src/policy/api.rs`: policy manager API for listing module status, applying templates, reloading config, enabling/disabling modules, clearing caches, and emitting audit events.
+- [x] `mai-compliance/src/policy/templates.rs`: standard, healthcare, defense, and tribal-government policy templates.
+- [x] `config/compliance/policy.toml`: operator-facing baseline configuration for composer, cache, audit feed, and optional template selection.
+
+**Verification:**
+- `cargo check --workspace` - clean.
+- `cargo fmt --package mai-compliance -- --check` - clean.
+- `cargo clippy -p mai-compliance --all-targets -- -D warnings -A clippy::pedantic` - clean.
+- `cargo test -p mai-compliance --lib` - 265/265 passed.
+- `cargo test --workspace --lib` - passed.
+- Python SDK targeted tests - 52 passed.
+- Python adapters - 96 passed.
+
+**Next Session Notes:** Session 42 is the next mainline compliance step: tamper-evident audit log plus BF-5 audit correlation. It should consume Session 41's `AuditFeed`, BF-3 verified bundle metadata, and TrustContext correlation fields without re-deriving policy inputs.

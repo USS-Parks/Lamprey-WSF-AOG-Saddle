@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded to 46 sessions with Lamprey compliance governance)
-**Status:** Sessions 1-28 and 32-40 have completion entries; Gate C is closed. Session 29 (SDK Completeness + Developer Experience) and BF-3 (signed claim/policy bundle verification) are active in parallel ahead of Session 41 closure.
+**Status:** Sessions 1-29 and 32-41 have completion entries; Gate C is closed. BF-1 through BF-4 are complete. Current mainline is Session 42: tamper-evident audit log and BF-5 audit correlation.
 **Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
 
 ---
@@ -24,7 +24,7 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 | [MAI-BUILD-PROMPT-ROSTER-v2.md](MAI-BUILD-PROMPT-ROSTER-v2.md) | All 46 session prompts, deliverables, acceptance criteria (v1 archived) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Trust model, component catalog, data flows |
 | [CONVENTIONS.md](CONVENTIONS.md) | Code quality gates, monorepo layout, testing rules |
-| [SESSION-LOG.md](SESSION-LOG.md) | Active progress tracker (current baseline: Sessions 1-28 and 32-40 complete/logged; Session 29 + BF-3 active) |
+| [SESSION-LOG.md](SESSION-LOG.md) | Active progress tracker (current baseline: Sessions 1-29 and 32-41 complete/logged; S42 next) |
 | [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) | Completed sessions (01-10) with full notes |
 | [SESSION-RULES.md](SESSION-RULES.md) | Dependency enforcement, acceptance criteria, quality gates |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | Deferred work, open questions |
@@ -70,7 +70,9 @@ The workspace now contains the core MAI crates plus `mai-vault`, `mai-agent`, `m
 
 **HIPAA Compliance Engine (Session 38, complete 2026-05-22 — first per-regulation Lamprey module):** New `mai-compliance` crate. `phi.rs` (~400 lines) ships a detector for all 18 HIPAA Safe Harbor identifiers with `PhiConfidence` tiers (Possible / Probable / Explicit, correctly ordered for `>=` gating) and a `PhiReport` aggregator with blake3-hashed matched-text (never raw). `baa.rs` (~340 lines) exposes `BaaEnforcer` over `BaaMode { Standard, Strict, Custom { max_cloud_confidence, never_leave_local } }` returning a `BaaDecision` over the report — pure, never sees raw text. `deid.rs` (~260 lines) is the zero-false-negative redactor: replaces PHI spans with `[PHI:<kind>]` placeholders and emits a composite re-identification `RiskScore`. `medical_entities.rs` (~260 lines) adds `IcdValidator`, `MedicationDictionary` (RxNorm-style baseline), and `parse_lab_values()` for routing enrichment. `config/compliance/hipaa.toml` documents all three BAA modes inline. p99 detection under 10ms verified by `tests/phi_perf.rs` on a 500-sample mixed corpus. 42 unit tests + 1 perf acceptance; workspace `fmt --check` and `clippy -- -D warnings` clean. The crate is intentionally standalone — wiring into the Session 37 rule-engine FactSet is deferred to Session 41 so the integration shape can be co-designed with Audit (42) and Reports (43).
 
-**OCAP + Trust Manifold Backfills (Session 40 + BF-1/BF-2/BF-4, complete 2026-05-22):** Session 40 landed the OCAP evaluator and trust-correlation fields. BF-1/BF-2 documented and implemented the Trust Manifold projection, including service identity and `TrustContext`; BF-4 added local trust-cache/connectivity handling. BF-3 is the remaining pre-S41 closure gate for signed claim and policy bundle verification.
+**OCAP + Trust Manifold Backfills (Session 40 + BF-1/BF-2/BF-3/BF-4, complete 2026-05-22):** Session 40 landed the OCAP evaluator and trust-correlation fields. BF-1/BF-2 documented and implemented the Trust Manifold projection, including service identity and `TrustContext`; BF-3 added signed claim and policy bundle verification; BF-4 added local trust-cache/connectivity handling.
+
+**Policy Runtime (Session 41, complete 2026-05-22):** `mai-compliance/src/policy/` now has the runtime composer, decision cache, policy templates, management API primitives, and in-process audit feed. The composer resolves HIPAA + ITAR/EAR + OCAP decisions with deny-wins behavior, most-restrictive routing, and priority-ordered reasons. `config/compliance/policy.toml` is the operator baseline. Session 42 should subscribe to the audit feed and persist correlated decisions into the tamper-evident audit log.
 **Lamprey Policy Framework (Session 37, complete 2026-05-22 — second Lamprey layer):** Programmable rule engine on top of the Session 36 router. `mai-router/src/rules/engine.rs` exposes `Rule { name, priority, condition, action, audit_level }` with a boolean condition tree (Match / All / Any / Not) and four actions (Allow / Deny / Reroute / Flag). `rules/modules.rs` defines `PolicyModule` and `PolicyModuleRegistry` with runtime install / enable-disable / load-from-TOML; thread-safe via RwLock. `pipeline.rs` composes classifier → entities → policy → budget → decision with per-stage microsecond `StageMetrics`; winning rule actions override default router precedence, Allow/Flag fall through. Three baseline modules ship: `rules-config/hipaa.toml` (PHI force-local + admin flag), `rules-config/itar.toml` (export-controlled deny), `rules-config/ocap.toml` (tribal force-local + sensitive-tribal deny). `tools/rule-tester/` is a CLI that loads a rules TOML + scenarios TOML and prints which rules fire with assertable `expect_action` / `expect_rule` per scenario — exit code = number of mismatches. 62 unit tests + 4 baseline-load tests + 3 rule-tester scenarios, all green; workspace `fmt --check` and `clippy -- -D warnings` clean.
 
 **Lamprey Query Router (Session 36, complete 2026-05-22 — first Lamprey layer):** New `mai-router` crate. Five modules — `classifier` (regex-based five-level sensitivity), `entities` (medical/tribal/export-controlled dictionary with blake3-hashed matches), `cost` (per-role monthly budgets with soft + hard caps), `router` (the `Router` trait, `RoutingDecision` enum, and `DefaultRouter` composition), and `fallback` (cloud→local fallback chain with denied-short-circuit) — produce a deterministic decision with audit-grade reason for every request. Decision precedence: hard deny at Critical → export-controlled / tribal forced local → above cloud ceiling forced local → budget hard cap forced local → cloud default. `config/router.toml` ships baseline patterns, dictionaries, and budgets; entirely file-driven. p99 decision latency verified under 5ms by `tests/latency_budget.rs` on a 1,000-sample mixed corpus. 39 unit tests + 1 acceptance test, all green; workspace `fmt --check` + `clippy -- -D warnings` clean.
@@ -86,7 +88,7 @@ The workspace now contains the core MAI crates plus `mai-vault`, `mai-agent`, `m
 **Vault Crypto + Air-Gap Enforcement (Sessions 27-28, complete 2026-05-22):** Session 27 replaced vault crypto stubs with real PQC-backed package verification/encryption paths, AEAD TPM sealing, audit checkpoint signatures, and first-boot orchestration. Session 28 added the canonical `ConnectivityState`, shared `AirGapPolicy`, loopback/wildcard bind enforcement, `/v1/system/airgap`, and BF-4 local trust cache state. Hardware switch monitoring and Linux-only network mutation remain production-deployment scoped, not core policy blockers.
 **Production Trace Integration + Replay (Session 32, complete 2026-05-22 — Gate C criteria met):** `mai-scheduler/src/traces/capture.rs` writes opt-in NDJSON traces with daily rotation; session ids are blake3-hashed at capture time so the raw trace is unlinkable. The module was named `traces` (not `tracing` per the spec letter) because `tracing` is a workspace logging crate used across mai-scheduler; the name swap is the only deviation. `tools/trace-tools/` adds anonymize/reconstruct/calibrate Python scripts. `tools/simulator/` adds `trace_generator.py` (replays an NDJSON trace as a WorkloadGenerator preserving inter-request gaps), `hybrid.py` (combines a trace baseline with a synthetic spike), `replay_compare.py` (trace-driven multi-policy comparison harness — deterministic at (trace, seed, policy)), and `report.py` (Markdown / JSON report renderer with headline findings — designed for acquisition documentation). Privacy is structural: capture and anonymize both project to a documented allowlist and tests assert no prompt/response text leaks. 18 new Session 32 tests across Python + 4 new Rust capture tests; full suite at 114 Python + 293 Rust scheduler tests passing.
 
-**Immediate next step:** Let Session 29 and BF-3 close cleanly, then treat Session 41 as the normalization/integration gate for HIPAA + ITAR/EAR + OCAP + verified trust bundles. Session 41 should not close until invalid, expired, tampered, and revoked bundle behavior is tested.
+**Immediate next step:** Session 42: tamper-evident audit log plus BF-5 audit correlation. Consume Session 41's `AuditFeed`, BF-3 verified bundle metadata, and TrustContext correlation fields without re-deriving policy inputs.
 
 ---
 
@@ -108,14 +110,14 @@ The workspace now contains the core MAI crates plus `mai-vault`, `mai-agent`, `m
 
 The longest remaining dependency chain (restructured):
 
-**41 -> 42 -> 43 -> 44 -> 45 -> 46**
+**42 -> 43 -> 44 -> 45 -> 46**
 
 Parallel tracks:
 - Track A: Scheduler (15-21, 32-33) - complete
 - Track B: Security (26-28) - complete at policy/software layer; hardware-only enforcement remains deployment-scoped
-- Track C: Applications (29-31) - Session 29 active; 30-31 pending
+- Track C: Applications (29-31) - Session 29 complete; 30-31 pending
 - Track D: Power/Lifecycle (22-25) - complete
-- Track H2: Trust Manifold backfills - BF-1, BF-2, BF-4 complete; BF-3 active before S41 closure
+- Track H2: Trust Manifold backfills - BF-1, BF-2, BF-3, BF-4 complete; BF-5 next with Session 42 audit correlation
 
 See MAI-BUILD-PROMPT-ROSTER-v2.md for current 46-session effort estimates and the Lamprey compliance governance layer sequence.
 

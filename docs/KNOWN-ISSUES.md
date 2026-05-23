@@ -56,19 +56,9 @@ Four Phase 1 exit criteria from `MAI-BUILD-PROMPT-ROSTER-v2.md` require target h
 
 **Severity:** Low (Gate C work-around in place)
 **Affects:** Gate C "SDK and at least one app scaffold run against packaged deployment"
-**Status:** Smoke-client substitute 2026-05-22 (Session 35); Session 29 active, Sessions 30-31 pending
+**Status:** Smoke-client substitute 2026-05-22 (Session 35); Session 29 complete, Sessions 30-31 pending
 
-A full L4-L5 application scaffold is the deliverable of Sessions 29-31 (Developer/App Release Train). Session 29 is now active and should replace the smoke-client substitute with real SDK install/auth/health/models/chat/stream/embeddings behavior as that lane closes. For Gate C closure, `tools/smoke/smoke_client.py` remains the minimal end-to-end probe that verifies the public boundary against a packaged deployment. Keep this issue open until Sessions 29-31 provide the real scaffold evidence map.
-
-### 10. BF-3 Signed Trust Bundle Verification Pending Before Session 41 Closure
-
-**Severity:** High (policy integrity gate)
-**Affects:** Session 41 policy runtime, trust bundle refresh, Lamprey compliance decisions
-**Status:** Active parallel backfill before Session 41 closure
-
-BF-1/BF-2/BF-4 provide the Trust Manifold projection and local cache/connectivity model, but BF-3 is still required to verify signed claim and policy bundles at the refresh boundary. Until BF-3 lands, Session 41 must not treat policy bundles as authoritative production inputs.
-
-**Action:** Before marking Session 41 complete, validate signed bundle success, invalid signature rejection, expired bundle rejection or degraded behavior, tampered payload rejection, revoked signer/key handling, and HMAC subject-hashing behavior with no raw subject leakage.
+A full L4-L5 application scaffold is the deliverable of Sessions 29-31 (Developer/App Release Train). Session 29 replaced the smoke-client substitute at the SDK layer with real install/auth/health/models/chat/stream/embeddings behavior. For Gate C closure, `tools/smoke/smoke_client.py` remains the minimal end-to-end probe that verifies the public boundary against a packaged deployment. Keep this issue open until Sessions 30-31 provide the real application scaffold evidence map.
 
 ### 6. Registry scan_models Placeholder
 
@@ -103,6 +93,10 @@ These items are explicitly excluded from the current build. See PROJECT.md for s
 Three blocking FFI issues in the Backend Adapter Framework spec. All fixed during Session 03 audit. See SESSION-LOG-ARCHIVE-01.md for details.
 
 ### Session 10 CI: pytest Collection Failures (RESOLVED)
+
+### Issue #10: BF-3 Signed Trust Bundle Verification Before Session 41 (RESOLVED)
+
+BF-3 landed signed claim and policy bundle verification before Session 41 closed. The verification matrix now covers signed bundle success, invalid signature rejection, expired bundle behavior, tampered payload/metadata rejection, unknown anchor handling, tenant mismatch preservation, and HMAC subject hashing without raw subject leakage. Session 41 is complete and pushed at `0bb8173`.
 
 Missing `adapters/__init__.py` and AdapterBase constructor signature mismatch. Fixed 2026-05-17. See SESSION-LOG.md maintenance log.
 
