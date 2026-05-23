@@ -361,76 +361,83 @@ present.
 
 ---
 
-## Session SHIP-04: Persistent API Audit
+## Session SHIP-04: Persistent API Audit — **done 2026-05-23**
+
+**Status:** Complete (builder commit `40108db`; convergence wiring `48c7d2e`; acceptance-test fixup `88cdb87`).
 
 **Goal:** Make API audit entries survive restart and verify cleanly.
 
-**Work:**
+**What landed:**
 
-- Wire WAL audit writer into production API startup.
-- Reject `MemoryAuditWriter` in `ship`.
-- Add append, replay, rotation, and corruption tests.
-- Add operator notes for audit log location and retention.
+- `mai-api/src/audit_wal.rs` — `WalAuditWriter` implements the existing `AuditWriter` trait against an append-only JSON-lines log under `audit.wal_dir`. `open()` replays and verifies the BLAKE3 hash chain; size-based rotation preserves chain continuity; retention metadata defaults to 7 years (HIPAA-aligned).
+- SHIP-07 convergence wires the writer into `MaiServer::run()` whenever `MAI_SHIP_PROFILE` is set. `MemoryAuditWriter` is now the test/dev fallback only.
+- 17 tests (10 unit + 7 integration in `mai-api/tests/audit_wal.rs`) cover survives-restart, chain-verifies-after-restart, chain-verifies-across-rotation, tampered-WAL-fails-open, missing-WAL-dir-fails-open, audit-write-failure-surfaces-error.
+- Production guard ID `PROD-AUDIT-100` flips Deferred → Pass at runtime via `RuntimeChecks::api_audit_wal_ready`.
 
-**Acceptance:**
-
-- API audit survives restart.
-- Corruption is detected.
-- Production validation fails if WAL is unavailable.
+**Carried:** Operator-facing audit retention runbook lands in SHIP-15.
 
 ---
 
-## Session SHIP-05: Persistent Compliance Audit And Sealing
+## Session SHIP-05: Persistent Compliance Audit And Sealing — **done 2026-05-23**
+
+**Status:** Complete (builder commit `40108db`; convergence wiring `48c7d2e`).
 
 **Goal:** Remove `NullSealer` from production compliance audit storage.
 
-**Work:**
+**What landed:**
 
-- Wire vault-backed AEAD sealing for compliance WAL records.
-- Require hash-chain verification.
-- Require PQC checkpoint signing where configured.
-- Add restart and tamper tests.
+- `mai-compliance/src/audit/sealer.rs` — `AeadSealer` (AES-256-GCM, 12-byte random nonce, `nonce || ciphertext || tag` framing) implements the `StoreSealer` trait; `Debug` impl never leaks key material.
+- `mai-api/src/sealer_builder.rs` — `build_sealer` selects `AeadSealer` from `<audit.wal_dir>/sealer.key` in production (32-byte key file required), errors `NullSealerAllowedInProduction` / `KeyFileMissing` / `KeyFileIo` / `KeyFileLengthInvalid` cover the production rejection paths; local-dev uses `NullSealer` only when `allow_null_sealer=true`, else ephemeral `AeadSealer`.
+- SHIP-07 convergence installs the sealer-backed `ComplianceAuditLog` via `AppState::with_compliance_audit`.
+- 12 tests (5 unit + 7 integration in `mai-api/tests/sealer_bootstrap.rs`) cover round-trip, nonce uniqueness, wrong-key rejection, length validation, and Debug leak.
+- Production guard ID `PROD-AUDIT-101` flips Deferred → Pass at runtime via `RuntimeChecks::compliance_sealer_real`.
 
-**Acceptance:**
-
-- Production compliance audit is persistent and sealed.
-- Tampering is detected.
-- `ship` validation rejects `NullSealer`.
+**Carried:** Vault-managed key acquisition (currently the key file is the bring-up contract) ladders into SHIP-08 packaging.
 
 ---
 
-## Session SHIP-06: Trust Bridge Production Mode
+## Session SHIP-06: Trust Bridge Production Mode — **done 2026-05-23**
 
-**Goal:** Ensure production trust material is real, verified, and
-available at boot.
+**Status:** Complete (builder commit `5d6aebf`; convergence wiring `48c7d2e`).
 
-**Work:**
+**Goal:** Ensure production trust material is real, verified, and available at boot.
 
-- Reject synthetic local-dev exchange in production.
-- Require trust anchor directory.
-- Require verified bundle on boot.
-- Verify expired, unsigned, and tenant-mismatched bundles fail closed.
-- Document OpenBao or Trust Bridge integration requirements.
+**What landed:**
 
-**Acceptance:**
+- `mai-api/src/trust_builder.rs` — `build_trust_components` rejects every demo shortcut in production: `AcceptAllInProduction`, `AcceptAllAllowedInProduction`, `LocalDevExchangeInProduction`, `TrustAnchorNotRequired`, `BootBundleNotRequired`, plus anchors-dir / anchor-file failure modes. `TrustExchangeMode` enum (`LocalDevSynthetic` / `OpenBaoBridge` / `Disabled`) selects the production token-exchange shape.
+- `verify_boot_bundle` loads `<bundle_cache_dir>/bundle.json` as a `SignedPolicyBundle` and verifies window + ML-DSA signature against the loaded anchors. Failure surfaces as `ServerError::Init` in `MaiServer::run()`.
+- SHIP-07 convergence calls `verify_boot_bundle` in production mode before the readiness gate and installs the resulting verifier via `AppState::with_bundle_verifier`.
+- 27 tests (2 unit + 25 integration in `mai-api/tests/trust_production.rs`).
+- Production guard ID `PROD-TRUST-100` flips Deferred → Pass at runtime via `RuntimeChecks::trust_bundle_verified` (the runtime detail names the verified bundle version + anchor count).
 
-- Production trust cannot silently fall back to demo mode.
-- Bundle failures block unsafe startup.
-- Trust docs match actual startup behavior.
+**Carried:** Profile-aware `handlers/trust.rs::exchange_token` switch on `TrustExchangeMode` — currently the handler still always mints synthetic. Lands in SHIP-07-endpoint-and-cli.
 
 ---
 
 ## Session SHIP-07: Production Validation Command
 
-**Goal:** Provide one command that answers whether a node is shippable.
+The original session description had two distinct deliverables; in execution they split into two slices.
+
+### Slice A — Bootstrap convergence + runtime guard wiring — **done 2026-05-23**
+
+**Status:** Complete (commit `48c7d2e`).
+
+**What landed:**
+
+- `MaiServer::with_ship_profile(path)` + `MAI_SHIP_PROFILE` env-var fallback. `MaiServer::run()` branches on the resolved profile: when set, `build_vault` / `WalAuditWriter::open` / `build_sealer` / `build_trust_components` replace the demo defaults; `verify_boot_bundle` runs before the readiness gate in production.
+- New public types `RuntimeChecks` + `RuntimeOutcome` and `ProductionReadinessReport::evaluate_with_runtime` flip the six runtime check IDs (`PROD-VAULT-100`, `PROD-AUDIT-100`, `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`, `PROD-POLICY-001`) from Deferred to Pass / Fail at startup.
+- The server returns `ServerError::Init` (with the rendered report) on any Critical Fail and never reaches `bind()`.
+- 4 new integration tests in `mai-api/tests/ship_convergence.rs` + 5 new unit tests in `mai-api/src/production_guard.rs`.
+
+### Slice B — Readiness endpoint + standalone CLI — **pending**
+
+**Goal:** Provide one command (and one URL) that answers whether a node is shippable, without inspecting source.
 
 **Work:**
 
-- Finalize `mai-ship-validate` or equivalent command.
-- Include checks for config, vault, audit, trust, auth, dashboard,
-  network, observability, paths, and permissions.
-- Add JSON output for automation.
-- Add plain-English output for operators.
+- `GET /v1/system/production-readiness` admin route returning `ProductionReadinessReport::to_json()` over the same introspection collected inside `apply_ship_profile`.
+- Standalone `mai-ship-validate` binary accepting `--profile <PATH>` (and optional `--state-dir <PATH>` so the runtime checks can be exercised offline) and emitting human + JSON output with the exit codes from `mai/docs/SHIP-HARDENING-PLAN.md` §13.
+- Profile-aware `handlers/trust.rs::exchange_token` switching on the `TrustExchangeMode` collected in `apply_ship_profile` (return 404/410 on `Disabled`, forward to OpenBao on `OpenBaoBridge`, mint synthetic only on `LocalDevSynthetic`).
 
 **Acceptance:**
 

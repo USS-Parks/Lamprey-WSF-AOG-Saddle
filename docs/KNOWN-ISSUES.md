@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-23 (post-BF-7; Trust Manifold backfill lane closed)
+**Last Updated:** 2026-05-23 (post-BF-7 + SHIP-07-convergence; Trust Manifold backfill lane closed; demo-default defaults no longer reachable when `MAI_SHIP_PROFILE` is set)
 
 ---
 
@@ -64,9 +64,25 @@ The BF-1..BF-6 lane ships the Trust Manifold contract, schemas, ML-DSA-87 bundle
 
 **Severity:** Low (development-only default; not a production gate)
 **Affects:** `compliance-dashboard/util.py`
-**Status:** By design, documented at the BF-6 gate.
+**Status:** By design, documented at the BF-6 gate. The production_guard's `PROD-DASH-001` check rejects the dashboard-dev path at ship-profile parse time, so SHIP-07 convergence already blocks this default from reaching production startup.
 
 The compliance dashboard admin gate uses `X-IM-Auth-Token: $MAI_DASHBOARD_ADMIN_TOKEN` (default `dashboard-dev`). The default value is for local development only — every shipped deployment profile recommends setting `MAI_DASHBOARD_ADMIN_TOKEN` to a real value before exposing the dashboard. Acquirer-side integration guides (`docs/BUYER-INTEGRATION-GUIDE.md` Step 6) call this out.
+
+### 11. SHIP-07 remainder slice (admin endpoint + standalone CLI)
+
+**Severity:** Low (functional gate is already live inside `MaiServer::run()`; this is the network/binary exposure)
+**Affects:** Operator tooling and packaging (SHIP-08).
+**Status:** Pending — tracked in `docs/SHIP-HARDENING-PLAN.md` §SHIP-07 slice B.
+
+SHIP-07 convergence (commit `48c7d2e`) wired all four builders into `MaiServer::run()` and the production_guard's six deferred runtime checks (`PROD-VAULT-100`, `PROD-AUDIT-100`, `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`, `PROD-POLICY-001`) now flip from Deferred to Pass / Fail via `ProductionReadinessReport::evaluate_with_runtime`. The remaining surface is the `GET /v1/system/production-readiness` admin route, the standalone `mai-ship-validate` binary, and the profile-aware switch in `handlers/trust.rs::exchange_token` on `TrustExchangeMode`.
+
+### 12. Duplicate `GENESIS_HASH` constant in `audit_wal.rs`
+
+**Severity:** Trivial (guarded by inline `genesis_hash_matches_audit_module` test against drift)
+**Affects:** `mai-api/src/audit_wal.rs:51`
+**Status:** Carried forward from SHIP-07 convergence checklist.
+
+`audit_wal.rs` duplicates `audit.rs::GENESIS_HASH` because SHIP-04 was committed in parallel with SHIP-05's `pub(crate)` promotion. The inline test will fail closed if the canonical value ever drifts. Safe to remove in a follow-up cleanup commit.
 
 ---
 
@@ -126,9 +142,15 @@ The Sglang adapter referenced `self._raw_config` in its `initialize()` method, b
 
 ### Issue #4: StubVault in Server Bootstrap (RESOLVED)
 
-**Resolved:** Session 12, 2026-05-18
+**Resolved:** Session 12, 2026-05-18; production wiring closed by SHIP-07 convergence on 2026-05-23 (commit `48c7d2e`).
 
-The server used a `StubVault` placeholder. Real ZfsVault now available in mai-vault crate. StubVault retained for bootstrap/testing only.
+The server used a `StubVault` placeholder. Real `ZfsVault` was added to the mai-vault crate in Session 12; SHIP-03 added the `build_vault` selector that rejects `StubVault` in production; SHIP-07 convergence made `MaiServer::run()` actually call the builder when `MAI_SHIP_PROFILE` is set. `StubVault` is now reachable only from the no-profile bring-up path (tests + local-dev without a ship profile) and is unconditionally rejected by the production guard (`PROD-VAULT-001`, `PROD-VAULT-002`, `PROD-VAULT-100`).
+
+### SHIP-01..SHIP-07-convergence (RESOLVED)
+
+**Resolved:** 2026-05-23.
+
+The hardening lane's demo-default removal: `StubVault`, `MemoryAuditWriter`, `NullSealer`, and `AcceptAllBundleVerifier` are no longer reachable in production startup when `MAI_SHIP_PROFILE` is set or `MaiServer::with_ship_profile(path)` is called. `MaiServer::run()` constructs the real vault / WAL audit / sealer-backed compliance log / ML-DSA bundle verifier via the SHIP-03/04/05/06 builders, calls `verify_boot_bundle` (production-only), and refuses to bind sockets if `ProductionReadinessReport::evaluate_with_runtime` reports any Critical Fail. See `docs/SHIP-PROFILE.md` "What changes after SHIP-01" for the per-session enforcement table, and `docs/SHIP-HARDENING-PLAN.md` §SHIP-07 for the full convergence checklist with carried-forward items.
 
 ### Issue #5: Placeholder Token Producers in Streaming (RESOLVED)
 

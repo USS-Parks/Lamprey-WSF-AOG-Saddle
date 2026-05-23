@@ -1176,11 +1176,58 @@ Claude Code should implement this in bounded sessions. Each session must leave t
 - Reject local-dev synthetic exchange in ship mode.
 - Wire ML-DSA verifier and trust anchors into ship startup.
 
-### Session SHIP-07: Readiness Endpoint and Validator CLI
+### Session SHIP-07: Convergence + Readiness Endpoint and Validator CLI
 
-- Expose readiness report via admin endpoint.
-- Add `mai-ship-validate`.
-- Add JSON output.
+In practice this session split into two slices once SHIP-02..SHIP-06
+had landed. The convergence slice (the wiring step that retired the
+demo defaults from the live startup path) was the highest-risk piece
+and was executed first.
+
+**Slice A — Bootstrap convergence + runtime guard wiring (done 2026-05-23, commit `48c7d2e`):**
+
+- `MaiServer::with_ship_profile(path)` + `MAI_SHIP_PROFILE` env var.
+- `MaiServer::run()` now branches on the resolved profile:
+  - `vault_builder::build_vault(&profile)` replaces `StubVault`.
+  - `WalAuditWriter::open(WalAuditConfig::for_dir(&profile.audit.wal_dir))`
+    replaces `MemoryAuditWriter`.
+  - `sealer_builder::build_sealer(&profile)` drives
+    `ComplianceAuditLog::builder().sealer(...).build()` via
+    `AppState::with_compliance_audit`.
+  - `trust_builder::build_trust_components(&profile).bundle_verifier`
+    replaces `AcceptAllBundleVerifier` via
+    `AppState::with_bundle_verifier`.
+  - In production mode (`require_bundle_on_boot=true`) the server
+    calls `trust_builder::verify_boot_bundle` before the readiness
+    gate; failure surfaces as `ServerError::Init`.
+- New public types `RuntimeChecks` + `RuntimeOutcome` and
+  `ProductionReadinessReport::evaluate_with_runtime` + `apply_runtime`
+  flip the deferred runtime checks `PROD-VAULT-100`, `PROD-AUDIT-100`,
+  `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`,
+  `PROD-POLICY-001` from `Deferred` to `Pass` / `Fail` at startup.
+- The server returns `ServerError::Init` (with the rendered report)
+  on any Critical Fail and never reaches `bind()`.
+- 4 new integration tests in `mai-api/tests/ship_convergence.rs`
+  + 5 new unit tests in `production_guard.rs`. All 177 mai-api
+  lib tests + ~108 integration tests pass; clippy + fmt clean.
+
+**Slice B — Readiness endpoint + standalone CLI (pending):**
+
+- Expose the runtime readiness report at
+  `GET /v1/system/production-readiness` (admin-only). The
+  serializer (`ProductionReadinessReport::to_json`) already exists;
+  this is wiring an admin route, plus a small handler that
+  re-runs `evaluate_with_runtime` over the introspection collected
+  in `apply_ship_profile`.
+- Add the standalone `mai-ship-validate` binary that accepts a
+  `--profile <PATH>` (and optional `--state-dir <PATH>` so the
+  runtime checks can be exercised offline) and emits human / JSON
+  output with §13 exit codes.
+- Profile-aware `handlers/trust.rs::exchange_token` switching on
+  the `TrustExchangeMode` collected in `apply_ship_profile`:
+  return 404/410 on `Disabled`, forward to OpenBao on
+  `OpenBaoBridge`, mint synthetic only on `LocalDevSynthetic`.
+  Currently the handler always mints synthetic regardless of
+  profile.
 
 ### Session SHIP-08: Packaging
 

@@ -180,12 +180,19 @@ JSON-formatted logs (for ingestion) are enabled by setting
 `MAI_LOG_FORMAT=json`.
 
 The audit log is separate from the application log and lives in the
-writer configured at startup. The default `MemoryAuditWriter` is
-in-process and is lost on shutdown -- it is suitable for demo and
-development use only. Production deployments should wire a persistent
-writer; see `mai-compliance/src/audit/writers/` for the available
-implementations and `config/audit.toml` for the writer selection
-configuration.
+writer configured at startup. The legacy `MemoryAuditWriter` is
+in-process and is lost on shutdown -- it remains in the tree as the
+test/dev fallback and is the writer the server uses when no ship
+profile is supplied.
+
+For production, set `MAI_SHIP_PROFILE=/etc/mai/profile.toml` (or call
+`MaiServer::with_ship_profile(path)` programmatically) so the SHIP-07
+convergence path runs: the server constructs `WalAuditWriter` against
+`audit.wal_dir`, replays + verifies the chain on open, and refuses to
+bind sockets if the production_guard reports any Critical Fail. See
+`docs/SHIP-PROFILE.md` for the per-section enforcement table and
+`docs/SHIP-HARDENING-PLAN.md` §5 (Workstream 3) for the audit
+persistence contract.
 
 ## Design Boundaries
 

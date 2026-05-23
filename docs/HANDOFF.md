@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (46 sessions with Lamprey compliance governance) + `BUILD-EXECUTION-PLAN-V2-UPDATED.md` Appendix A (Trust Manifold backfill BF-1..BF-7).
-**Status:** Sessions 1-30 and 32-44 complete; **Gate C closed**; **Trust Manifold backfill lane closed** (2026-05-22). Current mainline is **Session 45 -- Acquisition Documentation Package**.
+**Status:** Sessions 1-30 and 32-46 complete; **Gate C closed**; **Trust Manifold backfill lane closed** (2026-05-22); **Gate D closed** (Session 46); **Ship hardening lane SHIP-01..SHIP-07-convergence closed** (2026-05-23, commits `48c7d2e` + `88cdb87`). Mainline build plan is complete. Active work is the SHIP-07-remainder / SHIP-08+ slice of the ship-hardening lane plus the RC1 → RC2 → appliance ladder described in `docs/COGENT-DEPLOYMENT-ROADMAP.md`.
 **Archive:** Sessions 01-10 archived to `SESSION-LOG-ARCHIVE-01.md`; Sessions 11-25 archived to [SESSION-LOG-ARCHIVE-02.md](SESSION-LOG-ARCHIVE-02.md) on 2026-05-23.
 
 ---
@@ -50,6 +50,9 @@ Four roles, four paths. Find yours and follow it before reading anything else.
 | [ACQUISITION-PACKAGE.md](ACQUISITION-PACKAGE.md) | Five-point buyer thesis with code/test citations. |
 | [BUYER-INTEGRATION-GUIDE.md](BUYER-INTEGRATION-GUIDE.md) | OpenBao-backed trust boundary and integration sequence. |
 | [DEMO-SUITE.md](DEMO-SUITE.md) | Trust Manifold scenario and supporting demos. |
+| [SHIP-HARDENING-PLAN.md](SHIP-HARDENING-PLAN.md) | SHIP-01..SHIP-16 hardening sequence; the lane on top of S1..S46 that removes demo-safe defaults. |
+| [SHIP-PROFILE.md](SHIP-PROFILE.md) | Production-profile contract; status table tracks per-SHIP enforcement. |
+| [COGENT-DEPLOYMENT-ROADMAP.md](COGENT-DEPLOYMENT-ROADMAP.md) | RC1 → RC2 → appliance release ladder bridging Gate D to a shippable installer. |
 
 ### Codebase Baseline
 
@@ -67,7 +70,7 @@ The workspace contains the full MAI crate family: `mai-core`, `mai-vault`, `mai-
 | Audit and reports | `mai-compliance/src/audit/`, `mai-compliance/src/reports/` | Complete | Hash chain, report certification, TrustSection. |
 | Dashboard and demos | `compliance-dashboard/`, `apps/`, `deployment/` | Complete | FastAPI dashboard and runnable scenario scaffolds. |
 
-**Current test posture:** Rust workspace lib tests exceed 1196; Python tests exceed 114; SDK, dashboard, and scaffold tests are green in their respective suites. Hardware-dependent Phase 1 exit criteria remain explicit deferrals rather than hidden gaps.
+**Current test posture:** Rust workspace lib tests exceed 1196; Python tests exceed 114; SDK, dashboard, and scaffold tests are green in their respective suites. SHIP-07 convergence adds 4 integration + 5 unit tests in mai-api; SHIP-04 fixup adds 7 audit_wal integration tests. Hardware-dependent Phase 1 exit criteria remain explicit deferrals rather than hidden gaps.
 
 The full session-by-session build history -- deliverables, acceptance criteria, and deviation notes -- lives in [SESSION-LOG.md](SESSION-LOG.md) and the archive files above. That history is reference material. Use it when you need provenance; do not make new reviewers start there.
 
@@ -89,9 +92,8 @@ The full session-by-session build history -- deliverables, acceptance criteria, 
 
 ## Critical Path Remaining
 
-The longest remaining dependency chain:
-
-**Session 45 -> Session 46 -> Gate D (Acquisition-Ready Release)**
+The mainline build plan (S1..S46) is complete. The remaining critical path
+lives in the ship-hardening lane and the deployment ladder.
 
 Parallel tracks:
 
@@ -101,8 +103,10 @@ Parallel tracks:
 - Track D: Power and Lifecycle -- complete.
 - Track L: Lamprey Compliance -- complete.
 - Track H2: Trust Manifold backfills -- complete, lane closed 2026-05-22.
+- Track SHIP (hardening): SHIP-01..SHIP-07-convergence closed 2026-05-23. Remaining: SHIP-07-endpoint-and-cli (admin route + standalone validator binary + profile-aware token-exchange handler), then SHIP-08..SHIP-16 (packaging, backup/restore, observability, CI gates, GPU release workflow, 72h burn-in, operator docs, final audit pass).
+- Track RC (deployment ladder): RC1 tester bundle → RC2 hardened release candidate → installer/appliance. Roadmap in `docs/COGENT-DEPLOYMENT-ROADMAP.md`.
 
-See `BUILD-EXECUTION-PLAN-V2-UPDATED.md` for the governing execution plan and [MAI-BUILD-PROMPT-ROSTER-v2.md](../MAI-BUILD-PROMPT-ROSTER-v2.md) for per-session deliverables.
+See `BUILD-EXECUTION-PLAN-V2-UPDATED.md` for the governing execution plan, [MAI-BUILD-PROMPT-ROSTER-v2.md](../MAI-BUILD-PROMPT-ROSTER-v2.md) for per-session deliverables, and [SHIP-HARDENING-PLAN.md](SHIP-HARDENING-PLAN.md) for the hardening sequence.
 
 ---
 
@@ -230,12 +234,16 @@ These items are explicitly excluded. See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for 
 
 Every item must pass before MAI ships on hardware:
 
-- [ ] Full workspace test suite passes.
+- [x] Full workspace test suite passes (S46 + SHIP-07-convergence; 1196+ Rust lib + ~108 mai-api integration + Python suites).
+- [x] Ship-profile production guard fails closed at startup before any socket binds (SHIP-07-convergence; `ProductionReadinessReport::evaluate_with_runtime` inside `MaiServer::run`).
+- [x] Demo-safe defaults (`StubVault`, `MemoryAuditWriter`, `NullSealer`, `AcceptAllBundleVerifier`) unreachable in production startup when `MAI_SHIP_PROFILE` is set (SHIP-07-convergence).
+- [ ] `mai-ship-validate` standalone binary + `GET /v1/system/production-readiness` admin endpoint (SHIP-07-endpoint-and-cli).
+- [ ] Persistent state recovery drill (SHIP-09 + SHIP-10).
 - [ ] 72-hour burn-in passes on representative Scout hardware.
 - [ ] 72-hour burn-in passes on representative Ranger hardware.
 - [ ] Air-gap verification passes 72-hour endurance.
 - [ ] PQC encryption verified on all vault data.
-- [ ] Audit trail integrity verified over 72-hour period.
+- [ ] Audit trail integrity verified over 72-hour period (SHIP-04 acceptance suite covers tamper detection + replay + rotation today; the 72-hour endurance signoff lands in SHIP-14).
 - [ ] First boot completes in under 3 minutes.
 - [ ] Model update via USB verified.
 - [ ] All 7 adapters health-check pass.

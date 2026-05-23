@@ -3,7 +3,7 @@
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (current at 46 sessions plus Trust Manifold backfill lane)
 **Instructions:** Update this file after each session completes. Mark deliverables as they are finished. Log blockers and notes as they arise.
-**Active Scope:** Phase H onward — Sessions 26-46 + BF-1..BF-7. Gate D closed by Session 46. No mainline work remaining.
+**Active Scope:** Phase H onward — Sessions 26-46 + BF-1..BF-7 + Ship hardening lane (SHIP-01..SHIP-16). Gate D closed by Session 46; SHIP-01..SHIP-07-convergence closed 2026-05-23. Mainline build plan complete; active work is on the SHIP-07-remainder + SHIP-08+ slice and the RC1 → RC2 → appliance deployment ladder (see `docs/COGENT-DEPLOYMENT-ROADMAP.md`).
 
 ---
 
@@ -850,3 +850,86 @@ this scope.
 **Next:** post-acquisition handoff or deployment hardening track
 (vault-AEAD wiring, browser walkthrough, S31 roster scaffolds if a
 buyer requests them).
+
+---
+
+## Ship Hardening Lane — SHIP-01..SHIP-07-convergence Complete (2026-05-23)
+
+**Date completed:** 2026-05-23
+**Lane:** Ship hardening (parallel to mainline S1..S46)
+**Status:** Convergence slice complete; remainder pending
+**Plan:** `docs/SHIP-HARDENING-PLAN.md` + `docs/SHIP-PROFILE.md`
+
+The hardening lane opened the day Gate D closed. The lane sits on top of S1..S46 and removes the demo-safe defaults (`StubVault`, `MemoryAuditWriter`, `NullSealer`, `AcceptAllBundleVerifier`, `dashboard-dev`, synthetic local-dev token exchange) that would block delivery to a regulated customer. SHIP-01 through SHIP-07-convergence landed in a single day.
+
+### Sessions completed
+
+| Session  | Status   | Commits | Adds to `ship` enforcement |
+|----------|----------|---------|----------------------------|
+| SHIP-01 | done | `5dbe43c`+`b263fda`+`7e99bc3` | Production profile skeleton: `deployment/ship/{profile.toml,README.md}`, `config/{production.example.toml,ship-validator.toml}`, `docs/SHIP-PROFILE.md`, `mai-api/src/ship_profile.rs` typed schema + parse-time validator. 13 unit + 3 integration tests. |
+| SHIP-02 | done | `8080401` (co-committed with SHIP-03) | `mai-api/src/production_guard.rs` with 40 stable `PROD-*` check IDs + stop-gap `mai-api validate --profile <PATH> [--json]` CLI. 19 unit + 6 integration tests. |
+| SHIP-03 | done | `8080401` (co-committed with SHIP-02) | `mai-api/src/vault_builder.rs` — `build_vault` selects ZfsVault / LocalDevStubVault by profile; production rejects every stub path. 9 integration tests. |
+| SHIP-04 | done | `40108db` (co-committed with SHIP-05) + `88cdb87` (acceptance test fixup 2026-05-23) | `mai-api/src/audit_wal.rs` — `WalAuditWriter` (JSON-lines append-only WAL, replay-and-verify on `open()`, size-based rotation, 7-year retention metadata). 10 unit + 7 integration tests. |
+| SHIP-05 | done | `40108db` (co-committed with SHIP-04) | `mai-compliance/src/audit/sealer.rs` AES-256-GCM `AeadSealer` + `mai-api/src/sealer_builder.rs` `build_sealer`. 5 unit + 7 integration tests. |
+| SHIP-06 | done | `5d6aebf` | `mai-api/src/trust_builder.rs` — `build_trust_components` + `verify_boot_bundle`; production rejects accept-all verifier, local-dev synthetic token exchange, missing trust anchor, missing boot bundle. 2 unit + 25 integration tests. |
+| SHIP-07-convergence | done | `48c7d2e` | Bootstrap convergence + runtime guard wiring (this entry). |
+
+### SHIP-07-convergence deliverables (commit `48c7d2e`)
+
+- `MaiServer::with_ship_profile(path)` + `MAI_SHIP_PROFILE` env var fallback. `resolve_ship_profile()` returns `Ok(None)` for the no-profile/test path so the legacy bring-up (StubVault + MemoryAuditWriter) is preserved for tests and local-dev without a profile.
+- When a profile is loaded, `MaiServer::run()` branches:
+  - `vault_builder::build_vault(&profile)` replaces `StubVault`.
+  - `WalAuditWriter::open(WalAuditConfig::for_dir(&profile.audit.wal_dir))` replaces `MemoryAuditWriter`.
+  - `ComplianceAuditLog::builder().sealer(build_sealer(&profile)).build()` installed via `AppState::with_compliance_audit` replaces the default null-sealer log.
+  - `build_trust_components(&profile).bundle_verifier` installed via `AppState::with_bundle_verifier` replaces `AcceptAllBundleVerifier`.
+  - In production mode with `require_bundle_on_boot=true`, `verify_boot_bundle` is called before the readiness gate; verification failure becomes `ServerError::Init` without ever binding sockets.
+- New public types `RuntimeChecks` + `RuntimeOutcome` (`pass(detail)` / `fail(detail)` ctors) re-exported from `mai_api::production_guard`.
+- New public functions `ProductionReadinessReport::evaluate_with_runtime` and `apply_runtime` upgrade six deferred runtime checks (`PROD-VAULT-100`, `PROD-AUDIT-100`, `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`, `PROD-POLICY-001`) from `Deferred` to `Pass`/`Fail` at startup. `Skipped` checks (local-dev mode) stay `Skipped`.
+- `MaiServer::run()` calls `evaluate_with_runtime` before binding sockets and returns `ServerError::Init` with the rendered report on any Critical Fail.
+- 4 new integration tests in `mai-api/tests/ship_convergence.rs`: `all_builders_compose_under_local_dev_profile`, `runtime_pass_lifts_every_deferred_id_under_production_profile`, `runtime_fail_in_any_critical_id_blocks_ship_ready`, `mai_server_rejects_missing_ship_profile_path`.
+- 5 new unit tests in `mai-api/src/production_guard.rs`: `runtime_flips_deferred_to_pass`, `runtime_flip_to_fail_blocks_ship_ready`, `runtime_partial_results_keep_others_deferred`, `runtime_does_not_override_config_only_pass`, `runtime_skipped_under_local_dev_stays_skipped`.
+
+### Companion commit: SHIP-04 fixup (commit `88cdb87`)
+
+Recovered `mai-api/tests/audit_wal.rs` (7 acceptance tests covering survives-restart, chain-verifies-after-restart, chain-verifies-across-rotation, tampered-WAL-fails-open, missing-WAL-dir-fails-open, replay-outcome-reports-rotated-count, audit-write-failure-surfaces-error). The file was authored alongside SHIP-04 but lost to a filter-branch rewrite before staging.
+
+### Verification
+
+- `cargo test -p mai-api --lib`: 177/177 pass (5 new in `production_guard::tests`).
+- `cargo test -p mai-api`: lib + ~108 integration tests pass (4 new in `ship_convergence`, 7 recovered in `audit_wal`).
+- `cargo check --workspace`: clean.
+- `cargo clippy -p mai-api -- -D warnings -A clippy::pedantic`: clean.
+- `cargo fmt --check`: clean.
+
+### Acceptance criteria (plan §1.1 + §1.2)
+
+- [x] `mai-api` production startup never constructs `StubVault` — `MaiServer::run()` uses `build_vault` when a ship profile is loaded; the residual `server::StubVault` is reachable only on the no-profile path.
+- [x] `mai-api` production startup never constructs `MemoryAuditWriter` — `WalAuditWriter::open` is used when a ship profile is loaded.
+- [x] `AppState` production startup never defaults to `AcceptAllBundleVerifier` — `AppState::with_bundle_verifier(build_trust_components(...).bundle_verifier)` swaps it out.
+- [x] Compliance audit storage never uses `NullSealer` in production — `build_sealer` enforces this at builder time; `ComplianceAuditLog::builder().sealer(...)` installs the real sealer.
+- [x] Production profile refuses to bind sockets if any Critical Fail is reported — `MaiServer::run()` returns `ServerError::Init` on `!report.is_ship_ready()`.
+- [x] Trust bundles re-verified on boot — `verify_boot_bundle` is called in production with `require_bundle_on_boot=true`.
+- [ ] `POST /v1/auth/exchange_token` cannot mint synthetic local-dev tokens in production — the `TrustExchangeMode` is computed and carried into the runtime report, but `handlers/trust.rs::exchange_token` still unconditionally mints synthetic regardless of profile. **Carried to SHIP-07-endpoint-and-cli.**
+- [ ] `GET /v1/system/production-readiness` admin endpoint — **carried to SHIP-07-endpoint-and-cli.**
+- [ ] `mai-ship-validate` standalone binary — **carried to SHIP-07-endpoint-and-cli.**
+
+### Carried forward
+
+- SHIP-07-endpoint-and-cli (admin route + standalone CLI binary + profile-aware exchange_token handler).
+- Cleanup of duplicate `GENESIS_HASH` constant in `mai-api/src/audit_wal.rs:51` (guarded today by an inline drift test).
+- SHIP-08..SHIP-16 (packaging, backup/restore, observability, CI gates, GPU release workflow, 72h burn-in, operator docs, final audit pass).
+
+### Process notes
+
+- Mid-session a filter-branch history rewrite reset the working tree once; the SHIP-07 wiring had to be re-applied from scratch. Caught early; no work was lost permanently. The recovered SHIP-04 acceptance suite was a casualty of an earlier instance of the same pattern.
+- All SHIP-07-convergence files went through Edit (not Write) per `mai/.claude/CLAUDE.md` anti-truncation rules. `mai/.integrity/scripts/verify-tree.sh` ran clean against every staged file.
+
+---
+
+## Deployment Roadmap Added (2026-05-23)
+
+**Companion to:** `docs/SHIP-HARDENING-PLAN.md`
+**Commit:** `e12f132` + `eee6593` (index link)
+**File:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` (730 lines)
+
+Frames the packaging, tester-bundle, and release-candidate cadence (RC-01 tester bundle → RC2 hardened release candidate → installer/appliance) so the ship hardening lane lands inside a coherent release narrative rather than ad-hoc binary handoffs. RC1 is for trusted technical testers and acquirer reviewers; RC2 is for serious deployment rehearsal with production posture and persistent state; the installer phase follows SHIP-08 packaging.

@@ -94,7 +94,7 @@ Conceptually, the vault protects:
 - vector store backup hooks
 - audit checkpoint signing hooks
 
-The current architecture distinguishes between real vault capability and bootstrap/test paths. The Ship Hardening Plan exists because production startup must use the real vault path, not the demo-safe `StubVault` path.
+The current architecture distinguishes between real vault capability and bootstrap/test paths. The Ship Hardening Plan exists because production startup must use the real vault path, not the demo-safe `StubVault` path. As of SHIP-07 convergence (2026-05-23, commit `48c7d2e`), `MaiServer::run()` actually constructs the real vault via `vault_builder::build_vault` whenever `MAI_SHIP_PROFILE` is set or `MaiServer::with_ship_profile(path)` is called; `StubVault` remains in the tree only for the no-profile bring-up path (tests + local-dev).
 
 ### 4.2 Post-Quantum Cryptography
 
@@ -107,17 +107,19 @@ The vault and compliance stack use post-quantum cryptographic concepts around ML
 
 That matters for acquisition, regulation, and field deployment. A regulator or reviewer should be able to verify a report or audit artifact without taking the vendor's word for it.
 
-### 4.3 Production Hardening Requirement
+### 4.3 Production Hardening Status
 
-For production, the vault layer must be wired directly into `mai-api` startup. The production profile should refuse:
+As of SHIP-07 convergence (2026-05-23), the vault layer is wired directly into `mai-api` startup. When `MAI_SHIP_PROFILE` is set, `MaiServer::run()` constructs `ZfsVault` via `vault_builder::build_vault`, opens the persistent `WalAuditWriter` for API audit, installs the sealer-backed compliance log via `build_sealer`, and runs the real ML-DSA bundle verifier via `build_trust_components`. The production guard refuses to bind sockets if any Critical Fail surfaces in `ProductionReadinessReport::evaluate_with_runtime`.
 
-- stub vault
-- missing vault root
-- missing sealed state
-- missing PQC provider when required
-- silent fallback to insecure storage
+The production profile now refuses, by typed-error and by readiness check:
 
-That is the difference between having cryptographic modules in the repo and actually running a cryptographically anchored appliance.
+- stub vault — `VaultBuildError::StubInProduction` + `PROD-VAULT-001` / `PROD-VAULT-002`
+- missing vault root — `VaultBuildError::RootMissing` + `PROD-VAULT-100`
+- missing sealed state — `PROD-VAULT-004` (parse-time)
+- missing PQC provider when required — `PROD-VAULT-005` (parse-time)
+- silent fallback to insecure storage — `MaiServer::run()` returns `ServerError::Init` on any builder rejection rather than falling back.
+
+That closes the gap between having cryptographic modules in the repo and actually running a cryptographically anchored appliance. The remaining surfaces (admin HTTP readiness endpoint + standalone `mai-ship-validate` binary + profile-aware token exchange) are tracked in the SHIP-07-endpoint-and-cli slice.
 
 ---
 

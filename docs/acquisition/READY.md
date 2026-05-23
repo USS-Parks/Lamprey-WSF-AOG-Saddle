@@ -138,12 +138,17 @@ These are deliberate scope decisions or hardening deferrals. None
 blocks Gate D.
 
 - **Vault-AEAD sealed audit-store.** The `AuditStore` accepts a
-  pluggable `StoreSealer`; the production seal that wraps each
-  WAL record with a vault-derived AEAD key is wired through the
-  builder but defaults to `NullSealer`. The contract is proven by
-  the BF-3 ML-DSA signer used for periodic chain signatures.
-  Live vault wiring belongs to the deployment hardening track,
-  not the acquisition surface.
+  pluggable `StoreSealer`; SHIP-05 added `AeadSealer` (AES-256-GCM)
+  and `mai-api/src/sealer_builder.rs::build_sealer` which loads the
+  32-byte key from `<audit.wal_dir>/sealer.key` in production.
+  SHIP-07 convergence (2026-05-23, commit `48c7d2e`) wires the
+  builder into `MaiServer::run()` via
+  `ComplianceAuditLog::builder().sealer(...)` whenever
+  `MAI_SHIP_PROFILE` is set, so `NullSealer` is no longer
+  reachable in production startup. The contract is also reinforced
+  by the BF-3 ML-DSA signer used for periodic chain signatures.
+  Vault-managed key acquisition (currently the key file is the
+  bring-up contract) ladders into SHIP-08 packaging.
 - **Dashboard browser walkthrough.** The Python dashboard has 20
   green page-level tests covering every route's payload shape;
   the SDK has matching `client.compliance.*` coverage. A manual

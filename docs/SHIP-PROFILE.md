@@ -53,7 +53,8 @@ SHIP-01 introduced parsing only:
 - `deployment/ship/profile.toml` — canonical profile.
 - `deployment/ship/README.md` — operator-facing summary.
 - `config/production.example.toml` — annotated operator template.
-- `config/ship-validator.toml` — placeholder for the SHIP-07 CLI.
+- `config/ship-validator.toml` — placeholder for the standalone
+  `mai-ship-validate` CLI binary (the SHIP-07 remainder slice).
 - `mai-api/src/ship_profile.rs` — typed schema, loader,
   parse-time validator.
 - `mai-api/tests/ship_profile.rs` — integration test against the
@@ -62,10 +63,13 @@ SHIP-01 introduced parsing only:
 SHIP-01 explicitly does **not**:
 
 - Wire the parsed profile into `ServerConfig` or `MaiServer` startup.
-  That work belongs to SHIP-02..SHIP-05.
+  That wiring landed in SHIP-07 convergence (see status table below).
 - Check that the configured paths exist on disk. That's a runtime
-  guard responsibility (SHIP-02).
-- Ship the `mai-ship-validate` CLI. That lands in SHIP-07.
+  guard responsibility (SHIP-02 + SHIP-07).
+- Ship the standalone `mai-ship-validate` binary. The runtime
+  fail-closed gate now lives inside `MaiServer::run()`; the
+  standalone binary + admin HTTP endpoint are the SHIP-07
+  remainder slice and are still pending.
 
 ## Running the parser locally
 
@@ -83,14 +87,15 @@ The test target name is `ship_profile`; both the unit tests in
 | Session  | Status   | Adds to `ship` enforcement                                                |
 |----------|----------|----------------------------------------------------------------------------|
 | SHIP-02  | **done** | Centralised `production_guard.rs` with 40 `PROD-*` check IDs + stop-gap `mai-api validate --profile <PATH> [--json]` CLI. |
-| SHIP-03  | **done** | `build_vault` selects a real backend; ship rejects `StubVault` at the builder; wiring deferred to SHIP-07 convergence. |
-| SHIP-04  | **done** | `WalAuditWriter` (mai-api/src/audit_wal.rs) — JSON-lines append-only WAL, replay+verify on `open()`, rotation, 7-year retention metadata. Wiring deferred to SHIP-07 convergence. |
-| SHIP-05  | parallel | Compliance audit sealer builder; ship replaces `NullSealer` with vault-backed AEAD (parallel session). |
-| SHIP-06  | pending  | Trust production mode; ship rejects synthetic exchange + accept-all verifier. |
-| SHIP-07  | pending  | `/v1/system/production-readiness` endpoint + full `mai-ship-validate` binary. |
+| SHIP-03  | **done** | `build_vault` selects a real backend; ship rejects `StubVault` at the builder. Wiring landed in SHIP-07 convergence. |
+| SHIP-04  | **done** | `WalAuditWriter` (mai-api/src/audit_wal.rs) — JSON-lines append-only WAL, replay+verify on `open()`, rotation, 7-year retention metadata. Wiring landed in SHIP-07 convergence. |
+| SHIP-05  | **done** | Compliance audit sealer builder; ship replaces `NullSealer` with vault-backed AEAD via `build_sealer`. Wiring landed in SHIP-07 convergence. |
+| SHIP-06  | **done** | Trust production mode; `build_trust_components` + `verify_boot_bundle` reject synthetic exchange + accept-all verifier. Wiring landed in SHIP-07 convergence. |
+| SHIP-07-convergence | **done** | `MaiServer::with_ship_profile()` + `MAI_SHIP_PROFILE` env var drive `build_vault` / `WalAuditWriter::open` / `build_sealer` / `build_trust_components` / `verify_boot_bundle` from `MaiServer::run()`. Fails closed via `ProductionReadinessReport::evaluate_with_runtime` before any socket binds. Six deferred checks (`PROD-VAULT-100`, `PROD-AUDIT-100`, `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`, `PROD-POLICY-001`) flip to Pass / Fail at runtime via new public `RuntimeChecks` + `RuntimeOutcome` types. |
+| SHIP-07-endpoint-and-cli | pending | `GET /v1/system/production-readiness` admin endpoint (already buildable from `ProductionReadinessReport::to_json`) + standalone `mai-ship-validate` binary that loads a profile + state-dir and prints the report with §13 exit codes. Profile-aware `handlers/trust.rs::exchange_token` switching on `TrustExchangeMode`. |
 | SHIP-08+ | pending  | Packaging, backup/restore, observability, burn-in, docs, final gate.      |
 
-### SHIP-02 readiness output
+### SHIP-02 readiness output (config-only pass — `mai-api validate`)
 
 ```
 $ mai-api validate --profile deployment/ship/profile.toml
@@ -105,7 +110,22 @@ Checks: 34 pass / 0 fail / 6 deferred / 0 skipped
 ...
 ```
 
-Deferred checks are surfaced (not silently skipped) so operators see the known gaps. Each deferred check names the SHIP session that closes it.
+The config-only path keeps the six deferred IDs visible so operators see the known gaps. Each deferred check names the SHIP session that closes it.
+
+### SHIP-07 convergence readiness output (runtime pass — inside `MaiServer::run()`)
+
+When `MAI_SHIP_PROFILE` is set or `MaiServer::with_ship_profile(path)` is called, the server constructs the real vault / audit WAL / sealer / trust components, collects six `RuntimeOutcome`s into a `RuntimeChecks`, and runs `ProductionReadinessReport::evaluate_with_runtime` before binding sockets. The deferred IDs flip to live status:
+
+```
+[PASS]     PROD-VAULT-100: Zfs vault opened at /var/lib/mai/vault
+[PASS]     PROD-AUDIT-100: WAL opened at /var/lib/mai/audit
+[PASS]     PROD-AUDIT-101: AEAD sealer wired from sealer.key
+[PASS]     PROD-TRUST-100: bundle v2026-05-23 verified against 3 anchors
+[PASS]     PROD-AUTH-100: 4 key(s) loaded
+[PASS]     PROD-POLICY-001: standard policy modules loaded
+```
+
+If any flips to `Fail` (e.g. missing trust anchor), `MaiServer::run()` returns `ServerError::Init` carrying the rendered report and never reaches `bind()`.
 
 ## Related docs
 
