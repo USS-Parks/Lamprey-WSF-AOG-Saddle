@@ -1,19 +1,40 @@
 """MAI Python SDK for IM-OS applications.
 
-Provides typed client access to the MAI API (REST and gRPC) for
-building L4-L5 applications on top of the Model Abstraction Interface.
+Provides typed client access to the MAI API for building L4-L5
+applications on top of the Model Abstraction Interface.
 
 Session 05 deliverable: type stubs and client skeleton.
-Full implementation in Session 11.
+Session 14c: streaming, auth token, retry, endpoint fixes.
+Session 29: full coverage — namespaces, separate errors/retry/config,
+async split, CLI, trust stubs (BF-6 deferred).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from mai.client import AsyncMaiClient, MaiClient
+from mai.config import MaiClientConfig
+from mai.errors import (
+    AirGapViolationError,
+    AuthenticationError,
+    BadRequestError,
+    ClaimExpiredError,
+    ConnectionError,  # noqa: A004 — intentional SDK shadow of builtin
+    MaiError,
+    NotFoundError,
+    PermissionError,  # noqa: A004 — intentional SDK shadow of builtin
+    PowerStateUnavailableError,
+    RateLimitError,
+    ServerError,
+    TimeoutError,  # noqa: A004 — intentional SDK shadow of builtin
+    TrustCacheStaleError,
+)
+from mai.retry import DEFAULT_RETRY_POLICY, NO_RETRY_POLICY, RetryPolicy
 from mai.types import (
     AdapterHealthEntry,
+    AirgapStatusResponse,
     AuditEntry,
     AuditLogResponse,
+    BenchmarkResult,
     CapabilityInfo,
     ChatChoice,
     ChatCompletionRequest,
@@ -32,34 +53,57 @@ from mai.types import (
     GpuHealthEntry,
     HardwareHealthResponse,
     HealthResponse,
-    MaiError,
+    InstanceHealthResponse,
+    InstanceMetricsResponse,
     ModelDetail,
+    ModelDiscoverResponse,
+    ModelInstallResponse,
+    ModelLoadResponse,
     ModelObject,
+    ModelRemoveResponse,
+    ModelUnloadResponse,
     PowerStateResponse,
+    PowerTransitionRequest,
+    PowerTransitionResponse,
     ProfileObject,
     ProfilePermissions,
     ProfileRole,
     RequestPriority,
+    RevocationStatusResponse,
+    SchedulerAnomaliesResponse,
+    SchedulerMetricsResponse,
     StructuredRequest,
     StructuredResponse,
+    SystemHealthResponse,
+    TrustBundleStatus,
+    TrustClaim,
+    UpdateCheckResponse,
+    UpdateStatusResponse,
     Usage,
 )
 
 __all__ = [
+    "DEFAULT_RETRY_POLICY",
+    "NO_RETRY_POLICY",
     "AdapterHealthEntry",
+    "AirGapViolationError",
+    "AirgapStatusResponse",
     "AsyncMaiClient",
     # Audit types
     "AuditEntry",
     "AuditLogResponse",
+    "AuthenticationError",
+    "BadRequestError",
+    "BenchmarkResult",
     "CapabilityInfo",
     "ChatChoice",
     "ChatCompletionRequest",
-    # Response types
     "ChatCompletionResponse",
-    # Request types
     "ChatMessage",
+    "ClaimExpiredError",
     "CompletionRequest",
     "CompletionResponse",
+    "ConnectionError",
     "ContentSafetyLevel",
     "EmbeddingData",
     "EmbeddingRequest",
@@ -70,24 +114,45 @@ __all__ = [
     "FunctionCallResponse",
     "GpuHealthEntry",
     "HardwareHealthResponse",
-    # Health types
     "HealthResponse",
+    "InstanceHealthResponse",
+    "InstanceMetricsResponse",
     # Client
     "MaiClient",
+    "MaiClientConfig",
     # Error types
     "MaiError",
     "ModelDetail",
-    # Model types
+    "ModelDiscoverResponse",
+    "ModelInstallResponse",
+    "ModelLoadResponse",
     "ModelObject",
-    # Power types
+    "ModelRemoveResponse",
+    "ModelUnloadResponse",
+    "NotFoundError",
+    "PermissionError",
     "PowerStateResponse",
-    # Profile types
+    "PowerStateUnavailableError",
+    "PowerTransitionRequest",
+    "PowerTransitionResponse",
     "ProfileObject",
     "ProfilePermissions",
     "ProfileRole",
-    # Enums
+    "RateLimitError",
     "RequestPriority",
+    "RetryPolicy",
+    "RevocationStatusResponse",
+    "SchedulerAnomaliesResponse",
+    "SchedulerMetricsResponse",
+    "ServerError",
     "StructuredRequest",
     "StructuredResponse",
+    "SystemHealthResponse",
+    "TimeoutError",
+    "TrustBundleStatus",
+    "TrustCacheStaleError",
+    "TrustClaim",
+    "UpdateCheckResponse",
+    "UpdateStatusResponse",
     "Usage",
 ]

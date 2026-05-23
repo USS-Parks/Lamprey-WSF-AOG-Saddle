@@ -493,23 +493,235 @@ class ErrorResponse(BaseModel):
     error: ErrorDetail
 
 
-class MaiError(Exception):
-    """SDK exception wrapping a MAI API error response."""
+# ---------------------------------------------------------------------------
+# Model lifecycle types (Session 29)
+# ---------------------------------------------------------------------------
 
-    def __init__(self, response: ErrorResponse) -> None:
-        self.response = response
-        self.code = response.error.code
-        self.error_type = response.error.type
-        self.retry_after = response.error.retry_after_seconds
-        super().__init__(response.error.message)
+class ModelLoadResponse(BaseModel):
+    """POST /v1/models/{id}/load response."""
+    model_id: str
+    status: ModelStatus
+    adapter_id: str | None = None
+    gpu_id: str | None = None
+    vram_allocated_bytes: int = 0
+    load_time_ms: int = 0
 
-    @property
-    def is_retryable(self) -> bool:
-        """Whether the client should retry this request."""
-        return self.error_type in {
-            MaiErrorType.RATE_LIMITED,
-            MaiErrorType.REQUEST_FAILED,
-            MaiErrorType.OVERLOADED,
-            MaiErrorType.POWER_STATE_UNAVAILABLE,
-            MaiErrorType.TIMEOUT,
-        }
+
+class ModelUnloadResponse(BaseModel):
+    """POST /v1/models/{id}/unload response."""
+    model_id: str
+    status: ModelStatus
+    vram_freed_bytes: int = 0
+
+
+class BenchmarkResult(BaseModel):
+    """POST /v1/models/{id}/benchmark response."""
+    model_id: str
+    completed: bool
+    tokens_per_second: float = 0.0
+    first_token_latency_ms: float = 0.0
+    p50_latency_ms: float = 0.0
+    p95_latency_ms: float = 0.0
+    p99_latency_ms: float = 0.0
+    total_tokens: int = 0
+    elapsed_ms: int = 0
+    notes: str | None = None
+
+
+class ModelInstallResponse(BaseModel):
+    """POST /v1/models/install response."""
+    model_id: str
+    installed: bool
+    size_bytes: int = 0
+    signature_verified: bool = False
+
+
+class ModelRemoveResponse(BaseModel):
+    """POST /v1/models/{id}/remove or DELETE /v1/models/{id} response."""
+    model_id: str
+    removed: bool
+    bytes_freed: int = 0
+
+
+class ModelDiscoverEntry(BaseModel):
+    """Single discovered package entry."""
+    model_id: str
+    path: str
+    size_bytes: int
+    signature_present: bool = False
+
+
+class ModelDiscoverResponse(BaseModel):
+    """POST /v1/models/discover response."""
+    entries: list[ModelDiscoverEntry] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# System / power types (Session 29)
+# ---------------------------------------------------------------------------
+
+class AirgapStatusResponse(BaseModel):
+    """GET /v1/system/airgap response."""
+    air_gap_enabled: bool
+    air_gap_verified: bool
+    network_state: NetworkState
+    last_check_unix: int = 0
+    violations_24h: int = 0
+
+
+class PowerTransitionRequest(BaseModel):
+    """POST /v1/power/transition request body."""
+    target_state: PowerState
+    reason: str | None = None
+    force: bool = False
+
+
+class PowerTransitionResponse(BaseModel):
+    """POST /v1/power/transition response."""
+    from_state: PowerState
+    to_state: PowerState
+    accepted: bool
+    estimated_latency_ms: int = 0
+
+
+class SystemHealthResponse(BaseModel):
+    """GET /v1/health/system response."""
+    cpu_utilization_percent: float = 0.0
+    memory_used_bytes: int = 0
+    memory_total_bytes: int = 0
+    disk_used_bytes: int = 0
+    disk_total_bytes: int = 0
+    uptime_seconds: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Scheduler / telemetry types (Session 29)
+# ---------------------------------------------------------------------------
+
+class SchedulerMetricsResponse(BaseModel):
+    """GET /v1/scheduler/metrics response."""
+    queue_depth: int = 0
+    active_requests: int = 0
+    scheduled_total: int = 0
+    rejected_total: int = 0
+    avg_wait_ms: float = 0.0
+    p95_wait_ms: float = 0.0
+    instances: list[str] = Field(default_factory=list)
+
+
+class InstanceMetricsResponse(BaseModel):
+    """GET /v1/scheduler/instances/{id}/metrics response."""
+    instance_id: str
+    requests_in_flight: int = 0
+    requests_completed: int = 0
+    tokens_generated: int = 0
+    kv_cache_used_bytes: int = 0
+    kv_cache_total_bytes: int = 0
+    batch_size: int = 0
+
+
+class InstanceHealthResponse(BaseModel):
+    """GET /v1/scheduler/instances/{id}/health response."""
+    instance_id: str
+    healthy: bool
+    last_heartbeat_unix: int
+    consecutive_failures: int = 0
+
+
+class SchedulerAnomaly(BaseModel):
+    """Single scheduler anomaly entry."""
+    timestamp_unix: int
+    kind: str
+    instance_id: str | None = None
+    detail: str
+    severity: str = "info"
+
+
+class SchedulerAnomaliesResponse(BaseModel):
+    """GET /v1/scheduler/anomalies response."""
+    anomalies: list[SchedulerAnomaly] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# OTA update types
+# ---------------------------------------------------------------------------
+
+class UpdateAvailability(BaseModel):
+    """Single update entry."""
+    component: str
+    current_version: str
+    target_version: str
+    size_bytes: int = 0
+    signed: bool = False
+
+
+class UpdateCheckResponse(BaseModel):
+    """GET /v1/updates/check response."""
+    updates_available: bool
+    updates: list[UpdateAvailability] = Field(default_factory=list)
+    checked_at_unix: int = 0
+
+
+class UpdateStatusResponse(BaseModel):
+    """GET /v1/updates/status response."""
+    in_progress: bool
+    component: str | None = None
+    phase: str | None = None
+    percent: float = 0.0
+    last_error: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Trust Manifold types (Session 29 stubs; BF-6 deferred)
+# ---------------------------------------------------------------------------
+
+class TrustClaim(BaseModel):
+    """Trust Manifold claim issued by the cloud trust bridge.
+
+    Mock shape until BF-6 lands. Mirrors mai.compliance::TrustContext at
+    the wire boundary so SDK callers can pass a claim object through to
+    the (yet-unimplemented) /v1/trust/claims endpoint.
+    """
+    claim_id: str
+    tenant_id: str
+    subject_id: str
+    subject_hash: str
+    roles: list[str] = Field(default_factory=list)
+    compliance_scopes: list[str] = Field(default_factory=list)
+    allowed_routes: list[str] = Field(default_factory=lambda: ["local_only"])
+    allowed_models: list[str] = Field(default_factory=list)
+    max_data_classification: str = "restricted"
+    service_identity: str = "lamprey-router"
+    trust_bundle_version: str = "local-dev"
+    offline_mode: bool = False
+    revocation_status: str = "unknown"
+    issued_at_unix: int = 0
+    expires_at_unix: int = 0
+
+
+class TrustBundleStatus(BaseModel):
+    """Local trust cache state (BF-4 shape, stubbed in Session 29)."""
+    bundle_version: str
+    fetched_at_unix: int
+    expires_at_unix: int
+    connectivity: str  # connected | degraded | stale | expired | air_gapped
+    signature_verified: bool
+    claim_count: int = 0
+
+
+class RevocationStatusResponse(BaseModel):
+    """Revocation snapshot lookup result."""
+    subject_hash: str
+    revoked: bool
+    snapshot_version: str
+    snapshot_age_seconds: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Compatibility re-export
+# ---------------------------------------------------------------------------
+
+# MaiError moved to mai.errors as part of Session 29 (exception hierarchy).
+# Re-exported here for backwards compatibility with code that imports
+# ``from mai.types import MaiError`` (Session 14c style).
+from mai.errors import MaiError as MaiError  # noqa: E402, PLC0414 — explicit re-export

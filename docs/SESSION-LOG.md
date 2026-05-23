@@ -1483,3 +1483,56 @@ All 6 files rewritten from scratch against verified APIs. v2 files verified: zer
 - `docs/{UPDATE-PROTOCOL.md,HANDOFF.md,INDEX.md,SESSION-LOG.md}`
 
 **Remaining:** Live HTTPS transport and live-package install handoff can be hardened in Session 34 production validation. Session 25 acceptance-level core behavior is complete.
+
+---
+
+### 2026-05-22: Session 29 — SDK Completeness + Developer Experience
+
+**Scope:** Bring the Python SDK to production quality per roster S29 / plan §29. Adds the modular layout the plan calls for (errors, retry, config, namespaces, async split, CLI, docs), exposes every existing server endpoint through typed methods, and adds Trust Manifold surface stubs so application code can be written against the BF-6 shape today and start working without changes when BF-6 lands.
+
+**Decision:** scope was "Full S29 per roster spec" with Trust APIs stubbed (BF-6 deferred to its own session).
+
+**Deliverables:**
+- [x] `mai-sdk-python/src/mai/errors.py`: `MaiError` base + `BadRequestError`, `AuthenticationError`, `PermissionError`, `NotFoundError`, `RateLimitError`, `ServerError`, `ConnectionError`, `TimeoutError`, `AirGapViolationError`, `PowerStateUnavailableError`, `ClaimExpiredError`, `TrustCacheStaleError`; `from_response()` HTTP-status mapper; `from_transport()` httpx-failure mapper; `is_retryable` includes 429/500/502/503/504.
+- [x] `mai-sdk-python/src/mai/retry.py`: public `RetryPolicy` dataclass with exponential backoff + jitter, `Retry-After` honored, `DEFAULT_RETRY_POLICY` / `NO_RETRY_POLICY` constants.
+- [x] `mai-sdk-python/src/mai/config.py`: `MaiClientConfig.from_env()` / `from_file()` / `load()` precedence (overrides > env > file > defaults); reads `MAI_BASE_URL`, `MAI_API_KEY`, `MAI_PROFILE_ID`, `MAI_PRIORITY`, `MAI_TIMEOUT`, `MAI_STREAM_TIMEOUT`, `MAI_MAX_RETRIES`, `MAI_RETRY_BASE_DELAY`, `MAI_RETRY_MAX_DELAY`, `MAI_RETRY_JITTER`, `MAI_CONFIG`. TOML config with `[retry]` table.
+- [x] `mai-sdk-python/src/mai/_namespaces.py`: sync namespace classes `Models`, `Power`, `System`, `Scheduler`, `Updates`, `Admin`, `Auth`, `Trust`, `Compliance`; `TrustNotProvisionedError` raised by trust stubs.
+- [x] `mai-sdk-python/src/mai/client.py`: rewritten — `MaiClient` exposes `.models`, `.power`, `.system`, `.scheduler`, `.updates`, `.admin`, `.auth`, `.trust`, `.compliance`; top-level convenience for chat/stream_chat/complete/completions/embed/embeddings/structured/structured_generation/function_call/health/health_check/list_models/get_model/hardware_health/power_state; `from_env()` / `from_file()` / `load()` factories; transport uses the new `RetryPolicy` and `_build_error()` mapping; async client extracted.
+- [x] `mai-sdk-python/src/mai/async_client.py`: `AsyncMaiClient` mirror with parallel `Async*` namespaces. Same surface, awaitable methods, async-generator streaming. `httpx.AsyncClient` with shared retry/error machinery.
+- [x] `mai-sdk-python/src/mai/cli.py`: argparse-based `mai` CLI. Commands: `health`, `chat`, `models list|load|unload`, `benchmark`, `power state`. `--json` for machine-readable output. Exit codes per error class (auth=3, perm=4, notfound=5, ratelimit=6, connect=7, server=8).
+- [x] `mai-sdk-python/src/mai/types.py`: extended with S29 endpoint types — `ModelLoadResponse`, `ModelUnloadResponse`, `BenchmarkResult`, `ModelInstallResponse`, `ModelRemoveResponse`, `ModelDiscoverEntry`/`Response`, `AirgapStatusResponse`, `PowerTransitionRequest`/`Response`, `SystemHealthResponse`, `SchedulerMetricsResponse`, `InstanceMetricsResponse`, `InstanceHealthResponse`, `SchedulerAnomaly`/`AnomaliesResponse`, `UpdateAvailability`, `UpdateCheckResponse`, `UpdateStatusResponse`, `TrustClaim`, `TrustBundleStatus`, `RevocationStatusResponse`. `MaiError` re-exported from `mai.errors` for backward compatibility.
+- [x] `mai-sdk-python/src/mai/__init__.py`: bumped to `__version__ = "0.2.0"`; exports the full new surface.
+- [x] `mai-sdk-python/pyproject.toml`: bumped to `0.2.0`; `[project.scripts]` adds `mai = "mai.cli:main"`.
+- [x] `mai-sdk-python/docs/{quickstart,api-reference,streaming,error-handling,authentication}.md`: developer guide; `docs/examples/{quickstart,streaming,async_streaming}.py` runnable.
+
+**Tests Added (61 new, 82 total in SDK):**
+- `tests/test_errors.py` (15) — status→class mapping, retry-after, claim-expired subclass routing, retryable/non-retryable matrix, transport failure mapping, legacy `mai.types.MaiError` alias.
+- `tests/test_retry.py` (10) — defaults, no-retry policy, backoff math, retry-after override, jitter bounds, max-retry stop, non-retryable skip, server retry-after, power-state-unavailable.
+- `tests/test_config.py` (9) — defaults, headers with api-key, profile fallback, env reading, override precedence, TOML file read, full load precedence (overrides > env > file), missing-file graceful, legacy `max_retries` accessor.
+- `tests/test_client_methods.py` (26) — chat/stream/embed round trips, aliases, models namespace (list/get/load/benchmark with body), power namespace, scheduler metrics, system airgap, updates check, error mapping (401/404/500), retry behavior (429 succeeds, 429 exhausts, 401 not retried), health_check silent failure, trust stubs raise, compliance attribute access raises, factory construction.
+- `tests/test_async_client_methods.py` (12) — async chat / async stream / namespaces / async retry / async 401 not retried / async trust stub / async health_check / async factory.
+- `tests/test_cli.py` (9) — health/health-json/models list/load/unload/benchmark/power state with patched client; auth error exit code; missing subcommand prints help.
+
+**Verification:**
+- `ruff check mai-sdk-python/` — all checks passed
+- `mypy --strict --explicit-package-bases mai-sdk-python/src mai-sdk-python/tests` — 0 issues across 17 source files
+- `pytest mai-sdk-python/tests/` — **82 passed in 11.68s**
+- `pytest` (full root) — **196 passed in 18.70s** (no regression)
+- `cargo check --workspace` — clean
+- `cargo test --workspace --lib` — all green (lib counts unchanged: 8, 55, 28, 65, 123, 226, 192, 7, 62, 324, 8, 55)
+- Post-write integrity subagent: **SAFE TO STAGE** (24 files, all balanced, no NUL bytes, complete terminators)
+
+**Backfill Lane Status:**
+- BF-6 SDK trust surface is **declared but stubbed** — `client.trust.{claims,bundle_status,revocation_status}` and `client.auth.exchange_token(claim)` raise `TrustNotProvisionedError` with a clear message and BF-6 reference. `TrustClaim`, `TrustBundleStatus`, `RevocationStatusResponse`, `TrustCacheStaleError` shapes are in `mai.types` / `mai.errors` so applications can be written against the final surface today. Live OpenBao wiring lands in BF-6 before S44 closes.
+
+**Notes:**
+- Anti-truncation protocol followed: files >40 lines staged via `$env:TEMP\opencode\` then `Copy-Item` to the workspace; per-file verification via `wc -l` and `tail`. Existing-file modifications used `Edit` with small atomic patches.
+- Linter (`ruff --fix`) was allowed to reformat tests; the linter incorrectly removed the bottom-of-file `from mai.errors import MaiError` re-export in `types.py`, restored as `from mai.errors import MaiError as MaiError` per PEP 484 explicit-reexport convention.
+- One spec method, `client.auth.exchange_token()`, intentionally raises rather than NotImplementedError so that BF-6 can drop in real code without changing the exception contract callers depend on.
+- CLI is argparse rather than Click/Typer to avoid adding a runtime dep; the `mai` script is installed by `[project.scripts]`.
+
+**Files Modified/Created:**
+- New: `mai-sdk-python/src/mai/{errors,retry,config,_namespaces,async_client,cli}.py`; `mai-sdk-python/tests/{test_errors,test_retry,test_config,test_client_methods,test_async_client_methods,test_cli}.py`; `mai-sdk-python/docs/{quickstart,api-reference,streaming,error-handling,authentication}.md`; `mai-sdk-python/docs/examples/{quickstart,streaming,async_streaming}.py`.
+- Modified: `mai-sdk-python/src/mai/{client,types,__init__}.py`; `mai-sdk-python/pyproject.toml`.
+
+**Remaining:** Sessions 30–31 (application scaffolds) can now be built on this SDK. BF-6 still has to wire the real `/v1/trust/*` and `/v1/auth/exchange_token` endpoints on the server before S44 closes — at that point the four trust stub raisers in `_namespaces.py` and `async_client.py` flip from `raise TrustNotProvisionedError(...)` to real HTTP calls. Mainline next is S41 (Policy Runtime).
