@@ -116,13 +116,34 @@ pub fn build_router(state: AppState) -> Router {
             "/v1/health/hardware",
             get(handlers::health::hardware_health),
         )
-        .route("/v1/health/system", get(handlers::health::system_health));
+        .route("/v1/health/system", get(handlers::health::system_health))
+        // SHIP-11: operational health probes (live / ready / production)
+        // distinct from the hardware-oriented endpoints above. See
+        // handlers/health.rs for the four-state semantics table.
+        .route("/v1/health/live", get(handlers::health::live_probe))
+        .route("/v1/health/ready", get(handlers::health::ready_probe))
+        .route(
+            "/v1/health/production",
+            get(handlers::health::production_probe),
+        );
+
+    // SHIP-11: Prometheus metrics exposition. Auth-exempt (operator
+    // scrapers run host-local). Lives outside `health_routes` because
+    // the path is `/v1/metrics`, not `/v1/health/*`.
+    let metrics_routes =
+        Router::new().route("/v1/metrics", get(handlers::metrics::prometheus_metrics));
 
     // System routes (mixed permissions, enforced per-handler)
     let system_routes = Router::new()
         .route(
             "/v1/system/airgap",
             get(handlers::system::get_airgap_status),
+        )
+        // SHIP-07 Slice B: live production-readiness report. Admin-only;
+        // 422 when the server booted without a ship profile.
+        .route(
+            "/v1/system/production-readiness",
+            get(handlers::system::production_readiness),
         )
         .route("/v1/power", get(handlers::system::get_power_state))
         // SDK compat: /v1/power/state aliases to get_power_state
@@ -247,12 +268,18 @@ pub fn build_router(state: AppState) -> Router {
             get(handlers::compliance::compliance_feed),
         );
 
-    // Merge all route groups and apply middleware
+    // Merge all route groups and apply middleware. Middleware layers
+    // run *outside in*: the last `.layer(...)` call sees the request
+    // first. SHIP-11 middleware needs to wrap auth so the metrics
+    // counter sees every request (including 401s) and so the
+    // correlation ID is set before any handler — including the auth
+    // failure path — has a chance to log.
     Router::new()
         .merge(inference_routes)
         .merge(model_routes)
         .merge(update_routes)
         .merge(health_routes)
+        .merge(metrics_routes)
         .merge(system_routes)
         .merge(telemetry_routes)
         .merge(ws_routes)
@@ -262,6 +289,17 @@ pub fn build_router(state: AppState) -> Router {
             state.clone(),
             auth_middleware,
         ))
+        // SHIP-11: observability layers (innermost-to-outermost order
+        // below means OUTERMOST when the request arrives). Metrics
+        // middleware needs the correlation span to be active when it
+        // emits its own counter logs, so correlation goes last.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::middleware::metrics_middleware,
+        ))
+        .layer(middleware::from_fn(
+            crate::middleware::correlation_middleware,
+        ))
         .with_state(state)
 }
 
@@ -269,12 +307,12 @@ pub fn build_router(state: AppState) -> Router {
 
 #[cfg(test)]
 mod tests {
+    use super::{AppState, Router, build_router};
+
     /// Compile-time check: build_router must accept AppState and return Router.
     /// Runtime route testing is deferred to integration tests.
     #[test]
     fn test_router_builds() {
-        // This test validates that the router type-checks.
-        // Actual HTTP testing requires a running server.
-        assert!(true, "Router type-checks at compile time");
+        let _: fn(AppState) -> Router = build_router;
     }
 }

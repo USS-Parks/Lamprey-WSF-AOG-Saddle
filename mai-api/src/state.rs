@@ -10,6 +10,10 @@ use tokio::sync::{Mutex, RwLock};
 use crate::audit::AuditWriter;
 use crate::auth::AuthState;
 use crate::config::ServerConfig;
+use crate::metrics::MetricsRegistry;
+use crate::production_guard::RuntimeChecks;
+use crate::ship_profile::ShipProfile;
+use crate::trust_builder::TrustExchangeMode;
 
 use mai_adapters::manager::AdapterManager;
 use mai_compliance::audit::AuditLog as ComplianceAuditLog;
@@ -71,6 +75,39 @@ pub struct AppState {
     pub compliance_audit: ComplianceAuditLog,
     /// S43: compliance report generator façade.
     pub report_manager: Arc<ReportManager>,
+    /// SHIP-07 Slice B: selected `POST /v1/auth/exchange_token` mode.
+    /// Defaults to [`TrustExchangeMode::LocalDevSynthetic`] so the
+    /// no-profile bring-up path keeps minting the synthetic local-dev
+    /// token. Production startup swaps this to
+    /// [`TrustExchangeMode::OpenBaoBridge`]; profiles that opt out
+    /// entirely set it to [`TrustExchangeMode::Disabled`].
+    pub trust_exchange_mode: TrustExchangeMode,
+    /// SHIP-07 Slice B: snapshot of the ship profile + runtime
+    /// introspection that drove `MaiServer::run()`. `None` when the
+    /// server booted without a ship profile (legacy/test path); `Some`
+    /// when one was loaded. Drives `GET /v1/system/production-readiness`.
+    pub ship_readiness: Option<ShipReadiness>,
+    /// SHIP-11: Prometheus-compatible metrics registry. Populated by
+    /// [`crate::middleware::metrics_middleware`] for every request and
+    /// rendered at `GET /v1/metrics`. Pre-seeded with the SHIP-11
+    /// metric families so `# TYPE` lines appear in the exposition
+    /// even before the first observation.
+    pub metrics_registry: Arc<MetricsRegistry>,
+}
+
+/// SHIP-07 Slice B: captured ship-profile + runtime introspection.
+///
+/// `MaiServer::run()` installs this onto [`AppState`] after the
+/// SHIP-03/04/05/06 builders have run. The readiness endpoint
+/// recomputes a fresh [`crate::production_guard::ProductionReadinessReport`]
+/// from these two fields on every request, so operators always see the
+/// latest evaluation against the runtime that actually booted.
+#[derive(Clone)]
+pub struct ShipReadiness {
+    /// The parsed ship profile the server booted with.
+    pub profile: Arc<ShipProfile>,
+    /// Runtime introspection collected during `apply_ship_profile`.
+    pub runtime_checks: Arc<RuntimeChecks>,
 }
 
 impl AppState {
@@ -112,6 +149,12 @@ impl AppState {
             policy_manager: PolicyManager::from_template(PolicyTemplate::Standard),
             compliance_audit,
             report_manager,
+            trust_exchange_mode: TrustExchangeMode::LocalDevSynthetic,
+            ship_readiness: None,
+            // SHIP-11: pre-seed every metric family so dashboards see a
+            // complete `# TYPE` line set on the first scrape, even
+            // before the first request is handled.
+            metrics_registry: Arc::new(MetricsRegistry::with_ship_11_defaults()),
         }
     }
 
@@ -166,6 +209,34 @@ impl AppState {
     #[must_use]
     pub fn with_report_manager(mut self, manager: Arc<ReportManager>) -> Self {
         self.report_manager = manager;
+        self
+    }
+
+    /// SHIP-07 Slice B: install the selected token-exchange mode. The
+    /// `POST /v1/auth/exchange_token` handler switches on this value
+    /// instead of unconditionally minting a synthetic local-dev token.
+    #[must_use]
+    pub fn with_trust_exchange_mode(mut self, mode: TrustExchangeMode) -> Self {
+        self.trust_exchange_mode = mode;
+        self
+    }
+
+    /// SHIP-07 Slice B: install the captured ship-profile + runtime
+    /// introspection so `GET /v1/system/production-readiness` can
+    /// recompute the report on demand.
+    #[must_use]
+    pub fn with_ship_readiness(mut self, readiness: ShipReadiness) -> Self {
+        self.ship_readiness = Some(readiness);
+        self
+    }
+
+    /// SHIP-11: override the metrics registry. Tests use this to inject
+    /// a freshly-defaulted (empty) registry so assertions about
+    /// `requests_total` start from zero instead of the pre-seeded
+    /// SHIP-11 defaults.
+    #[must_use]
+    pub fn with_metrics_registry(mut self, registry: Arc<MetricsRegistry>) -> Self {
+        self.metrics_registry = registry;
         self
     }
 }

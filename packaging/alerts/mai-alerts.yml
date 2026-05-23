@@ -1,0 +1,254 @@
+# SHIP-11: Prometheus alerting rules for MAI.
+#
+# Drop into a Prometheus server's `rule_files:` directory and reload.
+# All thirteen rules from SHIP-HARDENING-PLAN.md §10 ("Alerts", line
+# 833) are defined here. Metric names match `mai-api/src/metrics.rs`.
+#
+# Severity matrix:
+#   page     - wake an oncall human at any hour
+#   ticket   - business-hours triage; SLO-relevant but not pageable
+#   info     - informational; surfaced in dashboards, not paged
+#
+# Each rule includes `summary` and `description` annotations so the
+# notification template can render a human-readable alert without
+# extra cross-references.
+#
+# Operator notes:
+# * The `for:` durations are deliberately conservative — production
+#   profiles can shorten them in an overlay rule file rather than
+#   editing this canonical set.
+# * `BackupFailed` references SHIP-09 metrics that always read zero
+#   until SHIP-09/SHIP-10 land. The rule is intentionally shipped
+#   today so the alerting harness is wired before the producer side;
+#   the rule cannot fire until backup counters are non-zero.
+
+groups:
+  - name: mai_audit
+    interval: 30s
+    rules:
+      - alert: AuditWriteFailure
+        expr: increase(mai_audit_write_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: page
+          subsystem: audit
+        annotations:
+          summary: "MAI audit log write failures detected"
+          description: |
+            mai-api has failed to persist {{ $value }} audit entries in the
+            past 5 minutes. Every API request must produce a tamper-evident
+            audit row; failures mean either the WAL volume is unwritable or
+            the SHIP-04 audit writer has crashed. Investigate immediately:
+            audit gaps are a compliance reporting blocker (HIPAA / ITAR /
+            OCAP all require contiguous logs).
+
+      - alert: AuditChainBroken
+        expr: mai_audit_chain_status == 0
+        for: 2m
+        labels:
+          severity: page
+          subsystem: audit
+        annotations:
+          summary: "MAI audit hash chain failed verification"
+          description: |
+            The most recent audit-chain verification returned 0 (broken).
+            Either an entry was tampered with, the WAL was rotated
+            incorrectly, or a concurrent writer corrupted the previous-hash
+            link. Capture the audit volume snapshot before any further
+            writes — chain breaks are evidence-grade incidents.
+
+  - name: mai_trust
+    interval: 30s
+    rules:
+      - alert: TrustBundleExpired
+        expr: mai_trust_bundle_age_seconds > 86400 * 30
+        for: 5m
+        labels:
+          severity: page
+          subsystem: trust
+        annotations:
+          summary: "MAI trust bundle older than 30 days"
+          description: |
+            The currently-loaded trust bundle is {{ $value | humanizeDuration }}
+            old. Stale bundles risk admitting revoked claims. Operators
+            should run `mai-admin trust refresh` or restart with a fresh
+            bundle from the upstream registry.
+
+      - alert: TrustBundleStale
+        expr: mai_trust_bundle_age_seconds > 86400 * 7
+        for: 30m
+        labels:
+          severity: ticket
+          subsystem: trust
+        annotations:
+          summary: "MAI trust bundle older than 7 days"
+          description: |
+            The trust bundle is {{ $value | humanizeDuration }} old. The
+            recommended refresh cadence is 24h; anything past 7 days is a
+            policy violation under most tenant contracts. File a refresh
+            ticket and verify the upstream registry is reachable.
+
+      - alert: TrustBundleSignatureInvalid
+        expr: mai_trust_bundle_signature_status == 0
+        for: 1m
+        labels:
+          severity: page
+          subsystem: trust
+        annotations:
+          summary: "MAI trust bundle ML-DSA signature failed"
+          description: |
+            The trust bundle's ML-DSA-87 signature did not verify against
+            the vault-anchored registry. The bundle has either been
+            tampered with in transit, the signer keys have rotated without
+            a corresponding registry update, or the vault anchor is corrupt.
+            Stop trusting the bundle until investigated.
+
+  - name: mai_production
+    interval: 30s
+    rules:
+      - alert: ProductionGuardViolation
+        expr: probe_success{job="mai_production_probe"} == 0
+        for: 2m
+        labels:
+          severity: page
+          subsystem: production_guard
+        annotations:
+          summary: "MAI failed /v1/health/production probe"
+          description: |
+            The /v1/health/production probe has been returning 503 for
+            {{ $value }} consecutive minutes. One or more production
+            invariants are violated; curl the endpoint for the `reasons`
+            array. Possible causes: audit writer unresponsive, audit chain
+            broken, hardware in degrade/critical/shutdown state.
+
+      - alert: VaultUnavailable
+        expr: mai_audit_chain_status == 0 and mai_audit_write_failures_total > 0
+        for: 1m
+        labels:
+          severity: page
+          subsystem: vault
+        annotations:
+          summary: "MAI vault appears unavailable"
+          description: |
+            Concurrent audit chain failure and write failures strongly
+            suggest the ZFS-backed vault has unmounted or the sealer key
+            is unavailable. Bring the vault back online before resuming
+            traffic.
+
+  - name: mai_adapters
+    interval: 30s
+    rules:
+      - alert: AdapterCrashLoop
+        expr: increase(mai_adapter_restart_count[10m]) > 3
+        for: 1m
+        labels:
+          severity: page
+          subsystem: adapters
+        annotations:
+          summary: "MAI adapter is crash-looping"
+          description: |
+            Adapter has restarted {{ $value }} times in the past 10 minutes.
+            Crash loops degrade inference availability and risk producing
+            partial responses. Check adapter logs and consider failing the
+            adapter out of the scheduler.
+
+      - alert: NoHealthyInferenceBackend
+        expr: sum(mai_adapter_health) == 0
+        for: 30s
+        labels:
+          severity: page
+          subsystem: adapters
+        annotations:
+          summary: "MAI has no healthy inference adapters"
+          description: |
+            Every registered adapter is reporting unhealthy. New inference
+            requests will fail. Restart the affected backends or fail this
+            host out of the load balancer.
+
+  - name: mai_air_gap
+    interval: 30s
+    rules:
+      - alert: AirGapViolation
+        expr: mai_trust_connectivity_state == 2
+        for: 30s
+        labels:
+          severity: page
+          subsystem: air_gap
+        annotations:
+          summary: "MAI detected an air-gap policy violation"
+          description: |
+            The host is in NonCompliant network state. Either the air-gap
+            hardware switch reports network connectivity that the policy
+            forbids, or a misconfigured network interface is bridging
+            inside-out. Take the host out of service and investigate the
+            HIL switch reading.
+
+  - name: mai_system
+    interval: 1m
+    rules:
+      - alert: DiskNearFull
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint=~"/var/lib/mai.*|/var/log/mai.*"}
+           / node_filesystem_size_bytes{mountpoint=~"/var/lib/mai.*|/var/log/mai.*"}) < 0.10
+        for: 5m
+        labels:
+          severity: ticket
+          subsystem: system
+        annotations:
+          summary: "MAI data volume under 10% free"
+          description: |
+            One of MAI's data volumes is below 10% free. WAL writes,
+            backups, and trust-bundle refreshes will all start failing
+            soon. Either expand the volume or rotate WAL files.
+
+      - alert: BackupFailed
+        # SHIP-09/10 wires the producer; until then the counter stays at
+        # zero, so this rule is a wired-but-dormant placeholder.
+        expr: increase(mai_backup_failure_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: page
+          subsystem: backup
+        annotations:
+          summary: "MAI backup operations failed"
+          description: |
+            One or more MAI backup operations failed in the past hour.
+            Without a recent successful backup, recovery time objectives
+            cannot be met. Investigate the backup tooling and verify the
+            backup target volume.
+
+      - alert: PolicyReloadFailed
+        expr: |
+          increase(mai_policy_decisions_total{decision="error"}[10m]) > 5
+        for: 2m
+        labels:
+          severity: ticket
+          subsystem: policy
+        annotations:
+          summary: "MAI policy runtime returning errors"
+          description: |
+            The policy runtime has returned `error` decisions {{ $value }}
+            times in the past 10 minutes. A recent policy reload likely
+            produced an invalid manifest; check `mai-api` logs for the
+            specific module name and consider rolling back the policy
+            template.
+
+      - alert: DashboardDefaultToken
+        # The compliance dashboard ships with a static `change-me` token
+        # for first-boot UX. Any time it is observed in use we want a
+        # ticket so the operator rotates it.
+        expr: |
+          increase(mai_auth_failures_total{route="/v1/compliance/feed"}[10m]) == 0
+          and mai_requests_total{route="/v1/compliance/feed",status_class="2xx"} > 0
+          and mai_audit_chain_status > -1
+        for: 1h
+        labels:
+          severity: ticket
+          subsystem: dashboard
+        annotations:
+          summary: "MAI compliance dashboard may be using default token"
+          description: |
+            The compliance feed has served successful responses for an
+            extended period without auth failures, which is consistent
+            with the bundled `change-me` token still being active. Rotate
+            the dashboard token via `mai-admin dashboard rotate-token`.

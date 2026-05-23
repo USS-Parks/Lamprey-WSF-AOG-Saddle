@@ -73,6 +73,12 @@ pub enum ApiError {
     ConfigError(String),
     /// MAI-5002: Air-gap violation detected
     AirGapViolation(String),
+    /// MAI-5003: Endpoint deliberately disabled by the active profile
+    /// (SHIP-07: e.g. `POST /v1/auth/exchange_token` under a profile
+    /// with `TrustExchangeMode::Disabled`). Distinguished from a 404 so
+    /// operators can tell "endpoint disabled by config" from "route
+    /// missing from build".
+    EndpointDisabled(String),
 }
 
 impl ApiError {
@@ -100,6 +106,7 @@ impl ApiError {
             Self::RateLimited(_) => "MAI-4005",
             Self::ConfigError(_) => "MAI-5001",
             Self::AirGapViolation(_) => "MAI-5002",
+            Self::EndpointDisabled(_) => "MAI-5003",
         }
     }
 
@@ -125,6 +132,7 @@ impl ApiError {
             Self::Unauthorized | Self::ProfileNotFound(_) | Self::TokenInvalid => {
                 StatusCode::UNAUTHORIZED
             }
+            Self::EndpointDisabled(_) => StatusCode::GONE,
         }
     }
 
@@ -150,7 +158,9 @@ impl ApiError {
             | Self::ProfileNotFound(_)
             | Self::TokenInvalid
             | Self::RateLimited(_) => "auth_error",
-            Self::ConfigError(_) | Self::AirGapViolation(_) => "config_error",
+            Self::ConfigError(_) | Self::AirGapViolation(_) | Self::EndpointDisabled(_) => {
+                "config_error"
+            }
         }
     }
 
@@ -184,6 +194,9 @@ impl ApiError {
             Self::ConfigError(_) => "Configuration error".to_string(),
             Self::AirGapViolation(_) => {
                 "Air-gap policy violation detected, service suspended".to_string()
+            }
+            Self::EndpointDisabled(detail) => {
+                format!("Endpoint disabled by active profile: {detail}")
             }
         }
     }

@@ -27,6 +27,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::auth::check_permission;
 use crate::errors::ApiError;
 use crate::state::AppState;
+use crate::trust_builder::TrustExchangeMode;
 use crate::types::ProfileInfo;
 
 use mai_compliance::trust_cache::{LocalTrustCache, RevocationSnapshot, SnapshotStatus};
@@ -208,17 +209,23 @@ pub async fn revocation_status(
 
 /// `POST /v1/auth/exchange_token`
 ///
-/// Local-dev token stub. Returns a synthetic access token bound to the
-/// supplied subject + tenant + scope set. The real OpenBao-backed
-/// exchange (BF-1..BF-7, Sessions 26b–28c per Appendix A) is mocked
-/// locally per §A.2.2 ("don't block on live OpenBao deployment").
+/// Profile-aware token exchange (SHIP-07 Slice B). Behaviour switches
+/// on [`AppState::trust_exchange_mode`], itself populated by
+/// [`crate::trust_builder::build_trust_components`] when the server
+/// boots with a ship profile:
 ///
-/// The token is *not* cryptographic — it is a stable identifier that
-/// the policy runtime can correlate with audit records. Production
-/// wiring replaces the body of this handler without changing the
-/// route or response shape.
+/// | Mode                                     | Behaviour                                                        |
+/// |------------------------------------------|------------------------------------------------------------------|
+/// | [`TrustExchangeMode::LocalDevSynthetic`] | Mint the legacy synthetic local-dev token (back-compat default). |
+/// | [`TrustExchangeMode::OpenBaoBridge`]     | Return 503 until the live bridge client lands (SHIP-08+).        |
+/// | [`TrustExchangeMode::Disabled`]          | Return 410 Gone with [`ApiError::EndpointDisabled`].             |
+///
+/// The synthetic token is *not* cryptographic — it is a stable
+/// identifier the policy runtime correlates with audit records. The
+/// OpenBao bridge will replace the synthetic branch without changing
+/// the route shape.
 pub async fn exchange_token(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     profile: ProfileInfo,
     Json(req): Json<ExchangeTokenRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -227,6 +234,34 @@ pub async fn exchange_token(
             "subject_id is required".to_string(),
         ));
     }
+
+    match state.trust_exchange_mode {
+        TrustExchangeMode::LocalDevSynthetic => mint_local_dev_synthetic(profile, req),
+        TrustExchangeMode::OpenBaoBridge => {
+            // Production profiles select OpenBaoBridge but the live
+            // HTTP client has not landed yet (SHIP-08+). Fail closed
+            // with 503 — never silently fall through to the synthetic
+            // mint, which would leak a non-cryptographic token into a
+            // production audit trail.
+            tracing::warn!(
+                profile = %profile.profile_id,
+                subject = %req.subject_id,
+                "exchange_token: OpenBao bridge client not wired; rejecting with 503"
+            );
+            Err(ApiError::ServiceUnavailable)
+        }
+        TrustExchangeMode::Disabled => Err(ApiError::EndpointDisabled(
+            "token exchange disabled by active ship profile".to_string(),
+        )),
+    }
+}
+
+/// Build the legacy synthetic local-dev token. Pulled out of the
+/// handler body so the SHIP-07 mode switch above stays readable.
+fn mint_local_dev_synthetic(
+    profile: ProfileInfo,
+    req: ExchangeTokenRequest,
+) -> Result<Json<ExchangeTokenResponse>, ApiError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

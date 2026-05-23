@@ -212,6 +212,227 @@ def _get_git_commit() -> str:
         return "unknown"
 
 
+# ─── SHIP-13: release gate ─────────────────────────────────────────────
+
+
+GATE_EXIT_PASS = 0
+GATE_EXIT_REGRESSION = 1
+GATE_EXIT_THRESHOLD = 2
+GATE_EXIT_MISSING = 3
+GATE_EXIT_UNKNOWN = 4
+GATE_EXIT_CONFIG = 5
+
+
+def _load_thresholds(path: Path) -> dict:
+    """Load + lightly validate the thresholds TOML.
+
+    Requires Python 3.11+ (tomllib in stdlib). The repo standardizes on
+    3.12 per .github/workflows/gpu-release.yml, so no fallback needed.
+    """
+    try:
+        import tomllib
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "tomllib not available; require Python >= 3.11"
+        ) from exc
+
+    if not path.exists():
+        raise FileNotFoundError(f"thresholds file not found: {path}")
+
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+
+    policy = data.get("policy", {}) or {}
+    benchmarks = data.get("benchmark", []) or []
+    if not isinstance(benchmarks, list) or not benchmarks:
+        raise ValueError(
+            f"thresholds file {path} has no [[benchmark]] entries"
+        )
+    for entry in benchmarks:
+        if "name" not in entry:
+            raise ValueError(f"[[benchmark]] entry missing 'name': {entry}")
+        if "max_us" not in entry:
+            raise ValueError(
+                f"[[benchmark]] '{entry['name']}' missing max_us"
+            )
+
+    return {"policy": policy, "benchmarks": benchmarks}
+
+
+def gate(argv: list[str]) -> int:
+    """Apply release thresholds + regression policy to the latest run.
+
+    Exit codes:
+      0  pass
+      1  regression vs previous run beyond policy.regression_pct
+      2  per-iter latency exceeded a declared max_us
+      3  required benchmark absent from latest run
+      4  unknown benchmark in latest run (only when fail_on_unknown)
+      5  thresholds file missing or malformed
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="bench_compare.py gate",
+        description="Enforce SHIP-13 release thresholds against latest run",
+    )
+    parser.add_argument("--thresholds", required=True, type=Path)
+    parser.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        help="Optional path to emit a machine-readable gate report",
+    )
+    parser.add_argument(
+        "--regression-pct",
+        type=float,
+        default=None,
+        help="Override policy.regression_pct (percent, e.g. 15)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        thresholds = _load_thresholds(args.thresholds)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        print(f"GATE CONFIG ERROR: {exc}")
+        return GATE_EXIT_CONFIG
+
+    policy = thresholds["policy"]
+    benchmarks = thresholds["benchmarks"]
+    regression_pct = (
+        args.regression_pct
+        if args.regression_pct is not None
+        else float(policy.get("regression_pct", 20))
+    )
+    fail_on_missing = bool(policy.get("fail_on_missing", True))
+    fail_on_unknown = bool(policy.get("fail_on_unknown", False))
+    allow_zero_target = bool(policy.get("allow_zero_target", True))
+
+    runs = _load_all_runs()
+    if not runs:
+        print("GATE CONFIG ERROR: no stored runs under tests/benchmarks/results/")
+        return GATE_EXIT_CONFIG
+
+    current = runs[-1]
+    previous = runs[-2] if len(runs) >= 2 else None
+    current_map = {r["name"]: r for r in current["results"]}
+    previous_map = {r["name"]: r for r in previous["results"]} if previous else {}
+    threshold_names = {b["name"] for b in benchmarks}
+
+    missing: list[str] = []
+    violations: list[dict] = []
+    regressions: list[dict] = []
+    unknown: list[str] = []
+    checked: list[dict] = []
+
+    for spec in benchmarks:
+        name = spec["name"]
+        required = bool(spec.get("required", True))
+        max_us = int(spec["max_us"])
+        result = current_map.get(name)
+        if result is None:
+            if required and fail_on_missing:
+                missing.append(name)
+            continue
+
+        per_iter = int(result["per_iter_us"])
+        record = {
+            "name": name,
+            "per_iter_us": per_iter,
+            "max_us": max_us,
+            "passed_threshold": True,
+            "passed_regression": True,
+        }
+
+        if max_us > 0 or not allow_zero_target:
+            if max_us > 0 and per_iter > max_us:
+                record["passed_threshold"] = False
+                violations.append({
+                    "name": name,
+                    "per_iter_us": per_iter,
+                    "max_us": max_us,
+                })
+
+        prev = previous_map.get(name)
+        if prev is not None:
+            prev_us = int(prev["per_iter_us"])
+            if prev_us > 0:
+                delta_pct = (per_iter - prev_us) / prev_us * 100.0
+                record["prev_per_iter_us"] = prev_us
+                record["delta_pct"] = round(delta_pct, 2)
+                if delta_pct > regression_pct:
+                    record["passed_regression"] = False
+                    regressions.append({
+                        "name": name,
+                        "per_iter_us": per_iter,
+                        "prev_per_iter_us": prev_us,
+                        "delta_pct": round(delta_pct, 2),
+                        "limit_pct": regression_pct,
+                    })
+        checked.append(record)
+
+    for name in current_map:
+        if name not in threshold_names:
+            unknown.append(name)
+
+    report = {
+        "current_run": current.get("timestamp"),
+        "current_commit": current.get("git_commit"),
+        "previous_run": previous.get("timestamp") if previous else None,
+        "regression_pct_limit": regression_pct,
+        "policy": {
+            "fail_on_missing": fail_on_missing,
+            "fail_on_unknown": fail_on_unknown,
+            "allow_zero_target": allow_zero_target,
+        },
+        "checked": checked,
+        "missing": missing,
+        "violations": violations,
+        "regressions": regressions,
+        "unknown": unknown,
+    }
+
+    print(f"Gate report: {current.get('timestamp', 'unknown')}")
+    print(f"  Checked:     {len(checked)}")
+    print(f"  Missing:     {len(missing)} {missing if missing else ''}")
+    print(f"  Violations:  {len(violations)}")
+    for v in violations:
+        print(
+            f"    [VIOLATION] {v['name']}: "
+            f"{v['per_iter_us']}us > max {v['max_us']}us"
+        )
+    print(f"  Regressions: {len(regressions)} (limit {regression_pct}%)")
+    for r in regressions:
+        print(
+            f"    [REGRESSION] {r['name']}: "
+            f"{r['per_iter_us']}us vs {r['prev_per_iter_us']}us "
+            f"({r['delta_pct']:+.2f}%)"
+        )
+    print(f"  Unknown:     {len(unknown)} {unknown if unknown else ''}")
+
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.json, "w") as f:
+            json.dump(report, f, indent=2)
+        print(f"  JSON report: {args.json}")
+
+    if missing and fail_on_missing:
+        print(f"GATE FAIL: {len(missing)} required benchmark(s) missing")
+        return GATE_EXIT_MISSING
+    if violations:
+        print(f"GATE FAIL: {len(violations)} threshold violation(s)")
+        return GATE_EXIT_THRESHOLD
+    if regressions:
+        print(f"GATE FAIL: {len(regressions)} regression(s) beyond {regression_pct}%")
+        return GATE_EXIT_REGRESSION
+    if unknown and fail_on_unknown:
+        print(f"GATE FAIL: {len(unknown)} unknown benchmark(s) (fail_on_unknown=true)")
+        return GATE_EXIT_UNKNOWN
+
+    print("GATE PASS")
+    return GATE_EXIT_PASS
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         print(__doc__)
@@ -231,6 +452,8 @@ def main() -> None:
         show_history(sys.argv[2])
     elif command == "list":
         list_runs()
+    elif command == "gate":
+        sys.exit(gate(sys.argv[2:]))
     else:
         print(f"Unknown command: {command}")
         print(__doc__)

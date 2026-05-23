@@ -7,6 +7,8 @@
 pub mod compliance;
 pub mod health;
 pub mod inference;
+// SHIP-11: GET /v1/metrics — Prometheus text-format exposition.
+pub mod metrics;
 pub mod models;
 pub mod system;
 pub mod telemetry;

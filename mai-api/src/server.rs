@@ -36,7 +36,7 @@ use crate::production_guard::{ProductionReadinessReport, RuntimeChecks, RuntimeO
 use crate::routes::build_router;
 use crate::sealer_builder::build_sealer;
 use crate::ship_profile::{ProfileMode, ShipProfile, load_ship_profile};
-use crate::state::AppState;
+use crate::state::{AppState, ShipReadiness};
 use crate::trust_builder::{TrustComponents, build_trust_components, verify_boot_bundle};
 use crate::vault_builder::build_vault;
 
@@ -590,10 +590,6 @@ fn apply_ship_profile(
     // standard template loaded inside AppState::new succeeded.
     let policy_outcome = RuntimeOutcome::pass("standard policy modules loaded".to_string());
 
-    let state = state
-        .with_compliance_audit(compliance_audit)
-        .with_bundle_verifier(bundle_verifier);
-
     let runtime = RuntimeChecks {
         vault_opened: Some(vault_outcome),
         api_audit_wal_ready: Some(wal_outcome),
@@ -602,6 +598,19 @@ fn apply_ship_profile(
         auth_keys_nonempty: Some(auth_outcome),
         policy_modules_loaded: Some(policy_outcome),
     };
+
+    // SHIP-07 Slice B: persist the exchange mode + readiness snapshot
+    // on AppState so the profile-aware `exchange_token` handler and the
+    // `/v1/system/production-readiness` endpoint have what they need.
+    let readiness = ShipReadiness {
+        profile: Arc::new(profile.clone()),
+        runtime_checks: Arc::new(runtime.clone()),
+    };
+    let state = state
+        .with_compliance_audit(compliance_audit)
+        .with_bundle_verifier(bundle_verifier)
+        .with_trust_exchange_mode(exchange_mode)
+        .with_ship_readiness(readiness);
 
     Ok((state, runtime))
 }

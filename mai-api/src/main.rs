@@ -189,11 +189,13 @@ fn parse_config_path() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use super::parse_config_path;
+
     #[test]
     fn test_parse_no_args() {
         // parse_config_path reads from std::env::args which we can't
-        // easily mock, so we just verify the function exists and the
-        // binary compiles. Integration testing in Session 11e tests.
-        assert!(true);
+        // easily mock; the assertion just pins the function signature
+        // so future refactors that drop or rename it fail this test.
+        let _: fn() -> Option<std::path::PathBuf> = parse_config_path;
     }
 }

@@ -20,6 +20,7 @@
 | Calling the REST API directly | [API-REFERENCE.md](API-REFERENCE.md) |
 | Operating a local node | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Planning tester packaging and production shipping | [COGENT-DEPLOYMENT-ROADMAP.md](COGENT-DEPLOYMENT-ROADMAP.md) |
+| Planning copyright, patent, and IP protection | [IP-COPYRIGHT-PATENT-ROADMAP.md](IP-COPYRIGHT-PATENT-ROADMAP.md) |
 | Starting as a new engineer | [HANDOFF.md](HANDOFF.md) |
 | Troubleshooting a first-run error | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) |
 
@@ -75,6 +76,7 @@ on the project. Read them before writing code.
 | [PROJECT.md](PROJECT.md) | Original scope, 5-phase plan, 18-session timeline, effort estimates, coverage matrix | Historical scope reference |
 | [SESSION-46-PLAN.md](SESSION-46-PLAN.md) | Session 46 plan: scope, file layout, test inventory, perf targets, Gate D checklist | Session 46 implementer |
 | [COGENT-DEPLOYMENT-ROADMAP.md](COGENT-DEPLOYMENT-ROADMAP.md) | Session-by-session roadmap from Gate D codebase to RC1 tester bundle, hardened release candidate, and production appliance | Release planning; deployment hardening |
+| [IP-COPYRIGHT-PATENT-ROADMAP.md](IP-COPYRIGHT-PATENT-ROADMAP.md) | Step-by-step owner-side process for copyright, patent, trade secret, licensing, disclosure, and release gates | IP planning; external release preparation |
 | [INDEX.md](INDEX.md) | This file | Finding anything |
 
 ---

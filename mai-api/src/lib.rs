@@ -55,6 +55,10 @@ pub mod handlers;
 pub mod routes;
 pub mod state;
 
+// SHIP-11: Observability — metrics registry + request-path middleware.
+pub mod metrics;
+pub mod middleware;
+
 // Session 11c: SSE Streaming + WebSocket
 pub mod streaming;
 

@@ -1266,6 +1266,15 @@ and was executed first.
 - Add benchmark thresholds.
 - Add artifacts.
 
+**Status (2026-05-23): done.** `.github/workflows/gpu-release.yml`
+(5 jobs on `[self-hosted, gpu, mai-release]`),
+`config/gpu-release-thresholds.toml` (8 required benchmarks +
+regression policy), `scripts/gpu-release-bundle.{sh,ps1}` (signed-shape
+release manifest + tar.gz bundle), `tests/benchmarks/bench_compare.py`
+extended with a `gate` subcommand (exit codes 0..5 per failure mode),
+`tools/gpu_release_tests/` (84 pytest cases, 73 cross-platform +
+11 POSIX-only). See `.github/workflows/gpu-release-README.md`.
+
 ### Session SHIP-14: 72-Hour Burn-In
 
 - Extend burn-in scripts.

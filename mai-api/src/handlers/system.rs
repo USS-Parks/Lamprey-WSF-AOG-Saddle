@@ -12,6 +12,7 @@ use tracing::{info, warn};
 
 use crate::auth::check_permission;
 use crate::errors::ApiError;
+use crate::production_guard::ProductionReadinessReport;
 use crate::state::AppState;
 use crate::types::{
     AdapterHealthSummary, AdapterListResponse, AuditLogResponse, ModelCapabilities, ModelDetail,
@@ -21,6 +22,43 @@ use crate::types::{
 
 use mai_core::power::TransitionTrigger;
 use mai_core::registry::ModelStatus;
+
+// ─── Production Readiness (SHIP-07 Slice B) ───────────────────────
+
+/// `GET /v1/system/production-readiness`
+///
+/// Admin-only (`view_audit` permission). Returns the live
+/// [`ProductionReadinessReport`] for the ship profile this server
+/// booted with. Each call re-evaluates the report from the cached
+/// profile + runtime introspection — operators always see the latest
+/// view, never a stale snapshot.
+///
+/// Returns `MAI-1002 ValidationFailed` (422) when the server was
+/// started without a ship profile (legacy/test bring-up): the
+/// readiness contract is not meaningful in that mode and the endpoint
+/// would otherwise leak the empty AppState defaults.
+///
+/// The response never includes secrets — the report only carries
+/// check IDs, statuses, messages, and remediation hints sourced from
+/// the profile and runtime introspection.
+pub async fn production_readiness(
+    State(state): State<AppState>,
+    profile: ProfileInfo,
+) -> Result<impl IntoResponse, ApiError> {
+    check_permission(&profile, "view_audit")?;
+    let readiness = state.ship_readiness.as_ref().ok_or_else(|| {
+        ApiError::ValidationFailed(
+            "no ship profile loaded; start the server with MAI_SHIP_PROFILE \
+             or MaiServer::with_ship_profile to enable readiness reporting"
+                .to_string(),
+        )
+    })?;
+    let report = ProductionReadinessReport::evaluate_with_runtime(
+        readiness.profile.as_ref(),
+        readiness.runtime_checks.as_ref(),
+    );
+    Ok(Json(report))
+}
 
 // ─── Air-Gap Status ────────────────────────────────────────────────
 

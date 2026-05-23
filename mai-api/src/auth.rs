@@ -47,8 +47,12 @@ pub const AUTH_TOKEN_HEADER: &str = "X-IM-Auth-Token";
 /// Only honored when `allow_internal_profile_header` is enabled.
 pub const PROFILE_HEADER: &str = "X-IM-Profile";
 
-/// Paths exempt from API key authentication.
-const AUTH_EXEMPT_PREFIXES: &[&str] = &["/v1/health"];
+/// Paths exempt from API key authentication. SHIP-11 added
+/// `/v1/metrics` because host-local Prometheus scrapers can't carry an
+/// API key on every scrape — the redaction guarantee on the metrics
+/// registry (see `metrics::sanitize_label_value`) means the body never
+/// leaks secrets even when read by an unauthenticated client.
+const AUTH_EXEMPT_PREFIXES: &[&str] = &["/v1/health", "/v1/metrics"];
 
 // -- API Key Store --
 

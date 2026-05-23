@@ -1570,6 +1570,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "mai-admin"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "hex",
+ "ml-dsa",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "sha3",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "mai-agent"
 version = "0.1.0"
 dependencies = [

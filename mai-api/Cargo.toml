@@ -72,3 +72,10 @@ ml-dsa = "0.0.4"
 
 [lints]
 workspace = true
+
+# SHIP-07 Slice B: standalone production-readiness validator binary.
+# Exposed as `mai-ship-validate` so SHIP-08 packaging can ship it next
+# to `mai-api` under /usr/bin. Exit codes follow SHIP-HARDENING-PLAN §13.
+[[bin]]
+name = "mai-ship-validate"
+path = "src/bin/mai_ship_validate.rs"

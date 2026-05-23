@@ -13,6 +13,7 @@ members = [
     "mai-compliance",
     "tools/pkg-builder",
     "tools/rule-tester",
+    "tools/mai-admin",
 ]
 
 [workspace.package]
