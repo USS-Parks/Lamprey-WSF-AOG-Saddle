@@ -1,6 +1,10 @@
 name: Lamprey MAI Validation
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       suite:
@@ -10,11 +14,18 @@ on:
         type: choice
         options:
           - all
+          - quality-gates
           - router
           - compliance
           - rust-workspace
+          - policy-stress
+          - audit-stress
+          - release-policy
+          - release-audit
+          - python-adapters
           - python-ipc
           - python-trace-sim
+          - config-parse
           - burn-in
       runner:
         description: Runner lane
@@ -32,12 +43,14 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  VALIDATION_SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'all' }}
 
 jobs:
   github-hosted:
     name: GitHub-hosted validation
-    if: ${{ inputs.runner == 'github-hosted' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.runner == 'github-hosted' }}
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -59,7 +72,7 @@ jobs:
 
       - name: Run Lamprey validation
         shell: pwsh
-        run: scripts\lamprey-validation.ps1 -Suite "${{ inputs.suite }}" -Output results\lamprey-validation
+        run: scripts\lamprey-validation.ps1 -Suite "$env:VALIDATION_SUITE" -Output results\lamprey-validation
 
       - name: Publish summary
         if: always()
@@ -73,19 +86,20 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lamprey-validation-${{ inputs.suite }}-${{ github.run_number }}
+          name: lamprey-validation-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
           path: results/lamprey-validation/
 
   self-hosted-lamprey:
     name: Self-hosted Lamprey validation
-    if: ${{ inputs.runner == 'self-hosted-lamprey' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.runner == 'self-hosted-lamprey' }}
     runs-on: [self-hosted, Windows, lamprey]
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
       - name: Run Lamprey validation on local hardware
         shell: pwsh
-        run: scripts\lamprey-validation.ps1 -Suite "${{ inputs.suite }}" -Output results\lamprey-validation
+        run: scripts\lamprey-validation.ps1 -Suite "$env:VALIDATION_SUITE" -Output results\lamprey-validation
 
       - name: Publish summary
         if: always()
@@ -99,5 +113,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lamprey-self-hosted-${{ inputs.suite }}-${{ github.run_number }}
+          name: lamprey-self-hosted-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
           path: results/lamprey-validation/
