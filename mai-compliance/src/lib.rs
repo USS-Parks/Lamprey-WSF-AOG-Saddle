@@ -51,6 +51,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod audit;
 pub mod baa;
 pub mod bundle;
 pub mod deid;
@@ -66,6 +67,14 @@ pub mod tech_data;
 pub mod trust;
 pub mod trust_cache;
 
+pub use audit::{
+    AuditEntry, AuditLog, AuditLogBuilder, AuditQuery, AuditQueryRow, AuditRecordInput, AuditStore,
+    AuditStoreConfig, CHAIN_HASH_LEN, ChainConfig, ChainError, ChainSigner, CorrelationFields,
+    DEFAULT_RETENTION_DAYS, DEFAULT_SIGNATURE_INTERVAL, EntriesById, Escalation, HashChainManager,
+    IntegrityStatus, MlDsaChainSigner, NullSealer, NullSigner, RoutingDecision, RuleMatch,
+    SIGNATURE_LEN, Severity, StoreDropCounters, StoreError, StoreSealer, TriggerManager,
+    TriggersConfig, VerificationStatus, masked_request_hash, verify_chain,
+};
 pub use baa::{BaaConfig, BaaDecision, BaaEnforcer, BaaError, BaaMode, BaaViolation};
 pub use bundle::{
     AcceptAllBundleVerifier, BundleError, BundleMetadata, BundleVerifier, ClaimPayload,
