@@ -16,9 +16,9 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use mai_compliance::{
-    AccessRole, ActorContext, AggregateDecision, AuditEntry, AuditLog, AuditRecordInput,
-    BaaConfig, BaaEnforcer, CertifiedReport, ChainConfig, ChainError, ClassificationResult,
-    ConsentStatus, CountryCode, CulturalFilter, EarDetector, GovernanceMetadata, ItarDetector,
+    AccessRole, ActorContext, AggregateDecision, AuditEntry, AuditLog, AuditRecordInput, BaaConfig,
+    BaaEnforcer, CertifiedReport, ChainConfig, ChainError, ClassificationResult, ConsentStatus,
+    CountryCode, CulturalFilter, EarDetector, GovernanceMetadata, ItarDetector,
     JurisdictionEvaluator, MlDsaBundleVerifier, ModuleDecision, ModuleId, OcapEvaluator,
     PersonType, PhiDetector, PolicyBundle, PolicyComposer, PolicyTemplate, PossessionStatus,
     ReportFormat, ReportManager, ReportRequest, ReportStatus, ReportType, RequestMetadata,
@@ -68,10 +68,7 @@ impl DemoEnv {
             credential_event_id: Some(format!("cred_{ts}")),
             timestamp_unix_nanos: ts,
         };
-        self.audit
-            .record(input)
-            .expect("audit record failed")
-            .0
+        self.audit.record(input).expect("audit record failed").0
     }
 
     fn certify(&self, kind: ReportType, tenant: Option<String>) -> CertifiedReport {
@@ -134,22 +131,31 @@ fn test_hipaa_workflow() {
     let aggregate = env.composer.compose([module_decision]);
     assert!(!aggregate.allowed, "aggregate must reflect HIPAA deny");
     assert!(
-        aggregate
-            .reasons
-            .iter()
-            .any(|r| r.rule.as_deref().is_some_and(|rule| rule.starts_with("hipaa"))
-                || r.summary.to_lowercase().contains("phi")),
+        aggregate.reasons.iter().any(|r| r
+            .rule
+            .as_deref()
+            .is_some_and(|rule| rule.starts_with("hipaa"))
+            || r.summary.to_lowercase().contains("phi")),
         "aggregate reasons must reference HIPAA / PHI — got {:?}",
         aggregate.reasons
     );
 
     // 4. Record the decision in the tamper-evident audit log.
-    let bundle = make_bundle("local-dev", "req_hipaa_001", "regulated",
-                             TrustContext::for_local_dev());
+    let bundle = make_bundle(
+        "local-dev",
+        "req_hipaa_001",
+        "regulated",
+        TrustContext::for_local_dev(),
+    );
     let entry = env.record(&bundle, &aggregate);
     assert_eq!(entry.decision, RoutingDecision::from_aggregate(&aggregate));
     assert!(
-        !entry.correlation.credential_event_id.as_deref().unwrap_or("").is_empty(),
+        !entry
+            .correlation
+            .credential_event_id
+            .as_deref()
+            .unwrap_or("")
+            .is_empty(),
         "BF-5 correlation must carry a credential_event_id"
     );
 
@@ -212,7 +218,10 @@ fn test_itar_workflow() {
     let bundle = make_bundle("defense-tenant", "req_itar_001", "critical", trust);
     let entry = env.record(&bundle, &aggregate);
     assert!(entry.modules_applied.contains(&ModuleId::Itar));
-    let certified = env.certify(ReportType::ItarComplianceSummary, Some("defense-tenant".into()));
+    let certified = env.certify(
+        ReportType::ItarComplianceSummary,
+        Some("defense-tenant".into()),
+    );
     assert!(!certified.content_hash_hex.is_empty());
 
     env.audit
@@ -232,7 +241,9 @@ fn tribal_council_gov() -> GovernanceMetadata {
     }
 }
 
-fn scan_ocap(text: &str) -> (
+fn scan_ocap(
+    text: &str,
+) -> (
     mai_compliance::TribalDataReport,
     mai_compliance::TreatyReport,
     mai_compliance::CulturalReport,
@@ -360,8 +371,12 @@ fn test_multi_domain() {
     );
 
     // Record and report rolls up to MonthlyDigest.
-    let bundle = make_bundle("multi-domain", "req_multi_001", "critical",
-                             TrustContext::for_local_dev());
+    let bundle = make_bundle(
+        "multi-domain",
+        "req_multi_001",
+        "critical",
+        TrustContext::for_local_dev(),
+    );
     let entry = env.record(&bundle, &aggregate);
     assert_eq!(entry.decision, RoutingDecision::from_aggregate(&aggregate));
     let _ = env.certify(ReportType::MonthlyDigest, None);
@@ -409,12 +424,8 @@ fn test_audit_tamper() {
     // changes and entry #3.previous_hash no longer matches.
     let mut tampered = snapshot;
     tampered[1].routing_reason = "TAMPERED".to_string();
-    let err = verify_chain::<MlDsaBundleVerifier>(
-        &tampered,
-        &ChainConfig::default(),
-        None,
-    )
-    .expect_err("tampered chain must fail verification");
+    let err = verify_chain::<MlDsaBundleVerifier>(&tampered, &ChainConfig::default(), None)
+        .expect_err("tampered chain must fail verification");
     assert!(
         matches!(err, ChainError::LinkBroken { .. }),
         "expected LinkBroken, got {err:?}"
@@ -454,17 +465,15 @@ fn test_trust_manifold_disconnected_and_expired() {
         person_type: PersonType::UsPerson,
         deployment_profile: Some("airgap-demo".into()),
     };
-    let decision_offline = JurisdictionEvaluator::default()
-        .evaluate(&itar, &ear, &actor_us, &offline_trust);
+    let decision_offline =
+        JurisdictionEvaluator::default().evaluate(&itar, &ear, &actor_us, &offline_trust);
     let agg_offline = env_offline
         .composer
         .compose([ModuleDecision::from_itar(&decision_offline)]);
-    let bundle_offline = make_bundle("airgap-demo", "req_offline_001", "critical",
-                                     offline_trust);
+    let bundle_offline = make_bundle("airgap-demo", "req_offline_001", "critical", offline_trust);
     let entry_offline = env_offline.record(&bundle_offline, &agg_offline);
     assert_eq!(
-        entry_offline.correlation.trust_bundle_version,
-        bundle_offline.trust.trust_bundle_version,
+        entry_offline.correlation.trust_bundle_version, bundle_offline.trust.trust_bundle_version,
         "trust_bundle_version must propagate into audit correlation"
     );
 
@@ -474,8 +483,8 @@ fn test_trust_manifold_disconnected_and_expired() {
     let mut stale_trust = TrustContext::for_local_dev();
     stale_trust.revocation_status = mai_compliance::RevocationStatus::Unknown;
     stale_trust.trust_bundle_version = "2020.01.01.000".to_string(); // ancient
-    let decision_stale = JurisdictionEvaluator::default()
-        .evaluate(&itar, &ear, &actor_us, &stale_trust);
+    let decision_stale =
+        JurisdictionEvaluator::default().evaluate(&itar, &ear, &actor_us, &stale_trust);
     assert_eq!(
         decision_stale.outcome,
         mai_compliance::Outcome::DenyExport,
@@ -486,8 +495,7 @@ fn test_trust_manifold_disconnected_and_expired() {
         .composer
         .compose([ModuleDecision::from_itar(&decision_stale)]);
     assert!(!agg_stale.allowed);
-    let bundle_stale = make_bundle("airgap-demo", "req_expired_001", "critical",
-                                   stale_trust);
+    let bundle_stale = make_bundle("airgap-demo", "req_expired_001", "critical", stale_trust);
     env_expired.record(&bundle_stale, &agg_stale);
 
     // Report generation still works in degraded mode; the TrustSection
