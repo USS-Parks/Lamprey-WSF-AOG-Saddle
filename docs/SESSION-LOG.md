@@ -633,9 +633,43 @@ Verification:
 - Cultural sacred content is flagged for human review (`detects_named_ceremony`, `detects_explicit_restricted_knowledge`).
 - Access controls prevent unauthorised profile access (`unauthorised_profile_denies` uses the authorised-profiles set).
 - Quarantined content is preserved for review without data loss (`OcapOutcome::Quarantine` is its own decision variant; the surrounding policy runtime — Session 41 — is the next layer that decides how to hold it).
-**BF-2 / Appendix A §A.13 Status:** The OCAP path satisfies the S40 trust-context gate end-to-end. `TrustContext` (built earlier in BF-2's backfill commit, lives in `mai-compliance::trust`) is consumed on every `OcapEvaluator::evaluate` call; scope, revocation, allowed-route ceiling, and trust-correlation fields are all wired. Residual BF-2 drift on Session 39 (`JurisdictionEvaluator::evaluate` still has the pre-trust signature) is documented in [project-mai-build-state] memory and remains a non-blocking patch — both the trust types and the OCAP consumer prove the contract works.
+**BF-2 / Appendix A §A.13 Status:** The OCAP path satisfies the S40 trust-context gate end-to-end. `TrustContext` (built in BF-2, lives in `mai-compliance::trust`) is consumed on every `OcapEvaluator::evaluate` call; scope, revocation, allowed-route ceiling, and trust-correlation fields are all wired. Companion BF-1/BF-2 closure (`JurisdictionEvaluator::evaluate` now accepts `&TrustContext` and emits a `TrustSnapshot`; spec docs landed) is documented in the BF-1/BF-2 Completion entry below.
 **Known Issues Added or Closed:** None new. The shipped tribal-identifier pattern catalog is intentionally generic (categories of tribal vocabulary, not specific nations) — tribal-government deployments are expected to extend through `ocap.toml` after their cultural authority approves the local vocabulary. The cultural filter defaults to `min_confidence = Probable` so reviewers are not buried in Possible-only false positives.
 **Next Session Notes:** Session 41 (Policy Runtime & Rule Engine) — combines HIPAA, ITAR/EAR, and OCAP under one composer with conflict resolution (most-restrictive wins, then OCAP &gt; ITAR &gt; HIPAA priority) and decision caching. The Appendix A §A.13 S41 gate is the normalisation step where the backfill becomes clean architecture: `RequestMetadata + TrustContext + ConnectivityState + PolicyBundleVersion + ClassificationResult` collapse into a single decision input. Sessions 32-38 plus the new OCAP surface should now all consume that normalised input rather than each carrying its own subset of trust context.
+
+---
+
+## BF-1 + BF-2 Completion (Trust Manifold Backfill)
+
+**Date:** 2026-05-22
+**Status:** Complete (BUILD-EXECUTION-PLAN-V2-UPDATED Appendix A §A.5 BF-1 spec + §A.6 BF-2 service-identity / TrustContext)
+**Summary:** Phase H2 Trust Manifold inserted as a parallel backfill lane per Appendix A rather than rolling back to V2 Sessions 26b/26d. BF-1 landed the Trust Manifold architecture, OpenBao integration, and service-identity catalog as canonical docs. BF-2 implemented the Rust projection (`mai-compliance::trust`) and wired `&TrustContext` into `JurisdictionEvaluator::evaluate` so Session 39's ITAR/EAR engine now satisfies the §A.12 TrustContext-ready gate retroactively. Session 40 OCAP was already trust-aware at design time; this commit makes the entire Lamprey compliance crate uniformly trust-bearing.
+**Files Changed:**
+- New: docs/TRUST-MANIFOLD.md (~301 lines, BF-1) — three rings, boundary diagram, claim schema, tenant model, offline state machine, revocation model, threat model, responsibility map
+- New: docs/OPENBAO-INTEGRATION.md (~175 lines, BF-1) — mount layout (kv/transit/pki/auth/audit), auth methods (K8s/AppRole/OIDC), claim issuance flow, local-without-online operation, S45 acquirer narrative
+- New: docs/SERVICE-IDENTITY.md (~174 lines, BF-2) — nine service identities, OpenBao policy-path convention, per-service policy table, `TrustContext` Rust shape preview, ten-row denied-access test plan
+- New: mai-compliance/src/trust.rs (~408 lines, BF-2) — `TrustContext` + `ServiceIdentity` (9 variants) + `ComplianceScope` (Hipaa/ItarEar/Ocap) + `AllowedRoute` (LocalOnly/LocalPreferred/CloudAllowed) + `DataClassification` (Public..Secret) + `RevocationStatus` (Valid/Revoked/Stale/Unknown) + `TenantId`/`SubjectId`/`SubjectHash` newtypes; `for_local_dev()` and `strict_local_only()` constructors; 11 unit tests including serde roundtrip
+- Modified: mai-compliance/src/jurisdiction.rs — `JurisdictionEvaluator::evaluate` accepts `&TrustContext`; new `TrustSnapshot` carried on every `JurisdictionDecision`; five new rule tags (`trust.revoked`, `trust.scope_missing`, `trust.revocation_unknown_for_itar`, `trust.allowed_routes`, `trust.offline_mode`); ten new trust-aware tests on top of the original Session 39 set
+- Modified: mai-compliance/src/lib.rs — added `pub mod trust;` and the re-export block alongside the Session 40 ocap exports
+**Tests Run:**
+- `cargo check -p mai-compliance` / `cargo check --workspace`: clean.
+- `cargo clippy -p mai-compliance --all-targets`: no errors; pedantic warnings only.
+- `cargo test -p mai-compliance`: 182/182 lib + 1/1 phi_perf.
+**Acceptance Criteria Verified (BUILD-EXECUTION-PLAN Appendix A §A.5 + §A.6):**
+- Trust Manifold architecture is documented (TRUST-MANIFOLD.md §§1-11).
+- OpenBao is assigned to identity / secrets / PKI / signing / revocation / audit-device functions (TRUST-MANIFOLD.md §8.1, OPENBAO-INTEGRATION.md §2).
+- Lamprey owns compliance classification + policy decisions (§8.2-8.3).
+- MAI owns local inference + hardware-aware scheduling (§8.3).
+- Claim schema is defined; Session 39 jurisdiction consumes it via the `TrustContext` projection (TRUST-MANIFOLD.md §4, §9).
+- No architecture moves regulated payloads (§2.2, §8.4) — the manifold carries identity / claims / signatures / revocation snapshots only.
+- Each of the nine services has a named identity (SERVICE-IDENTITY.md §2).
+- No service relies on a shared broad token in the target design (§3.1).
+- Session 39 now receives `service_identity` via TrustContext (§4).
+- Policy runtime can distinguish user claims from service claims (`service_identity` is `Option<ServiceIdentity>`).
+- Wrong service identity can be represented and tested (denied-access plan §5).
+**S39 Drift Closed:** The `JurisdictionEvaluator::evaluate(itar, ear, actor)` signature is now `evaluate(itar, ear, actor, trust)` and produces a `JurisdictionDecision` with an audit-grade `TrustSnapshot`. Session 39's §A.12 TrustContext-ready gate is satisfied.
+**Known Issues Added or Closed:** None new. `TrustContext::for_local_dev()` and `strict_local_only()` are explicit bring-up helpers; real construction sites land when BF-3 (signed bundle verification) and BF-4 (local trust cache) are wired into the path. Session 41 will replace mock contexts with verified-claim outputs end-to-end.
+**Next Backfill Notes:** BF-3 (signed claim + policy bundle verification) is due before Session 41 closes. Deliverables: `docs/TRUST-BUNDLE-SPEC.md`, signed-claim/bundle schema, local verification design, invalid-signature behavior, expired-bundle behavior, HMAC subject-hashing design. BF-4 (local trust cache + connectivity state machine) is due before Session 42 starts.
 
 ---
 

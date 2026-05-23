@@ -144,21 +144,18 @@ impl ProductGroup {
 }
 
 /// EAR-derived classification level. Ordered least → most restrictive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum EarClassification {
     /// No EAR concern detected.
+    #[default]
     Uncontrolled,
     /// EAR99 — subject to EAR but no specific ECCN.
     Ear99,
     /// CCL — direct ECCN or strong category-keyword match.
     Ccl,
-}
-
-impl Default for EarClassification {
-    fn default() -> Self {
-        Self::Uncontrolled
-    }
 }
 
 impl EarClassification {

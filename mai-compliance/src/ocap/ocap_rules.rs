@@ -342,6 +342,18 @@ pub struct OcapDecision {
     pub revocation_status: RevocationStatus,
 }
 
+/// Internal bundle of the three "did we see X?" booleans that flow
+/// through every decision branch. Kept private to the module; existed
+/// only to keep [`OcapEvaluator::build_decision`] under the
+/// `clippy::too_many_arguments` ceiling and to give the call sites a
+/// single point of mutation if a new fact is added later.
+#[derive(Debug, Clone, Copy)]
+struct DecisionFacts {
+    tribal_data_detected: bool,
+    cultural_review_required: bool,
+    treaty_local_only: bool,
+}
+
 /// OCAP policy evaluator.
 #[derive(Debug, Clone, Default)]
 pub struct OcapEvaluator {
@@ -376,6 +388,11 @@ impl OcapEvaluator {
             || (self.config.possible_implies_tribal && tribal.has_any());
         let cultural_review_required = cultural.requires_review() || gov.force_review;
         let treaty_local_only = treaty.requires_local_processing;
+        let facts = DecisionFacts {
+            tribal_data_detected,
+            cultural_review_required,
+            treaty_local_only,
+        };
 
         // 1. Revocation gate.
         if trust.is_revoked() {
@@ -386,9 +403,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 OcapOutcome::DenyAccess,
                 Some("ocap.revoked".to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -425,9 +440,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 outcome,
                 Some("ocap.possession.not_on_premises".to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -435,24 +448,22 @@ impl OcapEvaluator {
 
         // 4. Control gate. If the tenant has an authorised-profiles
         //    set and the caller's role is not in it, deny.
-        if (tribal_data_detected || treaty.has_any()) && !self.config.authorised_profiles.is_empty()
+        if (tribal_data_detected || treaty.has_any())
+            && !self.config.authorised_profiles.is_empty()
+            && !self.config.authorised_profiles.contains(&gov.access_role)
         {
-            if !self.config.authorised_profiles.contains(&gov.access_role) {
-                let summary = format!(
-                    "Caller role '{}' is not in the tenant's authorised-profiles set.",
-                    gov.access_role.as_str(),
-                );
-                reasons.push(OcapReason::new("ocap.control.unauthorised", summary));
-                return Ok(self.build_decision(
-                    OcapOutcome::DenyAccess,
-                    Some("ocap.control.unauthorised".to_string()),
-                    tribal_data_detected,
-                    cultural_review_required,
-                    treaty_local_only,
-                    reasons,
-                    trust,
-                ));
-            }
+            let summary = format!(
+                "Caller role '{}' is not in the tenant's authorised-profiles set.",
+                gov.access_role.as_str(),
+            );
+            reasons.push(OcapReason::new("ocap.control.unauthorised", summary));
+            return Ok(self.build_decision(
+                OcapOutcome::DenyAccess,
+                Some("ocap.control.unauthorised".to_string()),
+                facts,
+                reasons,
+                trust,
+            ));
         }
 
         // 5. Access gate. Sacred / elder-attributed content requires
@@ -475,9 +486,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 OcapOutcome::DenyAccess,
                 Some("ocap.access.sacred_role".to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -495,9 +504,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 OcapOutcome::DenyAccess,
                 Some("ocap.access.elder_role".to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -514,9 +521,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 OcapOutcome::Quarantine,
                 Some("ocap.cultural.review_required".to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -533,9 +538,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 OcapOutcome::Quarantine,
                 Some("ocap.treaty.consent_required".to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -564,9 +567,7 @@ impl OcapEvaluator {
             return Ok(self.build_decision(
                 OcapOutcome::RouteLocal,
                 Some(rule.to_string()),
-                tribal_data_detected,
-                cultural_review_required,
-                treaty_local_only,
+                facts,
                 reasons,
                 trust,
             ));
@@ -581,9 +582,7 @@ impl OcapEvaluator {
         Ok(self.build_decision(
             OcapOutcome::Allow,
             None,
-            tribal_data_detected,
-            cultural_review_required,
-            treaty_local_only,
+            facts,
             reasons,
             trust,
         ))
@@ -593,17 +592,15 @@ impl OcapEvaluator {
         &self,
         outcome: OcapOutcome,
         matched_rule: Option<String>,
-        tribal_data_detected: bool,
-        cultural_review_required: bool,
-        treaty_local_only: bool,
+        facts: DecisionFacts,
         reasons: Vec<OcapReason>,
         trust: &TrustContext,
     ) -> OcapDecision {
         OcapDecision {
             outcome,
-            tribal_data_detected,
-            cultural_review_required,
-            treaty_local_only,
+            tribal_data_detected: facts.tribal_data_detected,
+            cultural_review_required: facts.cultural_review_required,
+            treaty_local_only: facts.treaty_local_only,
             reasons,
             matched_rule,
             tenant_id: trust.tenant_id.as_str().to_string(),

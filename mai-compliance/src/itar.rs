@@ -137,10 +137,13 @@ impl UsmlCategory {
 /// Export-control classification level.
 ///
 /// Variants are ordered least- to most-restrictive so `>=` can gate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ExportClassification {
     /// No export control concern detected.
+    #[default]
     Uncontrolled,
     /// EAR99 — subject to EAR but no specific ECCN.
     Ear99,
@@ -148,12 +151,6 @@ pub enum ExportClassification {
     Ccl,
     /// USML — listed on the United States Munitions List (ITAR).
     Itar,
-}
-
-impl Default for ExportClassification {
-    fn default() -> Self {
-        Self::Uncontrolled
-    }
 }
 
 impl ExportClassification {
