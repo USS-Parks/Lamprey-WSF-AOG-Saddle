@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-22
+**Last Updated:** 2026-05-22 (post-S30)
 
 ---
 
@@ -52,13 +52,13 @@ Four Phase 1 exit criteria from `MAI-BUILD-PROMPT-ROSTER-v2.md` require target h
 
 **Action:** Run these as part of deployment validation on the target hardware. `scripts/burn-in.sh` emits a `phase1-deferred.txt` artifact per run that names them explicitly so the deferral is never silent. See `docs/INTEGRATION-COVERAGE.md` for the full coverage map.
 
-### 9. SDK Apps Scaffold Pending Sessions 29-31
+### 9. SDK Apps Scaffold (RESOLVED in Session 30)
 
-**Severity:** Low (Gate C work-around in place)
+**Severity:** Low (was: Gate C work-around in place)
 **Affects:** Gate C "SDK and at least one app scaffold run against packaged deployment"
-**Status:** Smoke-client substitute 2026-05-22 (Session 35); Session 29 complete, Sessions 30-31 pending
+**Status:** Resolved 2026-05-22 (Session 30, commit `70fa5a0`); six plan-spec scaffolds shipped under `apps/` with 58 green tests.
 
-A full L4-L5 application scaffold is the deliverable of Sessions 29-31 (Developer/App Release Train). Session 29 replaced the smoke-client substitute at the SDK layer with real install/auth/health/models/chat/stream/embeddings behavior. For Gate C closure, `tools/smoke/smoke_client.py` remains the minimal end-to-end probe that verifies the public boundary against a packaged deployment. Keep this issue open until Sessions 30-31 provide the real application scaffold evidence map.
+The full L4-L5 application-scaffold deliverable of Sessions 29-31 (Developer/App Release Train) is now satisfied. Session 29 replaced the smoke-client substitute at the SDK layer with real install/auth/health/models/chat/stream/embeddings behavior; Session 30 shipped the six BUILD-EXECUTION-PLAN-V2-UPDATED §739 reference scaffolds (`local-secure-inference`, `rag-reference`, `compliance-routed`, `tribal-sovereignty`, `operator`, `openbao-trust-demo`) — each with `config.toml + main.py + README.md` plus smoke + integration tests against `httpx.MockTransport`. `tools/smoke/smoke_client.py` remains the canonical packaged-deployment probe; the new scaffolds are the developer-side evidence map. Roster Session 31 (Part 2 family-app scaffolds) is optional under plan §739's letter.
 
 ### 6. Registry scan_models Placeholder
 

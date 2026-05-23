@@ -1041,14 +1041,14 @@ Verification:
 | F: Power & Lifecycle | 22-23, 25 | Complete (22, 23, 25) |
 | G: Model Lifecycle | 24-25 | Complete (24, 25) |
 | H: Security Hardening | 26-28 | Complete (26, 27, 28; hardware-only Linux enforcement remains deployment-scoped) |
-| I: Application Integration | 29-31 | In Progress (29 complete; 30-31 pending) |
+| I: Application Integration | 29-31 | Complete per plan scope (29 SDK; 30 plan-spec six scaffolds shipped in commit `70fa5a0`); roster S31 Part 2 optional under plan §739 |
 | J: Advanced Scheduling | 32-33 | Complete (32, 33) |
 | K: Testing & Packaging | 34-35 | Complete (34, 35) — Gate C closed |
-| L: Compliance Governance | 36-46 | Partial (36-41 complete; BF-1, BF-2, BF-3, BF-4 complete) |
+| L: Compliance Governance | 36-46 | Partial (36-42 complete; BF-1, BF-2, BF-3, BF-4, BF-5 complete) |
 
-**Sessions Complete:** Sessions 1-29 and 32-41 are complete or have completion entries in this log; BF-1, BF-2, BF-3, and BF-4 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) now has Router, Policy Framework, HIPAA, ITAR/EAR trust alignment, OCAP, signed trust bundles, and the Session 41 policy runtime in place.
-**Active Work:** Mainline moves to Session 42 (tamper-evident audit log + BF-5 audit correlation). Sessions 30-31 remain the application scaffold lane and can proceed from the completed Session 29 SDK.
-**Next Coordination Gate:** Use Session 42 to bind Session 41 decisions, BF-3 verified trust bundles, and BF-5 claim/audit correlation into the hash-chain audit surface before reports and dashboard work in Sessions 43-44.
+**Sessions Complete:** Sessions 1-30 and 32-42 are complete or have completion entries in this log; BF-1, BF-2, BF-3, BF-4, and BF-5 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) now has Router, Policy Framework, HIPAA, ITAR/EAR trust alignment, OCAP, signed trust bundles, the Session 41 policy runtime, and the Session 42 tamper-evident audit log in place.
+**Active Work:** Mainline moves to Session 43 (compliance report generator over the S42 `AuditLog`). Roster Session 31 (Part 2 application scaffolds — MedRecord / HomeBase / Estate AI) is optional under plan §739 since the plan's "at least one scaffold runs end to end" criterion is already satisfied by the six S30 scaffolds.
+**Next Coordination Gate:** Use Session 43 to project the S42 audit log into a regulator-ready report surface (credential validation summary, trust bundle version history, offline/degraded intervals, policy-version history, audit chain verification status — all already in `AuditEntry` / `CorrelationFields` post-S42).
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---
@@ -1563,3 +1563,32 @@ All 6 files rewritten from scratch against verified APIs. v2 files verified: zer
 - Python adapters - 96 passed.
 
 **Next Session Notes:** Session 42 is the next mainline compliance step: tamper-evident audit log plus BF-5 audit correlation. It should consume Session 41's `AuditFeed`, BF-3 verified bundle metadata, and TrustContext correlation fields without re-deriving policy inputs.
+
+---
+
+### 2026-05-22: Session 30 - L4-L5 Application Scaffolds (Phase I, Gate B)
+
+**Status:** Complete and pushed (`70fa5a0`, `origin/main`).
+
+**Scope:** Six reference application scaffolds under `apps/` per BUILD-EXECUTION-PLAN-V2-UPDATED.md §"Sessions 30-31: Application Scaffolds". Each scaffold exercises the Session 29 SDK against a `httpx.MockTransport`-backed local server. Gate B's "at least one scaffold runs end to end" criterion is satisfied by all six.
+
+**Deliverables:**
+- [x] `apps/local-secure-inference/` — authenticated streaming chat with model auto-pick (6 tests).
+- [x] `apps/rag-reference/` — text ingest + embedding + cosine retrieval + RAG answer (6 tests).
+- [x] `apps/compliance-routed/` — Lamprey routing stub with HIPAA / ITAR / OCAP shape preview (11 tests).
+- [x] `apps/tribal-sovereignty/` — OCAP local-only chat with `SovereigntyViolation` route + model guards (9 tests).
+- [x] `apps/operator/` — five-panel status dashboard (models / scheduler / power / trust / system) with BF-6 stub fallback (11 tests).
+- [x] `apps/openbao-trust-demo/` — full seven-step Trust Manifold pipeline (bridge auth → claim → audit correlation → local bundle check → token exchange → Lamprey metadata → authenticated inference → audit summary) with graceful BF-6 stub fallbacks for `client.trust.bundle_status()` and `client.auth.exchange_token()` (15 tests).
+
+**Verification:**
+- `python -m pytest apps/<name>/tests/` per app (the six `tests/` packages collide if run together — invoke per scaffold).
+- Total: 58 scaffold tests green (6 + 6 + 11 + 9 + 11 + 15).
+- One incidental bug fix landed alongside the new code: `apps/operator/main.py` had `except MaiError` before `except TrustNotProvisionedError`, which swallowed the more-specific subclass and caused the trust panel to report `ERROR` instead of `not-provisioned` against the BF-6 stub. Re-ordering the clauses fixes it.
+
+**Plan vs. roster reconciliation:** BUILD-EXECUTION-PLAN-V2-UPDATED.md §739 lists six scaffolds (Local Secure Inference / RAG / Compliance-Routed / Tribal Sovereignty / Operator / OpenBao Trust Demo); the roster's Session 30 instead names four family-app scaffolds (Summit Chat / FamilyVault / Scribe / Legacy Engine). Per the plan's own override clause ("when the two disagree, the execution plan wins for scoping and ordering"), Session 30 was scoped against the plan. The roster-named directories remain on disk with only `__init__.py` placeholders and are not part of this commit.
+
+**Known Issues Added or Closed:**
+- Closes the spirit of Issue #5 in `KNOWN-ISSUES.md` ("A full L4-L5 application scaffold is the deliverable of Sessions 29-31") — the smoke-client probe is no longer the only end-to-end evidence. Issue text updated.
+- No new issues opened. BF-6 SDK-side trust wiring remains the only open deferral and is unchanged.
+
+**Next Session Notes:** Next mainline target per the canonical plan is **Session 43 (Compliance Report Generator)** over the S42 `AuditLog`. Roster Session 31 (Part 2 family-app scaffolds) is genuinely optional under plan §739's letter — every plan-spec scaffold ships and runs.
