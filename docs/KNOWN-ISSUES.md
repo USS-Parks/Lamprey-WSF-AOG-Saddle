@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-22 (post-S30)
+**Last Updated:** 2026-05-23 (post-BF-7; Trust Manifold backfill lane closed)
 
 ---
 
@@ -52,21 +52,21 @@ Four Phase 1 exit criteria from `MAI-BUILD-PROMPT-ROSTER-v2.md` require target h
 
 **Action:** Run these as part of deployment validation on the target hardware. `scripts/burn-in.sh` emits a `phase1-deferred.txt` artifact per run that names them explicitly so the deferral is never silent. See `docs/INTEGRATION-COVERAGE.md` for the full coverage map.
 
-### 9. SDK Apps Scaffold (RESOLVED in Session 30)
+### 9. Live OpenBao Bring-Up Deferred (per Plan Appendix A)
 
-**Severity:** Low (was: Gate C work-around in place)
-**Affects:** Gate C "SDK and at least one app scaffold run against packaged deployment"
-**Status:** Resolved 2026-05-22 (Session 30, commit `70fa5a0`); six plan-spec scaffolds shipped under `apps/` with 58 green tests.
+**Severity:** Low (BF-6 contract shipped; production swap is handler-body-only)
+**Affects:** V2 sessions 26c (OpenBao HA dev deployment) and 27c (PKI / mTLS) — neither was executed live; both were absorbed into the BF-1..BF-7 contract lane per plan Appendix A §A.2.
+**Status:** Documented deferral; not blocking S45 / S46 / Gate D.
 
-The full L4-L5 application-scaffold deliverable of Sessions 29-31 (Developer/App Release Train) is now satisfied. Session 29 replaced the smoke-client substitute at the SDK layer with real install/auth/health/models/chat/stream/embeddings behavior; Session 30 shipped the six BUILD-EXECUTION-PLAN-V2-UPDATED §739 reference scaffolds (`local-secure-inference`, `rag-reference`, `compliance-routed`, `tribal-sovereignty`, `operator`, `openbao-trust-demo`) — each with `config.toml + main.py + README.md` plus smoke + integration tests against `httpx.MockTransport`. `tools/smoke/smoke_client.py` remains the canonical packaged-deployment probe; the new scaffolds are the developer-side evidence map. Roster Session 31 (Part 2 family-app scaffolds) is optional under plan §739's letter.
+The BF-1..BF-6 lane ships the Trust Manifold contract, schemas, ML-DSA-87 bundle verifier, local trust cache, BF-5 audit correlation, the four deployment profiles, and a local-dev token stub at `POST /v1/auth/exchange_token`. An acquirer wires their existing OpenBao deployment in by swapping the handler body for that endpoint — wire shape, claim schema, and bundle verification do not change. Live OpenBao deployment, OpenBao HA, and live PKI / mTLS bring-up belong to the acquirer's integration sequence (`docs/BUYER-INTEGRATION-GUIDE.md`), not to this build.
 
-### 6. Registry scan_models Placeholder
+### 10. Hard-Coded Local-Dev Admin Token in Dashboard
 
-**Severity:** Expected (placeholder)
-**Affects:** `mai-api/src/grpc/registry.rs`
-**Status:** By design, resolved in Session 15
+**Severity:** Low (development-only default; not a production gate)
+**Affects:** `compliance-dashboard/util.py`
+**Status:** By design, documented at the BF-6 gate.
 
-`ModelRegistry` has no `scan_models()` method. The gRPC `ScanModels` RPC returns an empty list. Session 15 (Model Management) adds the real model scanning and discovery pipeline.
+The compliance dashboard admin gate uses `X-IM-Auth-Token: $MAI_DASHBOARD_ADMIN_TOKEN` (default `dashboard-dev`). The default value is for local development only — every shipped deployment profile recommends setting `MAI_DASHBOARD_ADMIN_TOKEN` to a real value before exposing the dashboard. Acquirer-side integration guides (`docs/BUYER-INTEGRATION-GUIDE.md` Step 6) call this out.
 
 ---
 
@@ -88,17 +88,27 @@ These items are explicitly excluded from the current build. See PROJECT.md for s
 
 ## Resolved Issues (Historical)
 
+### BF-7 S30 Scaffold Absorption (RESOLVED)
+
+**Resolved:** 2026-05-22 (BF-7, commit `e2d3791`)
+
+BF-6 changed the SDK signature for `client.auth.exchange_token` from `(claim)` to `(subject_id, *, tenant_id, scopes)` and reshaped `TrustBundleStatus` (`bundle_version | None`, `last_refresh_secs`, `age_secs`, `connectivity`, `is_emergency_only`). The S30 scaffolds `apps/openbao-trust-demo/` and `apps/operator/` had been written against the old signature and silently regressed (6 + 2 = 8 failing tests). BF-7 absorbed the BF-6 wiring: updated both scaffolds, replaced `TrustNotProvisionedError` fallbacks with `MaiError` server-unreachable fallbacks, switched the operator trust panel to `client.trust.status()` for the consolidated dashboard view. Scaffold total 58 → 61 green.
+
+### Issue #10 (BF-3 prerequisite) — RESOLVED 2026-05-22
+
+BF-3 landed signed claim and policy bundle verification before Session 41 closed. The verification matrix now covers signed bundle success, invalid signature rejection, expired bundle behavior, tampered payload/metadata rejection, unknown anchor handling, tenant mismatch preservation, and HMAC subject hashing without raw subject leakage. Commit `9cbad83`.
+
 ### Session 03 Audit: FFI Blocking Issues (RESOLVED)
 
 Three blocking FFI issues in the Backend Adapter Framework spec. All fixed during Session 03 audit. See SESSION-LOG-ARCHIVE-01.md for details.
 
 ### Session 10 CI: pytest Collection Failures (RESOLVED)
 
-### Issue #10: BF-3 Signed Trust Bundle Verification Before Session 41 (RESOLVED)
+Missing `adapters/__init__.py` and AdapterBase constructor signature mismatch. Fixed 2026-05-17. See SESSION-LOG-ARCHIVE-02.md maintenance log.
 
-BF-3 landed signed claim and policy bundle verification before Session 41 closed. The verification matrix now covers signed bundle success, invalid signature rejection, expired bundle behavior, tampered payload/metadata rejection, unknown anchor handling, tenant mismatch preservation, and HMAC subject hashing without raw subject leakage. Session 41 is complete and pushed at `0bb8173`.
+### Issue #6: Registry scan_models Placeholder (RESOLVED in Session 15)
 
-Missing `adapters/__init__.py` and AdapterBase constructor signature mismatch. Fixed 2026-05-17. See SESSION-LOG.md maintenance log.
+`ModelRegistry` had no `scan_models()` method and the gRPC `ScanModels` RPC returned an empty list. Session 15 added the real model scanning and discovery pipeline.
 
 ### Session 11d: Invented mai-core APIs (RESOLVED)
 

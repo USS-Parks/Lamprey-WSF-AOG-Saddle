@@ -1,9 +1,9 @@
 # MAI Founding Engineer Handoff
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, expanded to 46 sessions with Lamprey compliance governance)
-**Status:** Sessions 1-30 and 32-42 have completion entries; Gate C is closed. BF-1 through BF-5 are complete. Current mainline is Session 43: compliance report generator over the S42 audit log.
-**Archive:** Detailed Phase A+B code inventory and onboarding walkthrough archived to [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) on 2026-05-17.
+**Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (restructured 2026-05-18, 46 sessions with Lamprey compliance governance) + `BUILD-EXECUTION-PLAN-V2-UPDATED.md` Appendix A (Trust Manifold backfill BF-1..BF-7).
+**Status:** Sessions 1-30 and 32-44 complete; **Gate C closed** (Session 35); **Trust Manifold backfill lane CLOSED** (BF-7, 2026-05-22). Current mainline is **Session 45 — Acquisition Documentation Package**.
+**Archive:** Sessions 01-10 archived to `SESSION-LOG-ARCHIVE-01.md`; Sessions 11-25 archived to [SESSION-LOG-ARCHIVE-02.md](SESSION-LOG-ARCHIVE-02.md) on 2026-05-23.
 
 ---
 
@@ -22,13 +22,18 @@ The inference engine is a plugin. The data sovereignty layer is the product.
 | Document | Purpose |
 |---|---|
 | [MAI-BUILD-PROMPT-ROSTER-v2.md](MAI-BUILD-PROMPT-ROSTER-v2.md) | All 46 session prompts, deliverables, acceptance criteria (v1 archived) |
+| `BUILD-EXECUTION-PLAN-V2-UPDATED.md` (repo root) | Governing execution plan including Appendix A Trust Manifold backfill (BF-1..BF-7). Read at the start of any session. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Trust model, component catalog, data flows |
 | [CONVENTIONS.md](CONVENTIONS.md) | Code quality gates, monorepo layout, testing rules |
-| [SESSION-LOG.md](SESSION-LOG.md) | Active progress tracker (current baseline: Sessions 1-30 and 32-42 complete/logged; S43 next) |
-| [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) | Completed sessions (01-10) with full notes |
+| [SESSION-LOG.md](SESSION-LOG.md) | Active progress tracker — Phase H onward (S26-44 + BF-1..BF-7); S45 next |
+| [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) | Completed sessions 01-10 (Phases A+B) |
+| [SESSION-LOG-ARCHIVE-02.md](SESSION-LOG-ARCHIVE-02.md) | Completed sessions 11-25 (Phases C through G), archived 2026-05-23 |
 | [SESSION-RULES.md](SESSION-RULES.md) | Dependency enforcement, acceptance criteria, quality gates |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | Deferred work, open questions |
 | [INDEX.md](INDEX.md) | Master file index |
+| [ACQUISITION-PACKAGE.md](ACQUISITION-PACKAGE.md) | Five-point buyer thesis with code/test citations (BF-7) |
+| [BUYER-INTEGRATION-GUIDE.md](BUYER-INTEGRATION-GUIDE.md) | OpenBao-backed trust boundary + integration sequence (BF-7) |
+| [DEMO-SUITE.md](DEMO-SUITE.md) | Trust Manifold scenario + supporting demos (BF-7) |
 
 ### Codebase (Current Baseline)
 
@@ -90,7 +95,15 @@ The workspace now contains the core MAI crates plus `mai-vault`, `mai-agent`, `m
 **Vault Crypto + Air-Gap Enforcement (Sessions 27-28, complete 2026-05-22):** Session 27 replaced vault crypto stubs with real PQC-backed package verification/encryption paths, AEAD TPM sealing, audit checkpoint signatures, and first-boot orchestration. Session 28 added the canonical `ConnectivityState`, shared `AirGapPolicy`, loopback/wildcard bind enforcement, `/v1/system/airgap`, and BF-4 local trust cache state. Hardware switch monitoring and Linux-only network mutation remain production-deployment scoped, not core policy blockers.
 **Production Trace Integration + Replay (Session 32, complete 2026-05-22 — Gate C criteria met):** `mai-scheduler/src/traces/capture.rs` writes opt-in NDJSON traces with daily rotation; session ids are blake3-hashed at capture time so the raw trace is unlinkable. The module was named `traces` (not `tracing` per the spec letter) because `tracing` is a workspace logging crate used across mai-scheduler; the name swap is the only deviation. `tools/trace-tools/` adds anonymize/reconstruct/calibrate Python scripts. `tools/simulator/` adds `trace_generator.py` (replays an NDJSON trace as a WorkloadGenerator preserving inter-request gaps), `hybrid.py` (combines a trace baseline with a synthetic spike), `replay_compare.py` (trace-driven multi-policy comparison harness — deterministic at (trace, seed, policy)), and `report.py` (Markdown / JSON report renderer with headline findings — designed for acquisition documentation). Privacy is structural: capture and anonymize both project to a documented allowlist and tests assert no prompt/response text leaks. 18 new Session 32 tests across Python + 4 new Rust capture tests; full suite at 114 Python + 293 Rust scheduler tests passing.
 
-**Immediate next step:** Session 43: compliance report generator over the S42 `AuditLog`. Read from `audit::AuditLog::{query, get, integrity_status, verify_full}` and project the existing `AuditEntry` + `CorrelationFields` data into regulator-ready output (credential validation summary, trust bundle version history, revocation snapshot, offline/degraded intervals, service-identity events, policy-version history, audit chain verification status). The S30 `apps/compliance-routed/` scaffold is the developer-side preview surface.
+**Compliance Audit Log + BF-5 (Session 42, complete 2026-05-22):** `mai-compliance/src/audit/` adds tamper-evident audit chain with BLAKE3 link + optional ML-DSA-87 periodic signatures, JSON-lines WAL, and the BF-5 audit correlation queue (4096-event cap with drop counter). `CorrelationFields` matches plan §A.9 schema verbatim. `AuditLog::record` builds entries from `PolicyBundle + AggregateDecision + policy_version + credential_event_id` in one call. `docs/AUDIT-CORRELATION.md` documents the wire format.
+
+**Compliance Report Generator (Session 43, complete 2026-05-22):** `mai-compliance/src/reports/` ships five built-in templates (HIPAA / ITAR / OCAP / SystemActivity / MonthlyDigest), JSON / HTML / CSV / Text output, and ML-DSA-87 report certification over canonical-JSON. Every report carries a `TrustSection` (credential validation summary, trust bundle version history, revocation snapshot mix, offline interval reconstruction, service-identity events, policy-version history, audit verification status) per plan §A.13.
+
+**Compliance Dashboard + API + BF-6 (Session 44, complete 2026-05-22):** `mai-api` now serves the full BF-6 trust surface (`/v1/trust/{status,claims,bundle_status,revocation_status}`, `/v1/auth/exchange_token`) and S44 compliance surface (policy / audit / reports + SSE feed). Python SDK `client.trust.*` and `client.compliance.*` namespaces wired and tested. Four deployment profiles shipped: `deployment/{local-dev,cloud-trust-core,local-mai-node,airgap-demo}`. FastAPI `compliance-dashboard/` exposes Overview / Audit / Reports / Policy / Alerts / Health pages with admin-gated mutations. 17 mai-api integration tests + 20 dashboard tests + 94 SDK tests green.
+
+**BF-7 Acquisition + Demo Backfill (complete 2026-05-22):** Three new docs under `docs/`: `ACQUISITION-PACKAGE.md` (5-point thesis with code/test citations), `BUYER-INTEGRATION-GUIDE.md` (trust-boundary contract + 7-step integration + 8-item review checklist), `DEMO-SUITE.md` (8-step Trust Manifold scenario + 6 supporting demos). The BF-6 SDK signature change had silently regressed two S30 scaffolds (`apps/openbao-trust-demo` and `apps/operator`); BF-7 repaired both. Scaffold total 58 → 61 green. Trust Manifold backfill lane (BF-1..BF-7) is now CLOSED.
+
+**Immediate next step:** Session 45 — Acquisition Documentation Package. Plan §1326 calls for architecture overview, scheduler brief, Trust Manifold brief, Lamprey brief, security model, air-gap brief, audit correlation brief, API reference, SDK reference, deployment guide, competitive analysis, IP position memo, buyer integration guide, demo scripts. The BF-7 docs are the absorption seed; S45 extends them with the remaining architecture / scheduler / API / SDK / competitive / IP material rather than duplicating. After S45 lands, Session 46 (end-to-end demo suite) closes Gate D (Acquisition-Ready Release).
 
 ---
 
@@ -110,18 +123,19 @@ The workspace now contains the core MAI crates plus `mai-vault`, `mai-agent`, `m
 
 ## Critical Path (Remaining)
 
-The longest remaining dependency chain (restructured):
+The longest remaining dependency chain:
 
-**43 -> 44 -> 45 -> 46**
+**45 -> 46 -> Gate D (Acquisition-Ready Release)**
 
-Parallel tracks:
-- Track A: Scheduler (15-21, 32-33) - complete
-- Track B: Security (26-28) - complete at policy/software layer; hardware-only enforcement remains deployment-scoped
-- Track C: Applications (29-31) - Sessions 29-30 complete (six plan-spec scaffolds shipped); S31 Part 2 optional under plan §739
-- Track D: Power/Lifecycle (22-25) - complete
-- Track H2: Trust Manifold backfills - BF-1, BF-2, BF-3, BF-4, BF-5 complete; BF-6 (SDK-side trust/auth wiring) next, before S44 closure
+Parallel tracks (status):
+- Track A: Scheduler (15-21, 32-33) — complete
+- Track B: Security (26-28) — complete at policy/software layer; hardware-only enforcement remains deployment-scoped
+- Track C: Applications (29-31) — Sessions 29-30 complete (six plan-spec scaffolds shipped); S31 Part 2 optional under plan §739
+- Track D: Power/Lifecycle (22-25) — complete
+- Track L: Lamprey Compliance (36-44) — complete
+- Track H2: Trust Manifold backfills (BF-1..BF-7) — **complete, lane closed 2026-05-22**
 
-See MAI-BUILD-PROMPT-ROSTER-v2.md for current 46-session effort estimates and the Lamprey compliance governance layer sequence.
+See `BUILD-EXECUTION-PLAN-V2-UPDATED.md` for the governing execution plan (incl. Appendix A backfill lane) and `MAI-BUILD-PROMPT-ROSTER-v2.md` for per-session deliverables.
 
 ---
 
