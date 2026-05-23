@@ -36,6 +36,14 @@
 //!   routing, cultural-sensitivity filter, and the unified rules
 //!   evaluator. Consumes `&TrustContext` on every decision.
 //!
+//! Trust bundle verification (BF-3):
+//!
+//! - [`bundle`] — ML-DSA-87-backed verifier for signed policy bundles
+//!   and signed claims. See `docs/TRUST-BUNDLE-SPEC.md` for the wire
+//!   format and verification algorithm.
+//! - [`subject_hash`] — HMAC-SHA256 pseudonymization of subject ids for
+//!   audit correlation.
+//!
 //! Wiring into the `mai-router` pipeline lands in Session 41 (policy
 //! runtime); this crate is intentionally standalone so it can be reused
 //! by audit reporting (Session 43) and the compliance dashboard
@@ -44,6 +52,7 @@
 #![forbid(unsafe_code)]
 
 pub mod baa;
+pub mod bundle;
 pub mod deid;
 pub mod ear;
 pub mod itar;
@@ -52,11 +61,17 @@ pub mod medical_entities;
 pub mod ocap;
 pub mod phi;
 pub mod policy;
+pub mod subject_hash;
 pub mod tech_data;
 pub mod trust;
 pub mod trust_cache;
 
 pub use baa::{BaaConfig, BaaDecision, BaaEnforcer, BaaError, BaaMode, BaaViolation};
+pub use bundle::{
+    AcceptAllBundleVerifier, BundleError, BundleMetadata, BundleVerifier, ClaimPayload,
+    MlDsaBundleVerifier, PolicyBundlePayload, RejectAllBundleVerifier, SignatureEnvelope,
+    SignedClaim, SignedPolicyBundle,
+};
 pub use deid::{DeidConfig, DeidResult, Redactor, RiskScore};
 pub use ear::{
     CclCategory, CclKeywordHit, DeMinimisIndicator, EarClassification, EarDetector,
@@ -82,6 +97,7 @@ pub use ocap::{
 };
 pub use phi::{PhiConfidence, PhiDetector, PhiDetectorConfig, PhiHit, PhiIdentifier, PhiReport};
 pub use policy::{ClassificationResult, PolicyBundle, PolicyBundleError, RequestMetadata};
+pub use subject_hash::{SubjectHashError, hmac_subject};
 pub use tech_data::{
     HeuristicTechDataClassifier, TechDataAssessment, TechDataClassifier, TechDataConfidence,
     TechDataError, TechDataHit, TechDataSignal,

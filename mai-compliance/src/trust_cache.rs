@@ -3,7 +3,16 @@
 //! When the Lamprey Trust Bridge is unreachable, the appliance falls
 //! back to the most recent signed policy bundle and revocation snapshot
 //! held locally. This module is the in-memory state model for that
-//! cache; the on-disk format and signature verification land with BF-3.
+//! cache; the on-disk format is BF-4 (this module) and signature
+//! verification is BF-3 (see [`crate::bundle`] and `docs/TRUST-BUNDLE-SPEC.md`).
+//!
+//! Two refresh entry points:
+//!
+//! - [`LocalTrustCache::record_refresh`] — bare-data path used by tests
+//!   and trusted in-process bootstrap. No signature verification.
+//! - [`LocalTrustCache::record_signed_refresh`] — production path that
+//!   accepts a [`crate::bundle::SignedPolicyBundle`] and a verifier.
+//!   Verification failure leaves the cache untouched.
 //!
 //! # Connectivity derivation
 //!
@@ -48,6 +57,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use mai_core::airgap::ConnectivityState;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::bundle::{BundleError, BundleVerifier, SignedPolicyBundle};
 
 /// Result of a revocation lookup at the time the cache was last
 /// refreshed. Pessimistic — `Unknown` means we have not seen a fresh
@@ -109,6 +120,20 @@ pub enum TrustCacheError {
     /// would make the warn band empty.
     #[error("expire_after ({expire:?}) must be >= warn_after ({warn:?})")]
     ThresholdsInverted { warn: Duration, expire: Duration },
+    /// The signed bundle handed to [`LocalTrustCache::record_signed_refresh`]
+    /// failed BF-3 verification (expired, tampered, unknown anchor, etc.).
+    /// The wrapped [`BundleError`] carries the specific reason; the cache
+    /// state is unchanged.
+    #[error("signed bundle rejected: {0}")]
+    BundleRejected(#[from] BundleError),
+    /// The signed bundle's `tenant_id` did not match the expected tenant
+    /// the cache is bound to. Refused to prevent cross-tenant policy
+    /// injection.
+    #[error("tenant mismatch: bundle is for {bundle_tenant:?}, cache is bound to {expected:?}")]
+    TenantMismatch {
+        expected: String,
+        bundle_tenant: String,
+    },
 }
 
 /// In-memory local trust cache.
@@ -152,6 +177,11 @@ impl LocalTrustCache {
 
     /// Record a successful refresh from the upstream Trust Bridge.
     ///
+    /// **Bare-data path.** Use this only for tests or trusted in-process
+    /// bootstrap. Production code paths must use
+    /// [`Self::record_signed_refresh`] so unsigned or invalid bundles are
+    /// rejected at the refresh boundary (BF-3).
+    ///
     /// `refresh_secs` must be at-or-before `now_secs`. Snapshots replace
     /// any previously-held entries for the same `claim_id`.
     pub fn record_refresh(
@@ -168,6 +198,48 @@ impl LocalTrustCache {
         self.last_refresh_secs = Some(refresh_secs);
         for snap in snapshots {
             self.revocations.insert(snap.claim_id.clone(), snap);
+        }
+        Ok(())
+    }
+
+    /// Verify a [`SignedPolicyBundle`] and, on success, apply its contents
+    /// to the cache (BF-3 entry point).
+    ///
+    /// Behavior on failure: the cache is left **completely untouched**.
+    /// A bundle that fails verification — expired, tampered, signed by
+    /// an unknown anchor, scoped to a different tenant — never clobbers
+    /// the last-known-good state. The cache will age naturally past its
+    /// warn/expire thresholds per the connectivity ladder.
+    ///
+    /// `expected_tenant` is the tenant this cache instance is bound to.
+    /// Bundles scoped to any other tenant are refused with
+    /// [`TrustCacheError::TenantMismatch`] to prevent cross-tenant policy
+    /// injection. Pass `None` to skip the tenant check during bring-up
+    /// of multi-tenant deployments.
+    ///
+    /// On success, `last_refresh_secs` is set to `bundle.metadata.issued_at_secs`
+    /// and `bundle_version` is set to `bundle.metadata.version`.
+    pub fn record_signed_refresh<V: BundleVerifier>(
+        &mut self,
+        bundle: &SignedPolicyBundle,
+        verifier: &V,
+        expected_tenant: Option<&str>,
+        now_secs: u64,
+    ) -> Result<(), TrustCacheError> {
+        if let Some(expected) = expected_tenant {
+            if bundle.metadata.tenant_id != expected {
+                return Err(TrustCacheError::TenantMismatch {
+                    expected: expected.to_string(),
+                    bundle_tenant: bundle.metadata.tenant_id.clone(),
+                });
+            }
+        }
+        let payload = bundle.verified_payload(verifier, now_secs)?;
+        // verified_payload guarantees issued_at_secs <= now_secs.
+        self.bundle_version = Some(bundle.metadata.version.clone());
+        self.last_refresh_secs = Some(bundle.metadata.issued_at_secs);
+        for snap in &payload.revocations {
+            self.revocations.insert(snap.claim_id.clone(), snap.clone());
         }
         Ok(())
     }
@@ -411,5 +483,196 @@ mod tests {
         let drained = cache.drain_offline_backlog();
         assert_eq!(drained, vec!["event-1".to_string(), "event-2".to_string()]);
         assert_eq!(cache.offline_audit_backlog(), 0);
+    }
+
+    // -----------------------------------------------------------------
+    // BF-3: signed refresh integration tests
+    // -----------------------------------------------------------------
+
+    use crate::bundle::{
+        AcceptAllBundleVerifier, BundleMetadata, PolicyBundlePayload, RejectAllBundleVerifier,
+        SignatureEnvelope, SignedPolicyBundle, payload_hash,
+    };
+
+    fn sample_bundle(
+        tenant: &str,
+        version: &str,
+        issued: u64,
+        expires: u64,
+        revocations: Vec<RevocationSnapshot>,
+    ) -> SignedPolicyBundle {
+        SignedPolicyBundle {
+            metadata: BundleMetadata {
+                version: version.to_string(),
+                issuer: "trust-bridge".to_string(),
+                issued_at_secs: issued,
+                expires_at_secs: expires,
+                tenant_id: tenant.to_string(),
+            },
+            payload: PolicyBundlePayload { revocations },
+            signature: SignatureEnvelope {
+                algorithm: "ml-dsa-87".to_string(),
+                public_key_id: "anchor".to_string(),
+                // AcceptAllBundleVerifier ignores these bytes.
+                bytes_hex: "00".to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn signed_refresh_applies_payload_on_success() {
+        let mut cache = LocalTrustCache::new(thresholds(60, 120)).unwrap();
+        let bundle = sample_bundle(
+            "tribal-health-demo",
+            "2026.05.22.001",
+            1_000,
+            2_000,
+            vec![
+                snap("c1", SnapshotStatus::Valid, 1_000),
+                snap("c2", SnapshotStatus::Revoked, 1_000),
+            ],
+        );
+        cache
+            .record_signed_refresh(
+                &bundle,
+                &AcceptAllBundleVerifier,
+                Some("tribal-health-demo"),
+                1_500,
+            )
+            .unwrap();
+        assert_eq!(cache.bundle_version(), Some("2026.05.22.001"));
+        assert_eq!(cache.last_refresh_secs(), Some(1_000));
+        assert_eq!(cache.revocation_status("c1"), SnapshotStatus::Valid);
+        assert_eq!(cache.revocation_status("c2"), SnapshotStatus::Revoked);
+    }
+
+    #[test]
+    fn signed_refresh_invalid_signature_preserves_state() {
+        let mut cache = LocalTrustCache::new(thresholds(60, 120)).unwrap();
+        // Prime the cache with a previous good refresh.
+        cache
+            .record_refresh(
+                "prior-version",
+                vec![snap("c1", SnapshotStatus::Valid, 900)],
+                900,
+                1_000,
+            )
+            .unwrap();
+        let bundle = sample_bundle(
+            "tribal-health-demo",
+            "new-version",
+            1_000,
+            2_000,
+            vec![snap("c1", SnapshotStatus::Revoked, 1_000)],
+        );
+        // RejectAllBundleVerifier always fails sig verification.
+        let err = cache
+            .record_signed_refresh(
+                &bundle,
+                &RejectAllBundleVerifier,
+                Some("tribal-health-demo"),
+                1_500,
+            )
+            .unwrap_err();
+        assert!(matches!(err, TrustCacheError::BundleRejected(_)));
+        // Cache state must be unchanged.
+        assert_eq!(cache.bundle_version(), Some("prior-version"));
+        assert_eq!(cache.revocation_status("c1"), SnapshotStatus::Valid);
+    }
+
+    #[test]
+    fn signed_refresh_expired_bundle_preserves_state() {
+        let mut cache = LocalTrustCache::new(thresholds(60, 120)).unwrap();
+        cache.record_refresh("prior", vec![], 900, 1_000).unwrap();
+        let bundle = sample_bundle("t", "new", 1_000, 2_000, vec![]);
+        // now_secs = 3_000 is past expires_at_secs (2_000).
+        let err = cache
+            .record_signed_refresh(&bundle, &AcceptAllBundleVerifier, Some("t"), 3_000)
+            .unwrap_err();
+        assert!(matches!(err, TrustCacheError::BundleRejected(_)));
+        assert_eq!(cache.bundle_version(), Some("prior"));
+    }
+
+    #[test]
+    fn signed_refresh_tenant_mismatch_preserves_state() {
+        let mut cache = LocalTrustCache::new(thresholds(60, 120)).unwrap();
+        cache.record_refresh("prior", vec![], 900, 1_000).unwrap();
+        let bundle = sample_bundle("other-tenant", "new", 1_000, 2_000, vec![]);
+        let err = cache
+            .record_signed_refresh(
+                &bundle,
+                &AcceptAllBundleVerifier,
+                Some("expected-tenant"),
+                1_500,
+            )
+            .unwrap_err();
+        match err {
+            TrustCacheError::TenantMismatch {
+                expected,
+                bundle_tenant,
+            } => {
+                assert_eq!(expected, "expected-tenant");
+                assert_eq!(bundle_tenant, "other-tenant");
+            }
+            other => panic!("expected TenantMismatch, got {other:?}"),
+        }
+        assert_eq!(cache.bundle_version(), Some("prior"));
+    }
+
+    #[test]
+    fn signed_refresh_tenant_check_can_be_skipped() {
+        let mut cache = LocalTrustCache::new(thresholds(60, 120)).unwrap();
+        let bundle = sample_bundle("any-tenant", "v1", 1_000, 2_000, vec![]);
+        cache
+            .record_signed_refresh(&bundle, &AcceptAllBundleVerifier, None, 1_500)
+            .unwrap();
+        assert_eq!(cache.bundle_version(), Some("v1"));
+    }
+
+    #[test]
+    fn signed_refresh_uses_real_ml_dsa_verifier() {
+        use crate::bundle::MlDsaBundleVerifier;
+        use ml_dsa::signature::Signer;
+        use ml_dsa::{B32, EncodedSigningKey, KeyGen, MlDsa87, Signature, SigningKey};
+
+        const SK_LEN: usize = 4896;
+
+        // Real keypair so we exercise the actual sig path.
+        let mut seed = [0u8; 32];
+        seed[0] = 42;
+        let kp = MlDsa87::key_gen_internal(&B32::from(seed));
+        let pk = kp.verifying_key().encode().to_vec();
+        let sk_bytes = kp.signing_key().encode().to_vec();
+
+        let metadata = BundleMetadata {
+            version: "v1".to_string(),
+            issuer: "trust-bridge".to_string(),
+            issued_at_secs: 1_000,
+            expires_at_secs: 2_000,
+            tenant_id: "t".to_string(),
+        };
+        let payload = PolicyBundlePayload {
+            revocations: vec![snap("c1", SnapshotStatus::Revoked, 1_000)],
+        };
+        let hash = payload_hash(&metadata, &payload).unwrap();
+        let sk_arr: &[u8; SK_LEN] = sk_bytes.as_slice().try_into().unwrap();
+        let sk_encoded = EncodedSigningKey::<MlDsa87>::from(*sk_arr);
+        let sk = SigningKey::<MlDsa87>::decode(&sk_encoded);
+        let sig: Signature<MlDsa87> = sk.sign(&hash);
+        let bundle = SignedPolicyBundle {
+            metadata,
+            payload,
+            signature: SignatureEnvelope {
+                algorithm: "ml-dsa-87".to_string(),
+                public_key_id: "real-anchor".to_string(),
+                bytes_hex: hex::encode(sig.encode()),
+            },
+        };
+        let verifier = MlDsaBundleVerifier::new().with_anchor("real-anchor", pk);
+        let mut cache = LocalTrustCache::new(thresholds(60, 120)).unwrap();
+        cache
+            .record_signed_refresh(&bundle, &verifier, Some("t"), 1_500)
+            .unwrap();
+        assert_eq!(cache.revocation_status("c1"), SnapshotStatus::Revoked);
     }
 }
