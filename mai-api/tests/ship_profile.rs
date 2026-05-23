@@ -23,8 +23,8 @@ use mai_api::ship_profile::{
 /// `CARGO_MANIFEST_DIR` points at `<repo>/mai/mai-api`; the deployment
 /// directory is one level up under `<repo>/mai/deployment/ship/`.
 fn ship_profile_path() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR must be set by cargo");
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set by cargo");
     PathBuf::from(manifest_dir)
         .parent()
         .expect("mai-api manifest dir must have a parent")
@@ -36,9 +36,8 @@ fn ship_profile_path() -> PathBuf {
 #[test]
 fn deployment_ship_profile_parses_and_validates() {
     let path = ship_profile_path();
-    let profile = load_ship_profile(&path).unwrap_or_else(|e| {
-        panic!("loading {} must succeed: {e}", path.display())
-    });
+    let profile = load_ship_profile(&path)
+        .unwrap_or_else(|e| panic!("loading {} must succeed: {e}", path.display()));
 
     // Profile meta contract.
     assert_eq!(profile.profile.name, "ship");
@@ -93,7 +92,10 @@ fn deployment_ship_profile_parses_and_validates() {
 
     // Observability: JSON + Prometheus + alerts on.
     assert_eq!(profile.observability.log_format, LogFormat::Json);
-    assert_eq!(profile.observability.metrics_exporter, MetricsExporter::Prometheus);
+    assert_eq!(
+        profile.observability.metrics_exporter,
+        MetricsExporter::Prometheus
+    );
     assert!(profile.observability.log_rotation);
     assert!(profile.observability.alerts_enabled);
 }

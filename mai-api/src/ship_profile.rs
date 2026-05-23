@@ -475,10 +475,7 @@ alerts_enabled = true
 
     #[test]
     fn rejects_allow_demo_defaults_true() {
-        let toml = baseline().replace(
-            "allow_demo_defaults = false",
-            "allow_demo_defaults = true",
-        );
+        let toml = baseline().replace("allow_demo_defaults = false", "allow_demo_defaults = true");
         let err = parse_ship_profile(&toml).expect_err("must reject demo defaults");
         match err {
             ShipProfileError::Validation(msg) => {
@@ -505,10 +502,7 @@ alerts_enabled = true
         // separate code path (TOML parse failure). The acceptance
         // contract here is "missing audit WAL path", which we model
         // as an empty-string PathBuf.
-        let toml = baseline().replace(
-            "wal_dir = \"/var/lib/mai/audit\"",
-            "wal_dir = \"\"",
-        );
+        let toml = baseline().replace("wal_dir = \"/var/lib/mai/audit\"", "wal_dir = \"\"");
         let err = parse_ship_profile(&toml).expect_err("must reject empty wal_dir");
         match err {
             ShipProfileError::Validation(msg) => {
@@ -564,7 +558,10 @@ alerts_enabled = true
             let err = parse_ship_profile(&toml).expect_err("must reject empty path");
             match err {
                 ShipProfileError::Validation(msg) => {
-                    assert!(msg.contains("paths."), "expected paths.* error for {from}, got {msg}")
+                    assert!(
+                        msg.contains("paths."),
+                        "expected paths.* error for {from}, got {msg}"
+                    )
                 }
                 other => panic!("expected Validation error, got {other:?}"),
             }
@@ -607,10 +604,7 @@ alerts_enabled = true
 
     #[test]
     fn rejects_wildcard_bind() {
-        let toml = baseline().replace(
-            "bind_address = \"127.0.0.1\"",
-            "bind_address = \"0.0.0.0\"",
-        );
+        let toml = baseline().replace("bind_address = \"127.0.0.1\"", "bind_address = \"0.0.0.0\"");
         let err = parse_ship_profile(&toml).expect_err("must reject 0.0.0.0");
         match err {
             ShipProfileError::Validation(msg) => {
@@ -636,8 +630,7 @@ alerts_enabled = true
                 "compliance_writer = \"memory\"",
             )
             .replace("verifier = \"ml-dsa\"", "verifier = \"accept-all\"");
-        let p =
-            parse_ship_profile(&toml).expect("local-dev should accept demo-shaped values");
+        let p = parse_ship_profile(&toml).expect("local-dev should accept demo-shaped values");
         assert!(!p.is_production());
         assert!(p.profile.allow_demo_defaults);
     }
@@ -647,7 +640,9 @@ alerts_enabled = true
         let toml = baseline().replace("name = \"ship\"", "name = \"\"");
         let err = parse_ship_profile(&toml).expect_err("must reject empty name");
         match err {
-            ShipProfileError::Validation(msg) => assert!(msg.contains("profile.name"), "msg: {msg}"),
+            ShipProfileError::Validation(msg) => {
+                assert!(msg.contains("profile.name"), "msg: {msg}")
+            }
             other => panic!("expected Validation error, got {other:?}"),
         }
     }
