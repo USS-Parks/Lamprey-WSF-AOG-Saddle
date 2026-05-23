@@ -82,6 +82,22 @@ for FILE in $STAGED_FILES; do
     esac
 done
 
+# CHECK 5: cargo fmt --check on the workspace when any .rs file is staged.
+# Mirrors CI; keeps doc-only commits fast (the check is skipped entirely
+# when no Rust files changed).
+if printf '%s\n' "$STAGED_FILES" | grep -q '\.rs$'; then
+    if command -v cargo >/dev/null 2>&1; then
+        if ! cargo fmt --check >/dev/null 2>&1; then
+            echo -e "${RED}BLOCKED${NC} [unformatted] cargo fmt --check failed"
+            echo -e "  ${YELLOW}Fix: cargo fmt  (then re-stage the touched files)${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e "${YELLOW}WARN${NC} [fmt-skipped] cargo not in PATH; skipping cargo fmt --check"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+fi
+
 echo ""
 echo -e "Files: $(echo "$STAGED_FILES" | wc -w) | ${RED}Blocked${NC}: ${ERRORS} | ${YELLOW}Warnings${NC}: ${WARNINGS}"
 
