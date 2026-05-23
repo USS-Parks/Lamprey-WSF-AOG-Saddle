@@ -32,6 +32,9 @@ pub mod config;
 pub mod errors;
 pub mod types;
 
+// SHIP-01: Production profile skeleton (parsing-only; runtime wiring in SHIP-02+)
+pub mod ship_profile;
+
 // Session 11b: REST API Endpoints
 pub mod handlers;
 pub mod routes;
@@ -51,3 +54,4 @@ pub use config::ServerConfig;
 pub use errors::ApiError;
 pub use server::MaiServer;
 pub use server::ServerError;
+pub use ship_profile::{ShipProfile, ShipProfileError, load_ship_profile, parse_ship_profile};

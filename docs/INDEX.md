@@ -19,9 +19,10 @@ These documents govern the MAI build. Read them before writing code.
 | [INDEX.md](INDEX.md) | This file. Master index of all project documents | Finding anything |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | Out-of-scope items, deferred work, architectural limitations, open questions | Wondering "should I build this?" |
 | [PROJECT.md](PROJECT.md) | Original scope, 5-phase plan, 18-session timeline, effort estimates, coverage matrix | Historical scope reference |
-| [SESSION-LOG.md](SESSION-LOG.md) | Active session progress (current scope: Phase H onward — Sessions 26-44 + BF-1..BF-7; S45 next) | Before and after each session |
+| [SESSION-LOG.md](SESSION-LOG.md) | Session progress for completed Phase H through Gate D scope (Sessions 26-46 + BF-1..BF-7) | Before and after each session |
 | [SESSION-LOG-ARCHIVE-01.md](SESSION-LOG-ARCHIVE-01.md) | Completed sessions 01-10 (Phases A+B) | Reviewing past session details |
 | [SESSION-LOG-ARCHIVE-02.md](SESSION-LOG-ARCHIVE-02.md) | Completed sessions 11-25 (Phases C through G), archived 2026-05-23 | Reviewing past session details |
+| [SESSION-LOG-ARCHIVE-03.md](SESSION-LOG-ARCHIVE-03.md) | Completed sessions 26-46 plus BF-1..BF-7 (Security through Gate D), archived 2026-05-23 | Reviewing Gate D build history |
 | [HANDOFF-ARCHIVE-01.md](HANDOFF-ARCHIVE-01.md) | Archived onboarding walkthrough and Phase A+B code inventory | Reference only |
 | [SESSION-RULES.md](SESSION-RULES.md) | Dependency enforcement, acceptance criteria protocol, quality gates, session workflow | Conducting any session |
 | [IPC-PROTOCOL.md](IPC-PROTOCOL.md) | NDJSON IPC wire format spec for Rust-Python adapter communication | Working on adapter IPC (Sessions 14a-14c) |

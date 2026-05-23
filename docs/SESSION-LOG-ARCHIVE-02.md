@@ -4,7 +4,7 @@
 **Archive Scope:** Sessions 11-25 — Phases C (Integration), D-Prep (Wiring), D (Scheduler Foundation), E (Scheduler Intelligence), F (Power & Lifecycle), and G (Model Lifecycle).
 **Archived From:** `SESSION-LOG.md` on 2026-05-23 (post-BF-7).
 **Predecessor:** `SESSION-LOG-ARCHIVE-01.md` covers Sessions 01-10 (Phase A: Specification + Phase B: Foundation Code).
-**Active Log:** `SESSION-LOG.md` now holds Phase H onward (Sessions 26-44 + BF-1..BF-7 + active S45 / S46).
+**Active Log:** `SESSION-LOG.md` now holds the current Gate D status summary; Phase H through Gate D history is archived in `SESSION-LOG-ARCHIVE-03.md`.
 
 ---
 

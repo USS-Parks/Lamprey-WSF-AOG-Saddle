@@ -11,10 +11,14 @@ the air-gap switch is enforced or simulated.
 | `cloud-trust-core`  | Trust Bridge host    | Standard            | off     | n/a — central node  |
 | `local-mai-node`    | connected → degraded → air-gapped (ladder) | per-tenant | switch-driven | yes when connected  |
 | `airgap-demo`       | air-gapped (preloaded bundle)              | Defense            | always on | never             |
+| `ship`              | production (ML-DSA, anchors on disk, bundle-on-boot) | per-tenant | per-site | per-site |
 
 These profiles satisfy BF-6 §A.10 — the operator-visible artefact that
 proves the Trust Manifold has been planned for and that each posture is
-reachable from configuration alone.
+reachable from configuration alone. The `ship` row is the
+customer-facing posture introduced by the hardening lane — see
+[../docs/SHIP-PROFILE.md](../docs/SHIP-PROFILE.md) and
+[../docs/SHIP-HARDENING-PLAN.md](../docs/SHIP-HARDENING-PLAN.md).
 
 ## Applying a profile
 
