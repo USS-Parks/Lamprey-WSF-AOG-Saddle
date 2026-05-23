@@ -3,7 +3,7 @@
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Audience:** Acquirer integration engineers, security architects,
 SRE leads
-**Status:** BF-7 narrative (Appendix A §A.11)
+**Status:** BF-7 narrative (Appendix A Section A.11)
 **Last Updated:** 2026-05-22 (post-S44+BF-6)
 
 This guide explains how an acquirer wires their existing OpenBao
@@ -16,12 +16,12 @@ demo scripts, see [`DEMO-SUITE.md`](DEMO-SUITE.md).
 
 ---
 
-## The trust boundary — what crosses and what does not
+## The trust boundary -- what crosses and what does not
 
 The cleanest way to understand MAI's integration shape is to be
 explicit about which bytes move where.
 
-### Crosses the boundary (cloud OpenBao ↔ local MAI/Lamprey)
+### Crosses the boundary (cloud OpenBao <-> local MAI/Lamprey)
 
 - Identity metadata (subject ID, tenant ID, role names)
 - Short-lived Lamprey claims (JSON; see schema below)
@@ -99,10 +99,10 @@ templates by adding a tenant config under
 
 ## Integration sequence
 
-The order matters — earlier steps wire the trust floor, later steps
+The order matters -- earlier steps wire the trust floor, later steps
 exercise it.
 
-### Step 1 — Provision OpenBao service identities
+### Step 1 -- Provision OpenBao service identities
 
 For each of these workloads, create a Kubernetes service account and
 an OpenBao policy with least-privilege paths:
@@ -121,15 +121,15 @@ Path conventions are documented in
 [`SERVICE-IDENTITY.md`](SERVICE-IDENTITY.md). No service should rely
 on a shared broad token.
 
-### Step 2 — Wire your IdP into the Lamprey Trust Bridge
+### Step 2 -- Wire your IdP into the Lamprey Trust Bridge
 
 The bridge is the only component that converts an enterprise IdP
 identity into a Lamprey claim. It signs claims with a Transit key
 held in OpenBao. Replace MAI's local-dev token stub by swapping the
-body of `POST /v1/auth/exchange_token` to call your bridge — the
+body of `POST /v1/auth/exchange_token` to call your bridge -- the
 wire shape is unchanged, so no client code moves.
 
-### Step 3 — Configure the local trust cache
+### Step 3 -- Configure the local trust cache
 
 On each local MAI/Lamprey node, set the `[trust]` block of the
 deployment profile to point at your bridge's public verification
@@ -142,7 +142,7 @@ key. The cache will:
 
 Spec: [`LOCAL-TRUST-CACHE.md`](LOCAL-TRUST-CACHE.md).
 
-### Step 4 — Choose a compliance template per tenant
+### Step 4 -- Choose a compliance template per tenant
 
 Templates wire the HIPAA / ITAR-EAR / OCAP modules with sensible
 defaults. The four built-ins are Standard, Healthcare, Defense, and
@@ -161,7 +161,7 @@ Content-Type: application/json
 Or by setting `compliance.template` in the deployment profile at
 startup.
 
-### Step 5 — Pipe audit correlation to your SIEM
+### Step 5 -- Pipe audit correlation to your SIEM
 
 The audit chain stays local. What ships to a SIEM is the metadata
 side of `CorrelationFields`:
@@ -185,7 +185,7 @@ No prompt, completion, or embedding crosses. The offline queue in
 endpoint is unreachable, then drains when connectivity returns. See
 [`AUDIT-CORRELATION.md`](AUDIT-CORRELATION.md).
 
-### Step 6 — Stand up the dashboard
+### Step 6 -- Stand up the dashboard
 
 The FastAPI dashboard at `compliance-dashboard/` exposes the live
 operator surface: trust mode, bundle freshness, audit chain
@@ -193,7 +193,7 @@ verification, policy decisions, alerts. Gate the admin token via
 `MAI_DASHBOARD_ADMIN_TOKEN`. The dashboard is the only buyer-facing
 UI; everything else is API-driven.
 
-### Step 7 — Exercise the demo scenarios
+### Step 7 -- Exercise the demo scenarios
 
 Run `pytest apps/openbao-trust-demo/tests/` first to confirm the
 local trust loop is healthy, then walk the
@@ -255,7 +255,7 @@ than from marketing material.
 
 - An OpenBao deployment (or a target to deploy one into)
 - An IdP that can drive the Trust Bridge (Okta / Azure AD / Auth0 /
-  workload identity — any source the bridge can consume)
+  workload identity -- any source the bridge can consume)
 - A SIEM or audit-correlation sink for the metadata-only stream
 - A CDN or distribution channel for OTA model updates (transport
   layer; the manifest client is transport-agnostic)

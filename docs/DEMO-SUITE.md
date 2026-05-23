@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Audience:** Acquirer technical reviewers, sales engineers, internal QA
-**Status:** BF-7 scenarios (Appendix A §A.11). Absorbed by Session 46.
+**Status:** BF-7 scenarios (Appendix A Section A.11). Absorbed by Session 46.
 **Last Updated:** 2026-05-22 (post-S44+BF-6)
 
 This file is the reproducible script catalog. Every scenario maps to
@@ -14,11 +14,11 @@ integration sequence, see [`BUYER-INTEGRATION-GUIDE.md`](BUYER-INTEGRATION-GUIDE
 
 ---
 
-## Headline scenario — Trust Manifold (BF-7 primary deliverable)
+## Headline scenario -- Trust Manifold (BF-7 primary deliverable)
 
 This is the eight-step Trust Manifold demo flow called out in plan
-§A.11. It proves the entire stack: identity → claim → disconnect →
-local inference → restricted request → enforcement → audit linkage →
+Section A.11. It proves the entire stack: identity -> claim -> disconnect ->
+local inference -> restricted request -> enforcement -> audit linkage ->
 degraded mode.
 
 ### Pre-flight
@@ -38,8 +38,8 @@ degraded mode.
 | 4 | Continue local inference using the valid signed bundle | `LocalTrustCache::record_signed_refresh` verifies ML-DSA-87 sig + canonical JSON + BLAKE3 before storing | `mai-compliance::trust_cache` |
 | 5 | Submit a restricted request | A request with `compliance_scopes=["hipaa"]` arrives at the router | `apps/openbao-trust-demo/main.py:run_inference` |
 | 6 | Lamprey enforces local-only route | Composer applies deny-wins / most-restrictive-route; OCAP and HIPAA gates fire | `mai-compliance/src/policy/composer.rs` |
-| 7 | Audit log links credential event, policy decision, inference event | `CorrelationFields` chains `credential_event_id → lamprey_decision_id → mai_request_id` in §A.9 schema | `mai-compliance/src/audit/{entry,chain,store}.rs` |
-| 8 | Expired bundle forces degraded or restricted mode | `LocalTrustCache` transitions through Connected → Degraded → Stale → Expired → Air-gapped; policy restricts route | `LocalTrustCache::connectivity_state()`; integration test `test_degraded_bundle_marks_signature_unverified` |
+| 7 | Audit log links credential event, policy decision, inference event | `CorrelationFields` chains `credential_event_id -> lamprey_decision_id -> mai_request_id` in Section A.9 schema | `mai-compliance/src/audit/{entry,chain,store}.rs` |
+| 8 | Expired bundle forces degraded or restricted mode | `LocalTrustCache` transitions through Connected -> Degraded -> Stale -> Expired -> Air-gapped; policy restricts route | `LocalTrustCache::connectivity_state()`; integration test `test_degraded_bundle_marks_signature_unverified` |
 
 ### Run it
 
@@ -84,11 +84,11 @@ chain verification is BLAKE3 link + ML-DSA-87 periodic signature; off-host
 re-verification needs only the public verification key and the
 canonical JSON.
 
-### Acceptance criteria (§A.11)
+### Acceptance criteria (Section A.11)
 
 - [x] Trust Manifold scenario runs end-to-end against BF-6 live endpoints
 - [x] No prompt, completion, or embedding content crosses the cloud trust
-      layer — the bridge mints claims, never reads payloads
+      layer -- the bridge mints claims, never reads payloads
 - [x] Audit proof links identity, policy, route, and inference event
 - [x] Expired bundle forces degraded mode (test
       `test_degraded_bundle_marks_signature_unverified`)
@@ -99,8 +99,8 @@ canonical JSON.
 
 ## Supporting scenarios
 
-These rounds out the demo suite the plan calls for in §12.5 and
-§A.11. Each is independently runnable.
+These rounds out the demo suite the plan calls for in Section 12.5 and
+Section A.11. Each is independently runnable.
 
 ### Healthcare scenario (HIPAA)
 
@@ -113,7 +113,7 @@ These rounds out the demo suite the plan calls for in §12.5 and
   recorded.
 - **Run:** `pytest apps/compliance-routed/tests/`
 - **Report:** Generate a HIPAA report via
-  `client.compliance.reports.generate({"template": "HIPAA"})` — the
+  `client.compliance.reports.generate({"template": "HIPAA"})` -- the
   output includes a `TrustSection` even though no live OpenBao is
   wired (the trust section reflects local-dev state).
 
@@ -139,7 +139,7 @@ These rounds out the demo suite the plan calls for in §12.5 and
   reason.
 - **Run:** `pytest apps/tribal-sovereignty/tests/`
 - **Report:** OCAP template includes possession status, consent
-  status, treaty consent — every field is auditable.
+  status, treaty consent -- every field is auditable.
 
 ### Multi-domain conflict scenario
 
@@ -186,14 +186,14 @@ These rounds out the demo suite the plan calls for in §12.5 and
 
 ### RAG reference scenario
 
-- **Goal:** Show ingest → embed → cosine retrieval → answer in one
+- **Goal:** Show ingest -> embed -> cosine retrieval -> answer in one
   flow.
 - **Scaffold:** `apps/rag-reference/`
 - **Run:** `pytest apps/rag-reference/tests/` (6 green).
 
 ---
 
-## Combined acquisition demo (§12.6 of the plan)
+## Combined acquisition demo (Section 12.6 of the plan)
 
 This is the full-platform story for an acquirer's executive
 audience. Twelve steps, all reproducible:
@@ -206,8 +206,8 @@ audience. Twelve steps, all reproducible:
 5. Router consults trust context, policy bundle version, air-gap state
 6. Scheduler places the request using topology + KV affinity
 7. Local model returns inference output
-8. Audit log writes an entry linking `credential_event_id →
-   lamprey_decision_id → mai_request_id`
+8. Audit log writes an entry linking `credential_event_id ->
+   lamprey_decision_id -> mai_request_id`
 9. Operator queries the audit chain via the dashboard's Audit page
 10. Compliance report generator emits a signed HIPAA report
 11. Cloud trust core is disconnected; demo continues with local
@@ -227,9 +227,9 @@ path plus the `airgap-demo` deployment profile.
 A reviewer should be able to walk this in under 30 minutes:
 
 - [ ] Clone the repo
-- [ ] `cargo test -p mai-compliance --lib` → 326+ green
-- [ ] `pytest apps/` (each scaffold separately) → 61+ green
-- [ ] `pytest mai-api/tests/compliance_integration.py` → 17 green
+- [ ] `cargo test -p mai-compliance --lib` -> 326+ green
+- [ ] `pytest apps/` (each scaffold separately) -> 61+ green
+- [ ] `pytest mai-api/tests/compliance_integration.py` -> 17 green
 - [ ] Start `mai-api` via `cargo run --bin mai-api`
 - [ ] Run `python apps/openbao-trust-demo/main.py --dry-run` against it
 - [ ] Confirm `GET /v1/trust/status` returns `{"mode": "connected", ...}`

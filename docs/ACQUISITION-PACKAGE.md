@@ -1,8 +1,8 @@
-# Acquisition Package — Five Defensible Points
+# Acquisition Package -- Five Defensible Points
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Audience:** Acquirer technical and product diligence teams
-**Status:** BF-7 narrative (Appendix A §A.11). Absorbed by Session 45 acquisition documentation.
+**Status:** BF-7 narrative (Appendix A Section A.11). Absorbed by Session 45 acquisition documentation.
 **Last Updated:** 2026-05-22 (post-S44+BF-6)
 
 ---
@@ -19,7 +19,7 @@ or module that backs it.
 
 ---
 
-## Point 1 — Hardware-aware local inference scheduling
+## Point 1 -- Hardware-aware local inference scheduling
 
 **Claim:** MAI's scheduler is not a queue. It is a multi-factor placement
 engine that reasons about GPU topology, KV cache residency, batching
@@ -29,7 +29,7 @@ opportunity, power state, and instance health on every request.
 
 - Topology graph derived from `nvidia-smi`, NVLink/PCIe edge weights,
   and CPU affinity groups (`mai-scheduler/src/topology/`, 41 unit tests).
-- KV cache reuse is a first-class placement input — warm-cache routing
+- KV cache reuse is a first-class placement input -- warm-cache routing
   is preferred over cold even when the cold instance is less loaded
   (`mai-scheduler/src/kv/`, 53 unit tests; continuation affinity in
   `placement.rs`).
@@ -49,13 +49,13 @@ opportunity, power state, and instance health on every request.
 **Why competitors cannot copy this quickly:** every shipping API
 wrapper or model gateway treats placement as round-robin or simple
 load-watermark. The scheduler in MAI is the only piece that survives
-a hardware refresh — when TetraMem MX100 lands in 2028, the HIL
+a hardware refresh -- when TetraMem MX100 lands in 2028, the HIL
 contract absorbs it without changing the policy layer (see
-`docs/HANDOFF.md` §"The HIL is the moat").
+`docs/HANDOFF.md` Section "The HIL is the moat").
 
 ---
 
-## Point 2 — OpenBao-backed enterprise trust with local verification and offline bundles
+## Point 2 -- OpenBao-backed enterprise trust with local verification and offline bundles
 
 **Claim:** Enterprise identity, secrets, PKI, signing, revocation, and
 audit-device functions sit in a separate trust plane (OpenBao). The
@@ -66,17 +66,17 @@ air-gapped sites keep operating when the trust core is unreachable.
 **Why it is defensible:**
 
 - Three-ring trust manifold documented and implemented across BF-1..BF-6:
-  Cloud OpenBao Core → Lamprey Trust Bridge → Local Trust Cache
+  Cloud OpenBao Core -> Lamprey Trust Bridge -> Local Trust Cache
   (`docs/TRUST-MANIFOLD.md`, `docs/OPENBAO-INTEGRATION.md`).
-- Service identity model with per-service OpenBao policies — no broad
+- Service identity model with per-service OpenBao policies -- no broad
   shared token in the target design (`docs/SERVICE-IDENTITY.md`,
   `mai-compliance::trust::ServiceIdentity`).
 - Signed claim and signed policy bundle verification using ML-DSA-87
   over canonical-JSON + BLAKE3 (`mai-compliance::bundle`,
   `docs/TRUST-BUNDLE-SPEC.md`). Invalid signatures and expired
   bundles are rejected with cache state preserved.
-- Local trust cache with explicit connectivity states — connected /
-  degraded / stale-not-expired / expired / air-gapped — and the
+- Local trust cache with explicit connectivity states -- connected /
+  degraded / stale-not-expired / expired / air-gapped -- and the
   policy layer can restrict route or refuse inference when material
   is stale (`mai-compliance::trust_cache::LocalTrustCache`,
   `docs/LOCAL-TRUST-CACHE.md`).
@@ -84,7 +84,7 @@ air-gapped sites keep operating when the trust core is unreachable.
   - `GET /v1/trust/status` (consolidated mode)
   - `GET /v1/trust/claims` (admin)
   - `GET /v1/trust/bundle_status`
-  - `GET /v1/trust/revocation_status?claim_id=…`
+  - `GET /v1/trust/revocation_status?claim_id=...`
   - `POST /v1/auth/exchange_token` (local-dev stub; production swap
     is handler-body-only, wire shape unchanged)
 - Python SDK trust + auth namespaces wired and tested
@@ -92,7 +92,7 @@ air-gapped sites keep operating when the trust core is unreachable.
   plus 17 mai-api integration tests cover the full surface.
 - Four deployment postures shipped: `deployment/local-dev`,
   `deployment/cloud-trust-core`, `deployment/local-mai-node`,
-  `deployment/airgap-demo` — each carrying a `profile.toml` selecting
+  `deployment/airgap-demo` -- each carrying a `profile.toml` selecting
   trust mode, compliance template, air-gap state, and cloud-route
   permission.
 
@@ -105,11 +105,11 @@ the `mai-compliance::bundle` signing payload.
 
 ---
 
-## Point 3 — Compliance routing across HIPAA, ITAR/EAR, and OCAP
+## Point 3 -- Compliance routing across HIPAA, ITAR/EAR, and OCAP
 
 **Claim:** Three sovereign policy engines share a normalized decision
 shape and a deny-wins composer. Every decision carries reason codes,
-trust context, and an audit-log entry — there are no silent allows.
+trust context, and an audit-log entry -- there are no silent allows.
 
 **Why it is defensible:**
 
@@ -119,9 +119,9 @@ trust context, and an audit-log entry — there are no silent allows.
 - ITAR/EAR engine with controlled-technical-data indicators,
   jurisdiction-aware backend eligibility, and trust-claim access-class
   checks (`mai-compliance/src/{itar,ear,jurisdiction}.rs`, Session 39).
-- OCAP engine with a 9-stage decision pipeline — scope → revocation →
-  trust local-only ceiling → possession → control → sacred role →
-  elder role → cultural consent → treaty consent → route-local / allow
+- OCAP engine with a 9-stage decision pipeline -- scope -> revocation ->
+  trust local-only ceiling -> possession -> control -> sacred role ->
+  elder role -> cultural consent -> treaty consent -> route-local / allow
   (`mai-compliance/src/ocap/`, Session 40).
 - Policy runtime that normalizes `RequestMetadata + TrustContext +
   ConnectivityState + PolicyBundleVersion + ClassificationResult` into
@@ -139,18 +139,18 @@ trust context, and an audit-log entry — there are no silent allows.
 **Why this is acquisition-grade:** every shipping compliance product
 in the AI space classifies after the fact. MAI classifies at
 placement time and the route decision is the audit record. An
-acquirer can demonstrate this to a regulator in one screen — the
+acquirer can demonstrate this to a regulator in one screen -- the
 compliance dashboard at `/v1/compliance/feed` shows decisions, route
 codes, and policy version live (S44 + BF-6).
 
 ---
 
-## Point 4 — Tribal data sovereignty (OCAP) as a rare differentiator
+## Point 4 -- Tribal data sovereignty (OCAP) as a rare differentiator
 
 **Claim:** OCAP is not implemented as keyword matching. It is
 implemented as governance metadata, possession evaluation, consent
-status, and tribal-source trust evaluation — the same shape recognized
-by First Nations Information Governance Centre OCAP® doctrine.
+status, and tribal-source trust evaluation -- the same shape recognized
+by First Nations Information Governance Centre OCAP(R) doctrine.
 
 **Why it is defensible:**
 
@@ -158,12 +158,12 @@ by First Nations Information Governance Centre OCAP® doctrine.
   (`mai-compliance/src/ocap/{mod,tribal_data,treaty,cultural,ocap_rules}.rs`).
 - Every `OcapDecision` carries `claim_id`, `tenant_id`, `subject_hash`,
   `trust_bundle_version`, `service_identity`, `offline_mode`,
-  `revocation_status` — full BF-2 trust context for audit correlation.
+  `revocation_status` -- full BF-2 trust context for audit correlation.
 - Treaty consent and cultural consent are distinct gates with
   separate reason codes; sacred role and elder role have priority
   paths.
 - Missing scope refuses with `OcapError::ScopeMissing` rather than
-  defaulting to allow — fail-closed by design.
+  defaulting to allow -- fail-closed by design.
 - `TribalGovernment` policy template ships out of the box.
 - Tribal Sovereignty reference scaffold (`apps/tribal-sovereignty/`,
   9 tests) demonstrates local-only enforcement with explicit
@@ -173,13 +173,13 @@ by First Nations Information Governance Centre OCAP® doctrine.
 vendor's compliance story stops at HIPAA. OCAP is a procurement
 unlock for tribal health systems, tribal energy and resource
 agencies, and provincial / state governments operating on tribal
-land. It is also a defensible reputational asset — Island Mountain
+land. It is also a defensible reputational asset -- Island Mountain
 treats tribal data sovereignty as a first-class architectural
 concern, not a checkbox.
 
 ---
 
-## Point 5 — Physical air-gap enforcement tied to inference routing and tamper-evident audit records
+## Point 5 -- Physical air-gap enforcement tied to inference routing and tamper-evident audit records
 
 **Claim:** Air-gap is a routing input, not a deployment flag. When a
 node is air-gapped, the router refuses cloud routes; when a request
@@ -201,8 +201,8 @@ hash-chained refusal with policy version and credential correlation.
   `AuditLog::verify_full` detects link breaks, non-monotonic IDs,
   and invalid periodic signatures.
 - BF-5 audit correlation links each credential event to its
-  Lamprey decision and the MAI request via §A.9 schema verbatim:
-  `credential_event_id → lamprey_decision_id → mai_request_id`.
+  Lamprey decision and the MAI request via Section A.9 schema verbatim:
+  `credential_event_id -> lamprey_decision_id -> mai_request_id`.
 - Compliance reports (Session 43) include `TrustSection` on every
   output: credential validation summary, trust bundle version
   history, revocation snapshot mix, offline-interval reconstruction,
@@ -213,7 +213,7 @@ hash-chained refusal with policy version and credential correlation.
   off-host (`mai-compliance/src/reports/pdf.rs`).
 
 **Why this is the moat:** an acquirer can hand a regulator the audit
-chain, the signed report, and the live verification tool — and the
+chain, the signed report, and the live verification tool -- and the
 regulator can re-verify off-host without trusting MAI source code.
 That property does not exist in any cloud AI product.
 
@@ -223,11 +223,11 @@ That property does not exist in any cloud AI product.
 
 | Point | Verification path | Expected output |
 |---|---|---|
-| 1 — Scheduler | `cargo test -p mai-scheduler --lib` + `python tools/simulator/replay_compare.py --trace examples/sample-trace.ndjson` | 324+ green tests; Markdown report ranking policies |
-| 2 — Trust Manifold | `pytest apps/openbao-trust-demo/tests/` + `curl /v1/trust/status` against `deployment/local-dev` | 17 green tests; live `{mode: "connected", bundle_version: ...}` JSON |
-| 3 — Compliance routing | `cargo test -p mai-compliance --lib` + `pytest mai-api/tests/compliance_integration.rs` | 326+ green tests; 17 HTTP integration tests |
-| 4 — OCAP | `pytest apps/tribal-sovereignty/tests/` + read `mai-compliance/src/ocap/` | 9 green tests; 9-stage pipeline visible in source |
-| 5 — Air-gap + audit | `cargo test -p mai-compliance audit::` + verify a report's signature with `verify_certified_report` | Hash chain + signature verification clean |
+| 1 -- Scheduler | `cargo test -p mai-scheduler --lib` + `python tools/simulator/replay_compare.py --trace examples/sample-trace.ndjson` | 324+ green tests; Markdown report ranking policies |
+| 2 -- Trust Manifold | `pytest apps/openbao-trust-demo/tests/` + `curl /v1/trust/status` against `deployment/local-dev` | 17 green tests; live `{mode: "connected", bundle_version: ...}` JSON |
+| 3 -- Compliance routing | `cargo test -p mai-compliance --lib` + `pytest mai-api/tests/compliance_integration.rs` | 326+ green tests; 17 HTTP integration tests |
+| 4 -- OCAP | `pytest apps/tribal-sovereignty/tests/` + read `mai-compliance/src/ocap/` | 9 green tests; 9-stage pipeline visible in source |
+| 5 -- Air-gap + audit | `cargo test -p mai-compliance audit::` + verify a report's signature with `verify_certified_report` | Hash chain + signature verification clean |
 
 ---
 
