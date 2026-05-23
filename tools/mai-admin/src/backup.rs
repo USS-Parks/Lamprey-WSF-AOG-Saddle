@@ -153,6 +153,7 @@ pub enum BackupError {
 /// `mai_api::load_ship_profile` and supplying any signing material.
 /// SHIP-10's restore reads everything it needs from the manifest the
 /// runner produces here.
+#[allow(clippy::needless_pass_by_value)]
 pub fn create_backup(
     profile: &BackupSourceProfile,
     options: BackupOptions,
@@ -662,8 +663,7 @@ fn maybe_write_reports(
 fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_secs())
 }
 
 fn hostname() -> String {
@@ -674,9 +674,11 @@ fn hostname() -> String {
 
 fn rfc3339(secs: u64) -> String {
     use chrono::DateTime;
-    DateTime::from_timestamp(secs as i64, 0)
-        .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
-        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
+    let signed = i64::try_from(secs).unwrap_or(0);
+    DateTime::from_timestamp(signed, 0).map_or_else(
+        || "1970-01-01T00:00:00Z".to_string(),
+        |dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+    )
 }
 
 fn default_backup_id(secs: u64) -> String {
@@ -725,7 +727,7 @@ fn ordered_wal_files(dir: &Path) -> Result<Vec<PathBuf>, BackupError> {
     let rotated_dir = dir.join("rotated");
     if rotated_dir.is_dir() {
         let mut rotated: Vec<PathBuf> = std::fs::read_dir(&rotated_dir)?
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .map(|e| e.path())
             .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
             .collect();
@@ -768,8 +770,7 @@ fn replay_wal_tree_for_meta(dir: &Path) -> Result<(u64, String), BackupError> {
     }
     let last = entries
         .last()
-        .map(|e| e.entry_hash.clone())
-        .unwrap_or_else(|| AUDIT_GENESIS_HASH.to_string());
+        .map_or_else(|| AUDIT_GENESIS_HASH.to_string(), |e| e.entry_hash.clone());
     Ok((entries.len() as u64, last))
 }
 

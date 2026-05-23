@@ -167,7 +167,7 @@ pub enum ProfileLoadError {
     #[error("could not read profile {0}: {1}")]
     Io(PathBuf, std::io::Error),
     #[error("could not parse profile {0}: {1}")]
-    Parse(PathBuf, toml::de::Error),
+    Parse(PathBuf, Box<toml::de::Error>),
 }
 
 /// Load a profile from a TOML file path. Tolerant of extra fields the
@@ -175,7 +175,8 @@ pub enum ProfileLoadError {
 pub fn load_backup_source_profile(path: &Path) -> Result<BackupSourceProfile, ProfileLoadError> {
     let text =
         std::fs::read_to_string(path).map_err(|e| ProfileLoadError::Io(path.to_path_buf(), e))?;
-    parse_backup_source_profile(&text).map_err(|e| ProfileLoadError::Parse(path.to_path_buf(), e))
+    parse_backup_source_profile(&text)
+        .map_err(|e| ProfileLoadError::Parse(path.to_path_buf(), Box::new(e)))
 }
 
 pub fn parse_backup_source_profile(text: &str) -> Result<BackupSourceProfile, toml::de::Error> {

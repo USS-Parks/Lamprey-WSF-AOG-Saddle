@@ -262,11 +262,15 @@ pub fn sha3_hex(bytes: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// 64 KiB streaming buffer. Lives on the heap because clippy flags any
+/// stack array over 16 KiB.
+const STREAM_BUF: usize = 64 * 1024;
+
 /// SHA3-256 a file by streaming, never loading the whole thing into RAM.
 pub fn sha3_file(path: &Path) -> Result<String, ManifestError> {
     use std::io::Read;
     let mut hasher = Sha3_256::new();
-    let mut buf = [0u8; 64 * 1024];
+    let mut buf = vec![0u8; STREAM_BUF];
     let mut file = std::fs::File::open(path)?;
     loop {
         let n = file.read(&mut buf)?;
@@ -289,7 +293,7 @@ pub fn sha3_tree(root: &Path) -> Result<(String, u64, u64), ManifestError> {
     let mut hasher = Sha3_256::new();
     let mut total_files: u64 = 0;
     let mut total_bytes: u64 = 0;
-    let mut buf = [0u8; 64 * 1024];
+    let mut buf = vec![0u8; STREAM_BUF];
     for (relative, abs) in entries {
         hasher.update(relative.as_bytes());
         hasher.update([0u8]);
@@ -315,9 +319,7 @@ fn walk_tree(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) -> std::
         if path.is_dir() {
             walk_tree(root, &path, out)?;
         } else {
-            let rel = path
-                .strip_prefix(root)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            let rel = path.strip_prefix(root).map_err(std::io::Error::other)?;
             out.push((rel.to_string_lossy().replace('\\', "/"), path));
         }
     }

@@ -144,12 +144,12 @@ fn run_backup_create(
     if let Some(sk_path) = signing_key_path {
         match std::fs::read(&sk_path) {
             Ok(bytes) => {
-                options.signing_key = Some(bytes);
-                options.anchor_id = anchor_id.clone();
-                if options.anchor_id.is_none() {
+                if anchor_id.is_none() {
                     eprintln!("error: --anchor-id is required with --signing-key");
                     return ExitCode::from(2);
                 }
+                options.signing_key = Some(bytes);
+                options.anchor_id = anchor_id;
             }
             Err(e) => {
                 eprintln!(
