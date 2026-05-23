@@ -8,7 +8,6 @@
 //! - Health endpoint aggregation
 //! - Model listing with profile filtering
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 

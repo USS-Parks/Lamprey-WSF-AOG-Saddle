@@ -8,7 +8,6 @@
 //! - MaiInference.ChatCompletion returns a response (error expected with no model)
 //! - Auth interceptor rejects requests with invalid/missing profile metadata
 
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 

@@ -6,7 +6,7 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet("all", "router", "rust-workspace", "python-ipc", "python-trace-sim", "burn-in")]
+    [ValidateSet("all", "router", "compliance", "rust-workspace", "python-ipc", "python-trace-sim", "burn-in")]
     [string]$Suite = "all",
     [string]$Output = "results/lamprey-validation"
 )
@@ -60,6 +60,7 @@ function Invoke-LampreyStep {
 }
 
 $runRouter = $Suite -eq "all" -or $Suite -eq "router"
+$runCompliance = $Suite -eq "all" -or $Suite -eq "compliance"
 $runRust = $Suite -eq "all" -or $Suite -eq "rust-workspace"
 $runPythonIpc = $Suite -eq "all" -or $Suite -eq "python-ipc"
 $runPythonTrace = $Suite -eq "all" -or $Suite -eq "python-trace-sim"
@@ -68,6 +69,12 @@ $runBurnIn = $Suite -eq "burn-in"
 if ($runRouter) {
     Invoke-LampreyStep "router" "cargo test -p mai-router" {
         cargo test -p mai-router
+    }
+}
+
+if ($runCompliance) {
+    Invoke-LampreyStep "compliance" "cargo test -p mai-compliance" {
+        cargo test -p mai-compliance
     }
 }
 
@@ -87,7 +94,8 @@ if ($runPythonTrace) {
     Invoke-LampreyStep "python-trace-sim" "python -m pytest tools/trace-tools/tests tools/simulator/tests -q" {
         $env:TEMP = $TempRoot
         $env:TMP = $TempRoot
-        python -m pytest tools/trace-tools/tests tools/simulator/tests -q --basetemp (Join-Path $TempRoot "pytest")
+        $env:MAI_PYTEST_TMP = $TempRoot
+        python -m pytest tools/trace-tools/tests tools/simulator/tests -q
     }
 }
 
