@@ -48,6 +48,15 @@
 //! runtime); this crate is intentionally standalone so it can be reused
 //! by audit reporting (Session 43) and the compliance dashboard
 //! (Session 44).
+//!
+//! Compliance report generator (Session 43):
+//!
+//! - [`reports`] — [`reports::ReportManager`] turns audit-log entries
+//!   into regulator-ready documents (HIPAA audit trail, ITAR/EAR
+//!   summary, OCAP governance, system activity, monthly digest), with
+//!   the §A.13 trust + credential section attached to every report.
+//!   The certification envelope is signed with the same ML-DSA-87
+//!   primitive used by [`bundle`] and [`audit`].
 
 #![forbid(unsafe_code)]
 
@@ -62,6 +71,7 @@ pub mod medical_entities;
 pub mod ocap;
 pub mod phi;
 pub mod policy;
+pub mod reports;
 pub mod subject_hash;
 pub mod tech_data;
 pub mod trust;
@@ -111,6 +121,15 @@ pub use policy::{
     FeedSubscriber, ModuleDecision, ModuleId, ModuleStatus, OverallStatus, PolicyBundle,
     PolicyBundleError, PolicyComposer, PolicyManager, PolicySource, PolicyTemplate,
     RequestMetadata, TemplateVersion,
+};
+pub use reports::{
+    CertifiedReport, CredentialValidationSummary, HipaaAuditTrail, ItarComplianceSummary,
+    MonthlyComplianceDigest, OcapGovernanceReport, OfflineInterval, PolicyVersionEvent,
+    PruneConfig, PruneOutcome, ReportCertifier, ReportDocument, ReportEngine, ReportError,
+    ReportFormat, ReportId, ReportManager, ReportManagerBuilder, ReportMetadata, ReportPruner,
+    ReportRecord, ReportRequest, ReportSchedule, ReportScheduleId, ReportSigner, ReportStatus,
+    ReportTemplate, ReportType, RevocationSnapshotSummary, ServiceIdentityEvent,
+    SystemActivitySummary, TemplateRegistry, TrustSection,
 };
 pub use subject_hash::{SubjectHashError, hmac_subject};
 pub use tech_data::{
