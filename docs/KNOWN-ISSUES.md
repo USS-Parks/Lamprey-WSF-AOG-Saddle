@@ -56,9 +56,19 @@ Four Phase 1 exit criteria from `MAI-BUILD-PROMPT-ROSTER-v2.md` require target h
 
 **Severity:** Low (Gate C work-around in place)
 **Affects:** Gate C "SDK and at least one app scaffold run against packaged deployment"
-**Status:** Smoke-client substitute 2026-05-22 (Session 35); proper scaffolds Sessions 29-31
+**Status:** Smoke-client substitute 2026-05-22 (Session 35); Session 29 active, Sessions 30-31 pending
 
-A full L4-L5 application scaffold is the deliverable of Sessions 29-31 (Developer/App Release Train). For Gate C closure, `tools/smoke/smoke_client.py` is the minimal end-to-end probe that verifies the SDK boundary against a packaged deployment. It exercises health, model list, and scheduler metrics using only the standard library so it runs without an SDK install. When Sessions 29-31 land, replace the smoke client with the real scaffold in the Gate C evidence map.
+A full L4-L5 application scaffold is the deliverable of Sessions 29-31 (Developer/App Release Train). Session 29 is now active and should replace the smoke-client substitute with real SDK install/auth/health/models/chat/stream/embeddings behavior as that lane closes. For Gate C closure, `tools/smoke/smoke_client.py` remains the minimal end-to-end probe that verifies the public boundary against a packaged deployment. Keep this issue open until Sessions 29-31 provide the real scaffold evidence map.
+
+### 10. BF-3 Signed Trust Bundle Verification Pending Before Session 41 Closure
+
+**Severity:** High (policy integrity gate)
+**Affects:** Session 41 policy runtime, trust bundle refresh, Lamprey compliance decisions
+**Status:** Active parallel backfill before Session 41 closure
+
+BF-1/BF-2/BF-4 provide the Trust Manifold projection and local cache/connectivity model, but BF-3 is still required to verify signed claim and policy bundles at the refresh boundary. Until BF-3 lands, Session 41 must not treat policy bundles as authoritative production inputs.
+
+**Action:** Before marking Session 41 complete, validate signed bundle success, invalid signature rejection, expired bundle rejection or degraded behavior, tampered payload rejection, revoked signer/key handling, and HMAC subject-hashing behavior with no raw subject leakage.
 
 ### 6. Registry scan_models Placeholder
 

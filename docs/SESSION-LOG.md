@@ -1010,14 +1010,15 @@ Verification:
 | E: Scheduler Intelligence | 19-21 | Complete (19, 20, 21) |
 | F: Power & Lifecycle | 22-23, 25 | Complete (22, 23, 25) |
 | G: Model Lifecycle | 24-25 | Complete (24, 25) |
-| H: Security Hardening | 26-28 | Partial (26 complete) |
-| I: Application Integration | 29-31 | Not Started |
+| H: Security Hardening | 26-28 | Complete (26, 27, 28; hardware-only Linux enforcement remains deployment-scoped) |
+| I: Application Integration | 29-31 | In Progress (29 active; 30-31 pending) |
 | J: Advanced Scheduling | 32-33 | Complete (32, 33) |
 | K: Testing & Packaging | 34-35 | Complete (34, 35) — Gate C closed |
-| L: Compliance Governance | 36-46 | Partial (36-38 complete — Router + Policy + HIPAA) |
+| L: Compliance Governance | 36-46 | Partial (36-40 complete; BF-1, BF-2, BF-4 complete; BF-3 active before S41 closure) |
 
-**Sessions Complete:** Sessions 1-26 and 32-38 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) underway — Router + Policy Framework + HIPAA engine shipped.
-**Next Session:** Session 39 (ITAR/EAR Compliance Engine) — extends `mai-compliance` with USML category detection, technical-data classification, and dual-use technology rules. Security track (27-28) and developer track (29-31) remain safe parallel candidates before final acquisition prep in Session 45.
+**Sessions Complete:** Sessions 1-28 and 32-40 are complete or have completion entries in this log; BF-1, BF-2, and BF-4 are complete. **Gate C (Core Platform Release) is CLOSED.** Phase L (Lamprey) is underway with Router, Policy Framework, HIPAA, ITAR/EAR trust alignment, and OCAP surfaces present.
+**Active Work:** Session 29 (SDK Completeness + Developer Experience) is active in the application-integration lane. BF-3 (signed claim + policy bundle verification) is active as a pre-Session-41 closure gate; do not mark Session 41 complete until signed/expired/tampered/revoked bundle behavior is validated.
+**Next Coordination Gate:** Close Session 29 and BF-3 cleanly, then use Session 41 to normalize `RequestMetadata + TrustContext + ConnectivityState + PolicyBundleVersion + ClassificationResult` into one policy-runtime input.
 **Next Archive:** After Session 23 (or end of Phase F, whichever comes first)
 
 ---
