@@ -1635,6 +1635,7 @@ dependencies = [
 name = "mai-compliance"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "blake3",
  "chrono",
  "hex",

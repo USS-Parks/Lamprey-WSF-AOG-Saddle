@@ -41,6 +41,12 @@ pub mod production_guard;
 // SHIP-03: Vault builder (selects ZfsVault / LocalDevStubVault by ship profile)
 pub mod vault_builder;
 
+// SHIP-04: Persistent API audit WAL writer (replaces MemoryAuditWriter in production)
+pub mod audit_wal;
+
+// SHIP-05: Sealer builder (selects AeadSealer / NullSealer for compliance audit WAL)
+pub mod sealer_builder;
+
 // Session 11b: REST API Endpoints
 pub mod handlers;
 pub mod routes;
@@ -56,11 +62,15 @@ pub mod grpc;
 pub mod server;
 
 // Public re-exports for SDK consumers and binary entry point
+pub use audit_wal::{
+    ReplayOutcome, WalAuditConfig, WalAuditError, WalAuditWriter, replay_and_verify,
+};
 pub use config::ServerConfig;
 pub use errors::ApiError;
 pub use production_guard::{
     CheckSeverity, CheckStatus, ProductionCheck, ProductionReadinessReport, ReadinessCounts,
 };
+pub use sealer_builder::{SealerBuildError, build_sealer, sealer_key_path};
 pub use server::MaiServer;
 pub use server::ServerError;
 pub use ship_profile::{ShipProfile, ShipProfileError, load_ship_profile, parse_ship_profile};

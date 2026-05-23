@@ -25,6 +25,7 @@
 pub mod api;
 pub mod chain;
 pub mod entry;
+pub mod sealer;
 pub mod store;
 pub mod triggers;
 
@@ -40,6 +41,7 @@ pub use entry::{
     AuditEntry, CHAIN_HASH_LEN, CorrelationFields, EntriesById, RoutingDecision, RuleMatch,
     SIGNATURE_LEN, masked_request_hash,
 };
+pub use sealer::{AEAD_SEALER_KEY_LEN, AEAD_SEALER_NONCE_LEN, AeadSealer, AeadSealerError};
 pub use store::{
     AuditStore, AuditStoreConfig, DEFAULT_RETENTION_DAYS, NullSealer, StoreDropCounters,
     StoreError, StoreSealer,

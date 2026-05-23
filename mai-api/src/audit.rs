@@ -122,7 +122,10 @@ impl AuditRequestType {
 
 /// Well-known genesis hash for the audit chain.
 /// SHA3-256("island-mountain-mai-audit-genesis-v1")
-const GENESIS_HASH: &str = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+/// SHIP-04 unblock: needs `pub(crate)` so `audit_wal::WalAuditWriter` can replay-verify
+/// against the same genesis. No external API change.
+pub(crate) const GENESIS_HASH: &str =
+    "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
 
 /// Compute the hash for an audit entry.
 ///

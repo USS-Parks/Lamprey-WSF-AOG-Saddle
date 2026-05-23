@@ -78,8 +78,9 @@ pub mod trust;
 pub mod trust_cache;
 
 pub use audit::{
-    AuditEntry, AuditLog, AuditLogBuilder, AuditQuery, AuditQueryRow, AuditRecordInput, AuditStore,
-    AuditStoreConfig, CHAIN_HASH_LEN, ChainConfig, ChainError, ChainSigner, CorrelationFields,
+    AEAD_SEALER_KEY_LEN, AEAD_SEALER_NONCE_LEN, AeadSealer, AeadSealerError, AuditEntry, AuditLog,
+    AuditLogBuilder, AuditQuery, AuditQueryRow, AuditRecordInput, AuditStore, AuditStoreConfig,
+    CHAIN_HASH_LEN, ChainConfig, ChainError, ChainSigner, CorrelationFields,
     DEFAULT_RETENTION_DAYS, DEFAULT_SIGNATURE_INTERVAL, EntriesById, Escalation, HashChainManager,
     IntegrityStatus, MlDsaChainSigner, NullSealer, NullSigner, RoutingDecision, RuleMatch,
     SIGNATURE_LEN, Severity, StoreDropCounters, StoreError, StoreSealer, TriggerManager,
