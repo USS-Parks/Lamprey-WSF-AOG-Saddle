@@ -3,7 +3,7 @@
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (current at 46 sessions plus Trust Manifold backfill lane)
 **Instructions:** Update this file after each session completes. Mark deliverables as they are finished. Log blockers and notes as they arise.
-**Active Scope:** Phase H onward — Sessions 26-45 + BF-1..BF-7. Mainline next: Session 46 (Compliance Demo Suite + Gate D).
+**Active Scope:** Phase H onward — Sessions 26-46 + BF-1..BF-7. Gate D closed by Session 46. No mainline work remaining.
 
 ---
 
@@ -740,3 +740,113 @@ The acquisition package must explain:
 - Memory snapshot (`project_mai_build_state.md`) will be updated post-commit to reflect S45 complete and S46 as the new mainline target.
 
 **Next Session Notes:** Mainline target is Session 46 — Compliance Demo Suite + Integration Testing. The four S45 demo scripts (`docs/acquisition/demos/*.md`) are the absorption seed; S46 turns each into an automated end-to-end test scenario with green CI evidence. After S46 → Gate D (Acquisition-Ready Release).
+
+---
+
+## Session 46: Compliance Demo Suite + Integration Testing — Complete
+
+**Date completed:** 2026-05-23
+**Closes:** Gate D — Acquisition-Ready Release
+**Status:** Complete
+
+### Deliverables landed
+
+- `mai-compliance/tests/compliance_demos.rs` (491 lines) — six
+  end-to-end scenarios driving the full Lamprey stack (detection →
+  composer → audit → certified report):
+  - `test_hipaa_workflow` — PHI detect → BAA deny → local route → HIPAA report
+  - `test_itar_workflow` — ITAR detect + non-US actor → DenyExport → ITAR report
+  - `test_ocap_workflow` — tribal data + Council role → RouteLocal → OCAP report
+  - `test_multi_domain` — HIPAA + ITAR + OCAP precedence (default composer config)
+  - `test_audit_tamper` — `verify_chain` detects mutated entry, Critical escalation fires
+  - `test_trust_manifold_disconnected_and_expired` — AirGapped connectivity + Unknown revocation
+- `mai-compliance/tests/compliance_perf.rs` (224 lines) — three perf
+  baselines, `RUN_PERF_TESTS=1`-gated for full sample sizes:
+  - Composer P99 (debug, 5 000 samples): **1.5 µs** vs 5 ms target
+  - Audit append (debug, 2 000 entries): **9 003/s** vs 1 000/s target
+  - Report generation (30-day, 200 entries): **16.7 ms** vs 10 s target
+- `docs/acquisition/READY.md` (205 lines) — Gate D production
+  readiness summary: test counts, demo evidence, perf table,
+  documentation inventory, known issues, certification statement.
+- `docs/SESSION-46-PLAN.md` (333 lines) — working plan that
+  governed this session.
+- `docs/INDEX.md` — links for READY and SESSION-46-PLAN.
+- `docs/SESSION-LOG.md` — this entry.
+
+### Acceptance criteria check (plan §1421 + roster §3845)
+
+- [x] All compliance scenarios pass end-to-end (6/6 green).
+- [x] Demo suite runs fully automated (`cargo test -p mai-compliance --test compliance_demos`).
+- [x] Composer P99 well under 5 ms (3 300× headroom).
+- [x] Audit append throughput exceeds 1 000/s (9× headroom).
+- [x] Reports generate well under 10 s (600× headroom).
+- [x] Compliance decisions are explainable (`AggregateDecision.reasons`
+      asserted in every scenario).
+- [x] Trust claims verifiable (TrustSection populated; bundle verifier
+      contract proven by BF-3).
+- [x] Audit logs verify (`verify_chain` called in every scenario;
+      tamper detection proven).
+- [x] Reports generate with content hash (every scenario produces
+      `CertifiedReport`).
+- [x] Dashboard works (existing 20 dashboard tests + 17 mai-api
+      compliance integration tests — S46 does not duplicate).
+- [x] SDK covers compliance APIs (S44 surface, unchanged).
+- [x] Acquisition docs complete (S45 13 docs + READY).
+- [x] Known issues current and honest (READY §5).
+
+### Test counts
+
+| Surface | Pre-S46 | Post-S46 | Delta |
+|---|---|---|---|
+| Rust workspace lib | 1 196 | 1 196 | 0 |
+| mai-api integration | 176 | 176 | 0 |
+| mai-compliance integration (`compliance_demos`) | 0 | 6 | +6 |
+| mai-compliance integration (`compliance_perf`) | 0 | 3 | +3 |
+| Python SDK | 94 | 94 | 0 |
+| Python dashboard | 20 | 20 | 0 |
+| Python scaffolds | 61 | 61 | 0 |
+| **Runnable total** | **1 547** | **1 556** | **+9** |
+
+All green; zero failing.
+
+### Scope decisions
+
+- **Tests landed in `mai-compliance/tests/`**, not `mai-api/tests/`.
+  The scenarios assert compliance-engine semantics; the HTTP surface
+  is already proven by `compliance_integration.rs` (17 tests, S44).
+  Duplicating the same flows through axum would slow compile time
+  without adding signal.
+- **No new mai-compliance source code.** S46 is exclusively a
+  tests + docs session — the public API surface that the acquirer
+  reviews is unchanged from the S45 snapshot.
+- **Composer perf measured on the fold alone**, with pre-evaluated
+  module decisions. Detection-stage latency is owned by per-module
+  tests (`phi_perf.rs` etc.); the "router overhead" target in plan
+  §3849 is the composer fold itself.
+- **S31 roster scaffolds (MedRecord/HomeBase/Estate AI) remain out
+  of scope.** Plan §739 closes Gate B with S30; S31 was a roster-only
+  obligation that the plan explicitly overrides.
+- **Vault-AEAD audit-store sealing deferred.** Contract is proven by
+  BF-3 ML-DSA signers and the `StoreSealer` trait; the production
+  live-vault wiring belongs to the deployment hardening track.
+
+### Anti-truncation discipline
+
+Per CLAUDE.md, every new file >40 lines went through
+`$env:TEMP\opencode\` staging:
+- `wc -l` + `tail` + null-byte (`tr -d -c '\0' | wc -c`) check after each stage.
+- Files copied to workspace only after staging cleared.
+- INDEX/SESSION-LOG edits made via Edit tool (atomic patches).
+- Per-file `git add` (no `git add -A`).
+
+### Gate D — closed
+
+Gate D acceptance from plan §1434 is satisfied. The Lamprey
+compliance governance stack (Sessions 36–46) is ready for
+acquisition review. Per `MAI-BUILD-PROMPT-ROSTER-v2.md`, Session 46
+is the final mainline session; no further work is planned against
+this scope.
+
+**Next:** post-acquisition handoff or deployment hardening track
+(vault-AEAD wiring, browser walkthrough, S31 roster scaffolds if a
+buyer requests them).

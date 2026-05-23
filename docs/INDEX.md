@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Alignment Note:** Governance status aligned with current code on 2026-05-23.
-**Last Updated:** 2026-05-23 (Session 45 acquisition documentation package)
+**Last Updated:** 2026-05-23 (Session 46 compliance demo suite + Gate D)
 
 ---
 
@@ -41,6 +41,10 @@ These documents govern the MAI build. Read them before writing code.
 | [acquisition/demos/defense.md](acquisition/demos/defense.md) | Demo 2 — ITAR/EAR scenario walkthrough (S45) | Acquirer technical reviewer |
 | [acquisition/demos/tribal.md](acquisition/demos/tribal.md) | Demo 3 — OCAP tribal sovereignty walkthrough with all 9 pipeline stages (S45) | Acquirer technical reviewer; tribal data governance |
 | [acquisition/demos/multi-domain.md](acquisition/demos/multi-domain.md) | Demo 4 — multi-module conflict resolution (HIPAA + OCAP), composer fold rules, precedence chain (S45) | Acquirer technical reviewer |
+| [acquisition/READY.md](acquisition/READY.md) | Gate D production readiness — test/demo/perf evidence, known issues, certification statement (S46) | Acquirer reviewer; release sign-off |
+| [SESSION-46-PLAN.md](SESSION-46-PLAN.md) | Session 46 plan: scope, file layout, test inventory, perf targets, READY.md outline, Gate D checklist (S46) | Session 46 implementer |
+
+The S46 compliance demo suite is implemented in `mai-compliance/tests/compliance_demos.rs` (6 scenarios) and `mai-compliance/tests/compliance_perf.rs` (3 perf baselines). Run with `cargo test -p mai-compliance --test compliance_demos` and `... --test compliance_perf -- --nocapture`.
 
 ---
 
