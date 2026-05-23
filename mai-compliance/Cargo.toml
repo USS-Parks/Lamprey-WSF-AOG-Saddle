@@ -14,7 +14,11 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 blake3 = { workspace = true }
+chrono = { workspace = true }
 regex = "1"
+
+# Session 28: canonical ConnectivityState shared with mai-adapters and mai-api.
+mai-core = { path = "../mai-core" }
 
 [lints]
 workspace = true

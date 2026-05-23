@@ -248,7 +248,7 @@ impl TrustSnapshot {
             tenant_id: ctx.tenant_id.clone(),
             subject_hash: ctx.subject_hash.clone(),
             service_identity: ctx.service_identity,
-            offline_mode: ctx.offline_mode,
+            offline_mode: ctx.offline_mode(),
             revocation_status: ctx.revocation_status,
         }
     }
@@ -361,7 +361,7 @@ impl JurisdictionEvaluator {
         base_reason: &str,
     ) -> JurisdictionDecision {
         // Offline mode collapses Allow → RouteLocal.
-        if trust.offline_mode {
+        if trust.offline_mode() {
             return JurisdictionDecision {
                 outcome: Outcome::RouteLocal,
                 classification,
@@ -747,9 +747,10 @@ mod tests {
 
     #[test]
     fn test_offline_mode_collapses_uncontrolled_to_route_local() {
+        use mai_core::airgap::ConnectivityState;
         let (i, e) = reports("Tell me about rainfall.");
         let mut trust = trust_permissive();
-        trust.offline_mode = true;
+        trust.connectivity = ConnectivityState::StaleNotExpired;
         let d = evaluator().evaluate(&i, &e, &actor_us(), &trust);
         assert_eq!(d.outcome, Outcome::RouteLocal);
         assert_eq!(d.matched_rule.as_deref(), Some("trust.offline_mode"));

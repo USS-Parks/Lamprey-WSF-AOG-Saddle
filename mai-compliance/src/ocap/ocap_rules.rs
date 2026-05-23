@@ -602,7 +602,7 @@ impl OcapEvaluator {
             claim_id: trust.claim_id.clone(),
             trust_bundle_version: trust.trust_bundle_version.clone(),
             service_identity: trust.service_identity,
-            offline_mode: trust.offline_mode,
+            offline_mode: trust.offline_mode(),
             revocation_status: trust.revocation_status,
         }
     }

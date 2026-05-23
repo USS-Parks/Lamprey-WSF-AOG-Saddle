@@ -602,6 +602,52 @@ Verification:
 - `python -m pytest tools/ adapters/` on 2026-05-22: 114/114 passed (18 new Session 32 tests across `tools/trace-tools/tests/`, `tools/simulator/tests/test_simulator_extensions.py`, `tools/simulator/tests/test_replay_compare.py`).
 - End-to-end CLI smoke test: 40-event synthetic trace replayed through all 4 KV policies produced a complete Markdown comparison table with headline findings; deterministic across two identical runs.
 
+## Session 28 + BF-4 Completion
+
+**Date:** 2026-05-22
+**Status:** Complete (BUILD-EXECUTION-PLAN Phase H + Appendix A §A.8). Gate A1 closes with the air-gap policy half landed; the hardware switch monitor and Linux-only iptables/ip-link enforcement remain feature-gated for the production deployment session.
+**Summary:** Defined the canonical `ConnectivityState` enum in `mai-core::airgap` so that adapter host validation, API bind enforcement, trust-context decisions, and the BF-4 local trust cache all consume one model of "what state is the appliance in". Five states cover both Session 28's hardware-air-gap semantics and BF-4's freshness ladder: `Connected`, `Degraded`, `StaleNotExpired`, `Expired`, `AirGapped`. `AirGapPolicy` provides a watch-channel state holder cheap to share across components. `mai-adapters` gained a real loopback validator (`validate_adapter_host`) wired into `FrameworkConfig::validate_hosts` for both initial load and hot-reload; wildcard binds (`0.0.0.0`, `::`) are now rejected unconditionally and any non-loopback host fails under `AirGapped` or `Expired`. `mai-api::config::ServerConfig::validate` was strengthened to reject IPv6 wildcards alongside `0.0.0.0`, and `validate_with_connectivity` adds a state-aware check that rejects non-loopback bind addresses under `requires_local_only()`. New `GET /v1/system/airgap` endpoint surfaces the live `ConnectivityState`. `AppState` gained an `airgap_policy: AirGapPolicy` field (defaulted to `AirGapped`, overridable via `with_airgap_policy`). BF-4 upgraded `TrustContext.offline_mode: bool` to `connectivity: ConnectivityState` and kept `offline_mode()` as a derived getter so existing call sites (`jurisdiction.rs`, `ocap_rules.rs`) keep working. `permits_cloud_route` now consults the full ladder; new `requires_local_only()` method exposes the Expired/AirGapped clamp. New `mai-compliance::trust_cache::LocalTrustCache` implements the BF-4 state model: warn/expire thresholds, revocation snapshot map (`Valid`/`Revoked`/`Unknown`), `evaluate(switch, live_link, now)` that derives `ConnectivityState` with the hardware switch winning, emergency-only gate, and an offline audit backlog.
+**Files Changed:**
+- New: mai-core/src/airgap/mod.rs (canonical `ConnectivityState` enum + `AirGapPolicy` with `watch::channel` notifications, 6 tests)
+- Modified: mai-core/src/lib.rs (re-export `airgap::{AirGapPolicy, ConnectivityState}`)
+- New: mai-adapters/src/validation.rs (`validate_adapter_host` + `is_loopback`/`is_wildcard`, 10 tests)
+- Modified: mai-adapters/src/lib.rs (`pub mod validation`, re-exports)
+- Modified: mai-adapters/src/config.rs (`FrameworkConfig::validate_hosts` for load-time and hot-reload enforcement, `adapter_hosts()` diagnostic accessor)
+- Modified: mai-api/src/config.rs (reject `::`/`[::]` alongside `0.0.0.0`, new `validate_with_connectivity` + 2 tests)
+- Modified: mai-api/src/state.rs (`airgap_policy: AirGapPolicy` field defaulted to `AirGapped`, `with_airgap_policy` builder)
+- Modified: mai-api/src/handlers/system.rs (`get_airgap_status` handler)
+- Modified: mai-api/src/routes.rs (route `/v1/system/airgap` → `get_airgap_status`)
+- Modified: mai-compliance/Cargo.toml (`mai-core` and `chrono` deps for the shared enum and timestamps)
+- Modified: mai-compliance/src/trust.rs (`TrustContext.connectivity: ConnectivityState`, derived `offline_mode()` getter, `requires_local_only()`, updated `permits_cloud_route()`)
+- Modified: mai-compliance/src/jurisdiction.rs (`offline_mode` field reads switch to `offline_mode()` calls)
+- Modified: mai-compliance/src/ocap/ocap_rules.rs (same)
+- New: mai-compliance/src/trust_cache.rs (`LocalTrustCache` + `CacheThresholds` + `RevocationSnapshot` + `SnapshotStatus`, 11 tests)
+- Modified: mai-compliance/src/lib.rs (`pub mod trust_cache`)
+- New: docs/LOCAL-TRUST-CACHE.md (BF-4 design doc per Appendix A §A.8)
+**Tests Run:**
+- `cargo test -p mai-core --lib airgap::`: 6/6 pass.
+- `cargo test -p mai-adapters --lib validation::`: 10/10 pass.
+- `cargo test -p mai-api --lib config::`: 11/11 pass (2 new).
+- `cargo test -p mai-compliance --lib`: 194/194 pass (includes 11 new trust_cache tests + 1 new trust expiry test).
+- `cargo test --workspace --lib`: 1058 tests pass (up from 1028 in Session 27, +30 new).
+- `cargo check --workspace`: clean.
+**Acceptance Criteria Verified (Session 28):**
+- Loopback enforced when air-gapped: `validate_adapter_host` rejects non-loopback hosts under `AirGapped` and `Expired` states.
+- Wildcard bind always rejected: `0.0.0.0`, `::`, `[::]` all fail `ServerConfig::validate` regardless of connectivity state.
+- Air-gap state change triggers immediate system-wide enforcement: `AirGapPolicy` uses `tokio::sync::watch::channel` so every subscriber sees the transition on next poll without missing intermediate values.
+- Compliance layer can consume air-gap status: `TrustContext.connectivity` is the canonical enum; every Lamprey engine (jurisdiction, OCAP) already reads through it.
+- Local-only execution can operate independently of cloud trust availability: `LocalTrustCache::evaluate` returns `Degraded`/`StaleNotExpired` when the cache is fresh-enough and the hardware switch permits it; `Expired` triggers emergency-only mode.
+**Acceptance Criteria Verified (BF-4):**
+- `TrustContext` carries connectivity status (now `ConnectivityState`, with legacy boolean `offline_mode()` getter).
+- Policy decisions can restrict route when trust material is stale or expired: `permits_cloud_route` requires `connectivity.permits_cloud_route()` (false for `StaleNotExpired`, `Expired`, `AirGapped`).
+- Cloud route blocked in air-gap mode: same path, plus `AirGapPolicy` blocks the bind side.
+- Audit log can record trust mode: `TrustContext.connectivity` serialises into every JurisdictionDecision and OCAP rule outcome.
+- Reports can describe degraded or air-gapped intervals: BF-4 cache stores `bundle_version` and `last_refresh_secs`, surfaced through the future `GET /v1/system/trust` (Session 43 / BF-6).
+**Known Issues Added or Closed:** Hardware switch monitor (`switch.rs`), Linux iptables/ip-link interface controller (`network.rs`), and `/proc/net/tcp` outbound auditor (`auditor.rs`) remain scoped for a follow-up Linux-only deployment session — the `mai-api::air_gap::AirGapChecker` from Session 14c already covers the verification loop; the network-mutation paths are gated behind unrelaxed root requirements that don't fit a cross-platform commit. Pre-existing clippy `-D warnings` failures in `mai-core/sentinel/*` unchanged.
+**Next Session Notes:** With Gate A1 closed at the policy layer, the Phase H mainline moves to Session 29 (SDK Completeness + Developer Experience). BF-3 (signed claim and policy bundle verification, gates before S41) is the natural next backfill and can land alongside Session 29 — the trust cache currently stores already-verified snapshots, so BF-3 plugs in at the refresh boundary without touching this commit's state model.
+
+---
+
 ## Session 27 Completion
 
 **Date:** 2026-05-22

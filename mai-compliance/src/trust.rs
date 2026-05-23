@@ -26,6 +26,7 @@
 
 use std::collections::BTreeSet;
 
+use mai_core::airgap::ConnectivityState;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -276,11 +277,22 @@ pub struct TrustContext {
     pub trust_bundle_version: String,
     /// Globally unique claim id; audit correlation key.
     pub claim_id: String,
-    /// Appliance state: true when degraded/expired/air-gapped.
-    #[serde(default)]
-    pub offline_mode: bool,
+    /// Appliance connectivity state. Upgraded from `offline_mode: bool`
+    /// in Session 28 / BF-4 — the canonical enum lives in
+    /// [`mai_core::airgap::ConnectivityState`]. Use [`Self::offline_mode`]
+    /// for the legacy boolean view.
+    #[serde(default = "default_connectivity")]
+    pub connectivity: ConnectivityState,
     /// Appliance state: revocation snapshot lookup result.
     pub revocation_status: RevocationStatus,
+}
+
+/// Default connectivity used when deserialising legacy claims that
+/// predate the BF-4 field. `Connected` was the historical implicit
+/// default for everything except the explicit `offline_mode: true`
+/// case, which now maps to `Degraded` at construction sites.
+fn default_connectivity() -> ConnectivityState {
+    ConnectivityState::Connected
 }
 
 impl TrustContext {
@@ -307,7 +319,7 @@ impl TrustContext {
             service_identity: None,
             trust_bundle_version: "local-dev".to_string(),
             claim_id: "local-dev-claim".to_string(),
-            offline_mode: false,
+            connectivity: ConnectivityState::Connected,
             revocation_status: RevocationStatus::Valid,
         }
     }
@@ -327,11 +339,29 @@ impl TrustContext {
         self.compliance_scopes.contains(&scope)
     }
 
-    /// Convenience: true when the claim permits a cloud route.
+    /// Backwards-compatible accessor for the legacy `offline_mode` flag.
+    /// Returns true for anything that is not [`ConnectivityState::Connected`].
+    #[must_use]
+    pub fn offline_mode(&self) -> bool {
+        self.connectivity.is_offline_mode()
+    }
+
+    /// Convenience: true when the claim permits a cloud route. A cloud
+    /// route requires:
+    ///   - connectivity that permits cloud routes (Connected or Degraded)
+    ///   - the `CloudAllowed` ceiling
+    ///   - a `Valid` revocation status
     pub fn permits_cloud_route(&self) -> bool {
-        !self.offline_mode
+        self.connectivity.permits_cloud_route()
             && self.allowed_routes.contains(&AllowedRoute::CloudAllowed)
             && self.revocation_status == RevocationStatus::Valid
+    }
+
+    /// True when the connectivity state forces local-only execution
+    /// regardless of the routing ceiling (Expired or AirGapped).
+    #[must_use]
+    pub fn requires_local_only(&self) -> bool {
+        self.connectivity.requires_local_only()
     }
 
     /// True when revocation status disqualifies the claim outright.
@@ -406,8 +436,26 @@ mod tests {
     #[test]
     fn test_offline_mode_blocks_cloud_route_even_when_allowed() {
         let mut ctx = TrustContext::for_local_dev();
-        ctx.offline_mode = true;
+        // Degraded keeps the cloud route open (cached validation still works).
+        ctx.connectivity = ConnectivityState::Degraded;
+        assert!(ctx.permits_cloud_route());
+        // StaleNotExpired forbids the cloud route.
+        ctx.connectivity = ConnectivityState::StaleNotExpired;
         assert!(!ctx.permits_cloud_route());
+        assert!(ctx.offline_mode());
+        // AirGapped forbids the cloud route and forces local-only.
+        ctx.connectivity = ConnectivityState::AirGapped;
+        assert!(!ctx.permits_cloud_route());
+        assert!(ctx.requires_local_only());
+    }
+
+    #[test]
+    fn test_expired_connectivity_requires_local_only() {
+        let mut ctx = TrustContext::for_local_dev();
+        ctx.connectivity = ConnectivityState::Expired;
+        assert!(ctx.requires_local_only());
+        assert!(!ctx.permits_cloud_route());
+        assert!(ctx.offline_mode());
     }
 
     #[test]

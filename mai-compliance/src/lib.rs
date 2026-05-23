@@ -53,6 +53,7 @@ pub mod ocap;
 pub mod phi;
 pub mod tech_data;
 pub mod trust;
+pub mod trust_cache;
 
 pub use baa::{BaaConfig, BaaDecision, BaaEnforcer, BaaError, BaaMode, BaaViolation};
 pub use deid::{DeidConfig, DeidResult, Redactor, RiskScore};

@@ -22,6 +22,28 @@ use crate::types::{
 use mai_core::power::TransitionTrigger;
 use mai_core::registry::ModelStatus;
 
+// ─── Air-Gap Status ────────────────────────────────────────────────
+
+/// GET /v1/system/airgap
+///
+/// Returns the current connectivity state managed by [`AppState::airgap_policy`].
+/// Authenticated callers may read this regardless of role — the air-gap
+/// status is a system-wide invariant that every component already relies
+/// on; surfacing it through the API is purely diagnostic.
+pub async fn get_airgap_status(
+    State(state): State<AppState>,
+    _profile: ProfileInfo,
+) -> Result<impl IntoResponse, ApiError> {
+    let connectivity = state.airgap_policy.state();
+    let response = serde_json::json!({
+        "connectivity": connectivity.label(),
+        "permits_cloud_route": connectivity.permits_cloud_route(),
+        "requires_local_only": connectivity.requires_local_only(),
+        "is_air_gapped": connectivity.is_air_gapped(),
+    });
+    Ok(Json(response))
+}
+
 // ─── Power State ───────────────────────────────────────────────────
 
 /// GET /v1/power

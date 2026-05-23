@@ -265,11 +265,15 @@ impl ServerConfig {
 
     /// Validate configuration for consistency and safety.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        // Bind address safety: refuse 0.0.0.0 in production
-        if self.server.bind_address == "0.0.0.0" {
-            return Err(ConfigError::UnsafeBind(
-                "Binding to 0.0.0.0 is forbidden; use 127.0.0.1".to_string(),
-            ));
+        // Bind address safety: refuse every wildcard "any" address. These
+        // bind to every interface and have no legitimate use in this
+        // codebase. Session 28 strengthened this from "0.0.0.0 only" to
+        // "any IPv4/IPv6 unspecified address".
+        let bind = self.server.bind_address.trim();
+        if bind == "0.0.0.0" || bind == "::" || bind == "[::]" {
+            return Err(ConfigError::UnsafeBind(format!(
+                "Binding to wildcard address {bind:?} is forbidden; use 127.0.0.1 or ::1"
+            )));
         }
 
         // Port range validation
@@ -292,6 +296,28 @@ impl ServerConfig {
             ));
         }
 
+        Ok(())
+    }
+
+    /// Like [`Self::validate`] but additionally enforces that, under any
+    /// state that disallows network traffic ([`ConnectivityState::AirGapped`]
+    /// or [`ConnectivityState::Expired`]), the bind address is a loopback
+    /// literal. Used by the API server at startup and after every
+    /// connectivity-state transition.
+    pub fn validate_with_connectivity(
+        &self,
+        state: mai_core::airgap::ConnectivityState,
+    ) -> Result<(), ConfigError> {
+        self.validate()?;
+        if state.requires_local_only()
+            && !mai_adapters::validation::is_loopback(self.server.bind_address.trim())
+        {
+            return Err(ConfigError::UnsafeBind(format!(
+                "Bind address {:?} is non-loopback but connectivity state is {state}; \
+                 loopback (127.0.0.1 or ::1) is required",
+                self.server.bind_address
+            )));
+        }
         Ok(())
     }
 }
@@ -477,6 +503,54 @@ mod tests {
         let mut config = ServerConfig::default();
         config.server.bind_address = "0.0.0.0".to_string();
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_reject_ipv6_wildcard_bind() {
+        // Session 28 strengthened: IPv6 unspecified must also be rejected.
+        let mut config = ServerConfig::default();
+        config.server.bind_address = "::".to_string();
+        assert!(matches!(config.validate(), Err(ConfigError::UnsafeBind(_))));
+
+        config.server.bind_address = "[::]".to_string();
+        assert!(matches!(config.validate(), Err(ConfigError::UnsafeBind(_))));
+    }
+
+    #[test]
+    fn test_validate_with_connectivity_rejects_non_loopback_under_airgap() {
+        use mai_core::airgap::ConnectivityState;
+        let mut config = ServerConfig::default();
+        config.server.bind_address = "10.0.0.5".to_string();
+
+        // Connected: passes (just basic safety, no allowlist enforced at API
+        // layer — that's a separate operator policy).
+        assert!(
+            config
+                .validate_with_connectivity(ConnectivityState::Connected)
+                .is_ok()
+        );
+
+        // AirGapped: must reject non-loopback.
+        assert!(matches!(
+            config.validate_with_connectivity(ConnectivityState::AirGapped),
+            Err(ConfigError::UnsafeBind(_))
+        ));
+
+        // Expired (local-only): same as AirGapped.
+        assert!(matches!(
+            config.validate_with_connectivity(ConnectivityState::Expired),
+            Err(ConfigError::UnsafeBind(_))
+        ));
+
+        // Loopback always passes regardless of state.
+        config.server.bind_address = "127.0.0.1".to_string();
+        for state in [
+            ConnectivityState::Connected,
+            ConnectivityState::AirGapped,
+            ConnectivityState::Expired,
+        ] {
+            assert!(config.validate_with_connectivity(state).is_ok());
+        }
     }
 
     #[test]

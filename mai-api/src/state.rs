@@ -12,6 +12,7 @@ use crate::auth::AuthState;
 use crate::config::ServerConfig;
 
 use mai_adapters::manager::AdapterManager;
+use mai_core::airgap::AirGapPolicy;
 use mai_core::health::HealthMonitor;
 use mai_core::hotswap::HotSwapManager;
 use mai_core::power::PowerStateMachine;
@@ -45,6 +46,10 @@ pub struct AppState {
     pub adapter_manager: Arc<Mutex<AdapterManager>>,
     /// Metrics collector: request lifecycle, health scoring, anomaly detection
     pub metrics_collector: Arc<MetricsCollector>,
+    /// Session 28: canonical connectivity state shared with mai-adapters
+    /// and mai-compliance. Defaults to `AirGapped` when constructed via
+    /// [`AppState::new`]; override with [`AppState::with_airgap_policy`].
+    pub airgap_policy: AirGapPolicy,
 }
 
 impl AppState {
@@ -76,7 +81,17 @@ impl AppState {
             auth,
             adapter_manager,
             metrics_collector,
+            airgap_policy: AirGapPolicy::default(),
         }
+    }
+
+    /// Replace the air-gap policy in this state. Used by server bootstrap
+    /// to inject a policy that's already wired to the hardware switch
+    /// reader or to a deterministic dev-mode policy.
+    #[must_use]
+    pub fn with_airgap_policy(mut self, policy: AirGapPolicy) -> Self {
+        self.airgap_policy = policy;
+        self
     }
 }
 

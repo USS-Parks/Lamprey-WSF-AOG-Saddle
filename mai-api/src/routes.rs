@@ -117,6 +117,10 @@ pub fn build_router(state: AppState) -> Router {
 
     // System routes (mixed permissions, enforced per-handler)
     let system_routes = Router::new()
+        .route(
+            "/v1/system/airgap",
+            get(handlers::system::get_airgap_status),
+        )
         .route("/v1/power", get(handlers::system::get_power_state))
         // SDK compat: /v1/power/state aliases to get_power_state
         .route("/v1/power/state", get(handlers::system::get_power_state))

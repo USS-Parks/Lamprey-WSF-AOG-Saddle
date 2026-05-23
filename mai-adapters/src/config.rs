@@ -10,9 +10,11 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
+use mai_core::airgap::ConnectivityState;
 use mai_hil::traits::AdapterConfig;
 
 use crate::errors::FrameworkError;
+use crate::validation::validate_adapter_host;
 
 /// Discovery result for a single adapter module.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,6 +147,54 @@ impl FrameworkConfig {
         );
 
         Ok(config)
+    }
+
+    /// Validate every adapter host in this configuration against the
+    /// supplied connectivity state and operator-approved allowlist.
+    ///
+    /// Returns the first failure encountered, keyed by adapter name.
+    /// Used by [`crate::manager::AdapterManager`] at config-load time and
+    /// after every hot-reload to enforce the air-gap host policy from
+    /// Session 28.
+    pub fn validate_hosts(
+        &self,
+        state: ConnectivityState,
+        allow_list: &[String],
+    ) -> Result<(), FrameworkError> {
+        for (name, cfg) in &self.adapters {
+            if let Err(err) = validate_adapter_host(&cfg.host, state, allow_list) {
+                let fw_err: FrameworkError = err.into();
+                tracing::warn!(
+                    adapter = %name,
+                    host = %cfg.host,
+                    state = %state,
+                    "adapter host validation failed"
+                );
+                // Propagate the framework-level error with the adapter
+                // name in the message.
+                return match fw_err {
+                    FrameworkError::ConfigError { reason, .. } => {
+                        Err(FrameworkError::ConfigError {
+                            name: format!("adapter '{name}'"),
+                            reason,
+                        })
+                    }
+                    other => Err(other),
+                };
+            }
+        }
+        Ok(())
+    }
+
+    /// Return a snapshot of every (adapter_name, host) pair currently
+    /// configured. Helpful for diagnostic endpoints that want to display
+    /// the host policy state without exposing the full `AdapterConfig`.
+    #[must_use]
+    pub fn adapter_hosts(&self) -> Vec<(String, String)> {
+        self.adapters
+            .iter()
+            .map(|(name, cfg)| (name.clone(), cfg.host.clone()))
+            .collect()
     }
 
     /// Discover adapters by scanning the adapters directory for Python modules
