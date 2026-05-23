@@ -602,6 +602,43 @@ Verification:
 - `python -m pytest tools/ adapters/` on 2026-05-22: 114/114 passed (18 new Session 32 tests across `tools/trace-tools/tests/`, `tools/simulator/tests/test_simulator_extensions.py`, `tools/simulator/tests/test_replay_compare.py`).
 - End-to-end CLI smoke test: 40-event synthetic trace replayed through all 4 KV policies produced a complete Markdown comparison table with headline findings; deterministic across two identical runs.
 
+## Session 40 Completion
+
+**Date:** 2026-05-22
+**Status:** Complete (BUILD-EXECUTION-PLAN Session 40 acceptance — OCAP tribal data sovereignty engine landed)
+**Summary:** New `mai-compliance::ocap` module with the four OCAP principles enforced as routing rules: tribal-identifier detection (treaty references, reserves, clans, sacred sites, ceremonies, traditional knowledge, elder attribution, nation references), treaty-aware routing with per-deployment registry, cultural-sensitivity filter, and a unified `OcapEvaluator` that consumes the three reports plus a `&TrustContext` (Appendix A §A.13 gate) and tenant `GovernanceMetadata` (ownership flag, possession status, access role, consent status). Decisions surface trust correlation fields (`tenant_id`, `subject_hash`, `claim_id`, `trust_bundle_version`, `service_identity`, `offline_mode`, `revocation_status`) so the Session 42 audit log can record them without re-derivation. The shipped baseline patterns reference *categories* of tribal vocabulary; deployments add their nation's specific vocabulary via `config/compliance/ocap.toml` after tribal-authority review.
+**Files Changed:**
+- New: mai-compliance/src/ocap/mod.rs (~57 lines) — module wiring + re-exports
+- New: mai-compliance/src/ocap/tribal_data.rs (~573 lines) — `TribalDataDetector` with eight `TribalIdentifierKind`s and a confidence ladder (Possible &lt; Probable &lt; Explicit); blake3-hashed matched substrings; extensible pattern catalog via `with_extra_patterns`
+- New: mai-compliance/src/ocap/treaty.rs (~466 lines) — `TreatyDetector` recognises numbered (Treaty 1–11), year-prefixed (1700s–1800s), and named treaties (Jay, Fort Laramie, Medicine Creek); registry-driven `TreatyObligation`; unknown treaties default to most-restrictive (local-only + consent-review)
+- New: mai-compliance/src/ocap/cultural.rs (~449 lines) — `CulturalFilter` with five sensitivity signals (sacred knowledge, ceremonial, elder teaching, funerary, restricted ethnographic); default `min_confidence = Probable` to avoid over-firing on reviewers
+- New: mai-compliance/src/ocap/ocap_rules.rs (~956 lines) — `OcapEvaluator` with nine-stage decision pipeline: scope check → revocation gate → trust local-only ceiling → possession gate → control (authorised profiles) → sacred role check → elder role check → cultural review (consent-gated) → treaty consent → positive route-local → allow. Refuses with `OcapError::ScopeMissing` when the trust context lacks `ComplianceScope::Ocap` (configurable for bring-up). Sovereign-cloud possession degrades to RouteLocal; third-party cloud or unknown possession quarantines.
+- New: config/compliance/ocap.toml (~115 lines) — operator-facing config: detector tunables, three example treaty registry entries (Treaty 7, Jay, Fort Laramie) marked for local review, role thresholds, authorised-profile set, vocabulary-extension shape
+- Modified: mai-compliance/src/lib.rs — added `pub mod ocap;` and re-export block
+**Tests Run:**
+- `cargo test -p mai-compliance --lib`: 182/182 (101 pre-existing + 16 trust + 14 tribal_data + 11 treaty + 13 cultural + 18 ocap_rules + 9 service-identity/integration overlap).
+- `cargo test -p mai-compliance --test phi_perf`: p99 well under 10ms (unchanged).
+- `cargo check -p mai-compliance`: clean.
+- `cargo clippy -p mai-compliance --all-targets`: no errors; pedantic warnings only (style nits consistent with the rest of the crate).
+- Post-write integrity verification subagent: PASS on all 6 new files (no null bytes, brackets balanced, expected line counts ±1, correct head/tail).
+**Acceptance Criteria Verified (BUILD-EXECUTION-PLAN §1147 + roster S40):**
+- OCAP-tagged records influence routing (`tribal_owned` flag in `GovernanceMetadata` forces `tribal_data_detected = true` and possession enforcement).
+- Missing consent can block or restrict route (`ocap.cultural.review_required`, `ocap.treaty.consent_required`).
+- Local possession requirements are enforced (`ocap.possession.not_on_premises` → Quarantine for third-party cloud, RouteLocal for sovereign cloud).
+- Audit records include governance reasons (`OcapDecision.reasons: Vec&lt;OcapReason&gt;` with stable `rule` ids + summary).
+- Tests cover allowed, denied, and consent-required outcomes (`neutral_text_allows`, `unauthorised_profile_denies`, `sacred_material_requires_council_role`, `elder_attributed_material_requires_elder_role`, `cultural_review_quarantines_without_consent`, `treaty_reference_forces_local`, `revoked_claim_denies_access`).
+- Trust bundle version is recorded with OCAP decisions (`decision_records_trust_correlation_fields` test asserts `claim_id`, `tenant_id`, `subject_hash`, `trust_bundle_version`, `revocation_status` on every decision).
+- Tribal data is never routed to cloud (possession violation on non-on-premises ⇒ outcome is RouteLocal or Quarantine; no path produces `Allow` when tribal data is detected).
+- Treaty references trigger appropriate routing rules (`detects_numbered_treaty_and_flags_unknown`, `registered_treaty_uses_registry_rules`, `multiple_treaties_apply_most_restrictive`).
+- Cultural sacred content is flagged for human review (`detects_named_ceremony`, `detects_explicit_restricted_knowledge`).
+- Access controls prevent unauthorised profile access (`unauthorised_profile_denies` uses the authorised-profiles set).
+- Quarantined content is preserved for review without data loss (`OcapOutcome::Quarantine` is its own decision variant; the surrounding policy runtime — Session 41 — is the next layer that decides how to hold it).
+**BF-2 / Appendix A §A.13 Status:** The OCAP path satisfies the S40 trust-context gate end-to-end. `TrustContext` (built earlier in BF-2's backfill commit, lives in `mai-compliance::trust`) is consumed on every `OcapEvaluator::evaluate` call; scope, revocation, allowed-route ceiling, and trust-correlation fields are all wired. Residual BF-2 drift on Session 39 (`JurisdictionEvaluator::evaluate` still has the pre-trust signature) is documented in [project-mai-build-state] memory and remains a non-blocking patch — both the trust types and the OCAP consumer prove the contract works.
+**Known Issues Added or Closed:** None new. The shipped tribal-identifier pattern catalog is intentionally generic (categories of tribal vocabulary, not specific nations) — tribal-government deployments are expected to extend through `ocap.toml` after their cultural authority approves the local vocabulary. The cultural filter defaults to `min_confidence = Probable` so reviewers are not buried in Possible-only false positives.
+**Next Session Notes:** Session 41 (Policy Runtime & Rule Engine) — combines HIPAA, ITAR/EAR, and OCAP under one composer with conflict resolution (most-restrictive wins, then OCAP &gt; ITAR &gt; HIPAA priority) and decision caching. The Appendix A §A.13 S41 gate is the normalisation step where the backfill becomes clean architecture: `RequestMetadata + TrustContext + ConnectivityState + PolicyBundleVersion + ClassificationResult` collapse into a single decision input. Sessions 32-38 plus the new OCAP surface should now all consume that normalised input rather than each carrying its own subset of trust context.
+
+---
+
 ## Session 38 Completion
 
 **Date:** 2026-05-22

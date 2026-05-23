@@ -1,0 +1,59 @@
+# MAI ITAR Compliance Configuration (Session 39)
+#
+# Deserializes into mai_compliance::{ItarDetectorConfig, JurisdictionConfig}
+# at server startup. Operators tune confidence floor, ambiguity rule, and
+# the country / person allowlists to match their export-control posture.
+#
+# USML pattern extensions are loaded from this file's `[[usml.patterns]]`
+# array when the detector is built. The shipped baseline catalog is the
+# minimum acceptable set; operators are expected to add deployment-specific
+# controlled terms as their compliance team reviews them.
+
+# -- ITAR Detector --
+[itar]
+# Minimum confidence to surface in the ItarReport.
+#   "possible"  — catch every keyword overlap (most coverage)
+#   "probable"  — drop weak keyword hits
+#   "explicit"  — only structurally unambiguous USML markers
+min_confidence = "possible"
+
+# When all hits are Possible-only, promote the classification to Itar.
+# Set to false ONLY if your compliance team accepts uncontrolled routing
+# of ambiguous content. Defaults to true (most restrictive).
+default_to_itar_on_ambiguity = true
+
+# -- Jurisdiction (country / person gating) --
+[jurisdiction]
+# Country codes permitted to receive ITAR-controlled content.
+# US-only is the regulatory default. Foreign-person exemptions and
+# bilateral agreements (e.g. UK, AUS under AUKUS) should be added here
+# only after legal review.
+itar_allowed_countries = ["US"]
+
+# Countries blocked for ALL controlled content, regardless of
+# classification (OFAC SDN list overlay, ITAR §126.1 prohibited
+# destinations). Populate from the current BIS Country Group E:1, E:2
+# and OFAC lists before deployment.
+blocked_countries = []
+
+# Treat Unknown person_type as non-US person (fail-closed). Defaults to
+# true. Flip to false only when the deployment can guarantee identity
+# verification elsewhere.
+unknown_actor_fails_closed = true
+
+# Treat missing actor country as blocked for ITAR. Defaults to true.
+missing_country_fails_closed = true
+
+# -- USML pattern extensions --
+# Each entry adds an additional regex to the detector's catalog at
+# startup. Confidence values: "possible", "probable", "explicit".
+# Categories: see UsmlCategory::as_str() for the full list.
+#
+# Example:
+#   [[usml.patterns]]
+#   category = "aircraft"
+#   confidence = "explicit"
+#   pattern = "(?i)\\bSR[-\\s]?72\\b"
+#
+# (No defaults shipped here — the in-crate baseline already covers the
+# top categories. Add deployment-specific terms below as legal approves.)

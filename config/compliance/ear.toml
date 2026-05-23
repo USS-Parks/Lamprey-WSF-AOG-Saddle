@@ -1,0 +1,43 @@
+# MAI EAR Compliance Configuration (Session 39)
+#
+# Deserializes into mai_compliance::EarDetectorConfig at server startup.
+# The EAR detector is the EAR-side complement to itar.toml; both are
+# consumed by the jurisdiction module to compute the unified export
+# classification.
+
+# -- EAR Detector --
+[ear]
+# De minimis threshold (percent). Defaults to 25.0%. The standard EAR
+# de minimis rule is 25% US-controlled content for most destinations
+# and 10% for Country Groups E:1 / E:2. Deployments serving Country
+# Group E destinations MUST lower this to 10.0.
+de_minimis_threshold = 25.0
+
+# When set, generic "export-controlled" references with no specific
+# ECCN or CCL keyword promote the classification to EAR99. Defaults
+# to true; flip to false only if the deployment is comfortable
+# routing such ambiguous content as Uncontrolled.
+ear99_on_generic_reference = true
+
+# -- ECCN / CCL keyword extensions --
+# Each entry adds a regex to the detector's category-keyword catalog
+# at startup. Use this section to add deployment-specific terms,
+# such as ECCNs in active use by the customer.
+#
+# Example:
+#   [[ccl.keywords]]
+#   category = "telecom_crypto"
+#   pattern = "(?i)\\bquantum\\s+key\\s+distribution\\s+(?:product|device)\\b"
+#
+# (No defaults shipped here — the in-crate baseline catalog covers the
+# CCL categories at a representative depth.)
+
+# -- License exception overrides --
+# License Exception detection is informational; the policy runtime
+# (Session 41) decides whether a given exception applies. Add codes
+# below if your deployment uses non-standard or customer-specific
+# exception identifiers that should also be surfaced.
+#
+# Example:
+#   extra_codes = ["AVS", "GFT"]
+extra_codes = []
