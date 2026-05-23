@@ -27,14 +27,6 @@ on:
           - python-trace-sim
           - config-parse
           - burn-in
-      runner:
-        description: Runner lane
-        required: true
-        default: github-hosted
-        type: choice
-        options:
-          - github-hosted
-          - self-hosted-lamprey
 
 permissions:
   contents: read
@@ -48,7 +40,6 @@ env:
 jobs:
   github-hosted:
     name: GitHub-hosted validation
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.runner == 'github-hosted' }}
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -87,31 +78,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lamprey-validation-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
-          path: results/lamprey-validation/
-
-  self-hosted-lamprey:
-    name: Self-hosted Lamprey validation
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.runner == 'self-hosted-lamprey' }}
-    runs-on: [self-hosted, Windows, lamprey]
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Lamprey validation on local hardware
-        shell: pwsh
-        run: scripts\lamprey-validation.ps1 -Suite "$env:VALIDATION_SUITE" -Output results\lamprey-validation
-
-      - name: Publish summary
-        if: always()
-        shell: pwsh
-        run: |
-          if (Test-Path results\lamprey-validation\summary.md) {
-            Get-Content results\lamprey-validation\summary.md | Add-Content $env:GITHUB_STEP_SUMMARY
-          }
-
-      - name: Upload validation artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lamprey-self-hosted-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
           path: results/lamprey-validation/
