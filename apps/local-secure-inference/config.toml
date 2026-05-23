@@ -1,0 +1,30 @@
+# Local Secure Inference reference app — Session 30
+#
+# Settings for the chat scaffold. The MaiClient picks up MAI_BASE_URL,
+# MAI_API_KEY, etc. from the environment if you leave [client] blank.
+
+[client]
+# Optional. Overrides MAI_BASE_URL if present.
+# base_url = "http://localhost:8420/v1"
+#
+# Optional. Overrides MAI_API_KEY if present.
+# api_key = "im-..."
+
+[chat]
+# Model to use for completions. Set to "auto" to pick the first chat-capable
+# model the server reports. The scaffold validates the choice via
+# client.models.list() at startup.
+model = "auto"
+
+# Default sampling parameters. CLI flags override these.
+temperature = 0.7
+max_tokens = 512
+
+# When the server reports power_state == "sentinel" and the prompt is short,
+# the scaffold notes it but still dispatches; the scheduler will admit the
+# request and the power state machine handles promotion if needed.
+short_prompt_max_tokens = 64
+
+[ui]
+# Render scheduler metrics under each response (queue depth, wait p95).
+show_metrics = true

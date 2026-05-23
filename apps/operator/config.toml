@@ -1,0 +1,20 @@
+# Operator/Admin scaffold — Session 30
+#
+# Read-only dashboard that pulls model, scheduler, adapter, power, audit,
+# and trust-bundle status from the local MAI instance via the SDK.
+
+[client]
+# Inherits MAI_BASE_URL / MAI_API_KEY.
+
+[display]
+# Which panels to show. Set false to skip (useful for partial deployments).
+models      = true
+scheduler   = true
+adapters    = true
+power       = true
+audit       = true   # placeholder column until BF-5 audit log lands
+trust       = true   # placeholder until BF-6 — currently shows stub state
+airgap      = true
+
+# Audit preview row count.
+audit_limit = 10

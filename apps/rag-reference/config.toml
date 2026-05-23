@@ -1,0 +1,26 @@
+# RAG Reference scaffold — Session 30
+#
+# Ingests local text documents, embeds via /v1/embeddings, retrieves
+# the top-k by cosine similarity, and asks the chat model to answer
+# using the retrieved context.
+
+[client]
+# base_url and api_key inherited from env / $MAI_CONFIG.
+
+[ingest]
+# Directory to scan for .txt / .md files. Relative to this config file.
+docs_dir = "sample_docs"
+# Embedding model. Must have capabilities.embedding == true.
+embed_model = "embed-v1"
+# Max characters per chunk; long docs are split.
+chunk_chars = 800
+
+[retrieval]
+# How many chunks to pass to the LLM as context.
+top_k = 3
+
+[generation]
+# Chat model used for the final answer.
+chat_model = "qwen3-14b:Q4_K_M"
+temperature = 0.3
+max_tokens = 512

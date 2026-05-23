@@ -1,0 +1,49 @@
+# Compliance-Routed scaffold — Session 30
+#
+# Placeholder app demonstrating the integration point Lamprey (Sessions
+# 36-44) will fill. Until the server-side policy runtime is exposed via
+# /v1/compliance/*, this scaffold runs a *local* mock router that
+# evaluates a small rule table over RequestMetadata and returns the same
+# decision shape the real Lamprey will return.
+
+[client]
+# Inherits from env.
+
+[routing]
+# Local rules evaluated in order. First match wins. Each rule maps a
+# (compliance_scope, data_classification) tuple to a route decision and
+# a list of compliance flags. The shape mirrors the eventual
+# /v1/compliance/decide response.
+
+[[routing.rules]]
+match_scopes  = ["ocap"]
+match_class   = "tribal_protected"
+route         = "local_only"
+flags         = ["OCAP_REQUIRED", "NO_CLOUD"]
+reason        = "OCAP-governed data; cloud routing forbidden"
+
+[[routing.rules]]
+match_scopes  = ["itar_ear"]
+match_class   = "controlled"
+route         = "local_only"
+flags         = ["ITAR_EXPORT_CONTROL"]
+reason        = "ITAR/EAR controlled technical data; local only"
+
+[[routing.rules]]
+match_scopes  = ["hipaa"]
+match_class   = "phi"
+route         = "local_only"
+flags         = ["PHI_PROTECTED"]
+reason        = "PHI detected; HIPAA-scoped routing"
+
+[[routing.rules]]
+match_scopes  = []
+match_class   = "public"
+route         = "local_preferred"
+flags         = []
+reason        = "Default — no regulated content"
+
+[generation]
+chat_model = "qwen3-14b:Q4_K_M"
+temperature = 0.3
+max_tokens = 256
