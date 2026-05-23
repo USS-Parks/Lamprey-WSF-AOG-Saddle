@@ -5,8 +5,10 @@
 **Status:** BF-7 scenarios (Appendix A Section A.11). Absorbed by Session 46.
 **Last Updated:** 2026-05-22 (post-S44+BF-6)
 
-This file is the reproducible script catalog. Every scenario maps to
-green tests; an acquirer should be able to run each one cold.
+This is the reproducible demo catalog for MAI's local-first inference,
+Lamprey governance, and audit-proof workflow. Each scenario is written
+as a proof: what the reviewer should see, what it demonstrates, and
+where the backing tests or code live.
 
 For the buyer narrative behind these demos, see
 [`ACQUISITION-PACKAGE.md`](ACQUISITION-PACKAGE.md). For the
@@ -14,21 +16,41 @@ integration sequence, see [`BUYER-INTEGRATION-GUIDE.md`](BUYER-INTEGRATION-GUIDE
 
 ---
 
-## Headline scenario -- Trust Manifold (BF-7 primary deliverable)
+## Reviewer Path
 
-This is the eight-step Trust Manifold demo flow called out in plan
-Section A.11. It proves the entire stack: identity -> claim -> disconnect ->
-local inference -> restricted request -> enforcement -> audit linkage ->
-degraded mode.
+For a short technical review, run the Trust Manifold tests, execute the
+dry-run demo against `mai-api`, then open the dashboard and generate one
+signed compliance report. That path proves identity, policy, routing,
+local inference, audit correlation, and report verification without
+requiring a live cloud trust deployment.
 
-### Pre-flight
+For a deeper review, add the supporting HIPAA, ITAR/EAR, OCAP,
+operator, local inference, and RAG scenarios below. Each scenario is
+independently runnable and maps to green tests.
+
+---
+
+## Headline Scenario: Trust Manifold
+
+The Trust Manifold is the primary end-to-end demo. It proves the full
+chain:
+
+```text
+identity -> signed claim -> local trust cache -> restricted request
+         -> policy enforcement -> local route -> audit linkage
+         -> degraded-mode behavior
+```
+
+### What To Have Ready
 
 - Deployment profile: `mai/deployment/local-mai-node/`
 - Reference scaffold: `apps/openbao-trust-demo/`
-- Mock cloud bridge: the scaffold simulates the bridge locally until
-  live OpenBao bring-up
+- A running `mai-api` when exercising the interactive path
+- Mock cloud bridge: the scaffold mints the claim locally until live
+  OpenBao bring-up; the local trust and auth endpoints are live BF-6
+  surfaces
 
-### Eight steps
+### Eight Proof Moments
 
 | # | Step | What it proves | Where it lives |
 |---:|---|---|---|
@@ -41,7 +63,7 @@ degraded mode.
 | 7 | Audit log links credential event, policy decision, inference event | `CorrelationFields` chains `credential_event_id -> lamprey_decision_id -> mai_request_id` in Section A.9 schema | `mai-compliance/src/audit/{entry,chain,store}.rs` |
 | 8 | Expired bundle forces degraded or restricted mode | `LocalTrustCache` transitions through Connected -> Degraded -> Stale -> Expired -> Air-gapped; policy restricts route | `LocalTrustCache::connectivity_state()`; integration test `test_degraded_bundle_marks_signature_unverified` |
 
-### Run it
+### Run The Proof
 
 ```powershell
 # Full pipeline against the BF-6 live endpoints:
@@ -56,11 +78,11 @@ python apps/openbao-trust-demo/main.py --dry-run
 python apps/openbao-trust-demo/main.py --prompt "Summarize my session policy."
 ```
 
-### Expected audit-proof linkage
+### What Success Looks Like
 
-After step 7 the audit summary printed by the scaffold has the
-following shape (the `correlation_id` is the join key into the
-`AuditLog`):
+The demo prints an audit-ready summary. The `correlation_id` is the
+join key into the `AuditLog`; it is the thread that connects the
+credential event, Lamprey decision, and MAI request.
 
 ```json
 {
@@ -77,14 +99,14 @@ following shape (the `correlation_id` is the join key into the
 }
 ```
 
-A regulator (or the acquirer) can then query
+The reviewer can then query
 `GET /v1/compliance/audit?correlation_id=openbao-demo-claim-<uuid>`
 and re-verify the chain with `POST /v1/compliance/audit/verify`. The
 chain verification is BLAKE3 link + ML-DSA-87 periodic signature; off-host
 re-verification needs only the public verification key and the
 canonical JSON.
 
-### Acceptance criteria (Section A.11)
+### Acceptance Criteria
 
 - [x] Trust Manifold scenario runs end-to-end against BF-6 live endpoints
 - [x] No prompt, completion, or embedding content crosses the cloud trust
@@ -97,12 +119,12 @@ canonical JSON.
 
 ---
 
-## Supporting scenarios
+## Supporting Scenarios
 
-These rounds out the demo suite the plan calls for in Section 12.5 and
-Section A.11. Each is independently runnable.
+These scenarios round out the review. They are useful when the audience
+wants to inspect one policy family or operator surface at a time.
 
-### Healthcare scenario (HIPAA)
+### Healthcare: HIPAA
 
 - **Goal:** Show PHI detection forcing a local-only route.
 - **Scaffold:** `apps/compliance-routed/`
@@ -117,7 +139,7 @@ Section A.11. Each is independently runnable.
   output includes a `TrustSection` even though no live OpenBao is
   wired (the trust section reflects local-dev state).
 
-### Defense scenario (ITAR / EAR)
+### Defense: ITAR / EAR
 
 - **Goal:** Show controlled-technical-data detection blocking unsafe
   backends.
@@ -128,9 +150,10 @@ Section A.11. Each is independently runnable.
   `trust_bundle_version` and `service_identity`.
 - **Report:** ITAR template renders a defense-events section.
 
-### Tribal data sovereignty scenario (OCAP)
+### Tribal Data Sovereignty: OCAP
 
-- **Goal:** Show consent and possession evaluation governing route.
+- **Goal:** Show consent, possession, and sovereignty metadata governing
+  route.
 - **Scaffold:** `apps/tribal-sovereignty/`
 - **Trigger:** Submit a request with OCAP metadata indicating tribal
   health data without explicit cultural consent.
@@ -141,7 +164,7 @@ Section A.11. Each is independently runnable.
 - **Report:** OCAP template includes possession status, consent
   status, treaty consent -- every field is auditable.
 
-### Multi-domain conflict scenario
+### Multi-Domain Conflict
 
 - **Goal:** Show rule precedence resolving a multi-policy hit.
 - **Setup:** A request that triggers HIPAA + OCAP simultaneously.
@@ -151,7 +174,7 @@ Section A.11. Each is independently runnable.
 - **Verify:** `cargo test -p mai-compliance policy::composer`
   exercises the precedence matrix.
 
-### Dashboard walkthrough
+### Dashboard Walkthrough
 
 - **Goal:** Show that an operator can reach every state from one UI.
 - **Component:** `mai/compliance-dashboard/` (FastAPI)
@@ -167,7 +190,7 @@ Section A.11. Each is independently runnable.
   ITAR / OCAP outputs. Alerts page consumes the
   `/v1/compliance/feed` SSE stream live.
 
-### Operator scenario (single-pane health)
+### Operator Health
 
 - **Goal:** Show the operator/admin pane reading every health surface
   in one call.
@@ -178,13 +201,13 @@ Section A.11. Each is independently runnable.
   bundle version, claim count, offline backlog.
 - **Run:** `pytest apps/operator/tests/` (12 green).
 
-### Local secure inference scenario
+### Local Secure Inference
 
 - **Goal:** Show the minimal authenticated streaming chat path.
 - **Scaffold:** `apps/local-secure-inference/`
 - **Run:** `pytest apps/local-secure-inference/tests/` (6 green).
 
-### RAG reference scenario
+### RAG Reference
 
 - **Goal:** Show ingest -> embed -> cosine retrieval -> answer in one
   flow.
@@ -193,10 +216,12 @@ Section A.11. Each is independently runnable.
 
 ---
 
-## Combined acquisition demo (Section 12.6 of the plan)
+## Combined Acquisition Demo
 
-This is the full-platform story for an acquirer's executive
-audience. Twelve steps, all reproducible:
+This is the full-platform story for an acquirer's executive audience.
+It is the clearest "why MAI is different" path: identity stays in the
+trust plane, data stays local, policy decides before inference, and the
+audit trail can be verified afterward.
 
 1. Operator authenticates through the OpenBao-backed Trust Manifold
 2. Bridge issues a short-lived Lamprey claim
@@ -222,7 +247,7 @@ path plus the `airgap-demo` deployment profile.
 
 ---
 
-## Reproducibility checklist
+## Reproducibility Checklist
 
 A reviewer should be able to walk this in under 30 minutes:
 
