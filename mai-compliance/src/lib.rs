@@ -96,7 +96,13 @@ pub use ocap::{
     TribalDataDetectorConfig, TribalDataReport, TribalHit, TribalIdentifierKind,
 };
 pub use phi::{PhiConfidence, PhiDetector, PhiDetectorConfig, PhiHit, PhiIdentifier, PhiReport};
-pub use policy::{ClassificationResult, PolicyBundle, PolicyBundleError, RequestMetadata};
+pub use policy::{
+    AggregateDecision, AuditFeed, ClassificationResult, ComplianceFlag, ComplianceReason,
+    ComposerConfig, DecisionCache, DecisionCacheConfig, DecisionKey, Destination, FeedEvent,
+    FeedSubscriber, ModuleDecision, ModuleId, ModuleStatus, OverallStatus, PolicyBundle,
+    PolicyBundleError, PolicyComposer, PolicyManager, PolicySource, PolicyTemplate,
+    RequestMetadata, TemplateVersion,
+};
 pub use subject_hash::{SubjectHashError, hmac_subject};
 pub use tech_data::{
     HeuristicTechDataClassifier, TechDataAssessment, TechDataClassifier, TechDataConfidence,
