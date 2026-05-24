@@ -1347,7 +1347,6 @@ refresh_interval_ms = 250
 [profile]
 name = "ship17-test"
 mode = "production"
-allow_demo_defaults = false
 fail_closed = true
 
 [paths]
