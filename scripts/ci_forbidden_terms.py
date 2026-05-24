@@ -132,6 +132,7 @@ def scan(roots: list[Path], extensions: frozenset[str], terms: list[Term]) -> Sc
     result.files_scanned = len(files)
     for path in files:
         rel = repo_relative(path)
+        abs_posix = path.resolve().as_posix()
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
@@ -140,7 +141,7 @@ def scan(roots: list[Path], extensions: frozenset[str], terms: list[Term]) -> Sc
         for term in terms:
             if term.name not in text:
                 continue
-            if rel in term.allowed_paths:
+            if rel in term.allowed_paths or abs_posix in term.allowed_paths:
                 continue
             for lineno, line in enumerate(text.splitlines(), 1):
                 if term.name in line:
