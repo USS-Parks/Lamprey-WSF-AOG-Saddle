@@ -16,6 +16,7 @@ DOUGHERTY J-24 deliverable.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -62,7 +63,7 @@ class OnnxRuntimeConfig:
     def from_dict(cls, data: dict[str, object]) -> OnnxRuntimeConfig:
         """Create config from a dict (TOML / JSON section)."""
         known = {f.name for f in cls.__dataclass_fields__.values()}
-        accepted = {k: v for k, v in data.items() if k in known}
+        accepted: dict[str, Any] = {k: v for k, v in data.items() if k in known}
         rest = {k: v for k, v in data.items() if k not in known}
         cfg = cls(**accepted)
         cfg.extra.update(rest)

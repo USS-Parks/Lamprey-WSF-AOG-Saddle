@@ -13,8 +13,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
-from typing import Any
+from collections.abc import AsyncIterator, Iterator
+from typing import Any, cast
 
 from adapters.base import (
     AdapterBase,
@@ -164,29 +164,35 @@ class OpenAICompatAdapter(AdapterBase):
         if not model:
             raise ModelNotFoundError(model="")
         if self._config.prefer_endpoint == "completion":
-            resp = await asyncio.to_thread(
-                self._client.completion,
-                prompt=prompt,
-                model=self._completion_model or model,
-                temperature=params.temperature,
-                top_p=params.top_p,
-                max_tokens=params.max_tokens,
-                stop=list(params.stop_sequences) or None,
-                extra=dict(self._config.extra_request_fields) or None,
+            resp = cast(
+                OpenAICompatResponse,
+                await asyncio.to_thread(
+                    self._client.completion,
+                    prompt=prompt,
+                    model=self._completion_model or model,
+                    temperature=params.temperature,
+                    top_p=params.top_p,
+                    max_tokens=params.max_tokens,
+                    stop=list(params.stop_sequences) or None,
+                    extra=dict(self._config.extra_request_fields) or None,
+                ),
             )
             result = _result_from_completion(resp)
         else:
             messages = [{"role": "user", "content": prompt}]
-            resp = await asyncio.to_thread(
-                self._client.chat_completions,
-                messages=messages,
-                model=model,
-                temperature=params.temperature,
-                top_p=params.top_p,
-                max_tokens=params.max_tokens,
-                stop=list(params.stop_sequences) or None,
-                stream=False,
-                extra=dict(self._config.extra_request_fields) or None,
+            resp = cast(
+                OpenAICompatResponse,
+                await asyncio.to_thread(
+                    self._client.chat_completions,
+                    messages=messages,
+                    model=model,
+                    temperature=params.temperature,
+                    top_p=params.top_p,
+                    max_tokens=params.max_tokens,
+                    stop=list(params.stop_sequences) or None,
+                    stream=False,
+                    extra=dict(self._config.extra_request_fields) or None,
+                ),
             )
             result = _result_from_chat(resp)
         self._requests_served += 1
@@ -202,16 +208,19 @@ class OpenAICompatAdapter(AdapterBase):
         if not model:
             raise ModelNotFoundError(model="")
         messages = [{"role": "user", "content": prompt}]
-        chunks = await asyncio.to_thread(
-            self._client.chat_completions,
-            messages=messages,
-            model=model,
-            temperature=params.temperature,
-            top_p=params.top_p,
-            max_tokens=params.max_tokens,
-            stop=list(params.stop_sequences) or None,
-            stream=True,
-            extra=dict(self._config.extra_request_fields) or None,
+        chunks = cast(
+            Iterator[OpenAICompatStreamChunk],
+            await asyncio.to_thread(
+                self._client.chat_completions,
+                messages=messages,
+                model=model,
+                temperature=params.temperature,
+                top_p=params.top_p,
+                max_tokens=params.max_tokens,
+                stop=list(params.stop_sequences) or None,
+                stream=True,
+                extra=dict(self._config.extra_request_fields) or None,
+            ),
         )
         token_index = 0
         saw_any = False
@@ -282,7 +291,7 @@ class OpenAICompatAdapter(AdapterBase):
             payload = await asyncio.to_thread(self._client.models)
         except (BackendUnavailableError, ModelNotFoundError):
             return HealthStatus.unavailable()
-        except Exception:  # noqa: BLE001 - never raise raw backend errors here.
+        except Exception:
             logger.warning("openai_compat health probe failed", exc_info=True)
             return HealthStatus.unavailable()
         uptime = int(time.time() * 1000) - self._start_time_ms

@@ -78,7 +78,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     @property
     def state(self) -> _FakeTritonState:
-        return self.server.state  # type: ignore[attr-defined]
+        return self.server.state
 
     def setup(self) -> None:
         super().setup()
@@ -146,7 +146,7 @@ def fake_triton() -> Iterator[tuple[_FakeTritonState, int]]:
     port = _pick_free_port()
     state = _FakeTritonState()
     server = ThreadingHTTPServer(("127.0.0.1", port), _Handler)
-    server.state = state  # type: ignore[attr-defined]
+    server.state = state
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -218,8 +218,8 @@ async def test_generate_against_fake_triton(
     try:
         result = await adapter.generate("Say OK.", GenerationParams(max_tokens=8))
         assert hasattr(result, "text")
-        assert result.text == "OK"  # type: ignore[union-attr]
-        assert result.tokens_generated == 1  # type: ignore[union-attr]
+        assert result.text == "OK"
+        assert result.tokens_generated == 1
     finally:
         await adapter.shutdown()
 
@@ -272,7 +272,7 @@ async def test_streaming_against_fake_triton(
         result = await adapter.generate(
             "say hi", GenerationParams(max_tokens=8), stream=True,
         )
-        async for tok in result:  # type: ignore[union-attr]
+        async for tok in result:
             tokens.append(tok)
         assert "".join(t.text for t in tokens) == "Hello"
         assert tokens[-1].is_end_of_text is True

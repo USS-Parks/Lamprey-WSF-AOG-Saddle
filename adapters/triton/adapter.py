@@ -358,7 +358,7 @@ class TritonAdapter(AdapterBase):
         if self._client is not None:
             try:
                 self._client.close()
-            except Exception:  # noqa: BLE001 - shutdown must not raise
+            except Exception:
                 logger.exception("error closing triton client")
         self._client = None
         self._initialized = False

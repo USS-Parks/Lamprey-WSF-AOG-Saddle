@@ -134,7 +134,7 @@ async def test_streaming_against_real_triton(
             GenerationParams(temperature=0.0, max_tokens=8),
             stream=True,
         )
-        async for tok in result:  # type: ignore[union-attr]
+        async for tok in result:
             tokens.append(tok)
         # Non-empty content arrived AND ended cleanly with the EOT marker.
         non_empty = [t for t in tokens if t.text]

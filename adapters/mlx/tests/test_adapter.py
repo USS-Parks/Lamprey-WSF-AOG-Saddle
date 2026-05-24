@@ -14,8 +14,9 @@ Minimums; every required behavior has at least one meaningful assert.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
 from types import SimpleNamespace
-from typing import Any, Iterator
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -66,8 +67,7 @@ def _fake_mlx_module(
         return generate_text
 
     def fake_stream_generate(_m, _t, *, prompt, max_tokens, temp, top_p) -> Iterator[str]:
-        for c in chunks:
-            yield c
+        yield from chunks
 
     return SimpleNamespace(
         load=fake_load,
@@ -193,7 +193,7 @@ class TestMLXClient:
 
     def test_stream_generate_handles_token_objects(self):
         chunks = [SimpleNamespace(text="a"), SimpleNamespace(text="b")]
-        fake = _fake_mlx_module(stream_chunks=chunks)  # type: ignore[arg-type]
+        fake = _fake_mlx_module(stream_chunks=chunks)
         client = MLXClient(model_path="/m", mlx_module=fake)
         client.load()
         out = list(client.stream_generate(
@@ -323,10 +323,10 @@ class TestMLXAdapterGeneration:
         adapter._initialized = True
         adapter._start_time_ms = 1
 
-        async def slow_wait(coro, *_a, **_k):
+        async def slow_wait(coro: Any, *_a: Any, **_k: Any) -> None:
             # Close the wrapped coroutine so it does not leak un-awaited.
             coro.close()
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
         monkeypatch.setattr(asyncio, "wait_for", slow_wait)
         with pytest.raises(AdapterTimeoutError):
@@ -334,7 +334,7 @@ class TestMLXAdapterGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_backend_crash_during_call(self):
-        def boom(*_a, **_k):
+        def boom(*_a: Any, **_k: Any) -> None:
             raise MLXLoadError("client not loaded")
 
         fake = _fake_mlx_module()

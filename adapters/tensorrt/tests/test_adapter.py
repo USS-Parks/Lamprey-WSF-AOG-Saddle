@@ -365,7 +365,7 @@ class TestGenerateStreaming:
         )
         tokens: list[Token] = []
         result = await adapter.generate("Capital of France?", GenerationParams(), stream=True)
-        async for tok in result:  # type: ignore[union-attr]
+        async for tok in result:
             tokens.append(tok)
         assert "".join(t.text for t in tokens) == "Paris."
         # Indices are monotonically non-decreasing (EOT marker may share an index).
@@ -384,7 +384,7 @@ class TestGenerateStreaming:
         )
         tokens: list[Token] = []
         result = await adapter.generate("hi", GenerationParams(), stream=True)
-        async for tok in result:  # type: ignore[union-attr]
+        async for tok in result:
             tokens.append(tok)
         assert tokens[-1].is_end_of_text is True
 
@@ -403,7 +403,7 @@ class TestGenerateStreaming:
         client.generate.return_value = _bad_stream()
         result = await adapter.generate("hi", GenerationParams(), stream=True)
         with pytest.raises(BackendCrashedError):
-            async for _tok in result:  # type: ignore[union-attr]
+            async for _tok in result:
                 pass
 
 
@@ -586,7 +586,7 @@ class TestClientErrorMapping:
         err = urllib.error.HTTPError(
             "http://x/y", 404, "Not Found", {}, io.BytesIO(b'{"error":"no such model"}'),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(ModelNotFoundError) as excinfo:
@@ -598,7 +598,7 @@ class TestClientErrorMapping:
         err = urllib.error.HTTPError(
             "http://x/y", 429, "Too Many", {}, io.BytesIO(b'{"error":"slow down"}'),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(RateLimitedError):
@@ -610,7 +610,7 @@ class TestClientErrorMapping:
             "http://x/y", 413, "Too Big", {},
             io.BytesIO(b'{"error":"context length exceeded"}'),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(ContextExceededError):
@@ -622,7 +622,7 @@ class TestClientErrorMapping:
             "http://x/y", 500, "Server Error", {},
             io.BytesIO(b'{"error":"CUDA out of memory"}'),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(OutOfMemoryError):
@@ -634,7 +634,7 @@ class TestClientErrorMapping:
             "http://x/y", 502, "Bad Gateway", {},
             io.BytesIO(b'{"error":"upstream died"}'),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(BackendCrashedError):
@@ -645,7 +645,7 @@ class TestClientErrorMapping:
         err = urllib.error.HTTPError(
             "http://x/y", 504, "Gateway Timeout", {}, io.BytesIO(b""),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(AdapterTimeoutError):
@@ -654,7 +654,7 @@ class TestClientErrorMapping:
     def test_urlerror_timeout_raises_timeout(self) -> None:
         client = _new_client()
         err = urllib.error.URLError(reason="timed out")
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(AdapterTimeoutError):
@@ -663,7 +663,7 @@ class TestClientErrorMapping:
     def test_urlerror_refused_raises_unavailable(self) -> None:
         client = _new_client()
         err = urllib.error.URLError(reason="Connection refused")
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         with pytest.raises(BackendUnavailableError):
@@ -671,7 +671,7 @@ class TestClientErrorMapping:
 
     def test_malformed_json_body_raises_crashed(self) -> None:
         client = _new_client()
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: _FakeHTTPResponse(b"not-json", status=200),
         )
         with pytest.raises(BackendCrashedError):
@@ -688,7 +688,7 @@ class TestClientPooling:
             seen.append(id(client._opener))
             return _FakeHTTPResponse(b'{"text_output":"ok","output_tokens":1}')
 
-        client._opener = _CountingOpener(_responder)  # type: ignore[assignment]
+        client._opener = _CountingOpener(_responder)
         client.generate("m", "hello")
         client.generate("m", "world")
         assert len(seen) == 2
@@ -720,27 +720,27 @@ class TestClientStreaming:
             b'data: {"text_output":"lo","is_final":true}\n'
             b"data: [DONE]\n"
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: _FakeHTTPResponse(sse, status=200),
         )
-        chunks = list(client.generate("m", "hi", stream=True))  # type: ignore[arg-type]
+        chunks = list(client.generate("m", "hi", stream=True))
         assert [c.text for c in chunks] == ["Hel", "lo"]
         assert chunks[-1].finished is True
 
     def test_sse_malformed_frame_raises(self) -> None:
         client = _new_client()
         sse = b'data: not-json\n'
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: _FakeHTTPResponse(sse, status=200),
         )
         with pytest.raises(BackendCrashedError):
-            list(client.generate("m", "hi", stream=True))  # type: ignore[arg-type]
+            list(client.generate("m", "hi", stream=True))
 
 
 class TestClientHealth:
     def test_health_true_on_200(self) -> None:
         client = _new_client()
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: _FakeHTTPResponse(b"{}", status=200),
         )
         assert client.health() is True
@@ -748,7 +748,7 @@ class TestClientHealth:
     def test_health_false_on_error(self) -> None:
         client = _new_client()
         err = urllib.error.URLError(reason="Connection refused")
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         assert client.health() is False
@@ -758,7 +758,7 @@ class TestClientHealth:
         err = urllib.error.HTTPError(
             "http://x/y", 404, "Not Found", {}, io.BytesIO(b'{"error":"no model"}'),
         )
-        client._opener = _CountingOpener(  # type: ignore[assignment]
+        client._opener = _CountingOpener(
             lambda *_: (_ for _ in ()).throw(err),
         )
         assert client.model_ready("missing") is False

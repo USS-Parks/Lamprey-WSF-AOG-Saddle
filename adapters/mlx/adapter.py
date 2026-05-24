@@ -140,7 +140,7 @@ class MLXAdapter(AdapterBase):
                 ),
                 timeout=self._config.timeout_ms / 1000.0,
             )
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise AdapterTimeoutError(self._config.timeout_ms) from e
         except MLXLoadError as e:
             raise BackendUnavailableError(detail=str(e)) from e

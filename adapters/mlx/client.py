@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 import platform
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 logger = logging.getLogger("mai.adapters.mlx.client")
 
@@ -115,7 +116,7 @@ class MLXClient:
             )
         except FileNotFoundError as e:
             raise MLXLoadError(f"model path not found: {self.model_path}") from e
-        except Exception as e:  # noqa: BLE001 — re-raised as typed
+        except Exception as e:
             raise MLXLoadError(f"mlx-lm load failed: {e}") from e
 
         self._backend_version = getattr(self._mlx_lm, "__version__", "unknown")
@@ -197,7 +198,7 @@ class MLXClient:
         try:
             encoded = self._tokenizer.encode(text)
             return len(encoded)
-        except Exception:  # noqa: BLE001 — fall back, never raise
+        except Exception:
             return max(1, len(text) // 4)
 
     def close(self) -> None:

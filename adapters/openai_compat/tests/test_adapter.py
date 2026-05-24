@@ -675,7 +675,7 @@ class TestErrorMapping:
                 return self
             def __exit__(self, *_args: Any) -> None:
                 return None
-        client._opener = type("O", (), {"open": lambda self, req, timeout: _FakeResp()})()  # type: ignore[assignment]
+        client._opener = type("O", (), {"open": lambda self, req, timeout: _FakeResp()})()
         with pytest.raises(ValidationError):
             client._request("GET", "/v1/models")
 
@@ -728,7 +728,7 @@ class TestGenerateBatch:
             await adapter.initialize(_config_for(url))
             try:
                 with pytest.raises(ValidationError):
-                    await adapter.generate_batch("not a list", GenerationParams())  # type: ignore[arg-type]
+                    await adapter.generate_batch("not a list", GenerationParams())
             finally:
                 await adapter.shutdown()
 
@@ -878,10 +878,10 @@ class TestShutdownAndLifecycle:
             adapter = OpenAICompatAdapter()
             await adapter.initialize(_config_for(url))
             try:
-                opener_before = adapter._client._opener  # type: ignore[union-attr]
+                opener_before = adapter._client._opener
                 await adapter.generate("a", GenerationParams())
                 await adapter.generate("b", GenerationParams())
-                opener_after = adapter._client._opener  # type: ignore[union-attr]
+                opener_after = adapter._client._opener
                 assert opener_before is opener_after
                 assert recipe.request_count.get("chat") == 2
             finally:
