@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-23 (post-BF-7 + SHIP-07-convergence; Trust Manifold backfill lane closed; demo-default defaults no longer reachable when `MAI_SHIP_PROFILE` is set)
+**Last Updated:** 2026-05-23 (post-SHIP-16 final audit pass; mypy adapter override shrunk; §15 grep sweep classified; remaining stub residue documented below)
 
 ---
 
@@ -83,6 +83,61 @@ SHIP-07 convergence (commit `48c7d2e`) wired all four builders into `MaiServer::
 **Status:** Carried forward from SHIP-07 convergence checklist.
 
 `audit_wal.rs` duplicates `audit.rs::GENESIS_HASH` because SHIP-04 was committed in parallel with SHIP-05's `pub(crate)` promotion. The inline test will fail closed if the canonical value ever drifts. Safe to remove in a follow-up cleanup commit.
+
+### 13. `load_auth_state` ignores ship-profile `auth.auth_keys_path` (SHIP-16 finding)
+
+**Severity:** High (silent first-boot fallback in misconfigured production)
+**Affects:** `mai-api/src/server.rs:61` (`AUTH_KEYS_CONFIG_PATH` constant), `mai-api/src/server.rs:627` (`load_auth_state`).
+**Status:** Surfaced 2026-05-23 by the SHIP-16 §15 grep sweep; not addressed in SHIP-16 itself (audit pass only). Tracked for the SHIP-17 follow-up cleanup commit.
+
+`load_auth_state()` hard-codes `config/auth_keys.toml` (relative to CWD) and never reads `profile.auth.auth_keys_path` from the parsed ship profile. If a production ship profile points `auth.auth_keys_path` at a path that is not `config/auth_keys.toml` (e.g. the documented `/etc/mai/auth_keys.toml`), and the legacy CWD-relative file is absent, `load_auth_state` falls through to the first-boot path. That path prints a fresh admin key to stdout and sets `store.allow_internal_profile_header = true` on the in-memory `ApiKeyStore`. The production guard's `PROD-AUTH-002` rejects `profile.auth.allow_internal_profile_header = true`, but it does NOT cross-check the runtime store. The middleware at `mai-api/src/auth.rs:478` honors the runtime store flag, so the internal-profile bypass becomes live for as long as the server stays up. `PROD-AUTH-100` (runtime `auth_keys_nonempty`) still reports Pass because the freshly generated first-boot key keeps `auth_key_count >= 1`.
+
+**Mitigations in place:**
+- Operators following `docs/FIRST-BOOT.md` and `docs/SECURITY-PRODUCTION.md` install `/etc/mai/auth_keys.toml` before first boot, so the first-boot fallback is not triggered.
+- `PROD-AUTH-001` rejects an empty `auth.auth_keys_path`, so the misconfiguration only fires when the operator sets a path that does not match `config/auth_keys.toml`.
+
+**Required fix (SHIP-17):**
+1. `load_auth_state` must take `&ShipProfile` and read `profile.auth.auth_keys_path` instead of the constant.
+2. Gather the actual loaded `allow_internal_profile_header` into `RuntimeChecks` and add a new `PROD-AUTH-101` runtime check that fails when the runtime store has the bypass enabled under a production profile.
+3. Refuse first-boot path entirely under `ProfileMode::Production`; fail closed with `ServerError::Init` instead.
+
+### 14. SHIP-16 final audit pass — §15 classification (informational)
+
+**Severity:** Informational (no change in shippability; documents the residue the audit pass left in place)
+**Affects:** Documentation only.
+**Status:** Closed 2026-05-23 (this is the SHIP-16 deliverable).
+
+The SHIP-16 §15 grep sweep ran the term list from `docs/SHIP-HARDENING-PLAN.md` §15 against the production crate roots. Every remaining occurrence has been classified.
+
+| Term | Live occurrences in production crate src/ | Classification |
+|---|---|---|
+| `StubVault` | 4 files (server.rs, lib.rs, production_guard.rs, vault_builder.rs) | dev/test fixture + rejection wiring; allowlisted in `config/forbidden-terms.toml`. Reachable only on the no-profile bring-up path (tests + local-dev). `PROD-VAULT-001/002/100` reject in production. |
+| `MemoryAuditWriter` | 5 files (audit.rs, audit_wal.rs, lib.rs, production_guard.rs, server.rs) | dev/test fixture + rejection wiring; allowlisted. `PROD-AUDIT-001/002/100` reject in production. |
+| `AcceptAllBundleVerifier` | 6 files (state.rs, trust_builder.rs, production_guard.rs, mai-compliance bundle.rs, trust_cache.rs, lib.rs) | bring-up default + rejection wiring; allowlisted. `PROD-TRUST-001/002/100` reject in production. |
+| `NullSealer` | 8 files (mai-api lib.rs/production_guard.rs/sealer_builder.rs, mai-compliance audit/api.rs/mod.rs/sealer.rs/store.rs/lib.rs) | bring-up default + rejection wiring; allowlisted. `PROD-AUDIT-005/101` reject in production. |
+| `dashboard-dev` | 1 file (production_guard.rs error string) | rejection wiring only. Dashboard default value lives in `compliance-dashboard/util.py`; covered by issue 10 above. |
+| `LocalDevSynthetic` | 4 files (trust_builder.rs, state.rs, production_guard.rs, handlers/trust.rs) | enum variant + rejection wiring; `PROD-TRUST-003` rejects `trust.allow_local_dev_exchange = true` in production. |
+| `allow_internal_profile_header = true` | 2 files (auth.rs:357 — `AuthState::local_trust` helper; server.rs:679 — first-boot fallback) | auth.rs:357 is a dev-only helper. server.rs:679 is the first-boot fallback flagged in issue 13 above. |
+| `placeholder` | 9 files | Mix: (a) legitimate domain term in `mai-compliance/src/deid.rs` (the redaction string itself); (b) deferred-runtime-check wording in `production_guard.rs`; (c) `mai-core/src/sentinel/promotion.rs` user-visible "Processing your request..." string; (d) real stubs in `mai-api/src/grpc/registry.rs::scan_models`, `mai-api/src/grpc/inference.rs::Stream*`, `mai-api/src/streaming/ws.rs` (carried by issue 6 / Session 11e); (e) profile-metadata stubs in `mai-api/src/handlers/models.rs:129-131`. None block ship; gRPC + streaming placeholders carry forward per the comments in source. |
+| `out of scope` | 10 files | Doc-comment scope statements ("Out of scope (SHIP-04):"); no source-level stubs. |
+| `production wires` | 4 files (state.rs:64, state.rs:68, mai-compliance audit/store.rs:90, mai-compliance audit/api.rs:62) | Doc-comment contract statements ("default is X; production wires Y"). Not stale — they describe the rejection wiring that lives in `production_guard.rs`. |
+| `operator's responsibility` | 1 file (tools/mai-admin/src/restore.rs:44) | Doc comment describing operator-owned packaging concern. |
+| `TODO` | 3 files (`mai-adapters/src/manager.rs:586`, `mai-core/src/models/usb.rs:161`, `mai-scheduler/src/default.rs:394/399/402`) | Three carry session-pinned follow-ups (Session 19/22 metrics integration); one (`manager.rs`) is a known scheduler integration gap. None block ship. |
+| `FIXME`, `unimplemented!` | 0 in src | clean. |
+| `todo!()` (Rust macro that panics) | 17 calls in `mai-sdk-rs/src/lib.rs` | The Rust SDK crate is type-definition-only; the HTTP client methods were never implemented. `mai-sdk-python` is the supported SDK and is mypy-strict clean. The Rust SDK is a workspace member with no in-tree consumer; the panics are unreachable in shipped binaries. Tracked as deferred item below. |
+| `deferred` | 12 files | Dominated by `production_guard.rs` (46 occurrences of the `CheckStatus::Deferred` enum variant — legitimate spec terminology); the rest are doc-comment scope statements. |
+
+### 15. `mai-sdk-rs` HTTP client methods are `todo!()` stubs
+
+**Severity:** Low (no in-tree consumer; Python SDK is the supported client; `mai-sdk-rs` is a workspace member but not a shipped runtime dependency)
+**Affects:** `mai-sdk-rs/src/lib.rs:768-887` — 17 `todo!("Session 11: …")` calls across the chat, completion, embedding, model, health, power, profile, audit, and SSE-stream surfaces.
+**Status:** Surfaced 2026-05-23 by the SHIP-16 §15 grep sweep. Pre-dates the hardening lane.
+
+The original Session 11 plan called for parallel Rust + Python SDKs. Only the Python SDK reached production. The Rust SDK's types and trait surface compile (and are linked from a few doc examples) but every method that touches the wire panics with `todo!("Session 11: HTTP client")`. There is no in-tree caller; `grep -r mai_sdk_rs` returns only the crate's own files plus docs.
+
+**Mitigation:** Documented in this entry and `docs/INTEGRATION-COVERAGE.md`. The Python SDK (`mai-sdk-python/src/`) is the only supported client surface and is mypy-strict clean.
+
+**Required fix (deferred — not on the ship-hardening critical path):** Either implement the Rust SDK HTTP client, or excise `mai-sdk-rs` from the workspace + remove the doc references. Tracked but not blocking SHIP-16.
 
 ---
 

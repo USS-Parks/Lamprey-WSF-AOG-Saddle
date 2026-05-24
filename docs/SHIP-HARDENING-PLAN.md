@@ -1346,6 +1346,38 @@ end.
 - Update `KNOWN-ISSUES.md`.
 - Run all no-GPU gates.
 
+**Status (2026-05-23): done.** §15 grep sweep ran against the
+production crate roots declared in `config/forbidden-terms.toml`; every
+hit is classified in the new issue 14 of `docs/KNOWN-ISSUES.md`. The
+sweep surfaced one previously-undocumented production-safety gap
+(`load_auth_state` ignores `profile.auth.auth_keys_path` — see issue
+13) and one historical workspace artefact (`mai-sdk-rs` HTTP client
+methods are `todo!()` stubs — see issue 15); both are flagged for
+follow-up but do not block the ship lane because the production guard
+plus the operator docs (`docs/FIRST-BOOT.md`,
+`docs/SECURITY-PRODUCTION.md`) keep the misconfiguration off the
+default path and the Rust SDK has no in-tree consumer.
+
+`config/forbidden-terms.toml` allowed_paths drain: every listed path
+still legitimately contains its term (type definitions, builders, or
+the `production_guard.rs` rejection wiring), so the allowlist length
+does not shrink in this pass. The scanner reports `PASS (204 files,
+6 terms, 0 disallowed hits)` against `main`.
+
+SHIP-12 mypy adapter override shrink: `pyproject.toml` split the
+single `adapters.*` block into a production-adapter override and a
+tests-only override. Three error codes (`index`, `type-arg`,
+`arg-type`) and one dead code (`unused-ignore`) were dropped from the
+production block. Two now-unused `# type: ignore[union-attr]` comments
+in `adapters/ollama/adapter.py` were removed alongside. `mypy --strict
+mai-sdk-python/src/` and `mypy adapters/` both remain green; all 10
+`tools/ship12_tests/test_ci_enforcement.py` regression tests pass.
+
+No-GPU gates run: see commit body for the gate matrix and the exact
+exit codes for `cargo check`, `cargo clippy`, `cargo fmt`,
+`cargo test`, `ruff`, `mypy --strict mai-sdk-python/src/`, `mypy
+adapters/`, and `python3 scripts/ci_forbidden_terms.py`.
+
 ---
 
 ## 15. Search Terms for Every Session

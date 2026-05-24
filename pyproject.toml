@@ -53,14 +53,19 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 
-# SHIP-12 grandfathered relaxations.
+# SHIP-12 grandfathered relaxations, shrunk in SHIP-16.
 #
 # The mai-sdk-python tree (mai-sdk-python/src/) is mypy --strict clean
 # and is the hard gate in CI (.github/workflows/ship-validation.yml).
-# The adapter tree pre-dates strict typing; the override below records
+# The adapter tree pre-dates strict typing; the overrides below record
 # every error class we are deliberately tolerating today so the gate
-# fails closed on anything new. SHIP-16 final-pass owns shrinking this
-# block to empty.
+# fails closed on anything new.
+#
+# SHIP-16 split the original single block into a tests-only override
+# and a production-adapter override so the production adapter code
+# tolerates a strict subset (no test-only codes). Codes that did not
+# fire anywhere were dropped entirely. The next time an adapter is
+# typed cleanly, drop its disabled codes from the production block.
 [[tool.mypy.overrides]]
 module = ["adapters.*"]
 strict_optional = false
@@ -69,15 +74,26 @@ disable_error_code = [
     "no-untyped-call",
     "no-any-return",
     "union-attr",
-    "index",
     "attr-defined",
     "call-arg",
     "assignment",
     "override",
+    "return-value",
+]
+
+# Test-file additions: adapter tests use pytest fixtures with implicit
+# Any types and exercise __getitem__/Mapping calls that the production
+# override does not need to tolerate.
+[[tool.mypy.overrides]]
+module = [
+    "adapters.tests.*",
+    "adapters.*.tests.*",
+]
+strict_optional = false
+disable_error_code = [
+    "index",
     "type-arg",
     "arg-type",
-    "return-value",
-    "unused-ignore",
 ]
 
 [tool.pytest.ini_options]

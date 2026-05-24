@@ -101,7 +101,7 @@ The test target name is `ship_profile`; both the unit tests in
 | SHIP-13 | **done** | GPU release workflow on `[self-hosted, gpu, mai-release]`, benchmark thresholds, signed release bundle. Commit `7b746c0`. |
 | SHIP-14 | **done** | 72-hour burn-in driver (`scripts/burn-in-72h.{sh,ps1}`), ML-DSA-87 signed burn-in report, smoke mode. Commits `7fc7e83` + `803fc0f`. |
 | SHIP-15 | **done** | Operator docs (`INSTALL.md`, `FIRST-BOOT.md`, `OPERATIONS.md`, `BACKUP-RESTORE.md`, `OBSERVABILITY.md`, `RELEASE-GATES.md`, `SECURITY-PRODUCTION.md`, `TRUST-BRIDGE-PRODUCTION.md`, `AUDIT-RETENTION.md`, `UPGRADE-ROLLBACK.md`, `INCIDENT-RESPONSE.md`) + 14 runbooks under `docs/runbooks/`. Stale "production wires later" language removed where the wiring has landed. |
-| SHIP-16 | pending  | Final audit pass — sweep for any remaining demo-shortcut symbols and update `KNOWN-ISSUES.md`. |
+| SHIP-16 | **done** | Final audit pass — §15 grep sweep across production crate roots; every forbidden-term and stub-related residue classified in `KNOWN-ISSUES.md` issue 14. SHIP-12 mypy adapter override split into production + tests-only blocks (dropped `index`, `type-arg`, `arg-type`, `unused-ignore` from the production block). Two new follow-ups surfaced and recorded: `load_auth_state` ignores the ship profile's `auth.auth_keys_path` (issue 13), and `mai-sdk-rs` HTTP client methods are `todo!()` stubs (issue 15). Neither blocks the lane; both are tracked. `python3 scripts/ci_forbidden_terms.py` remains `PASS (204 files, 6 terms, 0 disallowed hits)`. |
 
 ### SHIP-02 readiness output (config-only pass — `mai-api validate`)
 

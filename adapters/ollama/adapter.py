@@ -151,7 +151,7 @@ class OllamaAdapter(AdapterBase):
             keep_alive=self._config.keep_alive,
         )
         # stream is an Iterator when stream=True
-        for chunk in stream:  # type: ignore[union-attr]
+        for chunk in stream:
             chunks.append(chunk)
         return chunks
 
@@ -187,7 +187,7 @@ class OllamaAdapter(AdapterBase):
             keep_alive=self._config.keep_alive,
         )
         # Non-streaming returns OllamaResponse
-        body = resp.body  # type: ignore[union-attr]
+        body = resp.body
         text = body.get("response", "")
         eval_count = body.get("eval_count", 0)
 
