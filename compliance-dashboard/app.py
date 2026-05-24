@@ -1,12 +1,13 @@
 """MAI Compliance Dashboard FastAPI app (Session 44).
 
-Single-process operator console. Renders six pages:
+Single-process operator console. Renders seven pages:
 
 * ``/``         — Overview: trust mode, module status, recent activity.
 * ``/audit``    — Audit log viewer (searchable, paginated).
 * ``/reports``  — Report list + generation form.
 * ``/policy``   — Policy templates + per-module toggles.
 * ``/alerts``   — Real-time alert feed (SSE in the browser).
+* ``/monitoring`` — Runtime probes, scheduler, power, trust, metrics.
 * ``/health``   — Compliance module health snapshot.
 
 Every page calls the mai-api ``/v1/compliance/*`` and ``/v1/trust/*``
@@ -21,16 +22,15 @@ Run with::
 from __future__ import annotations
 
 import html
-from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-
 from mai.client import MaiClient
 from mai.errors import MaiError
 
 from .alerts import severity_for
 from .audit_viewer import AuditFilter, flatten_rows, normalise_decision, normalise_module
+from .monitoring import MonitorPanel, collect_monitoring_snapshot
 from .reports import (
     FORMAT_CHOICES,
     TEMPLATE_CHOICES,
@@ -57,24 +57,49 @@ def get_client() -> MaiClient:
     return build_client()
 
 
+ADMIN_DEP = Depends(require_admin)
+CLIENT_DEP = Depends(get_client)
+
+
 # --- Page chrome -----------------------------------------------------
 
 _BASE_CSS = """
-body { font-family: -apple-system, system-ui, sans-serif; max-width: 1100px;
-       margin: 2rem auto; color: #1a1a1a; }
-nav a { margin-right: 1rem; }
-table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left;
+:root { color-scheme: light; --ink: #182026; --muted: #5c6770;
+        --line: #d9dee3; --panel: #ffffff; --band: #f4f7f9;
+        --ok-bg: #dcefe5; --ok-ink: #155b35; --warn-bg: #fff1c7;
+        --warn-ink: #765200; --crit-bg: #f8d5d1; --crit-ink: #84251f; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+       margin: 0; color: var(--ink); background: var(--band); }
+body > h1, body > nav, body > .section, body > .monitor-grid {
+       max-width: 1180px; margin-left: auto; margin-right: auto; }
+body > h1 { margin-top: 1.5rem; margin-bottom: 0.75rem; font-size: 1.75rem; }
+nav { display: flex; flex-wrap: wrap; gap: 0.5rem; padding-bottom: 1rem; }
+nav a { color: var(--ink); text-decoration: none; border: 1px solid var(--line);
+        background: var(--panel); padding: 0.45rem 0.7rem; border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; margin-top: 1rem; background: var(--panel); }
+th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left;
          vertical-align: top; font-size: 0.9rem; }
-th { background: #f5f5f5; }
+th { background: #e9eef2; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
-         font-size: 0.8rem; font-weight: 600; }
-.badge.ok { background: #c8e6c9; color: #1b5e20; }
-.badge.warn { background: #fff3cd; color: #856404; }
-.badge.crit { background: #f8d7da; color: #721c24; }
-.section { margin-top: 2rem; }
+         font-size: 0.8rem; font-weight: 700; }
+.badge.ok { background: var(--ok-bg); color: var(--ok-ink); }
+.badge.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.badge.crit { background: var(--crit-bg); color: var(--crit-ink); }
+.section { margin-top: 1rem; background: var(--panel); border: 1px solid var(--line);
+           border-radius: 8px; padding: 1rem; }
+.monitor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+                gap: 0.9rem; margin-top: 1rem; margin-bottom: 2rem; }
+.monitor-panel { background: var(--panel); border: 1px solid var(--line);
+                 border-radius: 8px; padding: 1rem; min-height: 220px; }
+.monitor-panel h2 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+.monitor-panel p { margin: 0.35rem 0 0.7rem; color: var(--muted); }
+.monitor-panel dl { display: grid; grid-template-columns: minmax(110px, 42%) 1fr;
+                    gap: 0.4rem 0.7rem; margin: 0; }
+.monitor-panel dt { color: var(--muted); }
+.monitor-panel dd { margin: 0; overflow-wrap: anywhere; }
 form input, form select, form button { font-size: 1rem; padding: 4px 8px; }
-form label { display: inline-block; min-width: 140px; }
+form label { display: inline-block; min-width: 140px; margin-bottom: 0.4rem; }
 """
 
 
@@ -82,7 +107,8 @@ def _nav() -> str:
     return (
         '<nav><a href="/">Overview</a> <a href="/audit">Audit</a> '
         '<a href="/reports">Reports</a> <a href="/policy">Policy</a> '
-        '<a href="/alerts">Alerts</a> <a href="/health">Health</a></nav>'
+        '<a href="/alerts">Alerts</a> <a href="/monitoring">Monitoring</a> '
+        '<a href="/health">Health</a></nav>'
     )
 
 
@@ -99,12 +125,35 @@ def _badge_class(severity: str) -> str:
     return {"info": "ok", "warning": "warn", "critical": "crit"}.get(severity, "ok")
 
 
+def _state_badge(state: str) -> str:
+    label = {"ok": "OK", "warn": "WATCH", "crit": "ACTION"}.get(state, state.upper())
+    return f"<span class='badge {html.escape(state)}'>{html.escape(label)}</span>"
+
+
+def _render_panel(panel: MonitorPanel) -> str:
+    rows = "".join(
+        f"<dt>{html.escape(label)}</dt><dd>{html.escape(value)}</dd>"
+        for label, value in panel.rows
+    )
+    error = (
+        f"<dt>error</dt><dd>{html.escape(panel.error)}</dd>"
+        if panel.error
+        else ""
+    )
+    return (
+        "<section class='monitor-panel'>"
+        f"<h2>{html.escape(panel.name)} {_state_badge(panel.state)}</h2>"
+        f"<p>{html.escape(panel.summary)}</p>"
+        f"<dl>{rows}{error}</dl></section>"
+    )
+
+
 # --- Overview --------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 def overview(
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> HTMLResponse:
     try:
         trust = client.trust.status()
@@ -140,8 +189,8 @@ def overview(
 @app.get("/audit", response_class=HTMLResponse)
 def audit_page(
     request: Request,
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> HTMLResponse:
     params = request.query_params
     filt = AuditFilter(
@@ -190,8 +239,8 @@ def audit_page(
 
 @app.get("/reports", response_class=HTMLResponse)
 def reports_page(
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> HTMLResponse:
     try:
         env = client.compliance.list_reports()
@@ -241,8 +290,8 @@ def reports_page(
 @app.post("/reports/generate")
 async def reports_generate(
     request: Request,
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> Response:
     form = await request.form()
     try:
@@ -254,7 +303,7 @@ async def reports_generate(
             tenant=str(form.get("tenant") or "") or None,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     errors = gf.validate()
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
@@ -265,8 +314,8 @@ async def reports_generate(
 @app.get("/reports/{report_id}/download")
 def reports_download(
     report_id: str,
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> Response:
     record = client.compliance.get_report(report_id)
     body = client.compliance.download_report(report_id)
@@ -283,8 +332,8 @@ def reports_download(
 
 @app.get("/policy", response_class=HTMLResponse)
 def policy_page(
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> HTMLResponse:
     try:
         modules = client.compliance.get_policies()
@@ -324,8 +373,8 @@ def policy_page(
 async def policy_toggle(
     module: str,
     request: Request,
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> JSONResponse:
     form = await request.form()
     enabled = str(form.get("enabled", "false")).lower() == "true"
@@ -336,8 +385,8 @@ async def policy_toggle(
 @app.post("/policy/template")
 async def policy_template(
     request: Request,
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> JSONResponse:
     form = await request.form()
     template = str(form.get("template", "standard"))
@@ -347,7 +396,7 @@ async def policy_template(
 # --- Alerts ----------------------------------------------------------
 
 @app.get("/alerts", response_class=HTMLResponse)
-def alerts_page(_: None = Depends(require_admin)) -> HTMLResponse:
+def alerts_page(_: None = ADMIN_DEP) -> HTMLResponse:
     body = (
         "<section class='section'>"
         "<p>Live event stream. Subscribe via <code>EventSource</code> to "
@@ -366,12 +415,25 @@ def alerts_page(_: None = Depends(require_admin)) -> HTMLResponse:
     return HTMLResponse(_page("Alerts", body))
 
 
+# --- Monitoring ------------------------------------------------------
+
+@app.get("/monitoring", response_class=HTMLResponse)
+def monitoring_page(
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
+) -> HTMLResponse:
+    panels = collect_monitoring_snapshot(client)
+    body = "<main class='monitor-grid'>" + "".join(_render_panel(p) for p in panels) + "</main>"
+    status_code = 200 if all(p.state != "crit" for p in panels) else 502
+    return HTMLResponse(_page("Monitoring", body), status_code=status_code)
+
+
 # --- Health ----------------------------------------------------------
 
 @app.get("/health", response_class=JSONResponse)
 def health(
-    _: None = Depends(require_admin),
-    client: MaiClient = Depends(get_client),
+    _: None = ADMIN_DEP,
+    client: MaiClient = CLIENT_DEP,
 ) -> JSONResponse:
     try:
         status_payload = client.compliance.get_status()

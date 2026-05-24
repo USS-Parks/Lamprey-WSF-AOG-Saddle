@@ -33,7 +33,10 @@ regulated node follows this sequence:
    template: HIPAA, ITAR, or OCAP. Download it. The report carries a
    `TrustSection` and an ML-DSA-87 certification signature that can be
    verified off-host.
-4. **Alerts (`/alerts`):** review flagged events from the period.
+4. **Monitoring (`/monitoring`):** confirm live/ready/production probes,
+   scheduler queue depth, power state, air-gap posture, trust state,
+   audit integrity, and Prometheus metrics exposure.
+5. **Alerts (`/alerts`):** review flagged events from the period.
    Alerts are emitted by the `/v1/compliance/feed` SSE stream in real
    time; the page replays recent events on load.
 
@@ -71,7 +74,9 @@ five defensible points from `ACQUISITION-PACKAGE.md`:
    events are present and linked.
 4. **Reports (`/reports`):** generate HIPAA and OCAP reports. Confirm
    each carries a `TrustSection`, then verify a certification off-host.
-5. **Alerts (`/alerts`):** confirm events arrive in real time as
+5. **Monitoring (`/monitoring`):** confirm readiness, production safety,
+   scheduler pressure, and metrics exposure before driving the demo.
+6. **Alerts (`/alerts`):** confirm events arrive in real time as
    requests route through Lamprey.
 
 ---
@@ -85,6 +90,7 @@ five defensible points from `ACQUISITION-PACKAGE.md`:
 | `/reports` | Report listing, generation form, download links | Signed compliance reports for HIPAA, ITAR, OCAP, SystemActivity, and MonthlyDigest; each carries a TrustSection and an ML-DSA-87 certification verifiable off-host |
 | `/policy` | Per-module enable/disable toggles, compliance template selector, policy reload | Live policy configuration; changes take effect immediately without restarting the server |
 | `/alerts` | Live alert feed from the `/v1/compliance/feed` SSE stream | Real-time visibility into policy decisions and flagged events as they happen |
+| `/monitoring` | Live/ready/production probes, runtime utilization, scheduler queue, power and air-gap posture, trust/audit state, Prometheus family count | Whether the node is safe to receive traffic, whether capacity is under pressure, and whether machine monitoring is wired |
 | `/health` | JSON health probe | Whether the dashboard can reach `mai-api` and the SDK is authenticated; used by uptime monitors |
 
 ---
@@ -156,17 +162,19 @@ python -m pytest mai/compliance-dashboard/tests/
 ```
 
 The test suite stubs the SDK client; no running `mai-api` is required.
-Twenty tests cover each module: overview trust-panel rendering, audit
+Twenty-two tests cover each module: overview trust-panel rendering, audit
 search and row flattening, report generation and summary aggregation,
-SSE alert feed parsing, policy toggle handling, and the admin gate.
+SSE alert feed parsing, monitoring panel rendering, policy toggle
+handling, and the admin gate.
 
 ---
 
 ## File Layout
 
-- `app.py`: FastAPI entry point with the six dashboard pages.
+- `app.py`: FastAPI entry point with the seven dashboard pages.
 - `alerts.py`: helpers for the SSE alert feed.
 - `audit_viewer.py`: search-form normalization and row flattening.
+- `monitoring.py`: operator monitoring panel collectors.
 - `reports.py`: generation form and summary aggregation.
 - `util.py`: shared env, SDK client factory, and admin gate.
 - `tests/`: pytest coverage for each module.

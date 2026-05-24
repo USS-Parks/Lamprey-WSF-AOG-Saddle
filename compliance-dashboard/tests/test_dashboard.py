@@ -22,7 +22,7 @@ for path in (_DASH_PARENT, _SDK_SRC):
         sys.path.insert(0, str(path))
 
 
-def _import_dashboard():
+def _import_dashboard() -> Any:
     # Import via the *hyphenated* directory by aliasing the module path.
     spec = importlib.util.spec_from_file_location(
         "compliance_dashboard.app",
@@ -41,7 +41,7 @@ def _import_dashboard():
     sys.modules["compliance_dashboard"] = pkg
     pkg_spec.loader.exec_module(pkg)  # type: ignore[union-attr]
 
-    for sub in ("util", "alerts", "audit_viewer", "reports"):
+    for sub in ("util", "alerts", "audit_viewer", "monitoring", "reports"):
         sub_spec = importlib.util.spec_from_file_location(
             f"compliance_dashboard.{sub}",
             _DASH_PARENT / "compliance-dashboard" / f"{sub}.py",
@@ -59,6 +59,18 @@ def _import_dashboard():
 app_module = _import_dashboard()
 
 
+class _Response:
+    def __init__(self, status_code: int, payload: Any, text: str | None = None) -> None:
+        self.status_code = status_code
+        self._payload = payload
+        self.text = text if text is not None else str(payload)
+
+    def json(self) -> Any:
+        if isinstance(self._payload, str):
+            raise TypeError("not JSON")
+        return self._payload
+
+
 def _stub_client() -> MagicMock:
     """Build a MagicMock that mirrors the slice of MaiClient we use."""
     from mai.types import (
@@ -68,6 +80,8 @@ def _stub_client() -> MagicMock:
         ComplianceReport,
         ComplianceReportList,
         ComplianceStatus,
+        SchedulerAnomaliesResponse,
+        SchedulerMetricsResponse,
         TrustBundleStatus,
         TrustClaimsResponse,
         TrustStatusResponse,
@@ -118,6 +132,48 @@ def _stub_client() -> MagicMock:
         "module": "hipaa", "enabled": False, "changed": True,
     }
     client.compliance.apply_template.return_value = {"template": "defense"}
+    client.scheduler.metrics.return_value = SchedulerMetricsResponse(
+        queue_depth=0, active_requests=0, scheduled_total=12,
+        rejected_total=0, avg_wait_ms=1.2, p95_wait_ms=4.4,
+        instances=["local-0"],
+    )
+    client.scheduler.anomalies.return_value = SchedulerAnomaliesResponse(anomalies=[])
+
+    def _http_get(path: str) -> _Response:
+        payloads = {
+            "/health/live": _Response(200, {"status": "live"}),
+            "/health/ready": _Response(200, {"status": "ready"}),
+            "/health/production": _Response(200, {"status": "ready"}),
+            "/health": _Response(200, {
+                "status": "healthy",
+                "alert_level": "normal",
+                "adapters": [{"id": "local-0", "status": "healthy"}],
+                "hardware": {"air_gap_status": "compliant"},
+                "system": {
+                    "cpu_utilization_percent": 12.3,
+                    "ram_utilization_percent": 45.6,
+                    "disk_utilization_percent": 21.0,
+                },
+            }),
+            "/power/state": _Response(200, {
+                "state": "warm",
+                "estimated_watts": 44.0,
+            }),
+            "/system/airgap": _Response(200, {
+                "connectivity": "air-gapped",
+                "requires_local_only": True,
+                "permits_cloud_route": False,
+                "is_air_gapped": True,
+            }),
+            "/metrics": _Response(
+                200,
+                "# TYPE mai_requests_total counter\n"
+                "# TYPE mai_scheduler_queue_depth gauge\n",
+            ),
+        }
+        return payloads[path]
+
+    client._http.get.side_effect = _http_get
     return client
 
 
@@ -246,6 +302,33 @@ def test_alerts_page_lists_event_kinds(client) -> None:
     assert "violation_detected" in r.text
 
 
+def test_monitoring_page_renders_operator_panels(client) -> None:
+    tc, _ = client
+    r = tc.get("/monitoring", headers=_auth())
+    assert r.status_code == 200
+    assert "Health probes" in r.text
+    assert "Scheduler" in r.text
+    assert "Trust and audit" in r.text
+    assert "mai_requests_total" in r.text
+
+
+def test_monitoring_page_reports_upstream_probe_failure(client) -> None:
+    tc, stub = client
+
+    def _http_get(path: str) -> _Response:
+        if path == "/health/production":
+            return _Response(503, {
+                "status": "unsafe",
+                "reasons": ["hardware_critical"],
+            })
+        return _stub_client()._http.get(path)
+
+    stub._http.get.side_effect = _http_get
+    r = tc.get("/monitoring", headers=_auth())
+    assert r.status_code == 502
+    assert "hardware_critical" in r.text
+
+
 def test_health_returns_module_and_integrity_snapshot(client) -> None:
     tc, _ = client
     r = tc.get("/health", headers=_auth())
@@ -307,7 +390,9 @@ def test_audit_filter_sdk_kwargs_omits_none() -> None:
 
 def test_audit_normalisation_rejects_unknown_values() -> None:
     from compliance_dashboard.audit_viewer import (
-        clamp_limit, normalise_decision, normalise_module,
+        clamp_limit,
+        normalise_decision,
+        normalise_module,
     )
 
     assert normalise_module("HIPAA") == "hipaa"
