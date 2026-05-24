@@ -68,9 +68,10 @@ who do not have a tar implementation.
 | Transfer mechanism | Handled by user out-of-band; both archive variants ready |
 | Testers invited | **0** |
 | Testers responded | **0** |
-| Findings filed | **0** |
-| Blockers open | **0** |
-| RC-09 acceptance met | **NO** — waiting on first tester |
+| Self-reviews completed | **1** (Claude self-review 2026-05-24, see §6.1 — does NOT count toward acceptance) |
+| Findings filed (self-review) | **12** (5 High / 4 Medium / 3 Low — see §7) |
+| Blockers open from self-review | **5** (H-1 through H-5, all docs bucket, all fix-in-RC10) |
+| RC-09 acceptance met | **NO** — waiting on first outside tester; self-review does not substitute |
 
 This field block is the source of truth. Update it whenever a
 tester is invited, responds, or files a finding.
@@ -206,12 +207,52 @@ Thanks — this unblocks the whole release.
 
 One subsection per tester. Add as feedback arrives.
 
-### 6.1 _Tester 1_ (placeholder)
+### 6.1 Self-Review — Claude (NOT outside-tester evidence)
 
-_To be populated when the first tester replies. Each subsection
-should include the tester's environment block from the issue form,
-each finding numbered, and the raw reply (or a link to it) for
-audit._
+**Type:** Self-review (parallel to RC-06's Track A+B rehearsal).
+**Track:** C — security/compliance review.
+**Date:** 2026-05-24.
+**Bundle:** extracted from `MAI-Lamprey-RC1.zip` (sha256 `9a2f95ee…`)
+to `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-self-review/`.
+**Full memo:** [`RC1-SELF-REVIEW-TRACK-C.md`](RC1-SELF-REVIEW-TRACK-C.md)
+(626 lines).
+
+**Why this does not satisfy RC-09 acceptance:** Claude was a
+co-author on every session in the build lane. RC-09 specifically
+requires "someone besides the original builder" — this is the
+builder reviewing their own work. The findings here are still
+real and several are High; the outside-reviewer slot remains
+open. The self-review exists to catch what an outside Track C
+reviewer would hit before they hit it, and to exercise the
+triage matrix structurally.
+
+**Environment:**
+- OS: Windows 11 Home (build host)
+- CPU: x86_64, 4-core laptop class
+- RAM: ample (per laptop spec)
+- Free disk before run: 647 GB
+- rustc: 1.95.0
+- Bundle integrity: 667/667 files OK against `CHECKSUMS.txt`
+
+**Execution summary (§1.1 of full memo):**
+- Track A binary path: boot 76 ms, `/v1/health` HTTP 200, status
+  `healthy`, air-gap `compliant`.
+- `cargo test -p mai-compliance --test compliance_demos`:
+  **6 passed / 0 failed** (1m28s cold build, 0.32s test).
+- `cargo test -p mai-compliance --test compliance_perf --release`:
+  **3 passed / 0 failed** — composer P99 **300 ns**, audit
+  **119 494/s**, report **1.687 ms**.
+
+**Findings:** see §7 below, all 12 rows with IDs `H-1` through
+`L-3`. Full file:line references in
+`RC1-SELF-REVIEW-TRACK-C.md` §3-§5.
+
+### 6.2 _Tester 1_ (placeholder)
+
+_To be populated when the first outside tester replies. Each
+subsection should include the tester's environment block from the
+issue form, each finding numbered, and the raw reply (or a link to
+it) for audit._
 
 ## 7. Triage Matrix
 
@@ -220,7 +261,18 @@ roadmap's four buckets and assign disposition.
 
 | ID | Tester | Track | Severity | Bucket | Summary | Disposition |
 |---|---|---|---|---|---|---|
-| _none yet_ | | | | | | |
+| H-1 | self-review §6.1 | C | High | docs | `mai-admin` runbook commands (`audit verify`, `compliance report/verify`, `policy inspect`, `audit tail`) are stubs or undeclared at the freeze | fix-in-RC10 |
+| H-2 | self-review §6.1 | C | High | docs | All four acquisition demos reference a `mai` CLI that does not ship | fix-in-RC10 |
+| H-3 | self-review §6.1 | C | High | docs | All four acquisition demos cite REST port 8080 (and dashboard 8081); actual daemon binds 8420 / 8421 | fix-in-RC10 |
+| H-4 | self-review §6.1 | C | High | docs | All four acquisition demos hardcode `cd "$env:USERPROFILE\Documents\Claude\Island Mountain Mighty Eel OS\mai"` — the builder's workspace path | fix-in-RC10 |
+| H-5 | self-review §6.1 | C | High | docs | TESTER-INSTRUCTIONS.md §4.C step 4 cites all five runbook numbers wrong (04/05/09/10/11 vs actual 05/06/11/12/13) | fix-in-RC10 |
+| M-1 | self-review §6.1 | C | Medium | docs | TESTER-INSTRUCTIONS.md §4.C step 2 references "three layer docs (router, policy, audit)" that do not exist as separate files (they're inline in ARCHITECTURE.md) | fix-in-RC10 |
+| M-2 | self-review §6.1 | C | Medium | docs OR code | README-FIRST.md §5.C documents logs on stderr; observed runtime puts all logs + banner on stdout | needs-investigation (decide doc vs runtime fix) |
+| M-3 | self-review §6.1 | C | Medium | docs | Demos prescribe `cargo run --release --bin mai-api` instead of leveraging the bundled `bin/mai-api.exe` from RC1 v2 | fix-in-RC10 |
+| M-4 | self-review §6.1 | C | Medium | docs | Runbooks 05/06/11/12/13 use Linux systemd / `/var/lib/mai/...` paths exclusively; bundle is Windows MSVC tester-only. Gap is implicit — no header note tells Track C reviewer these runbooks describe production posture, not tester procedure | fix-in-RC10 |
+| L-1 | self-review §6.1 | C | Low | docs | README-FIRST.md:175 "MAI server ready - REST …" uses hyphen; runtime emits em-dash. Cosmetic | dismiss-or-low-fix |
+| L-2 | self-review §6.1 | C | Low | docs | ARCHITECTURE.md:318 references `mai/compliance-dashboard/` and `mai/deployment/...` — inside the bundle the path is bare (no `mai/` prefix) | dismiss |
+| L-3 | self-review §6.1 | C | Low | code | Health endpoint reports `"gpus":[]` while topology log reports `gpus=1` (probably intentional layer divergence; presents as inconsistent) | needs-investigation |
 
 **Bucket definitions** (per roadmap RC-09):
 
@@ -252,7 +304,15 @@ whose severity is `Blocker` or `High`.
 
 | Blocker | Origin (§7 ID) | Owner | Target resolution |
 |---|---|---|---|
-| _none yet_ | | | |
+| Acquisition demos non-runnable as written (H-2 + H-3 + H-4) | H-2, H-3, H-4 | RC-10 | Rewrite each demo's setup script to use `curl` against `:8420` from `cd source` |
+| Operator runbooks reference unimplemented CLI surfaces (H-1) | H-1 | RC-10 | Header band on runbooks 05/06/11/12/13 stating which `mai-admin` subcommands are stubbed at the freeze |
+| Track C reading list points at wrong runbooks (H-5) | H-5 | RC-10 | Five-character edits in TESTER-INSTRUCTIONS.md §4.C step 4 |
+
+**Note:** All five blockers came from the Claude self-review (§6.1)
+and so are not RC-09 acceptance-grade evidence. They are predictive
+of what an outside reviewer would file. An outside reviewer may file
+additional, distinct blockers — until they have, the list above is
+the working set.
 
 The roadmap's RC-09 acceptance includes "blockers are known
 before wider sharing." This table is the answer to that.
@@ -261,11 +321,12 @@ before wider sharing." This table is the answer to that.
 
 | Criterion | Status |
 |---|---|
-| At least one person besides the original builder has tried RC1 | **NO** — §3 |
-| Feedback is captured in `RC1-TESTER-FEEDBACK.md` | **PARTIAL** — this doc exists and is wired up; no entries yet |
-| Blockers are known before wider sharing | **NO** — §8 |
+| At least one person besides the original builder has tried RC1 | **NO** — §3 (self-review at §6.1 does not satisfy this) |
+| Feedback is captured in `RC1-TESTER-FEEDBACK.md` | **PARTIAL** — self-review intake at §6.1 + 12 findings triaged in §7; outside-tester intake at §6.2 still empty |
+| Blockers are known before wider sharing | **PARTIAL** — §8 lists 5 self-review blockers; outside reviewer may add more |
 
-RC-09 is open. When the first tester reports, update §3 (status
-counters), §4 (roster status), §6 (intake), §7 (triage), §8
-(blockers), and this table. RC-09 closes when at least one row in
-§7 has a final disposition.
+RC-09 is open. The self-review pre-flighted the triage matrix and
+filed five doc-bucket blockers that RC-10 must address regardless
+of what an outside reviewer reports. RC-09 closes when at least one
+**outside** reviewer has tried RC1 and their findings have a final
+disposition in §7.
