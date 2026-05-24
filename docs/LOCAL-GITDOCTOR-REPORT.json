@@ -1,9 +1,9 @@
 {
   "category_scores": {
     "Code Quality": {
-      "failed": 8,
-      "passed": 2,
-      "score": 20,
+      "failed": 7,
+      "passed": 3,
+      "score": 30,
       "total": 10
     },
     "Configuration": {
@@ -31,9 +31,9 @@
       "total": 8
     },
     "Security": {
-      "failed": 4,
-      "passed": 12,
-      "score": 75,
+      "failed": 3,
+      "passed": 13,
+      "score": 81,
       "total": 16
     },
     "Testing": {
@@ -43,7 +43,7 @@
       "total": 6
     }
   },
-  "failed": 26,
+  "failed": 24,
   "findings": [
     {
       "category": "Security",
@@ -77,18 +77,6 @@
       "origin": "john-finding",
       "severity": "HIGH",
       "title": "Hardcoded API keys and secrets"
-    },
-    {
-      "category": "Security",
-      "check_id": "SEC-009",
-      "description": "Use cryptographically secure random generation.",
-      "evidence": [
-        "tools/local_gitdoctor_tests/test_local_gitdoctor_scan.py:27 return Math.random().toString(36);"
-      ],
-      "evidence_layer": "mapped-check",
-      "origin": "john-finding",
-      "severity": "HIGH",
-      "title": "Math.random() in security-sensitive context"
     },
     {
       "category": "Security",
@@ -230,18 +218,6 @@
       "origin": "john-finding",
       "severity": "MEDIUM",
       "title": "Unresolved TODO/FIXME markers"
-    },
-    {
-      "category": "Code Quality",
-      "check_id": "QUA-005",
-      "description": "Structured logging is preferred for production code.",
-      "evidence": [
-        "tools/local_gitdoctor_tests/test_local_gitdoctor_scan.py 6 console.log calls"
-      ],
-      "evidence_layer": "mapped-check",
-      "origin": "john-finding",
-      "severity": "LOW",
-      "title": "Excessive console.log statements"
     },
     {
       "category": "Code Quality",
@@ -505,8 +481,8 @@
       "title": "Missing dependency lock file"
     }
   ],
-  "overall_score": 55,
-  "passed": 32,
+  "overall_score": 59,
+  "passed": 34,
   "root": "C:\\Users\\17076\\Documents\\Claude\\Island Mountain Mighty Eel OS\\mai",
   "total_checks": 58
 }

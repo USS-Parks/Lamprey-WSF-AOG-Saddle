@@ -55,6 +55,27 @@ To make high-severity findings fail a local gate:
 python tools/local_gitdoctor_scan.py --root . --fail-on high
 ```
 
+## Repository Hook Enforcement
+
+The repo hook lives at `.integrity/hooks/pre-push`. It is Python-native for
+the Windows workflow and runs the mapped Local GitDoctor scanner before `git
+push`. It blocks regressions against the current J-series remediation baseline:
+
+- mapped score must stay at or above 59
+- failed mapped checks must stay at or below 24
+- HIGH findings must stay at or below 8
+- CRITICAL findings must stay at 0
+
+Install the repo hooks from `mai/` with:
+
+```powershell
+git config core.hooksPath .integrity/hooks
+```
+
+This is intentionally a baseline gate while remediation is still in
+progress. It prevents new backsliding without pretending the current
+known findings are already closed.
+
 ## Three Evidence Layers
 
 For the more defensible J-14 package, use the evidence runner:
@@ -72,6 +93,11 @@ It separates the audit into three layers:
    `scc`, or `radon` when they are installed locally.
 3. Adversarial fixtures: known-bad and known-clean scanner tests that
    prove the rules detect behavior, not just the current MAI symptom list.
+
+The fixture directory `tools/local_gitdoctor_tests/` is intentionally
+excluded from normal mapped repository scoring. Those files contain
+known-bad samples by design, so they belong only in Layer 3 fixture
+evidence, not in the MAI remediation score.
 
 `SKIPPED` independent probes are not passes. They mean the tool was not
 installed locally or the relevant project surface was absent.

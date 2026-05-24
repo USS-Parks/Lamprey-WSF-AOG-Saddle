@@ -1,16 +1,24 @@
 """SGLang backend adapter for MAI.
 
 Implements RadixAttention KV cache reuse, constrained decoding
-(regex, JSON schema, choice), fork-based parallelism, and vision support.
+(regex, JSON schema, choice), and OpenAI-compatible streaming over
+SGLang's HTTP server.
+
+J-20 (DOUGHERTY lane) brought this adapter to the shared adapter
+contract: typed error mapping, idempotent shutdown, response unwrap
+for both `SglangResponse` and raw dicts, generate_batch input
+validation, and an `requests_served` counter that feeds health.
 """
 from __future__ import annotations
 
+import time
 from collections.abc import AsyncIterator
 from typing import Any
 
 from adapters.base import (
     AdapterBase,
     AdapterCapabilities,
+    AdapterError,
     AdapterTimeoutError,
     BackendCrashedError,
     BackendUnavailableError,
@@ -19,12 +27,14 @@ from adapters.base import (
     GenerationParams,
     GenerationResult,
     HealthStatus,
+    HealthStatusKind,
     Token,
     UnsupportedOperationError,
+    ValidationError,
     mai_adapter,
     maybe_await,
 )
-from adapters.sglang.client import SglangClient
+from adapters.sglang.client import SglangClient, SglangResponse, SglangStreamChunk
 from adapters.sglang.config import SglangConfig
 
 
@@ -37,33 +47,54 @@ class SglangAdapter(AdapterBase):
         self._cfg: SglangConfig | None = None
         self._client: SglangClient | None = None
         self._model_id: str | None = None
+        self._initialized_at_ms: int = 0
+        self._requests_served: int = 0
 
     async def initialize(
         self,
         config: dict[str, Any] | None = None,
         hil_handle: Any | None = None,
-    ) -> None:
+    ) -> str | None:
         if config is not None:
             self._cfg = SglangConfig.from_dict(config)
         elif self._cfg is None:
             self._cfg = SglangConfig.from_dict(self._config)
         if hil_handle is not None:
             self._hil_handle = hil_handle
+        if not self._cfg.host:
+            raise ValidationError("sglang host must be non-empty")
+        if self._cfg.port <= 0 or self._cfg.port > 65535:
+            raise ValidationError(f"sglang port out of range: {self._cfg.port}")
         if self._client is None:
             self._client = SglangClient(
-                host=self._cfg.host,
-                port=self._cfg.port,
-                timeout=self._cfg.timeout,
+                base_url=self._cfg.base_url,
+                timeout_ms=self._cfg.timeout_ms,
+                stream_timeout_ms=self._cfg.stream_timeout_ms,
             )
-        # Verify backend is reachable
-        healthy = await maybe_await(self._client.health)
+        # Verify backend is reachable. Typed errors propagate; bare
+        # socket failures become BackendUnavailableError.
+        try:
+            healthy = await maybe_await(self._client.health)
+        except AdapterError:
+            raise
+        except OSError as exc:
+            raise BackendUnavailableError(str(exc)) from exc
         if not healthy:
             raise BackendUnavailableError("SGLang server not reachable")
-        # Discover loaded model
-        models = await maybe_await(self._client.models)
-        if models:
-            self._model_id = models[0].get("id") if isinstance(models[0], dict) else models[0]
+        # Discover loaded model — operator-configured default wins.
+        chosen: str | None = self._cfg.default_model or None
+        if chosen is None:
+            try:
+                models = await maybe_await(self._client.models)
+            except AdapterError:
+                models = []
+            if models:
+                head = models[0]
+                chosen = head.get("id") if isinstance(head, dict) else str(head)
+        self._model_id = chosen
+        self._initialized_at_ms = int(time.monotonic() * 1000)
         self._initialized = True
+        return self._model_id
 
     async def generate(
         self,
@@ -76,23 +107,7 @@ class SglangAdapter(AdapterBase):
         assert self._client is not None
         assert self._cfg is not None
 
-        # Build request kwargs
-        kwargs: dict[str, Any] = {}
-        if params.max_tokens is not None:
-            kwargs["max_tokens"] = params.max_tokens
-        if params.temperature is not None:
-            kwargs["temperature"] = params.temperature
-        if params.top_p is not None:
-            kwargs["top_p"] = params.top_p
-        if params.stop:
-            kwargs["stop"] = params.stop
-
-        # Constrained decoding from extra params
-        extra = params.extra or {}
-        if "json_schema" in extra:
-            kwargs["json_schema"] = extra["json_schema"]
-        if "regex" in extra:
-            kwargs["regex"] = extra["regex"]
+        kwargs = self._build_kwargs(params)
 
         if stream:
             return self._stream_generate(prompt, kwargs)
@@ -105,22 +120,15 @@ class SglangAdapter(AdapterBase):
                 stream=False,
                 **kwargs,
             )
+        except AdapterError:
+            raise
         except TimeoutError as exc:
             raise AdapterTimeoutError(str(exc)) from exc
         except OSError as exc:
             raise BackendCrashedError(str(exc)) from exc
 
-        choice = resp.get("choices", [{}])[0]
-        message = choice.get("message", {})
-        usage = resp.get("usage", {})
-        finish = choice.get("finish_reason", "stop")
-        reason = FinishReason.MAX_TOKENS if finish == "length" else FinishReason.STOP
-
-        return GenerationResult(
-            text=message.get("content", ""),
-            tokens_generated=usage.get("completion_tokens", 0),
-            finish_reason=reason,
-        )
+        self._requests_served += 1
+        return self._result_from_response(resp)
 
     async def _stream_generate(
         self,
@@ -128,19 +136,44 @@ class SglangAdapter(AdapterBase):
         kwargs: dict[str, Any],
     ) -> AsyncIterator[Token]:
         assert self._client is not None
-        # Get streaming chunks in a thread (returns iterator)
-        chunks = await maybe_await(
-            self._client.chat_completions,
-            model=self._model_id or "default",
-            messages=[{"role": "user", "content": prompt}],
-            stream=True,
-            **kwargs,
-        )
-        for chunk in chunks:
-            delta = chunk.get("choices", [{}])[0].get("delta", {})
-            content = delta.get("content")
-            if content:
-                yield Token(text=content, logprob=None)
+        try:
+            chunks = await maybe_await(
+                self._client.chat_completions,
+                model=self._model_id or "default",
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+                **kwargs,
+            )
+        except AdapterError:
+            raise
+        except TimeoutError as exc:
+            raise AdapterTimeoutError(str(exc)) from exc
+        except OSError as exc:
+            raise BackendCrashedError(str(exc)) from exc
+
+        index = 0
+        try:
+            for chunk in chunks:
+                content = self._chunk_content(chunk)
+                finish = self._chunk_finish_reason(chunk)
+                is_end = finish is not None
+                if content or is_end:
+                    yield Token(
+                        text=content,
+                        logprob=None,
+                        index=index,
+                        is_end_of_text=is_end,
+                    )
+                    index += 1
+                if is_end:
+                    break
+        except AdapterError:
+            raise
+        except TimeoutError as exc:
+            raise AdapterTimeoutError(str(exc)) from exc
+        except OSError as exc:
+            raise BackendCrashedError(str(exc)) from exc
+        self._requests_served += 1
 
     async def generate_batch(
         self,
@@ -148,49 +181,68 @@ class SglangAdapter(AdapterBase):
         params: GenerationParams,
     ) -> list[GenerationResult]:
         self._check_initialized()
-        results = []
+        if not prompts:
+            return []
+        # Sequential generation preserves input order deterministically.
+        # SGLang has no public bulk endpoint; the upstream scheduler
+        # benefits more from RadixAttention than from fan-out batching.
+        results: list[GenerationResult] = []
         for prompt in prompts:
             result = await self.generate(prompt, params, stream=False)
+            assert isinstance(result, GenerationResult)
             results.append(result)
         return results
 
     async def embed(self, _texts: list[str]) -> list[Embedding]:
         self._check_initialized()
-        raise UnsupportedOperationError(
-            "SGLang does not expose a dedicated embedding endpoint",
-        )
+        raise UnsupportedOperationError("embed")
 
     async def health_check(self) -> HealthStatus:
         if not self._initialized or self._client is None:
             return HealthStatus.unavailable()
         try:
             healthy = await maybe_await(self._client.health)
-            if healthy:
-                return HealthStatus.healthy(uptime_ms=0, requests_served=0)
+        except AdapterError:
             return HealthStatus.unavailable()
         except OSError:
             return HealthStatus.unavailable()
+        uptime = max(0, int(time.monotonic() * 1000) - self._initialized_at_ms)
+        if not healthy:
+            return HealthStatus.degraded(
+                reason="sglang health endpoint did not return ok",
+                uptime_ms=uptime,
+            )
+        return HealthStatus(
+            kind=HealthStatusKind.HEALTHY,
+            uptime_ms=uptime,
+            requests_served=self._requests_served,
+        )
 
     def capabilities(self) -> AdapterCapabilities:
+        cfg = self._cfg
         return AdapterCapabilities(
             supports_streaming=True,
             supports_batching=True,
-            supports_embeddings=False,
+            supports_embedding=False,
             supports_tool_calling=True,
             supports_structured_output=True,
-            max_context_length=131072,
+            max_context_window=131072,
             supported_quantizations=["fp16", "fp8", "awq", "gptq"],
             extra={
-                "radix_attention": self._cfg.enable_radix_attention if self._cfg else True,
+                "radix_attention": cfg.enable_radix_attention if cfg else True,
                 "constrained_decoding": True,
                 "fork_parallelism": True,
-                "vision": self._cfg.enable_vision if self._cfg else False,
+                "vision": cfg.enable_vision if cfg else False,
             },
         )
 
     async def shutdown(self) -> None:
+        # Idempotent: every member that holds backend state is dropped.
+        # SglangClient has no persistent socket pool but we release the
+        # reference so re-init constructs a fresh client.
         self._initialized = False
         self._client = None
+        self._model_id = None
 
     # --- SGLang-specific methods ---
 
@@ -198,20 +250,26 @@ class SglangAdapter(AdapterBase):
         """Flush the RadixAttention prefix cache."""
         self._check_initialized()
         assert self._client is not None
-        return await maybe_await(self._client.flush_cache)
+        try:
+            return await maybe_await(self._client.flush_cache)
+        except AdapterError:
+            return False
 
     async def get_model_info(self) -> dict[str, Any]:
         """Get detailed model info from SGLang server."""
         self._check_initialized()
         assert self._client is not None
-        return await maybe_await(self._client.get_model_info)
+        try:
+            return await maybe_await(self._client.get_model_info)
+        except AdapterError:
+            return {}
 
     async def generate_native(
         self,
         prompt: str,
         params: GenerationParams,
         *,
-        json_schema: str | None = None,
+        json_schema: dict[str, Any] | None = None,
         regex: str | None = None,
     ) -> GenerationResult:
         """Use SGLang's native /generate endpoint with constrained decoding."""
@@ -220,30 +278,106 @@ class SglangAdapter(AdapterBase):
 
         kwargs: dict[str, Any] = {}
         if params.max_tokens is not None:
-            kwargs["max_new_tokens"] = params.max_tokens
+            kwargs["max_tokens"] = params.max_tokens
         if params.temperature is not None:
             kwargs["temperature"] = params.temperature
-        if json_schema:
+        if json_schema is not None:
             kwargs["json_schema"] = json_schema
-        if regex:
+        if regex is not None:
             kwargs["regex"] = regex
 
         try:
             resp = await maybe_await(self._client.generate, prompt, **kwargs)
+        except AdapterError:
+            raise
         except TimeoutError as exc:
             raise AdapterTimeoutError(str(exc)) from exc
         except OSError as exc:
             raise BackendCrashedError(str(exc)) from exc
 
-        finish = resp.get("meta_info", {}).get("finish_reason", "stop")
+        self._requests_served += 1
+        body = self._unwrap_body(resp)
+        meta = body.get("meta_info", {}) if isinstance(body.get("meta_info"), dict) else {}
+        finish = meta.get("finish_reason", "stop")
         reason = FinishReason.MAX_TOKENS if finish == "length" else FinishReason.STOP
-
         return GenerationResult(
-            text=resp.get("text", ""),
-            tokens_generated=resp.get("meta_info", {}).get("completion_tokens", 0),
+            text=str(body.get("text", "")),
+            tokens_generated=int(meta.get("completion_tokens", 0)),
             finish_reason=reason,
         )
 
+    # ─── helpers ──────────────────────────────────────────────────────────
+
+    def _build_kwargs(self, params: GenerationParams) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {}
+        if params.max_tokens is not None:
+            kwargs["max_tokens"] = params.max_tokens
+        if params.temperature is not None:
+            kwargs["temperature"] = params.temperature
+        if params.top_p is not None:
+            kwargs["top_p"] = params.top_p
+        if params.stop:
+            kwargs["stop"] = list(params.stop)
+        extra = params.extra or {}
+        if "json_schema" in extra:
+            kwargs["json_schema"] = extra["json_schema"]
+        if "regex" in extra:
+            kwargs["regex"] = extra["regex"]
+        return kwargs
+
+    @staticmethod
+    def _unwrap_body(resp: Any) -> dict[str, Any]:
+        """Return the response body whether `resp` is a `SglangResponse`
+        dataclass or already a raw dict (the shape unit tests pass).
+        """
+        if isinstance(resp, SglangResponse):
+            return resp.body
+        if isinstance(resp, dict):
+            return resp
+        raise BackendCrashedError(
+            f"unexpected sglang response type: {type(resp).__name__}",
+        )
+
+    def _result_from_response(self, resp: Any) -> GenerationResult:
+        body = self._unwrap_body(resp)
+        choices = body.get("choices") or []
+        if not choices:
+            raise BackendCrashedError("sglang response missing choices")
+        first = choices[0] if isinstance(choices[0], dict) else {}
+        message = first.get("message", {}) if isinstance(first.get("message"), dict) else {}
+        usage = body.get("usage", {}) if isinstance(body.get("usage"), dict) else {}
+        finish = first.get("finish_reason", "stop")
+        reason = FinishReason.MAX_TOKENS if finish == "length" else FinishReason.STOP
+        return GenerationResult(
+            text=str(message.get("content", "")),
+            tokens_generated=int(usage.get("completion_tokens", 0)),
+            finish_reason=reason,
+        )
+
+    @staticmethod
+    def _chunk_content(chunk: Any) -> str:
+        if isinstance(chunk, SglangStreamChunk):
+            return chunk.content or ""
+        if isinstance(chunk, dict):
+            choices = chunk.get("choices") or []
+            if choices and isinstance(choices[0], dict):
+                delta = choices[0].get("delta", {})
+                if isinstance(delta, dict):
+                    return str(delta.get("content") or "")
+        return ""
+
+    @staticmethod
+    def _chunk_finish_reason(chunk: Any) -> str | None:
+        if isinstance(chunk, SglangStreamChunk):
+            return chunk.finish_reason
+        if isinstance(chunk, dict):
+            choices = chunk.get("choices") or []
+            if choices and isinstance(choices[0], dict):
+                fr = choices[0].get("finish_reason")
+                if fr is not None:
+                    return str(fr)
+        return None
+
     def _check_initialized(self) -> None:
         if not self._initialized:
-            raise BackendUnavailableError("Adapter not initialized")
+            raise BackendUnavailableError("sglang adapter not initialized")

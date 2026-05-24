@@ -18,6 +18,7 @@ from typing import Any
 from adapters.base import (
     AdapterBase,
     AdapterCapabilities,
+    AdapterError,
     BackendUnavailableError,
     Embedding,
     FinishReason,
@@ -26,10 +27,11 @@ from adapters.base import (
     HealthStatus,
     Token,
     UnsupportedOperationError,
+    ValidationError,
     mai_adapter,
     maybe_await,
 )
-from adapters.tgi.client import TgiClient
+from adapters.tgi.client import TgiClient, TgiResponse
 from adapters.tgi.config import TgiConfig
 
 logger = logging.getLogger("mai.adapters.tgi")
@@ -59,11 +61,30 @@ class TgiAdapter(AdapterBase):
         config: dict[str, Any] | None = None,
         hil_handle: Any | None = None,
     ) -> str:
-        """Initialize TGI adapter. Queries /info for model metadata."""
+        """Initialize TGI adapter. Queries /info for model metadata.
+
+        Idempotent: if the adapter is already initialized, the live client
+        is reused and a fresh handle is returned. If a reconfigure is
+        requested (new ``config`` dict supplied), the prior client is torn
+        down first so we never leak a session pool.
+        """
+        if config is not None and self._initialized and self._client is not None:
+            await self.shutdown()
+
         if config is not None:
             self._config = TgiConfig.from_dict(config)
         elif hasattr(self, "_cfg") and self._cfg is not None:
             self._config = self._cfg
+
+        # Config validation. TgiConfig.from_dict accepts arbitrary values, so
+        # we sanity-check the bits that drive the URL/timeouts here.
+        if not isinstance(self._config.host, str) or not self._config.host:
+            raise ValidationError("TGI host must be a non-empty string")
+        if not isinstance(self._config.port, int) or self._config.port <= 0:
+            raise ValidationError("TGI port must be a positive integer")
+        if self._config.timeout_ms <= 0 or self._config.stream_timeout_ms <= 0:
+            raise ValidationError("TGI timeouts must be positive integers")
+
         if hil_handle is not None:
             self._hil_handle = hil_handle
         if self._client is None:
@@ -76,15 +97,21 @@ class TgiAdapter(AdapterBase):
         # Verify health
         healthy = await maybe_await(self._client.health)
         if not healthy:
-            raise BackendUnavailableError()
+            # Tear the just-built client back down so we never sit on a
+            # half-initialized adapter.
+            self._client = None
+            raise BackendUnavailableError("TGI /health probe failed")
 
         # Get model info
         info = await maybe_await(self._client.info)
+        if not isinstance(info, dict):
+            info = {}
         self._model_id = info.get("model_id", self._config.default_model)
         self._max_input_tokens = info.get("max_input_length", self._config.max_input_tokens)
         self._max_total_tokens = info.get("max_total_tokens", self._config.max_total_tokens)
 
         self._start_time_ms = int(time.time() * 1000)
+        self._requests_served = 0
         self._initialized = True
         logger.info(
             f"TGI adapter initialized: model={self._model_id}, "
@@ -94,7 +121,26 @@ class TgiAdapter(AdapterBase):
 
     def _ensure_initialized(self) -> None:
         if not self._initialized or self._client is None:
-            raise BackendUnavailableError()
+            raise BackendUnavailableError(
+                "TGI adapter is not initialized; call initialize() first",
+            )
+
+    @staticmethod
+    def _body_dict(resp: TgiResponse | dict[str, Any]) -> dict[str, Any]:
+        """Normalize a /generate response payload into a dict.
+
+        TGI's /generate returns a single object for a string prompt and an
+        array for a list-of-strings prompt. We send a single string, so we
+        only need to handle the dict case here. Anything else is treated
+        as an empty body so the adapter degrades to ``text=""``
+        deterministically rather than raising AttributeError.
+        """
+        if isinstance(resp, dict):
+            return resp
+        body = getattr(resp, "body", None)
+        if isinstance(body, dict):
+            return body
+        return {}
 
     async def generate(
         self,
@@ -121,12 +167,9 @@ class TgiAdapter(AdapterBase):
             watermark=self._config.watermark,
             stream=False,
         )
-        if isinstance(resp, dict):
-            body = resp
-        else:
-            body = resp.body if hasattr(resp, "body") else resp
+        body = self._body_dict(resp)
         generated = body.get("generated_text", "")
-        details = body.get("details", {})
+        details = body.get("details") or {}
         tokens_out = details.get("generated_tokens", len(generated) // 4)
         finish = details.get("finish_reason", "stop_sequence")
         reason = FinishReason.MAX_TOKENS if finish == "length" else FinishReason.STOP
@@ -137,10 +180,17 @@ class TgiAdapter(AdapterBase):
     async def _generate_stream(
         self, prompt: str, params: GenerationParams,
     ) -> AsyncIterator[Token]:
-        """Stream tokens from TGI."""
+        """Stream tokens from TGI.
+
+        TGI's ``/generate_stream`` is a synchronous SSE iterator. We drive it
+        from a worker thread one chunk at a time so the asyncio event loop
+        keeps cooking while the HTTP read blocks, and so AdapterError
+        subclasses raised mid-stream by ``TgiClient._stream_request``
+        propagate to the caller as typed errors instead of being swallowed
+        by ``async for``.
+        """
         assert self._client is not None
-        chunks = await asyncio.to_thread(
-            self._client.generate,
+        chunks_iter = self._client.generate(
             inputs=prompt,
             max_new_tokens=params.max_tokens,
             temperature=params.temperature,
@@ -150,29 +200,70 @@ class TgiAdapter(AdapterBase):
             stream=True,
         )
 
-        token_index = 0
-        for chunk in chunks:
-            if chunk.token_text:
-                is_end = chunk.finish_reason is not None or chunk.generated_text is not None
-                yield Token(
-                    text=chunk.token_text,
-                    index=token_index,
-                    is_end_of_text=is_end,
-                )
-                token_index += 1
+        _sentinel = object()
 
-        self._requests_served += 1
+        def _next_chunk() -> Any:
+            try:
+                return next(chunks_iter)  # type: ignore[arg-type]
+            except StopIteration:
+                return _sentinel
+
+        token_index = 0
+        emitted_any = False
+        try:
+            while True:
+                try:
+                    chunk = await asyncio.to_thread(_next_chunk)
+                except AdapterError:
+                    raise
+                if chunk is _sentinel:
+                    break
+                is_end = chunk.finish_reason is not None or chunk.generated_text is not None
+                if chunk.token_text:
+                    yield Token(
+                        text=chunk.token_text,
+                        index=token_index,
+                        is_end_of_text=is_end,
+                    )
+                    emitted_any = True
+                    token_index += 1
+                elif is_end:
+                    yield Token(text="", index=token_index, is_end_of_text=True)
+                    emitted_any = True
+                    token_index += 1
+        finally:
+            close = getattr(chunks_iter, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
+
+        # If TGI returned zero usable chunks but did not raise, still count
+        # the request as served so health metrics stay accurate.
+        if emitted_any or token_index == 0:
+            self._requests_served += 1
 
     async def generate_batch(
         self, prompts: list[str], params: GenerationParams,
     ) -> list[GenerationResult]:
-        """Batch generation via sequential calls (TGI batches internally)."""
+        """Batch generation via sequential calls.
+
+        TGI batches at the server side via its continuous-batching scheduler,
+        so the adapter issues independent /generate calls in order. Empty
+        input is honoured (returns ``[]``). A backend failure on any prompt
+        propagates as a typed AdapterError; we do not silently swallow
+        per-prompt failures into placeholder results.
+        """
         self._ensure_initialized()
         assert self._client is not None
 
+        if not prompts:
+            return []
+
         results: list[GenerationResult] = []
         for prompt in prompts:
-            resp = await asyncio.to_thread(
+            resp = await maybe_await(
                 self._client.generate,
                 inputs=prompt,
                 max_new_tokens=params.max_tokens,
@@ -182,9 +273,9 @@ class TgiAdapter(AdapterBase):
                 watermark=self._config.watermark,
                 stream=False,
             )
-            body = resp.body if isinstance(resp.body, dict) else {}
+            body = self._body_dict(resp)
             generated = body.get("generated_text", "")
-            details = body.get("details", {})
+            details = body.get("details") or {}
             tokens_out = details.get("generated_tokens", len(generated) // 4)
             finish = details.get("finish_reason", "stop_sequence")
             reason = FinishReason.MAX_TOKENS if finish == "length" else FinishReason.STOP
@@ -200,14 +291,28 @@ class TgiAdapter(AdapterBase):
         raise UnsupportedOperationError("embed")
 
     async def health_check(self) -> HealthStatus:
-        """Health probe via /health endpoint."""
+        """Health probe via /health endpoint.
+
+        TGI's /health returns 200 OK when the engine is serving and
+        non-200 otherwise. We additionally consult /info: when /health
+        flips false but /info still responds with a model id, we report
+        DEGRADED instead of UNAVAILABLE so the scheduler can keep the
+        adapter on standby rather than tearing it down outright.
+        """
         if not self._initialized or self._client is None:
             return HealthStatus.unavailable()
 
         healthy = await maybe_await(self._client.health)
+        uptime = int(time.time() * 1000) - self._start_time_ms
         if healthy:
-            uptime = int(time.time() * 1000) - self._start_time_ms
             return HealthStatus.healthy(uptime_ms=uptime, requests_served=self._requests_served)
+
+        info = await maybe_await(self._client.info)
+        if isinstance(info, dict) and info.get("model_id"):
+            return HealthStatus.degraded(
+                reason="TGI /health probe failed but /info responds",
+                uptime_ms=uptime,
+            )
         return HealthStatus.unavailable()
 
     def capabilities(self) -> AdapterCapabilities:
@@ -227,7 +332,17 @@ class TgiAdapter(AdapterBase):
         )
 
     async def shutdown(self) -> None:
-        """Graceful shutdown."""
+        """Graceful, idempotent shutdown.
+
+        Releases the HTTP client reference so the urllib pool can drain and
+        clears all in-flight state. A second call is a no-op rather than an
+        error, per the shared adapter lifecycle contract.
+        """
+        if not self._initialized and self._client is None:
+            return
         self._initialized = False
         self._client = None
+        self._model_id = ""
+        self._start_time_ms = 0
+        self._requests_served = 0
         logger.info("TGI adapter shut down")

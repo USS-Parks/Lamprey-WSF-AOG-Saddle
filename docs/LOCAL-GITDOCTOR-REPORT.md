@@ -1,19 +1,19 @@
 # Local GitDoctor-Style Audit
 
 Root: `C:\Users\17076\Documents\Claude\Island Mountain Mighty Eel OS\mai`
-Overall score: **55/100**
-Checks: 58 total, 32 passed, 26 failed
+Overall score: **59/100**
+Checks: 58 total, 34 passed, 24 failed
 
 ## Category Scores
 
 | Category | Score | Passed | Failed |
 |---|---:|---:|---:|
-| Code Quality | 20/100 | 2 | 8 |
+| Code Quality | 30/100 | 3 | 7 |
 | Configuration | 71/100 | 5 | 2 |
 | Performance | 50/100 | 3 | 3 |
 | Project Hygiene | 80/100 | 4 | 1 |
 | Review Integrity | 25/100 | 2 | 6 |
-| Security | 75/100 | 12 | 4 |
+| Security | 81/100 | 13 | 3 |
 | Testing | 67/100 | 4 | 2 |
 
 ## Findings
@@ -44,15 +44,6 @@ Secrets should not be committed to source.
 - `compliance-dashboard/util.py:21 ENV_API_TOKEN = "MAI_DASHBOARD_API_TOKEN"`
 - `compliance-dashboard/util.py:22 ENV_ADMIN_TOKEN = "MAI_DASHBOARD_ADMIN_TOKEN"`
 - `tests/sdk_integration.py:71 api_key="im-this-key-does-not-exist-at-all",`
-
-### SEC-009 Math.random() in security-sensitive context (HIGH)
-
-Layer: `mapped-check`  
-Origin: `john-finding`
-
-Use cryptographically secure random generation.
-
-- `tools/local_gitdoctor_tests/test_local_gitdoctor_scan.py:27 return Math.random().toString(36);`
 
 ### SEC-016 State-changing GET routes (MEDIUM)
 
@@ -173,15 +164,6 @@ TODO/FIXME/HACK/BUG markers indicate unfinished work.
 - `docs/SHIP-HARDENING-PLAN.md:1458 TODO`
 - `docs/SHIP-HARDENING-PLAN.md:1459 FIXME`
 - `mai-adapters/src/manager.rs:586 // TODO: Track in-flight request count per adapter.`
-
-### QUA-005 Excessive console.log statements (LOW)
-
-Layer: `mapped-check`  
-Origin: `john-finding`
-
-Structured logging is preferred for production code.
-
-- `tools/local_gitdoctor_tests/test_local_gitdoctor_scan.py 6 console.log calls`
 
 ### QUA-007 Mixed async patterns (LOW)
 

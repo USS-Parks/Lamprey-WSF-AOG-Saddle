@@ -1,0 +1,33 @@
+# cargo-audit configuration for the MAI workspace.
+#
+# J-10b: cargo-audit and cargo-deny check the same RustSec database
+# but have separate config surfaces. This file mirrors the
+# `[advisories].ignore` block in `deny.toml`, with the same rationale.
+# The human-readable explanation for every entry lives in
+# `docs/INDEPENDENT-EVIDENCE-DEFERRALS.md`; keep this file synced with
+# that doc on every change.
+#
+# Do not add an ignore here that does not also exist in
+# INDEPENDENT-EVIDENCE-DEFERRALS.md. A silent ignore here would defeat
+# the auditability goal of J-10b.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2025-0144 - ml-dsa 0.0.4 timing side-channel.
+    # Fix is a semver-incompatible 0.1.0-rc.3 upgrade that breaks
+    # mai-vault, mai-compliance, mai-admin. Mitigated by air-gap
+    # deployment; deferred to the post-RC1 dependency-refresh lane.
+    "RUSTSEC-2025-0144",
+
+    # RUSTSEC-2024-0384 - instant 0.1.13 unmaintained.
+    # Transitive via notify 7.0.0 -> notify-types -> instant. No
+    # semver upgrade available without replacing `notify`. Deferred
+    # to the post-RC1 dependency-refresh lane.
+    "RUSTSEC-2024-0384",
+
+    # RUSTSEC-2024-0436 - paste 1.0.15 unmaintained.
+    # Transitive via pqcrypto-mldsa 0.1.2. Upstream pqcrypto-mldsa has
+    # not released a version without it. Deferred to the post-RC1
+    # dependency-refresh lane.
+    "RUSTSEC-2024-0436",
+]

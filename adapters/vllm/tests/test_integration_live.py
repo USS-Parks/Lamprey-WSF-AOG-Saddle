@@ -276,7 +276,7 @@ async def test_embeddings_when_backend_supports_else_unsupported(
                 "Adapter declared embedding unsupported for this backend "
                 "configuration; this is an honest skip.",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # vLLM responds 404/400 when launched without an embedding
             # model. The client maps 404 → ModelNotFoundError; either
             # branch is a clean honest skip for the embedding live test.

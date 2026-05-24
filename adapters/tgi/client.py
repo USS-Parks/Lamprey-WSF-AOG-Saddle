@@ -21,8 +21,10 @@ from adapters.base import (
     AdapterTimeoutError,
     BackendUnavailableError,
     ContextExceededError,
+    ModelNotFoundError,
     OutOfMemoryError,
     RateLimitedError,
+    ValidationError,
 )
 
 logger = logging.getLogger("mai.adapters.tgi.client")
@@ -99,9 +101,17 @@ class TgiClient:
         except urllib.error.HTTPError as e:
             body_text = e.read().decode() if e.fp else ""
             self._handle_http_error(e.code, body_text)
-            raise BackendUnavailableError() from e
-        except (urllib.error.URLError, TimeoutError) as e:
-            raise BackendUnavailableError() from e
+            # _handle_http_error raises for all mapped codes; reaching here
+            # means an unmapped 4xx — surface it as backend unavailable.
+            raise BackendUnavailableError(
+                f"TGI streaming connect failed (status {e.code})",
+            ) from e
+        except urllib.error.URLError as e:
+            if "timed out" in str(getattr(e, "reason", "")):
+                raise AdapterTimeoutError(timeout_ms=int(self._stream_timeout * 1000)) from e
+            raise BackendUnavailableError(str(e.reason) if hasattr(e, "reason") else None) from e
+        except TimeoutError as e:
+            raise AdapterTimeoutError(timeout_ms=int(self._stream_timeout * 1000)) from e
 
         try:
             for line in resp:
@@ -114,36 +124,92 @@ class TgiClient:
                 try:
                     chunk_data = json.loads(payload)
                 except json.JSONDecodeError:
-                    continue
-                token = chunk_data.get("token", {})
+                    # TGI is supposed to emit one JSON object per data: line.
+                    # A malformed frame is a backend protocol violation; we
+                    # raise rather than silently drop tokens.
+                    raise BackendUnavailableError(
+                        "TGI emitted malformed stream frame",
+                    ) from None
+
+                # TGI may emit an error frame mid-stream as either
+                # {"error": "...", "error_type": "..."} or
+                # {"error": {...}}. Map to typed errors.
+                if isinstance(chunk_data, dict) and "error" in chunk_data and "token" not in chunk_data:
+                    error_obj = chunk_data.get("error")
+                    if isinstance(error_obj, dict):
+                        err_detail = str(error_obj.get("message", error_obj))
+                    else:
+                        err_detail = str(error_obj)
+                    err_type = str(chunk_data.get("error_type", "")).lower()
+                    low = err_detail.lower()
+                    if "memory" in low or "oom" in low:
+                        raise OutOfMemoryError()
+                    if err_type == "validation" and (
+                        "too long" in low or "context" in low or "max_input" in low
+                    ):
+                        raise ContextExceededError(max_context=0)
+                    if err_type == "validation":
+                        raise ValidationError(err_detail or "TGI validation error")
+                    raise BackendUnavailableError(err_detail or "TGI stream error")
+
+                token = chunk_data.get("token", {}) if isinstance(chunk_data, dict) else {}
+                details = chunk_data.get("details") if isinstance(chunk_data, dict) else None
                 yield TgiStreamChunk(
-                    token_text=token.get("text", ""),
-                    token_id=token.get("id"),
-                    finish_reason=chunk_data.get("details", {}).get("finish_reason")
-                        if chunk_data.get("details") else None,
-                    generated_text=chunk_data.get("generated_text"),
+                    token_text=token.get("text", "") if isinstance(token, dict) else "",
+                    token_id=token.get("id") if isinstance(token, dict) else None,
+                    finish_reason=details.get("finish_reason")
+                        if isinstance(details, dict) else None,
+                    generated_text=chunk_data.get("generated_text")
+                        if isinstance(chunk_data, dict) else None,
                 )
         finally:
             resp.close()
 
     def _handle_http_error(self, status: int, body_text: str) -> None:
-        """Map HTTP errors to MAI error types."""
+        """Map HTTP errors to MAI error types.
+
+        TGI surfaces structured errors as JSON of the shape
+        ``{"error": "...", "error_type": "..."}`` where ``error_type`` is one
+        of ``generation``, ``incomplete_generation``, ``overloaded``,
+        ``validation``, ``incomplete``, or ``unknown``. We honour
+        ``error_type`` when present and fall back to substring sniffing on
+        ``error``.
+        """
         if status == 429:
             raise RateLimitedError()
         if status in (408, 504):
             raise AdapterTimeoutError(timeout_ms=int(self._timeout * 1000))
+
         detail = ""
+        error_type = ""
         try:
-            err_body = json.loads(body_text)
-            detail = err_body.get("error", "")
-        except (json.JSONDecodeError, KeyError):
+            err_body = json.loads(body_text) if body_text else {}
+            if isinstance(err_body, dict):
+                detail = str(err_body.get("error", ""))
+                error_type = str(err_body.get("error_type", ""))
+        except json.JSONDecodeError:
             detail = body_text[:200]
-        if "memory" in detail.lower() or "oom" in detail.lower():
+
+        low_detail = detail.lower()
+        low_type = error_type.lower()
+
+        if low_type == "overloaded" or "overloaded" in low_detail:
+            raise RateLimitedError()
+        if "memory" in low_detail or "oom" in low_detail or "cuda out of memory" in low_detail:
             raise OutOfMemoryError()
-        if "input" in detail.lower() and "too long" in detail.lower():
+        if (
+            low_type == "validation"
+            and ("too long" in low_detail or "max_input" in low_detail or "context" in low_detail)
+        ):
             raise ContextExceededError(max_context=0)
+        if low_type == "validation":
+            raise ValidationError(detail or "TGI validation error")
+        if status == 422:
+            raise ValidationError(detail or "TGI validation error")
+        if status == 404:
+            raise ModelNotFoundError(detail or "TGI model not found")
         if status >= 500:
-            raise BackendUnavailableError()
+            raise BackendUnavailableError(detail or f"TGI server error {status}")
 
     # ─── Public API ───────────────────────────────────────────────────────
 
@@ -190,9 +256,15 @@ class TgiClient:
             return False
 
     def metrics(self) -> str:
-        """Fetch Prometheus metrics endpoint (raw text)."""
+        """Fetch the raw Prometheus metrics endpoint as text.
+
+        TGI's ``/metrics`` is a text/plain Prometheus exposition; we hit it
+        with a separate path so JSON decoding does not strip whitespace.
+        """
+        url = f"{self._base_url}/metrics"
+        req = urllib.request.Request(url, method="GET")
         try:
-            resp = self._request("GET", "/metrics", timeout=5.0)
-            return str(resp.body)
-        except (AdapterTimeoutError, BackendUnavailableError):
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except (urllib.error.URLError, TimeoutError, urllib.error.HTTPError):
             return ""

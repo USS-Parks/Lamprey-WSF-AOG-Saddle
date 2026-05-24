@@ -1,0 +1,102 @@
+# cargo-deny configuration for the MAI workspace.
+#
+# J-10b: the workspace did not previously ship a deny.toml. The default
+# `cargo deny check` policy flagged three advisories. Two are
+# unmaintained-crate warnings on transitive dependencies; the third is
+# a real medium-severity timing side-channel in `ml-dsa`. None has a
+# semver-compatible upgrade path from where this RC1 freeze sits. Each
+# is allow-listed here with a written reason that mirrors the
+# corresponding row in `docs/INDEPENDENT-EVIDENCE-DEFERRALS.md`.
+#
+# This is NOT a blanket suppression. Every entry below cites a
+# specific RustSec advisory ID, names the post-RC lane that will
+# revisit it, and carries a one-paragraph rationale. New advisories
+# fall through and fail the build.
+
+[advisories]
+version = 2
+
+ignore = [
+    # ───────────────────────────────────────────────────────────────
+    # RUSTSEC-2025-0144 - Timing side-channel in ML-DSA decomposition
+    # ───────────────────────────────────────────────────────────────
+    # Crate:    ml-dsa 0.0.4
+    # Severity: 6.4 (medium)
+    # Fix:      ml-dsa 0.1.0-rc.3 (semver-incompatible upgrade)
+    # Used by:  mai-vault, mai-compliance, mai-admin, mai-api
+    #
+    # The advisory describes a UDIV-instruction timing leak in the
+    # `decompose()` function during ML-DSA signing. Exploitation requires
+    # precise timing measurements on the signer process; the MAI signing
+    # path runs inside the air-gap boundary on dedicated hardware where
+    # an attacker capable of those measurements has already breached
+    # invariants the threat model considers stronger.
+    #
+    # The fix is a major-version bump (0.0.4 → 0.1.0-rc.3) that breaks
+    # the call sites in mai-vault and mai-compliance. Bumping a crypto
+    # primitive across an RC1 freeze without re-running the SHIP-14 ML-
+    # DSA report signer burn-in is the larger risk.
+    #
+    # Deferred to: post-RC1 dependency-refresh lane (see DEFERRALS doc).
+    { id = "RUSTSEC-2025-0144", reason = "ml-dsa 0.0.4 timing side-channel; fix is a semver-incompatible 0.1.0-rc.3 bump that breaks mai-vault/mai-compliance/mai-admin call sites and requires SHIP-14 burn-in re-run. Mitigated in-tree by air-gap deployment posture. Deferred to post-RC1 dependency-refresh lane; see INDEPENDENT-EVIDENCE-DEFERRALS.md." },
+
+    # ───────────────────────────────────────────────────────────────
+    # RUSTSEC-2024-0384 - `instant` is unmaintained
+    # ───────────────────────────────────────────────────────────────
+    # Crate:    instant 0.1.13
+    # Path:     mai-api -> notify 7.0.0 -> notify-types 1.0.1 -> instant
+    #
+    # No safe upgrade is available; the crate maintainer recommends
+    # migrating to `web-time`. The MAI-side fix requires either
+    # upgrading `notify` past the version that still depends on
+    # `instant` or replacing `notify` entirely. Both are scoped to the
+    # post-RC1 refresh lane.
+    { id = "RUSTSEC-2024-0384", reason = "instant 0.1.13 unmaintained; transitive via notify-types. No semver upgrade available; deferred to post-RC1 dependency-refresh lane." },
+
+    # NB: RUSTSEC-2024-0436 (paste unmaintained) is flagged by
+    # `cargo audit` but NOT by `cargo deny` against this lockfile
+    # (deny's "advisory was not encountered" check rejects unused
+    # ignores). Keep the audit-side deferral documented in
+    # INDEPENDENT-EVIDENCE-DEFERRALS.md without an ignore line here.
+]
+
+[bans]
+# Default `bans` policy: warn on duplicate versions, deny on yanked
+# crates. We do not currently enforce a wildcard-version ban so that
+# workspace-internal `path = "..."` dependencies remain ergonomic.
+multiple-versions = "warn"
+wildcards = "allow"
+
+[licenses]
+# Explicitly permit the common open-source licenses present in our
+# Cargo tree, PLUS the workspace's own `LicenseRef-Proprietary`
+# license (an SPDX "license reference" identifier used for non-OSS
+# code; per Cargo.toml in every workspace crate). Anything not on
+# this list fails the build, surfacing surprise GPL / copyleft
+# dependencies the moment they enter the dep graph.
+version = 2
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "LicenseRef-Proprietary",   # MAI workspace own crates
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+]
+confidence-threshold = 0.93
+
+[sources]
+# Only allow dependencies from crates.io.  Workspace-local `path =
+# "..."` dependencies are exempt from this check automatically.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

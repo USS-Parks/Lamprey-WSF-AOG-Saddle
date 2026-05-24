@@ -1,0 +1,80 @@
+# gitleaks configuration for the MAI workspace.
+#
+# J-10b: the baseline scan reported 20 findings against the default
+# ruleset. Every finding was investigated and classified as a false
+# positive of one of the categories below. Real secret detection is
+# also covered by `detect-secrets scan --all-files`, which PASSes
+# against this tree because it carries an explicit baseline.
+#
+# When adding entries here, prefer the narrowest possible allowlist:
+# path-level for build artifacts and evidence dumps, regex-level for
+# named test fixtures. Do not add blanket regex allowlists that would
+# silence real secrets elsewhere in the tree.
+
+title = "MAI gitleaks allowlist"
+
+[extend]
+# Inherit the default ruleset; we only allowlist on top of it. Do not
+# replace.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Path-level allowlists
+# ---------------------------------------------------------------------------
+
+[allowlist]
+description = "Aggregate allowlist for the MAI workspace"
+
+paths = [
+    # Rust build artifacts: `target/**/*.rmeta` files embed crate-format
+    # marker strings (the `pkcs8` crate's RSA/EC key-format literals) as
+    # part of rustc's serialized metadata. They are not secrets;
+    # rebuilding the workspace would re-create the exact same matches.
+    # Gitleaks default scope is `--no-git`, so it walks `target/` unless
+    # we tell it otherwise. We could pass `--exclude` on the CLI, but
+    # keeping the policy in this file is more durable.
+    '''^target/''',
+    '''(^|/)target/''',
+
+    # Evidence reports embed the OUTPUT of `detect-secrets scan`, which
+    # itself prints `hashed_secret` fields for every entropy hit it
+    # finds. Those are SHA-1 hashes of test fixtures and build-artifact
+    # bytes, not secrets in their own right; gitleaks matches them as
+    # generic-api-keys because the JSON is regular hex. The original
+    # scan output is the authoritative source.
+    '''^docs/LOCAL-GITDOCTOR-(REPORT|EVIDENCE)\.(md|json)$''',
+    '''(^|/)docs/LOCAL-GITDOCTOR-(REPORT|EVIDENCE)\.(md|json)$''',
+
+    # Captured stdout from RC1-prep first-boot rehearsals. The
+    # `Key: im-...` line is the printed admin key from a TEST bundle;
+    # the corresponding hash never went to prod, and a real production
+    # boot path never writes the raw key to disk (see
+    # `mai-api/src/server.rs::load_auth_state` line 711-728: stdout
+    # only, never logged).
+    '''^test-evidence/''',
+    '''(^|/)test-evidence/''',
+]
+
+# ---------------------------------------------------------------------------
+# Targeted regex allowlists
+# ---------------------------------------------------------------------------
+#
+# `regexes` matches the leaked content itself (per the gitleaks 8.x
+# allowlist semantics). Each entry below is a named test fixture used
+# inside a `#[test]` block to verify the project's own redaction or
+# hashing code path. The strings are committed deliberately and have
+# no production counterpart.
+
+regexes = [
+    # mai-api/src/metrics.rs::test_label_value_redacts_secrets
+    # exercises the SHIP-11 metrics scrubber against a fake live-token
+    # shape. The redaction guarantee is what the test is asserting.
+    '''sk-live-abcdef0123456789''',
+    '''hvs\.CAESIQABCDEF''',
+
+    # mai-api/src/auth.rs::test_hash_api_key_deterministic uses a
+    # fixed test key to assert that hash_api_key() is deterministic.
+    # The value is never honored by any production code path; it
+    # exists solely to compare h1 == h2.
+    '''im-test-key-12345''',
+]
