@@ -19,7 +19,10 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+# MSRV: let-chains (used in mai-compliance) stabilised in 1.88.
+# Discovered during DOUGHERTY J-04 docker-build verification — the
+# prior "1.85" claim did not match the code. See J-04 fix-up commit.
+rust-version = "1.88"
 license = "LicenseRef-Proprietary"
 repository = "https://github.com/USS-Parks/im-mighty-eel-mai"
 

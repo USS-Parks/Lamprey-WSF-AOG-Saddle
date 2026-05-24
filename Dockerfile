@@ -33,12 +33,19 @@
 #   pin every internal dep). A follow-up session may convert these to
 #   sha256 digests if a fully air-gapped build pipeline requires it.
 #
-# Manual verify command (Docker required):
+# Manual verify command (Docker required; verified end-to-end in
+# DOUGHERTY J-04, image lands at ~53 MB):
 #   docker buildx build --progress=plain -t mai-rc1:dockerfile-test mai/
-#   docker run --rm -p 8420:8420 -p 8421:8421 \
-#       -e MAI_SHIP_PROFILE=/opt/mai/config/dev.toml \
+#   docker run -d --name mai-smoke -p 8420:8420 -p 8421:8421 \
 #       mai-rc1:dockerfile-test
-#   curl http://localhost:8420/health
+#   # NOTE: the binary binds to 127.0.0.1 INSIDE the container by
+#   # default (config-controlled via the Scout-tier defaults). To
+#   # reach /v1/health from the host you must either supply a
+#   # MAI_SHIP_PROFILE with `bind = "0.0.0.0"` OR exec into the
+#   # container's network namespace:
+#   docker run --rm --network container:mai-smoke curlimages/curl:latest \
+#       http://localhost:8420/v1/health
+#   docker stop mai-smoke && docker rm mai-smoke
 #
 # Regenerate lock files first (J-03 policy doc has the commands):
 #   python -m piptools compile --generate-hashes --output-file=requirements-lock.txt pyproject.toml
@@ -48,14 +55,20 @@
 # ----------------------------------------------------------------------
 # Stage 1: rust-builder
 # ----------------------------------------------------------------------
-FROM rust:1.85-slim-bookworm AS rust-builder
+FROM rust:1.88-slim-bookworm AS rust-builder
 
-# Build-time deps for native crates that may need a C toolchain
-# (blake3 SIMD, ring, etc.). Kept minimal — no curl, no git.
+# Build-time deps for native crates and code generators:
+#   pkg-config + libssl-dev — generic C toolchain glue for ring/blake3/etc.
+#   ca-certificates         — TLS roots for crate registry fetch
+#   protobuf-compiler       — protoc, required by mai-api/build.rs which
+#                             drives tonic-build / prost-build over the
+#                             gRPC .proto files
+# Kept minimal — no curl, no git.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \
         libssl-dev \
         ca-certificates \
+        protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -143,10 +156,13 @@ EXPOSE 8420 8421
 
 USER nonroot:nonroot
 
-# MAI_SHIP_PROFILE is the only mandatory runtime env var. Without it,
-# mai-api starts in dev mode with permissive defaults that are NOT
-# safe for production. See .env.example.
-ENV MAI_SHIP_PROFILE=""
+# MAI_SHIP_PROFILE governs production hardening (auth, vault, air-gap
+# enforcement). It is INTENTIONALLY left UNSET in this image — the
+# Rust code distinguishes "unset" (boot in Scout-tier dev mode) from
+# "set to empty string or a bad path" (fail-fast with a config error).
+# Production deployments MUST supply a profile at runtime, e.g.:
+#   docker run -e MAI_SHIP_PROFILE=/opt/mai/config/ship.toml ...
+# See .env.example for the policy.
 
 # The default invocation runs the server. mai-ship-validate is
 # available on PATH for ad-hoc preflight checks via
