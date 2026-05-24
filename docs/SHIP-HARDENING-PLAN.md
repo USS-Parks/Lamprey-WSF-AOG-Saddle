@@ -1311,6 +1311,34 @@ extended with a `gate` subcommand (exit codes 0..5 per failure mode),
 - Add all operator docs.
 - Remove stale "production wires later" language where now implemented.
 
+**Status (2026-05-23): done.** Added 11 thematic operator docs
+under `mai/docs/` (`INSTALL.md`, `FIRST-BOOT.md`, `OPERATIONS.md`,
+`BACKUP-RESTORE.md`, `OBSERVABILITY.md`, `RELEASE-GATES.md`,
+`SECURITY-PRODUCTION.md`, `TRUST-BRIDGE-PRODUCTION.md`,
+`AUDIT-RETENTION.md`, `UPGRADE-ROLLBACK.md`,
+`INCIDENT-RESPONSE.md`). Added 14 named-failure runbooks under
+`mai/docs/runbooks/` covering the §12 list (first boot, rotate
+API key, rotate trust anchor, install policy bundle, verify
+audit chain, generate compliance report, back up, restore,
+recover from failed upgrade, adapter crash loop, trust bundle
+expired, audit WAL tamper, air-gap violation, disk almost full),
+plus `runbooks/README.md` as the index. Every alert in
+`OBSERVABILITY.md` maps to exactly one runbook; every failing
+`PROD-*` check in `RELEASE-GATES.md` maps to a runbook. Stale
+"production wires later" language removed from
+`mai/deployment/ship/README.md`, `mai/docs/SHIP-PROFILE.md`
+status table, `mai/packaging/README.md` Future work section, and
+`mai-api/src/audit_wal.rs:323-325`. `mai/docs/INDEX.md` updated
+with a new "Operator Production Docs (SHIP-15)" section linking
+all new docs and the runbook index. No source code changes
+required; doc-only session. Gates: subagent integrity scan over
+26 new files (zero null-byte delta, balanced fences, no
+truncated tails), `git diff --stat` shows no >50% deletions on
+edited existing files. Acceptance per §12: "A new operator can
+install, validate, back up, restore, and monitor the node using
+docs only" — INSTALL.md + the runbook index satisfy this end to
+end.
+
 ### Session SHIP-16: Final Audit Pass
 
 - Search for `StubVault`, `MemoryAuditWriter`, `AcceptAllBundleVerifier`, `NullSealer`, `dashboard-dev`, `local-dev token stub`, `placeholder`, `deferred`.

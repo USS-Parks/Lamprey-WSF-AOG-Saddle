@@ -5,13 +5,14 @@ sold or installed on a node delivered to a regulated end-user. Use it
 on every appliance the operator does not personally re-image between
 debugging sessions.
 
-If `MAI_PROFILE=ship` is active, the production guard (added in
-SHIP-02) must reject every demo-safe default before the API server is
-allowed to listen. SHIP-01 ships parsing only — the typed
-representation, schema validation, and `deployment/ship/profile.toml`
-landing on disk. Boot wiring, vault wiring, audit WAL, trust bridge,
-packaging, and the final `mai-ship-validate` command land in
-SHIP-02..SHIP-15.
+When `MAI_PROFILE=ship` is active, the production guard rejects
+every demo-safe default before the API server is allowed to
+listen. Parsing landed in SHIP-01; the runtime guard, vault
+wiring, audit WAL, trust components, packaging, backup/restore,
+observability, CI enforcement, GPU release workflow, 72-hour
+burn-in, and operator docs and runbooks all landed across
+SHIP-02..SHIP-15. The standalone `mai-ship-validate` binary is
+the single gate (SHIP-07-endpoint-and-cli).
 
 ## What this profile contracts
 
@@ -60,20 +61,24 @@ installed node the operator points at `/etc/mai/profile.toml` and
 
 ## Validation
 
-SHIP-01 ships parse-time validation only. Run the unit and integration
-tests:
+Run the standalone validator against the on-disk profile:
+
+```bash
+sudo mai-ship-validate --profile /etc/mai/profile.toml
+```
+
+Exit 0 means every `PROD-*` check passes against the real
+vault, audit WAL, sealer, and trust components. The full check
+matrix lives in [`docs/RELEASE-GATES.md`](../../docs/RELEASE-GATES.md);
+the runbook index that maps failing checks to operator
+procedures lives at
+[`docs/runbooks/README.md`](../../docs/runbooks/README.md).
+
+For parser-only verification on a developer workstation:
 
 ```bash
 cargo test -p mai-api ship_profile
 ```
-
-A passing test run confirms the schema accepts this file and rejects
-the documented unsafe shapes (missing paths, missing trust anchor,
-missing audit WAL, `allow_demo_defaults = true`).
-
-The full runtime guard (every check ID, vault wiring, audit
-persistence, trust bridge production mode) is added in SHIP-02 and
-onward. The `mai-ship-validate` command lands in SHIP-07.
 
 ## Where to look next
 

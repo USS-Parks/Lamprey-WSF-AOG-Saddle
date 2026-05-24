@@ -320,9 +320,9 @@ impl AuditWriter for WalAuditWriter {
         // ask `read_recent(N)` after N writes.
         //
         // Simpler implementation: load everything, slice, reverse. We
-        // accept the O(total) cost because SHIP-04 does not own
-        // operator-facing audit query — that's the SHIP-09 backup /
-        // SHIP-15 dashboard layer.
+        // accept the O(total) cost because this writer does not own
+        // operator-facing audit query — that lives in `mai-admin
+        // audit` and the compliance dashboard.
         let all = read_all_entries(&self.config)
             .await
             .map_err(|e| e.to_string())?;

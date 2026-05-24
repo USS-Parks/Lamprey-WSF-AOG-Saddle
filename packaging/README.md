@@ -198,19 +198,20 @@ dependencies. They check:
 
 If you change a unit or a script, expect to update the matching test.
 
-## Future work
+## Cross-references
 
-The following are tracked elsewhere and intentionally out of scope here:
+Adjacent docs that the operator will actually use:
 
-* `mai-admin backup`/`restore` commands — SHIP-09 / SHIP-10
-* metrics endpoint + alert rule config — SHIP-11
-* CI package build job + ship validator job — SHIP-12
-* GPU release workflow + benchmark gates — SHIP-13
-* 72-hour burn-in scripts + signed report — SHIP-14
-* operator runbooks — SHIP-15
+* `docs/INSTALL.md` — full install procedure for a fresh appliance.
+* `docs/RELEASE-GATES.md` — the validator's check matrix.
+* `docs/BACKUP-RESTORE.md` — `mai-admin backup` / `restore`
+  contract (implemented in SHIP-09 / SHIP-10).
+* `docs/OBSERVABILITY.md` — metrics endpoint, alert rules,
+  dashboard surface (SHIP-11).
+* `docs/UPGRADE-ROLLBACK.md` — how a packaged upgrade rolls out.
+* `docs/runbooks/` — 14 named-failure operator runbooks.
 
-A standalone `mai-ship-validate` Cargo binary will replace the
-`mai-api validate` subcommand wrapper that lives at
-`packaging/scripts/mai-ship-validate.sh` today; the wrapper exists so
-SHIP-08 packages have something installable at `/usr/bin/mai-ship-validate`
-without bleeding scope into the SHIP-07 CLI work.
+The standalone `mai-ship-validate` Cargo binary
+(SHIP-07-endpoint-and-cli) is the production gate; the
+`packaging/scripts/mai-ship-validate.sh` wrapper remains for
+backward compatibility with SHIP-08 install layouts.

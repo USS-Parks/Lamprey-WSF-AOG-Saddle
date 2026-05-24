@@ -19,6 +19,11 @@
 | Building against the Python SDK | [SDK-REFERENCE.md](SDK-REFERENCE.md) |
 | Calling the REST API directly | [API-REFERENCE.md](API-REFERENCE.md) |
 | Operating a local node | [DEPLOYMENT.md](DEPLOYMENT.md) |
+| Installing a production appliance | [INSTALL.md](INSTALL.md) |
+| Running an installed appliance day-to-day | [OPERATIONS.md](OPERATIONS.md) |
+| Handling an outage or alert at 2 AM | [runbooks/](runbooks/) and [INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md) |
+| Upgrading or rolling back a release | [UPGRADE-ROLLBACK.md](UPGRADE-ROLLBACK.md) |
+| Backing up or restoring a node | [BACKUP-RESTORE.md](BACKUP-RESTORE.md) |
 | Planning tester packaging and production shipping | [COGENT-DEPLOYMENT-ROADMAP.md](COGENT-DEPLOYMENT-ROADMAP.md) |
 | Planning copyright, patent, and IP protection | [IP-COPYRIGHT-PATENT-ROADMAP.md](IP-COPYRIGHT-PATENT-ROADMAP.md) |
 | Starting as a new engineer | [HANDOFF.md](HANDOFF.md) |
@@ -52,6 +57,30 @@ build team.
 | [acquisition/demos/multi-domain.md](acquisition/demos/multi-domain.md) | Demo 4 -- multi-module conflict resolution (HIPAA + OCAP), composer fold rules, precedence chain | Acquirer technical reviewer |
 | [acquisition/READY.md](acquisition/READY.md) | Gate D production readiness -- test, demo, and perf evidence; known issues; certification statement | Acquirer reviewer; release sign-off |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | Out-of-scope items, deferred work, architectural limitations, open questions | Troubleshooting; "should I build this?" |
+
+---
+
+## Operator Production Docs (SHIP-15)
+
+Production-only operator docs for `profile.mode = "production"`
+appliances. The runbook index in
+[`runbooks/README.md`](runbooks/README.md) maps every alert
+class to a specific named-failure procedure.
+
+| File | Purpose | Read When |
+|---|---|---|
+| [INSTALL.md](INSTALL.md) | Operator install procedure: hardware/software prereqs, package install, validator gate, first-backup floor | Bringing up a new appliance |
+| [FIRST-BOOT.md](FIRST-BOOT.md) | The privileged first-boot key-mint contract; why there is no recovery for a lost first-boot key | Reading before runbook 01 |
+| [OPERATIONS.md](OPERATIONS.md) | Day-2 cadence: daily/weekly/quarterly/annual operator tasks; endpoint cheat sheet; config touchpoints | After install completes |
+| [BACKUP-RESTORE.md](BACKUP-RESTORE.md) | Backup component manifest, signing key custody, retention contract, restore plan/apply, DR drill matrix | Building backup policy or restoring a node |
+| [OBSERVABILITY.md](OBSERVABILITY.md) | Health surfaces, Prometheus metrics, alert rule map, dashboard scope, payload boundary | Wiring monitoring or paging |
+| [RELEASE-GATES.md](RELEASE-GATES.md) | `mai-ship-validate` exit codes, check families, pre-release sequence (dev/package/installed/recovery/burn-in) | Declaring a build shippable |
+| [SECURITY-PRODUCTION.md](SECURITY-PRODUCTION.md) | What ship promises, four-key custody matrix, rotation cadence, reverse-proxy contract, in-process egress | Reviewing production security posture |
+| [TRUST-BRIDGE-PRODUCTION.md](TRUST-BRIDGE-PRODUCTION.md) | Roles for bundle authoring/signing/delivery; why the bridge is procedural; anchor distribution; revocation | Setting up signed-bundle delivery |
+| [AUDIT-RETENTION.md](AUDIT-RETENTION.md) | Two-chain WAL contract, default retention tiers, export procedure for counsel, cold-storage archival | Building retention policy or handling counsel requests |
+| [UPGRADE-ROLLBACK.md](UPGRADE-ROLLBACK.md) | Pre-upgrade checklist, upgrade procedure, multi-release rolling, rollback to verified backup | Planning or executing an upgrade |
+| [INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md) | Severity classes, first-five-minutes, investigation flow, post-mortem template, specific incident shapes | At 2 AM, when something is wrong |
+| [runbooks/README.md](runbooks/README.md) | Index of 14 named-failure runbooks (key rotation, anchor rotation, bundle import, audit verify, compliance report, backup, restore, upgrade rollback, adapter crash loop, trust bundle expired, audit WAL tamper, air-gap violation, disk almost full) | When an alert fires |
 
 ---
 
