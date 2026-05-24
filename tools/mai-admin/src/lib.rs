@@ -1,13 +1,14 @@
-//! MAI operator tooling. SHIP-09 lands `backup create` and
-//! `backup verify`; SHIP-10 will add `restore plan/apply`. Library
+//! MAI operator tooling. SHIP-09 lands `backup create` / `backup
+//! verify`; SHIP-10 adds `restore plan` / `restore apply`. Library
 //! surface area is kept narrow on purpose so the CLI binary and the
-//! SHIP-14 burn-in scripts can drive backups without re-spawning the
-//! process.
+//! SHIP-14 burn-in scripts can drive both directions without
+//! re-spawning the process.
 
 pub mod audit;
 pub mod backup;
 pub mod manifest;
 pub mod profile;
+pub mod restore;
 
 pub use audit::{AuditEntry, GENESIS_HASH, verify_chain};
 pub use backup::{
@@ -19,4 +20,8 @@ pub use manifest::{
 };
 pub use profile::{
     BackupSourceProfile, ProfileLoadError, load_backup_source_profile, parse_backup_source_profile,
+};
+pub use restore::{
+    ActionKind, RestoreAction, RestoreError, RestoreObstacle, RestorePlan, RestoreReport,
+    RestoreSignatureRecord, RestoredComponent, apply_restore, plan_restore,
 };
