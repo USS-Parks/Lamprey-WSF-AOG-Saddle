@@ -18,6 +18,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { execSync } from "child_process";
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, statSync } from "fs";
+import { randomUUID } from "node:crypto";
 import { dirname, resolve } from "path";
 import { tmpdir } from "os";
 
@@ -241,7 +242,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     case "safe_write": {
-      const tmpPath = `${tmpdir()}/mai-safe-write-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const tmpPath = `${tmpdir()}/mai-safe-write-${Date.now()}-${randomUUID()}`;
       let content = args.content;
 
       // Ensure trailing newline
