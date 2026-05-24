@@ -402,6 +402,7 @@ pub struct PowerStateResponse {
 
 /// Power state transition request
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PowerTransitionRequest {
     /// Target state or trigger action
     pub action: String,
@@ -600,6 +601,7 @@ impl From<mai_core::models::UpdateModel> for UpdateModelInfo {
 
 /// Start background update download request
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateDownloadRequest {
     pub name: String,
     pub version: String,

@@ -189,6 +189,7 @@ pub async fn get_policy(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModuleToggle {
     pub enabled: bool,
 }
@@ -245,6 +246,7 @@ pub async fn reload_policy(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApplyTemplateRequest {
     pub template: String,
 }
@@ -364,6 +366,7 @@ pub async fn disable_module(
 // ─── Audit handlers ────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuditQueryParams {
     #[serde(default)]
     pub from: Option<u64>,
@@ -551,6 +554,7 @@ pub async fn list_reports(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GenerateReportRequest {
     pub report_type: String,
     pub from_unix_nanos: u64,

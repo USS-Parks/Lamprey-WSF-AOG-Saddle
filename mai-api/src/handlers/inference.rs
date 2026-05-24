@@ -248,7 +248,15 @@ pub async fn embeddings(
         let mgr = state.adapter_manager.lock().await;
         mgr.embed(&adapter_name, texts.clone()).await.map_err(|e| {
             error!(error = %e, adapter = %adapter_name, "Adapter embed failed");
-            ApiError::InternalError
+            match e {
+                mai_adapters::errors::FrameworkError::ProcessCrashed { .. } => {
+                    ApiError::AdapterCrashed(adapter_name.clone())
+                }
+                mai_adapters::errors::FrameworkError::ResponseTimeout { .. } => {
+                    ApiError::RequestTimeout
+                }
+                _ => ApiError::InternalError,
+            }
         })?
     };
 
@@ -364,7 +372,15 @@ pub async fn structured_generation(
             .await
             .map_err(|e| {
                 error!(error = %e, adapter = %adapter_name, "Adapter structured gen failed");
-                ApiError::InternalError
+                match e {
+                    mai_adapters::errors::FrameworkError::ProcessCrashed { .. } => {
+                        ApiError::AdapterCrashed(adapter_name.clone())
+                    }
+                    mai_adapters::errors::FrameworkError::ResponseTimeout { .. } => {
+                        ApiError::RequestTimeout
+                    }
+                    _ => ApiError::InternalError,
+                }
             })?
     };
 
@@ -514,7 +530,15 @@ pub async fn function_call(
             .await
             .map_err(|e| {
                 error!(error = %e, adapter = %adapter_name, "Adapter function_call gen failed");
-                ApiError::InternalError
+                match e {
+                    mai_adapters::errors::FrameworkError::ProcessCrashed { .. } => {
+                        ApiError::AdapterCrashed(adapter_name.clone())
+                    }
+                    mai_adapters::errors::FrameworkError::ResponseTimeout { .. } => {
+                        ApiError::RequestTimeout
+                    }
+                    _ => ApiError::InternalError,
+                }
             })?
     };
 

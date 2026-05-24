@@ -283,6 +283,7 @@ pub async fn list_adapters(
 
 /// Query parameters for audit log pagination.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuditLogQuery {
     /// Number of entries to return (default 50, max 500)
     #[serde(default = "default_audit_limit")]

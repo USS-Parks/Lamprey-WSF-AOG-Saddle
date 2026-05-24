@@ -465,6 +465,7 @@ pub async fn remove_model_handler(
 
 /// Request body for POST /v1/models/install
 #[derive(Debug, Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InstallRequest {
     /// Package name, e.g. "qwen3-14b-Q4_K_M.mai-pkg"
     pub package_name: String,

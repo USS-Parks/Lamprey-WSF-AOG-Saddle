@@ -68,6 +68,7 @@ pub struct TrustBundleStatus {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RevocationQuery {
     pub claim_id: String,
 }
@@ -98,6 +99,7 @@ pub struct AirGapView {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExchangeTokenRequest {
     pub subject_id: String,
     #[serde(default)]
