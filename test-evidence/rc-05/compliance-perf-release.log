@@ -1,0 +1,16 @@
+   Compiling mai-hil v0.1.0 (C:\Users\17076\Documents\Claude\Island Mountain Mighty Eel OS\mai\mai-hil)
+   Compiling mai-core v0.1.0 (C:\Users\17076\Documents\Claude\Island Mountain Mighty Eel OS\mai\mai-core)
+   Compiling mai-compliance v0.1.0 (C:\Users\17076\Documents\Claude\Island Mountain Mighty Eel OS\mai\mai-compliance)
+    Finished `release` profile [optimized] target(s) in 1m 06s
+     Running tests\compliance_perf.rs (target\release\deps\compliance_perf-0e7ffd9b67ebd074.exe)
+
+running 3 tests
+[report] seed_entries=200 window=30d format=json elapsed=1.588ms content_hash_len=64
+test report_generation_under_10_seconds ... ok
+[audit] entries=2000 elapsed=15.6337ms throughput=127929/s
+test audit_append_throughput_over_1000_per_sec ... ok
+[composer] samples=5000 p50=400ns p95=500ns p99=600ns
+test composer_p99_under_5ms ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
