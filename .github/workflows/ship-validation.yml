@@ -1,0 +1,176 @@
+name: SHIP Validation
+
+# SHIP-12 CI enforcement workflow.
+#
+# Gates added by this workflow (each must remain green for main to ship):
+#   - forbidden-term-scan: refuse any new use of StubVault, MemoryAuditWriter,
+#     AcceptAllBundleVerifier, NullSealer, dashboard-dev, allow_demo_defaults
+#     outside the explicit allowlist in config/forbidden-terms.toml.
+#   - ship-validator: build mai-ship-validate and assert exit-code semantics
+#     against deployment/ship/profile.toml, config/production.example.toml,
+#     and the documented error paths (config unreadable, state dir missing).
+#   - mai-admin-backup: build mai-admin and round-trip a real backup create
+#     + verify against a synthetic state-dir fixture.
+#   - package-build-validate: run scripts/build-package.sh --validate-only
+#     so the systemd / debian / install layout stays consistent with the
+#     SHIP-08 plan.
+#   - mypy-strict-sdk: enforce mypy --strict on mai-sdk-python/src/ with
+#     no continue-on-error. Adapter strict-cleanup is grandfathered via
+#     pyproject overrides (SHIP-16 closes them).
+#
+# Schedule:
+#   - On every push to main and every PR.
+#   - Nightly at 03:30 UTC for the long-running integration matrix
+#     (job: nightly-integration). The 72-hour burn-in is SHIP-14 and
+#     lives in a separate workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  forbidden-term-scan:
+    name: Forbidden Term Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scan production crates for forbidden symbols
+        run: python3 scripts/ci_forbidden_terms.py
+
+  ship-validator:
+    name: Ship Profile Validator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Build mai-ship-validate
+        run: cargo build -p mai-api --bin mai-ship-validate --locked
+      - name: Validate deployment/ship/profile.toml (config-only, expect exit 0)
+        run: ./target/debug/mai-ship-validate --profile deployment/ship/profile.toml
+      - name: Validate config/production.example.toml (config-only, expect exit 0)
+        run: ./target/debug/mai-ship-validate --profile config/production.example.toml
+      - name: JSON output mode is well-formed
+        run: ./target/debug/mai-ship-validate --profile deployment/ship/profile.toml --json | python3 -m json.tool > /dev/null
+      - name: Missing profile must exit 2
+        run: |
+          set +e
+          ./target/debug/mai-ship-validate --profile /nonexistent/profile.toml
+          rc=$?
+          set -e
+          if [[ "$rc" -ne 2 ]]; then
+            echo "expected exit 2 for missing profile, got $rc" >&2
+            exit 1
+          fi
+      - name: Missing state dir must exit 3
+        run: |
+          set +e
+          ./target/debug/mai-ship-validate \
+            --profile deployment/ship/profile.toml \
+            --state-dir /nonexistent/state
+          rc=$?
+          set -e
+          if [[ "$rc" -ne 3 ]]; then
+            echo "expected exit 3 for missing state dir, got $rc" >&2
+            exit 1
+          fi
+
+  mai-admin-backup:
+    name: mai-admin Backup Round-trip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Run mai-admin integration tests
+        run: cargo test -p mai-admin --locked
+
+  package-build-validate:
+    name: Package Layout Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Stage package layout (no cargo build, no .deb)
+        run: scripts/build-package.sh --validate-only --skip-dashboard
+      - name: Run packaging static tests
+        run: pip install pytest && pytest tools/packaging_tests/ -v
+      - name: Run SHIP-12 static tests
+        run: pytest tools/ship12_tests/ -v
+
+  mypy-strict-sdk:
+    name: mypy --strict (SDK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install ruff mypy pytest pytest-asyncio
+          pip install -e "mai-sdk-python[dev]"
+      - name: mypy --strict on SDK (hard gate)
+        run: mypy --strict mai-sdk-python/src/
+      - name: mypy on adapters (project config, hard gate)
+        run: mypy adapters/
+
+  nightly-integration:
+    name: Nightly Integration Matrix
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: [forbidden-term-scan, ship-validator, mai-admin-backup, package-build-validate, mypy-strict-sdk]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install Python deps
+        run: |
+          pip install ruff mypy pytest pytest-asyncio
+          pip install -e "mai-sdk-python[dev]"
+      - name: Full Rust workspace test
+        run: cargo test --workspace --locked -- --nocapture
+      - name: SHIP-08 packaging tests
+        run: pytest tools/packaging_tests/ -v
+      - name: SHIP-12 gate tests
+        run: pytest tools/ship12_tests/ -v
+      - name: SHIP-13 release tests
+        run: pytest tools/gpu_release_tests/ -v
+      - name: SDK + adapter Python tests
+        run: pytest adapters/ mai-sdk-python/ -v --ignore=**/test_integration*
+      - name: Upload nightly artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-${{ github.run_number }}
+          path: |
+            target/debug/deps/*.json
+            results/
+          if-no-files-found: ignore

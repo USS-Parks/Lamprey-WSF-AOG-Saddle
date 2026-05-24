@@ -5,11 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Nightly integration: 2am UTC daily (uncomment integration job when GPU runner available)
-  # Weekly benchmarks: 3am UTC Sunday (uncomment benchmarks job when GPU runner available)
+  # SHIP-12: nightly schedule lives in ship-validation.yml (03:30 UTC).
+  # GPU-required nightly + Sunday benchmarks stay opt-in until a self-hosted
+  # runner exists; the jobs are wired below but their triggers stay commented
+  # so they do not page on a missing runner.
   # schedule:
-  #   - cron: '0 2 * * *'   # nightly
-  #   - cron: '0 3 * * 0'   # weekly Sunday
+  #   - cron: '0 2 * * *'   # GPU nightly (needs self-hosted runner)
+  #   - cron: '0 3 * * 0'   # GPU weekly Sunday (needs self-hosted runner)
 
 env:
   CARGO_TERM_COLOR: always
@@ -69,9 +71,12 @@ jobs:
       - name: Lint (ruff)
         run: ruff check adapters/ mai-sdk-python/
 
-      - name: Type check (mypy)
-        run: mypy --strict adapters/ mai-sdk-python/src/
-        continue-on-error: true
+      # SHIP-12: mypy is a hard gate. SDK runs --strict; adapters honor the
+      # per-module overrides in pyproject.toml (SHIP-16 closes them out).
+      - name: Type check SDK (mypy --strict)
+        run: mypy --strict mai-sdk-python/src/
+      - name: Type check adapters (mypy with SHIP-12 overrides)
+        run: mypy adapters/
 
       - name: Unit tests
         run: pytest adapters/ mai-sdk-python/ -v --ignore=**/test_integration*
