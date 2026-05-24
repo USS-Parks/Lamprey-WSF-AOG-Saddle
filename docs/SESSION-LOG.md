@@ -1074,3 +1074,112 @@ class of corrupt backup before any file lands in the target.
   `mai/.claude/CLAUDE.md` anti-truncation rules, verified with
   `wc -l` + `tail -5` before copy, then read-back-verified after
   copy. All subsequent edits used the Edit tool (atomic patches).
+
+---
+
+## SHIP-17 Complete: Auth Bypass Consistency Guard (2026-05-23)
+
+**Plan reference:** `docs/SHIP-HARDENING-PLAN.md` §Session SHIP-17.
+**Commit:** `6e027db` on `origin/main`.
+**Closes:** `docs/KNOWN-ISSUES.md` Issue 13 (High — silent first-boot
+fallback in misconfigured production).
+
+### Goal
+
+Close the gap between the static profile field
+`PROD-AUTH-002` inspects (`profile.auth.allow_internal_profile_header`)
+and the runtime `ApiKeyStore` flag that the auth middleware actually
+honors. Before SHIP-17 these two values could diverge: if the
+operator pointed `auth.auth_keys_path` at a non-default path that
+didn't yet exist, `load_auth_state` would silently fall through to
+the first-boot path and set `allow_internal_profile_header = true`
+on the runtime store, while the parsed profile still said `false`.
+The production guard read the profile and saw no problem; the
+X-IM-Internal-Profile bypass would have been live anyway.
+
+### Deliverables
+
+- **Plumbed `load_auth_state` through the ship profile.**
+  `mai-api/src/server.rs::load_auth_state` now takes
+  `Option<&ShipProfile>` and returns `Result<AuthState, ServerError>`.
+  The path is resolved from `profile.auth.auth_keys_path` when a
+  profile is present; the legacy `AUTH_KEYS_CONFIG_PATH` constant is
+  only used on the no-profile bring-up path (tests + dev without
+  `MAI_SHIP_PROFILE`).
+- **Production fails closed.** Under `ProfileMode::Production`, a
+  missing or unloadable keys file returns `ServerError::Init` with
+  the exact path and a "first-boot fallback is forbidden in
+  production" message. The first-boot key generation + bypass-flip
+  is never reached. This matches `KNOWN-ISSUES.md` Issue 13
+  remediation step 3.
+- **Non-production mirrors the profile field.** Under non-production
+  modes a missing keys file still triggers first-boot for dev
+  ergonomics, but the runtime store's
+  `allow_internal_profile_header` flag inherits
+  `profile.auth.allow_internal_profile_header` (default `false`) so
+  the two values can never silently disagree. With no profile at all
+  the legacy dev default of `true` survives so existing tests and
+  local-dev runs are unaffected.
+- **New deferred runtime check `PROD-AUTH-101`.** Registered in
+  `production_guard::register_auth_checks` (severity Critical,
+  closing session SHIP-17). Wired through `RuntimeChecks::auth_internal_bypass_consistent`
+  and `apply_runtime`. The outcome is computed twice: once in
+  `MaiServer::apply_ship_profile` on the live boot path, and again
+  in `mai-api/src/bin/mai_ship_validate.rs` so the offline validator
+  agrees with the server about consistency.
+- **Regression coverage.** New integration suite
+  `mai-api/tests/auth_bypass_consistency.rs` (3 tests over the
+  public guard API): deferred-without-runtime, pass-when-consistent,
+  fail-blocks-ship-ready (the explicit Issue 13 scenario). Two new
+  unit tests in `server.rs`:
+  `load_auth_state_production_missing_file_fails_closed` and
+  `load_auth_state_non_production_first_boot_mirrors_profile_field`.
+  The existing `test_load_auth_state_no_config` was updated to
+  match the new signature but keeps its legacy-bring-up assertions.
+
+### Files touched
+
+| File | Δ |
+|---|---|
+| `mai-api/src/server.rs` | +240/-31 (load_auth_state rewrite, apply_ship_profile signature + body, callsite, 2 new unit tests + ship17_baseline_toml helper) |
+| `mai-api/src/production_guard.rs` | +25/-0 (new field, deferred check, apply_runtime wire, EXPECTED_CHECK_IDS, three test helpers updated) |
+| `mai-api/src/bin/mai_ship_validate.rs` | +49/-5 (offline validator computes the consistency outcome from the loaded ApiKeyStore) |
+| `mai-api/tests/auth_bypass_consistency.rs` | +143 (new file, 3 integration tests) |
+| `mai-api/tests/ship_convergence.rs` | +3/-0 (added field to all-pass RuntimeChecks literal) |
+| `mai-api/tests/ship_07b_endpoints.rs` | +3/-0 (added field to all_pass_runtime helper) |
+
+Total: 6 files, +441/-36.
+
+### Test footprint
+
+194 mai-api lib + 136 mai-api integration = 330 passing across 20
+test binaries. +6 added by SHIP-17 (3 integration + 2 unit +
+1 production_guard test ID assertion), 0 regressions.
+
+### Gates
+
+- `cargo check -p mai-api --tests` clean
+- `cargo test -p mai-api` 330 passing, 0 failing
+- `cargo fmt -p mai-api -- --check` clean
+- `.integrity/scripts/verify-tree.sh` PASS over all 6 touched files
+  (Passed: 6 | Warnings: 0 | Errors: 0)
+- Pre-commit integrity hook PASS
+
+### Process notes
+
+- Adopted the "fail closed under Production / mirror the profile
+  field under non-production" branch over the softer "boot with
+  bypass off" alternative because `KNOWN-ISSUES.md` Issue 13
+  remediation step 3 was already explicit about it. The softer
+  branch would have let a misconfigured production server start
+  with a freshly-printed admin key on stdout; the harder branch
+  refuses to start at all.
+- The Issue 13 scenario (profile says `false`, runtime says `true`)
+  is unreachable through the bootstrap path after the fix — the
+  test that proves PROD-AUTH-101 catches the divergence drives
+  `apply_runtime` directly with a hand-built `RuntimeOutcome::fail`,
+  exercising the guard contract rather than trying to introduce the
+  bug.
+- Same anti-truncation discipline as prior sessions: the new test
+  file was staged through `$env:TEMP\opencode\` and byte-verified
+  before copy.

@@ -1378,6 +1378,59 @@ exit codes for `cargo check`, `cargo clippy`, `cargo fmt`,
 `cargo test`, `ruff`, `mypy --strict mai-sdk-python/src/`, `mypy
 adapters/`, and `python3 scripts/ci_forbidden_terms.py`.
 
+### Session SHIP-17: Auth Bypass Consistency Guard
+
+- Close `KNOWN-ISSUES.md` issue 13: `load_auth_state` must read
+  `profile.auth.auth_keys_path` instead of the hard-coded
+  `AUTH_KEYS_CONFIG_PATH` constant.
+- Refuse the first-boot path under `ProfileMode::Production`; fail
+  closed with `ServerError::Init` instead of silently flipping
+  `allow_internal_profile_header = true` on a freshly-generated key.
+- Add a deferred runtime check `PROD-AUTH-101` that cross-checks the
+  runtime `ApiKeyStore.allow_internal_profile_header` against the
+  profile field `PROD-AUTH-002` inspects, and flips Deferred → Fail
+  when they diverge.
+- Regression coverage: integration tests over the public guard API
+  plus unit tests against `load_auth_state` directly.
+
+**Status (2026-05-23): done.** Commit `6e027db` (+441/-36 across 6
+files). `load_auth_state(profile: Option<&ShipProfile>) -> Result<AuthState, ServerError>`
+in `mai-api/src/server.rs` now resolves the keys path from the parsed
+profile; under `Production` a missing or unloadable file is fatal
+(`ServerError::Init`) and the first-boot fallback is forbidden. Under
+non-production modes first-boot still runs but
+`store.allow_internal_profile_header` mirrors the profile field, so
+the runtime state cannot diverge from what the static guard checked.
+With no profile at all (legacy bring-up) the dev default of `true`
+survives so existing tests + local-dev runs are unaffected.
+
+New `RuntimeChecks::auth_internal_bypass_consistent` field plus
+deferred check `PROD-AUTH-101` registered in
+`production_guard::register_auth_checks` and wired through
+`apply_runtime`. The new outcome is computed in
+`MaiServer::apply_ship_profile` (live boot path) and in
+`mai-api/src/bin/mai_ship_validate.rs` (offline validator) so both
+agree about consistency.
+
+Test footprint after SHIP-17: 194 mai-api lib + 136 mai-api
+integration = 330 passing across 20 test binaries (+6 added by
+SHIP-17, 0 regressions). New file
+`mai-api/tests/auth_bypass_consistency.rs` (3 integration tests
+covering deferred-without-runtime, pass-when-consistent, and the
+fail-blocks-ship-ready Issue 13 scenario). Two new unit tests in
+`server.rs` cover the production fail-closed path and the
+non-production mirror-the-profile-field path. The existing
+`test_load_auth_state_no_config` was updated to match the new
+signature but keeps its legacy-bring-up assertions.
+
+Gates run: `cargo check -p mai-api --tests` clean, `cargo fmt -p
+mai-api --check` clean, `cargo test -p mai-api` 330 passing 0
+failing, `.integrity/scripts/verify-tree.sh` PASS over all 6 touched
+files, pre-commit integrity hook PASS. Docs follow-up (this entry,
+`KNOWN-ISSUES.md` status flip, `SHIP-PROFILE.md` table row, session
+log entry) lands as a separate commit per the code/docs split
+direction.
+
 ---
 
 ## 15. Search Terms for Every Session

@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-23 (post-SHIP-16 final audit pass; mypy adapter override shrunk; §15 grep sweep classified; remaining stub residue documented below)
+**Last Updated:** 2026-05-23 (post-SHIP-17 auth bypass consistency guard; Issue 13 closed; SHIP-16 audit residue and SHIP-17 auth-keys plumbing both reflected below)
 
 ---
 
@@ -84,22 +84,23 @@ SHIP-07 convergence (commit `48c7d2e`) wired all four builders into `MaiServer::
 
 `audit_wal.rs` duplicates `audit.rs::GENESIS_HASH` because SHIP-04 was committed in parallel with SHIP-05's `pub(crate)` promotion. The inline test will fail closed if the canonical value ever drifts. Safe to remove in a follow-up cleanup commit.
 
-### 13. `load_auth_state` ignores ship-profile `auth.auth_keys_path` (SHIP-16 finding)
+### 13. `load_auth_state` ignored ship-profile `auth.auth_keys_path` (SHIP-16 finding, closed in SHIP-17)
 
 **Severity:** High (silent first-boot fallback in misconfigured production)
-**Affects:** `mai-api/src/server.rs:61` (`AUTH_KEYS_CONFIG_PATH` constant), `mai-api/src/server.rs:627` (`load_auth_state`).
-**Status:** Surfaced 2026-05-23 by the SHIP-16 §15 grep sweep; not addressed in SHIP-16 itself (audit pass only). Tracked for the SHIP-17 follow-up cleanup commit.
+**Affects:** `mai-api/src/server.rs` (`load_auth_state`, `apply_ship_profile`), `mai-api/src/production_guard.rs` (`RuntimeChecks`, `PROD-AUTH-101`).
+**Status:** **Closed 2026-05-23 in SHIP-17 (commit `6e027db`).** Originally surfaced by the SHIP-16 §15 grep sweep and deferred to a follow-up.
 
-`load_auth_state()` hard-codes `config/auth_keys.toml` (relative to CWD) and never reads `profile.auth.auth_keys_path` from the parsed ship profile. If a production ship profile points `auth.auth_keys_path` at a path that is not `config/auth_keys.toml` (e.g. the documented `/etc/mai/auth_keys.toml`), and the legacy CWD-relative file is absent, `load_auth_state` falls through to the first-boot path. That path prints a fresh admin key to stdout and sets `store.allow_internal_profile_header = true` on the in-memory `ApiKeyStore`. The production guard's `PROD-AUTH-002` rejects `profile.auth.allow_internal_profile_header = true`, but it does NOT cross-check the runtime store. The middleware at `mai-api/src/auth.rs:478` honors the runtime store flag, so the internal-profile bypass becomes live for as long as the server stays up. `PROD-AUTH-100` (runtime `auth_keys_nonempty`) still reports Pass because the freshly generated first-boot key keeps `auth_key_count >= 1`.
+`load_auth_state()` hard-coded `config/auth_keys.toml` (relative to CWD) and never read `profile.auth.auth_keys_path` from the parsed ship profile. If a production ship profile pointed `auth.auth_keys_path` at a path that was not `config/auth_keys.toml` (e.g. the documented `/etc/mai/auth_keys.toml`), and the legacy CWD-relative file was absent, `load_auth_state` fell through to the first-boot path. That path printed a fresh admin key to stdout and set `store.allow_internal_profile_header = true` on the in-memory `ApiKeyStore`. The production guard's `PROD-AUTH-002` rejected `profile.auth.allow_internal_profile_header = true`, but it did NOT cross-check the runtime store. The middleware at `mai-api/src/auth.rs:478` honors the runtime store flag, so the internal-profile bypass would have become live for as long as the server stayed up. `PROD-AUTH-100` (runtime `auth_keys_nonempty`) still reported Pass because the freshly generated first-boot key kept `auth_key_count >= 1`.
 
-**Mitigations in place:**
-- Operators following `docs/FIRST-BOOT.md` and `docs/SECURITY-PRODUCTION.md` install `/etc/mai/auth_keys.toml` before first boot, so the first-boot fallback is not triggered.
-- `PROD-AUTH-001` rejects an empty `auth.auth_keys_path`, so the misconfiguration only fires when the operator sets a path that does not match `config/auth_keys.toml`.
+**Mitigations that were in place before the fix:**
+- Operators following `docs/FIRST-BOOT.md` and `docs/SECURITY-PRODUCTION.md` install `/etc/mai/auth_keys.toml` before first boot, so the first-boot fallback was not triggered on the default path.
+- `PROD-AUTH-001` rejects an empty `auth.auth_keys_path`, so the misconfiguration only fired when the operator set a path that did not match `config/auth_keys.toml`.
 
-**Required fix (SHIP-17):**
-1. `load_auth_state` must take `&ShipProfile` and read `profile.auth.auth_keys_path` instead of the constant.
-2. Gather the actual loaded `allow_internal_profile_header` into `RuntimeChecks` and add a new `PROD-AUTH-101` runtime check that fails when the runtime store has the bypass enabled under a production profile.
-3. Refuse first-boot path entirely under `ProfileMode::Production`; fail closed with `ServerError::Init` instead.
+**Fix landed in SHIP-17 (commit `6e027db`):**
+1. `load_auth_state(profile: Option<&ShipProfile>) -> Result<AuthState, ServerError>` now reads `profile.auth.auth_keys_path` instead of the hard-coded constant. The no-profile bring-up path still uses `AUTH_KEYS_CONFIG_PATH` for back-compat with tests + local-dev.
+2. Under `ProfileMode::Production`, a missing or unloadable keys file is fatal: `ServerError::Init` short-circuits before any socket binds. The first-boot path is forbidden in production. Under non-production modes, first-boot still runs but the runtime store's `allow_internal_profile_header` mirrors `profile.auth.allow_internal_profile_header` so it can never silently diverge from the value `PROD-AUTH-002` inspected.
+3. New deferred runtime check `PROD-AUTH-101` cross-checks the runtime `ApiKeyStore` flag against the profile field. Wired through `RuntimeChecks::auth_internal_bypass_consistent`; computed in `MaiServer::apply_ship_profile` and in the `mai-ship-validate` binary so both the live boot path and the offline validator agree.
+4. Regression coverage: `mai-api/tests/auth_bypass_consistency.rs` (3 integration tests over the public guard API) + two new unit tests in `server.rs` (production fail-closed, non-production mirror-the-profile-field). Test footprint after SHIP-17: 194 mai-api lib + 136 integration = 330 passing, +6 added by SHIP-17, 0 regressions.
 
 ### 14. SHIP-16 final audit pass — §15 classification (informational)
 
