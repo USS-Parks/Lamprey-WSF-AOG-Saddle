@@ -18,6 +18,7 @@ import argparse
 import ast
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +44,8 @@ IGNORED_DIRS = {
 }
 
 IGNORED_FILES = {
+    "docs/LOCAL-GITDOCTOR-EVIDENCE.json",
+    "docs/LOCAL-GITDOCTOR-EVIDENCE.md",
     "docs/LOCAL-GITDOCTOR-REPORT.json",
     "docs/LOCAL-GITDOCTOR-REPORT.md",
     "tools/local_gitdoctor_scan.py",
@@ -91,6 +94,8 @@ class CheckDef:
     severity: str
     description: str
     runner: str
+    evidence_layer: str = "mapped-check"
+    origin: str = "john-finding"
 
 
 @dataclass
@@ -100,6 +105,8 @@ class Finding:
     title: str
     severity: str
     description: str
+    evidence_layer: str
+    origin: str
     evidence: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -109,6 +116,8 @@ class Finding:
             "title": self.title,
             "severity": self.severity,
             "description": self.description,
+            "evidence_layer": self.evidence_layer,
+            "origin": self.origin,
             "evidence": self.evidence,
         }
 
@@ -119,6 +128,7 @@ class ScanContext:
     files: list[Path]
     text_by_file: dict[Path, str]
     lines_by_file: dict[Path, list[str]]
+    tracked_files: set[str] = field(default_factory=set)
 
     def rel(self, path: Path) -> str:
         return path.relative_to(self.root).as_posix()
@@ -132,6 +142,11 @@ class ScanContext:
 
     def test_files(self) -> list[Path]:
         return [p for p in self.code_files() if TEST_NAME_RE.search(self.rel(p))]
+
+    def is_tracked(self, path: Path) -> bool:
+        if not self.tracked_files:
+            return True
+        return self.rel(path) in self.tracked_files
 
 
 @dataclass
@@ -196,7 +211,22 @@ def build_context(root: Path) -> ScanContext:
             continue
         text_by_file[path] = text
         lines_by_file[path] = text.splitlines()
-    return ScanContext(root=root, files=files, text_by_file=text_by_file, lines_by_file=lines_by_file)
+    return ScanContext(root=root, files=files, text_by_file=text_by_file, lines_by_file=lines_by_file, tracked_files=git_tracked_files(root))
+
+
+def git_tracked_files(root: Path) -> set[str]:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), "ls-files"],
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+    if completed.returncode != 0:
+        return set()
+    return {line.strip().replace("\\", "/") for line in completed.stdout.splitlines() if line.strip()}
 
 
 def first_matches(
@@ -229,6 +259,8 @@ def finding(defn: CheckDef, evidence: list[str] | None = None) -> Finding:
         title=defn.title,
         severity=defn.severity,
         description=defn.description,
+        evidence_layer=defn.evidence_layer,
+        origin=defn.origin,
         evidence=evidence or [],
     )
 
@@ -841,8 +873,9 @@ def prj_lock_file(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
         "poetry.lock",
         "uv.lock",
     }
-    manifests = [p.name for p in ctx.files if p.name in {"Cargo.toml", "package.json", "pyproject.toml"}]
-    locks = [p.name for p in ctx.files if p.name in lock_names]
+    manifests = [p.name for p in ctx.files if p.name in {"Cargo.toml", "package.json", "pyproject.toml"} and ctx.is_tracked(p)]
+    locks = [p.name for p in ctx.files if p.name in lock_names and ctx.is_tracked(p)]
+    untracked_locks = [ctx.rel(p) for p in ctx.files if p.name in lock_names and not ctx.is_tracked(p)]
     missing: list[str] = []
     if "Cargo.toml" in manifests and "Cargo.lock" not in locks:
         missing.append("Cargo.lock")
@@ -850,7 +883,12 @@ def prj_lock_file(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
         missing.append("Node lock file")
     if "pyproject.toml" in manifests and not any(lock in locks for lock in ["requirements-lock.txt", "poetry.lock", "uv.lock"]):
         missing.append("Python lock file")
-    return [finding(defn, [f"Missing: {', '.join(missing)}"])] if missing else []
+    evidence: list[str] = []
+    if missing:
+        evidence.append(f"Missing tracked lock file(s): {', '.join(missing)}")
+    if untracked_locks:
+        evidence.append(f"Untracked lock file(s) do not satisfy repo audit: {', '.join(untracked_locks[:8])}")
+    return [finding(defn, evidence)] if evidence else []
 
 
 def prj_flat_structure(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
@@ -907,14 +945,14 @@ CHECKS: list[CheckDef] = [
     CheckDef("TST-004", "Testing", "Test files without assertions", "HIGH", "Tests should assert outcomes.", "tst_without_assertions"),
     CheckDef("TST-005", "Testing", "No integration or e2e tests", "MEDIUM", "Critical user flows need integration/e2e coverage.", "tst_no_integration"),
     CheckDef("TST-006", "Testing", "Mock-everything antipattern", "MEDIUM", "Excessive mocks may test mocks rather than behavior.", "tst_mock_everything"),
-    CheckDef("REV-001", "Review Integrity", "Documented surface with placeholder body", "HIGH", "Docstrings and API comments should not mask unimplemented behavior.", "rev_docstring_placeholder"),
-    CheckDef("REV-002", "Review Integrity", "Adapter/client placeholder density", "HIGH", "Backend integration surfaces should not retain multiple stub or placeholder signals.", "rev_adapter_placeholder_density"),
-    CheckDef("REV-003", "Review Integrity", "Polished completion claims beside placeholders", "MEDIUM", "Completion/security claims need implementation evidence when placeholders remain nearby.", "rev_polished_claims_with_placeholders"),
-    CheckDef("REV-004", "Review Integrity", "Error taxonomy weakly applied", "MEDIUM", "Typed errors should be raised, mapped, or caught through real critical paths.", "rev_error_taxonomy_weakly_applied"),
-    CheckDef("REV-005", "Review Integrity", "Silent broad error handling", "HIGH", "Broad errors that pass, return None, or default silently hide broken paths.", "rev_silent_error_handling"),
-    CheckDef("REV-006", "Review Integrity", "Thin smoke assertions", "MEDIUM", "Assertions should validate outcomes rather than merely confirming execution.", "rev_thin_smoke_assertions"),
-    CheckDef("REV-007", "Review Integrity", "Duplicated boilerplate blocks", "LOW", "Repeated blocks across modules suggest copy-forward implementation that deserves review.", "rev_duplicate_boilerplate"),
-    CheckDef("REV-008", "Review Integrity", "Comment-heavy implementation", "LOW", "High explanation-to-code ratios can indicate design prose outrunning working behavior.", "rev_comment_heavy_implementation"),
+    CheckDef("REV-001", "Review Integrity", "Documented surface with placeholder body", "HIGH", "Docstrings and API comments should not mask unimplemented behavior.", "rev_docstring_placeholder", origin="review-integrity"),
+    CheckDef("REV-002", "Review Integrity", "Adapter/client placeholder density", "HIGH", "Backend integration surfaces should not retain multiple stub or placeholder signals.", "rev_adapter_placeholder_density", origin="review-integrity"),
+    CheckDef("REV-003", "Review Integrity", "Polished completion claims beside placeholders", "MEDIUM", "Completion/security claims need implementation evidence when placeholders remain nearby.", "rev_polished_claims_with_placeholders", origin="review-integrity"),
+    CheckDef("REV-004", "Review Integrity", "Error taxonomy weakly applied", "MEDIUM", "Typed errors should be raised, mapped, or caught through real critical paths.", "rev_error_taxonomy_weakly_applied", origin="review-integrity"),
+    CheckDef("REV-005", "Review Integrity", "Silent broad error handling", "HIGH", "Broad errors that pass, return None, or default silently hide broken paths.", "rev_silent_error_handling", origin="review-integrity"),
+    CheckDef("REV-006", "Review Integrity", "Thin smoke assertions", "MEDIUM", "Assertions should validate outcomes rather than merely confirming execution.", "rev_thin_smoke_assertions", origin="review-integrity"),
+    CheckDef("REV-007", "Review Integrity", "Duplicated boilerplate blocks", "LOW", "Repeated blocks across modules suggest copy-forward implementation that deserves review.", "rev_duplicate_boilerplate", origin="review-integrity"),
+    CheckDef("REV-008", "Review Integrity", "Comment-heavy implementation", "LOW", "High explanation-to-code ratios can indicate design prose outrunning working behavior.", "rev_comment_heavy_implementation", origin="review-integrity"),
     CheckDef("PRJ-001", "Project Hygiene", ".env file committed to repository", "HIGH", ".env files can expose secrets.", "prj_env_committed"),
     CheckDef("PRJ-002", "Project Hygiene", "Incomplete .gitignore", "MEDIUM", "Missing ignore patterns can expose files or bloat the repo.", "prj_gitignore"),
     CheckDef("PRJ-003", "Project Hygiene", "Missing README", "MEDIUM", "README documents setup and operation.", "prj_readme"),
@@ -977,6 +1015,9 @@ def render_markdown(report: ScanReport) -> str:
     else:
         for item in report.findings:
             lines.append(f"### {item.check_id} {item.title} ({item.severity})")
+            lines.append("")
+            lines.append(f"Layer: `{item.evidence_layer}`  ")
+            lines.append(f"Origin: `{item.origin}`")
             lines.append("")
             lines.append(item.description)
             if item.evidence:

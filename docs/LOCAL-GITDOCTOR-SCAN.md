@@ -55,11 +55,38 @@ To make high-severity findings fail a local gate:
 python tools/local_gitdoctor_scan.py --root . --fail-on high
 ```
 
+## Three Evidence Layers
+
+For the more defensible J-14 package, use the evidence runner:
+
+```powershell
+python tools/local_gitdoctor_evidence.py --root . --output docs/LOCAL-GITDOCTOR-EVIDENCE.md --json-output docs/LOCAL-GITDOCTOR-EVIDENCE.json
+```
+
+It separates the audit into three layers:
+
+1. Mapped checks: the local scanner rules that intentionally mirror
+   John's GitDoctor finding families.
+2. Independent implementations: mature tools such as `cargo`, `ruff`,
+   `bandit`, `pip-audit`, `npm audit`, `gitleaks`, `hadolint`, `tokei`,
+   `scc`, or `radon` when they are installed locally.
+3. Adversarial fixtures: known-bad and known-clean scanner tests that
+   prove the rules detect behavior, not just the current MAI symptom list.
+
+`SKIPPED` independent probes are not passes. They mean the tool was not
+installed locally or the relevant project surface was absent.
+
+For a fast proof of the mapped and adversarial layers only:
+
+```powershell
+python tools/local_gitdoctor_evidence.py --root . --skip-independent
+```
+
 ## J-13 Usage
 
 After J-13 lands and before the external J-14 GitDoctor run:
 
-1. Run the Markdown report command above.
+1. Run the three-layer evidence command above.
 2. Review every HIGH or CRITICAL finding.
 3. Fix real findings before J-14.
 4. For intentional false positives, add evidence to the Dougherty
