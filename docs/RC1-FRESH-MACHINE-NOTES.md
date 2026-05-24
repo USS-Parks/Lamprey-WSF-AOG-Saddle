@@ -1,5 +1,8 @@
 # RC1 Fresh-Machine Rehearsal Notes
 
+> **STATUS — CLOSED (2026-05-23)**
+> Historical record of the RC-06 fresh-machine rehearsal against freeze `dceaabc`. 8 frictions logged (4 packaging gaps fixed via `git archive` cleanup + 2 quickstart gaps fixed via README-FIRST patches + 2 cosmetic). Lessons folded into the live README-FIRST and TESTER-INSTRUCTIONS docs. Kept as literal record; do not edit retroactively.
+
 **Project:** Island Mountain MAI + Lamprey
 **Release:** RC1 (Tester Bundle)
 **Date of run:** 2026-05-23

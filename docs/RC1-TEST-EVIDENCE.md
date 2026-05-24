@@ -1,5 +1,8 @@
 # RC1 Test Evidence
 
+> **STATUS — CLOSED (2026-05-23)**
+> Historical record of the RC-05 evidence pass against freeze `dceaabc`. Grand total: 1717 pass / 0 fail / 2 ignored. RC1 bundle shipped to outside tester (RC-09 closed `e2d9ea6`). Any re-ship under DOUGHERTY → RC-11 will produce a new RC2 evidence doc; this file is preserved as the literal record of what ran on the RC-05 host. Do not edit retroactively.
+
 **Project:** Island Mountain MAI + Lamprey
 **Release:** RC1 (Tester Bundle)
 **Date of run:** 2026-05-23

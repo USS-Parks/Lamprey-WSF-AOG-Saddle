@@ -1,10 +1,13 @@
 # MAI + Lamprey Cogent Deployment Roadmap
 
+> **STATUS as of 2026-05-24**
+> RC-01..RC-10 CLOSED. RC1 bundle (freeze `dceaabc`) shipped to external tester John Dougherty 2026-05-24 (RC-09 closed `e2d9ea6`). His GitDoctor + manual review produced 19 findings now tracked in the DOUGHERTY remediation lane (J-01..J-26 in `mai/docs/dougherty/JOHN-REMEDIATION-PLAN.md`). DOUGHERTY is the current active lane. RC-11 (re-bundle + re-ship) is the next milestone after DOUGHERTY closes.
+
 **Project:** Island Mountain Mighty Eel OS / MAI / Lamprey  
 **Purpose:** Turn the completed Gate D codebase into one coherent, testable, and eventually shippable software product.  
 **Audience:** project owner, vibe-coder operator, release engineers, testers, acquirer reviewers.  
-**Status:** execution roadmap.  
-**Last updated:** 2026-05-23.
+**Status:** execution roadmap — RC-01..RC-10 CLOSED; DOUGHERTY lane active; RC-11 pending.  
+**Last updated:** 2026-05-24.
 
 ---
 

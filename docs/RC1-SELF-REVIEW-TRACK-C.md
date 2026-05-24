@@ -1,5 +1,8 @@
 # RC1 Track C Self-Review
 
+> **STATUS — CLOSED (2026-05-24)**
+> Self-review delivered 12 findings (5H/4M/3L); 9 resolved in the RC-10 RC1.1-docs pass (commit `b0fcdee`), 3 deferred. Self-review work fed into the DOUGHERTY remediation lane after John Dougherty's external review superseded it. Kept as literal record of the internal pre-tester check.
+
 **Project:** Island Mountain MAI + Lamprey
 **Release:** RC1 v2 (Tester Bundle — source + binaries)
 **Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)

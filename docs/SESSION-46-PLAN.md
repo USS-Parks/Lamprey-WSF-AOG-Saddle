@@ -1,6 +1,9 @@
 # Session 46 — Compliance Demo Suite + Integration Testing (Plan)
 
-**Status:** Plan (work in progress)
+> **STATUS — CLOSED (2026-05-23)**
+> S46 shipped (commit `22f0f66`). Gate D closed. 9 mai-compliance integration tests + perf baselines landed; composer P99 1.5 µs / audit 9003/s / report 16.7 ms — measured headroom against all targets. Kept as historical record; no further S46 work.
+
+**Status:** Plan (work in progress) — **CLOSED 2026-05-23**
 **Date:** 2026-05-23
 **Phase:** L (Compliance Governance)
 **Closes:** Gate D — Acquisition-Ready Release

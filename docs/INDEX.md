@@ -1,7 +1,16 @@
 # MAI Document Index
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-23
+**Last Updated:** 2026-05-24
+
+> **Current build state**
+> - **Mainline (Sessions 1-46 + BF-1..BF-7): CLOSED** — Gate D shipped at commit `22f0f66`.
+> - **Ship hardening (SHIP-01..SHIP-17): CLOSED** — final hotfix at `dceaabc`.
+> - **RC1 release (RC-01..RC-10): CLOSED** — bundle shipped to outside tester John Dougherty 2026-05-24; RC-09 closed at `e2d9ea6`.
+> - **DOUGHERTY remediation lane (J-01..J-26): ACTIVE** — current mainline work. See [`dougherty/JOHN-REMEDIATION-PLAN.md`](dougherty/JOHN-REMEDIATION-PLAN.md) and [`dougherty/JOHN-REMEDIATION-ROSTER.md`](dougherty/JOHN-REMEDIATION-ROSTER.md). Recent landings: J-05 adapter matrix (`63a0327`), J-06 ollama live test (`c92918c`), J-07 llamacpp live test (`3fa93ce`).
+> - **Next gate:** RC-11 re-ship after DOUGHERTY closes.
+>
+> Docs marked **STATUS — CLOSED** / **STATUS — SUPERSEDED** at the top are kept for historical reference and do not drive active work.
 
 ---
 

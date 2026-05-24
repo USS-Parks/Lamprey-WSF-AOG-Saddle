@@ -1,9 +1,12 @@
 # MAI Ship Hardening Plan
 
+> **STATUS — CLOSED (2026-05-23)**
+> All 17 SHIP sessions landed (SHIP-01..SHIP-17). Lane is complete; no further SHIP work queued. Only follow-up surfaced post-close is mai-sdk-rs HTTP client `todo!()` stubs (no in-tree consumer; not lane-blocking). Kept as the canonical record of what hardening covered; current build work is in the DOUGHERTY lane — see `mai/docs/dougherty/JOHN-REMEDIATION-PLAN.md`.
+
 **Project:** Island Mountain Mighty Eel OS / MAI / Lamprey  
 **Purpose:** Convert the current substantial local-first MAI/Lamprey stack from demo-safe and acquisition-ready into a no-caveats shippable product posture.  
 **Audience:** Claude Code, Codex, implementation agents, release engineers, security reviewers.  
-**Status:** Execution plan.  
+**Status:** Execution plan — **CLOSED 2026-05-23**.  
 **Last updated:** 2026-05-23.
 
 ---
