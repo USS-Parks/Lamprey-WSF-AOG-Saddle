@@ -35,3 +35,8 @@ tests/burn-in/results/
 .tmp/
 # Junk from sandbox sed failures
 .integrity/scripts/c *
+
+# Node (MCP server)
+node_modules/
+package-lock.json.bak
+*.log
