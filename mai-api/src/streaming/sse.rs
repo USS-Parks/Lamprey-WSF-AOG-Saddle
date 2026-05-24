@@ -377,18 +377,18 @@ fn build_sse_stream(
                             let sse_bytes = format_sse_event(sequence, &chunk);
 
                             // Backpressure: drop oldest if buffer is full
-                            if backpressure.should_drop() {
-                                if let Some((dropped_seq, _)) = replay_buffer.pop_front() {
-                                    backpressure.event_dropped(dropped_seq);
-                                    // Insert gap marker
-                                    let gap = bytes::Bytes::from(format!(
-                                        ": gap dropped_from={} dropped_count={}\n\n",
-                                        dropped_seq,
-                                        backpressure.total_dropped()
-                                    ));
-                                    if sequence > skip_until {
-                                        let _ = event_tx.send(Ok(gap)).await;
-                                    }
+                            if backpressure.should_drop()
+                                && let Some((dropped_seq, _)) = replay_buffer.pop_front()
+                            {
+                                backpressure.event_dropped(dropped_seq);
+                                // Insert gap marker
+                                let gap = bytes::Bytes::from(format!(
+                                    ": gap dropped_from={} dropped_count={}\n\n",
+                                    dropped_seq,
+                                    backpressure.total_dropped()
+                                ));
+                                if sequence > skip_until {
+                                    let _ = event_tx.send(Ok(gap)).await;
                                 }
                             }
 
@@ -509,12 +509,12 @@ fn validate_sse_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
             "Messages array cannot be empty".to_string(),
         ));
     }
-    if let Some(temp) = req.temperature {
-        if !(0.0..=2.0).contains(&temp) {
-            return Err(ApiError::ValidationFailed(format!(
-                "Temperature must be between 0.0 and 2.0, got {temp}"
-            )));
-        }
+    if let Some(temp) = req.temperature
+        && !(0.0..=2.0).contains(&temp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "Temperature must be between 0.0 and 2.0, got {temp}"
+        )));
     }
     Ok(())
 }

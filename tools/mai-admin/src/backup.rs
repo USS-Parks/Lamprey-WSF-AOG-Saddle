@@ -319,10 +319,9 @@ pub fn verify_backup(
         if matches!(
             component.name.as_str(),
             "api_audit_wal" | "compliance_audit_wal"
-        ) {
-            if let Err(e) = replay_wal_tree(&target, component.last_entry_hash.as_deref()) {
-                failures.push(format!("component {}: {e}", component.name));
-            }
+        ) && let Err(e) = replay_wal_tree(&target, component.last_entry_hash.as_deref())
+        {
+            failures.push(format!("component {}: {e}", component.name));
         }
     }
 
@@ -568,10 +567,10 @@ fn write_auth_key_hashes(
             for (id, value) in keys {
                 if let Some(raw) = value.as_str() {
                     entries.insert(id.clone(), sha3_hex(raw.as_bytes()));
-                } else if let Some(t) = value.as_table() {
-                    if let Some(raw) = t.get("api_key").and_then(|v| v.as_str()) {
-                        entries.insert(id.clone(), sha3_hex(raw.as_bytes()));
-                    }
+                } else if let Some(t) = value.as_table()
+                    && let Some(raw) = t.get("api_key").and_then(|v| v.as_str())
+                {
+                    entries.insert(id.clone(), sha3_hex(raw.as_bytes()));
                 }
             }
         } else {
@@ -776,14 +775,14 @@ fn replay_wal_tree_for_meta(dir: &Path) -> Result<(u64, String), BackupError> {
 
 fn replay_wal_tree(dir: &Path, expected_last: Option<&str>) -> Result<(), BackupError> {
     let (_count, last) = replay_wal_tree_for_meta(dir)?;
-    if let Some(want) = expected_last {
-        if want != last {
-            return Err(BackupError::ComponentDigestMismatch {
-                component: format!("{} (last_entry_hash)", dir.display()),
-                stored: want.to_string(),
-                computed: last,
-            });
-        }
+    if let Some(want) = expected_last
+        && want != last
+    {
+        return Err(BackupError::ComponentDigestMismatch {
+            component: format!("{} (last_entry_hash)", dir.display()),
+            stored: want.to_string(),
+            computed: last,
+        });
     }
     Ok(())
 }

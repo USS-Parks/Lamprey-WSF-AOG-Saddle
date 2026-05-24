@@ -599,11 +599,11 @@ impl HotSwapManager {
             // Check if health monitor considers it healthy
             {
                 let health = self.health_monitor.read().await;
-                if let Some(adapter_health) = health.get_adapter_health(&adapter_id) {
-                    if matches!(adapter_health.status, crate::health::AdapterStatus::Healthy) {
-                        info!("Health check passed for {adapter_id}");
-                        return Ok(true);
-                    }
+                if let Some(adapter_health) = health.get_adapter_health(&adapter_id)
+                    && matches!(adapter_health.status, crate::health::AdapterStatus::Healthy)
+                {
+                    info!("Health check passed for {adapter_id}");
+                    return Ok(true);
                 }
             }
 

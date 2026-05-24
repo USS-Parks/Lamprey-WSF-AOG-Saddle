@@ -621,10 +621,10 @@ impl Scheduler {
                     return None;
                 }
                 // Must support the requested model (if specified)
-                if let Some(ref model) = request.model_name {
-                    if !a.supported_models.contains(model) {
-                        return None;
-                    }
+                if let Some(ref model) = request.model_name
+                    && !a.supported_models.contains(model)
+                {
+                    return None;
                 }
                 Some(a.adapter_id.clone())
             })

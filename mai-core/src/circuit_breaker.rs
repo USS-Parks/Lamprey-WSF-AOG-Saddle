@@ -105,14 +105,14 @@ impl CircuitBreaker {
 
     /// Transition Open -> HalfOpen if cooldown elapsed
     pub fn refresh_state(&mut self) {
-        if self.state == CircuitState::Open {
-            if let Some(entered_at) = self.open_entered_at {
-                let elapsed = Instant::now().duration_since(entered_at);
-                let current_cooldown = self.calculate_cooldown();
-                if elapsed >= current_cooldown {
-                    self.transition_to(CircuitState::HalfOpen);
-                    self.probes_in_half_open = 0;
-                }
+        if self.state == CircuitState::Open
+            && let Some(entered_at) = self.open_entered_at
+        {
+            let elapsed = Instant::now().duration_since(entered_at);
+            let current_cooldown = self.calculate_cooldown();
+            if elapsed >= current_cooldown {
+                self.transition_to(CircuitState::HalfOpen);
+                self.probes_in_half_open = 0;
             }
         }
     }

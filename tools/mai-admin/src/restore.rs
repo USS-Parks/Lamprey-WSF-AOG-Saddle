@@ -558,14 +558,14 @@ fn replay_chain(
     let observed = entries
         .last()
         .map_or_else(|| GENESIS_HASH.to_string(), |e| e.entry_hash.clone());
-    if let Some(want) = stored {
-        if want != &observed {
-            return Err(RestoreError::AuditChainLastMismatch {
-                component: component_name.to_string(),
-                stored: want.clone(),
-                computed: observed,
-            });
-        }
+    if let Some(want) = stored
+        && want != &observed
+    {
+        return Err(RestoreError::AuditChainLastMismatch {
+            component: component_name.to_string(),
+            stored: want.clone(),
+            computed: observed,
+        });
     }
     Ok(observed)
 }

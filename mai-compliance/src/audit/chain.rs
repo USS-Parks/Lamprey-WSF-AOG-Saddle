@@ -248,7 +248,7 @@ impl HashChainManager {
         // signing primitive operates over a fixed 32-byte digest
         // (mirrors the BF-3 verifier contract).
         draft.signature = if self.config.signature_interval > 0
-            && (draft.id + 1) % self.config.signature_interval == 0
+            && (draft.id + 1).is_multiple_of(self.config.signature_interval)
         {
             self.signer.sign(&draft.content_hash())
         } else {

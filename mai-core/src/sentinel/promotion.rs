@@ -268,10 +268,10 @@ impl PromotionFlow {
     /// Check if the promotion has timed out.
     pub fn check_timeout(&self) -> bool {
         let started = self.promotion_started.lock().unwrap();
-        if let Some(start) = *started {
-            if start.elapsed() > self.config.promotion_timeout {
-                return true;
-            }
+        if let Some(start) = *started
+            && start.elapsed() > self.config.promotion_timeout
+        {
+            return true;
         }
         false
     }

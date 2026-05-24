@@ -153,23 +153,23 @@ impl Pipeline {
 
         // If a rule wins, apply it before the default router precedence so
         // policy can override defaults (deny critical, force local, ...).
-        if let Some(hit) = winning.as_ref() {
-            if let Some(decision) = action_to_decision(&hit.action, classification, &self.config) {
-                let metrics = StageMetrics {
-                    classify_us,
-                    entities_us,
-                    policy_us,
-                    budget_us: 0,
-                    total_us: micros(total_start),
-                };
-                return Ok(PipelineResult {
-                    decision,
-                    classification,
-                    entity_kinds,
-                    rule_hits,
-                    metrics,
-                });
-            }
+        if let Some(hit) = winning.as_ref()
+            && let Some(decision) = action_to_decision(&hit.action, classification, &self.config)
+        {
+            let metrics = StageMetrics {
+                classify_us,
+                entities_us,
+                policy_us,
+                budget_us: 0,
+                total_us: micros(total_start),
+            };
+            return Ok(PipelineResult {
+                decision,
+                classification,
+                entity_kinds,
+                rule_hits,
+                metrics,
+            });
         }
 
         // 4. Default Session 36 precedence (mirrors DefaultRouter::route):

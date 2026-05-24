@@ -440,10 +440,11 @@ impl HealthMonitor {
 
         for rule in &self.alert_rules {
             let current_value = self.get_metric_value(&rule.metric);
-            if let Some(value) = current_value {
-                if value >= rule.threshold && rule.level > max_level {
-                    max_level = rule.level;
-                }
+            if let Some(value) = current_value
+                && value >= rule.threshold
+                && rule.level > max_level
+            {
+                max_level = rule.level;
             }
         }
 

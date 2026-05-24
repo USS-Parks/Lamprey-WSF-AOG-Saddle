@@ -156,17 +156,17 @@ fn run(rules_path: PathBuf, scenarios_path: PathBuf) -> Result<u32, String> {
         println!("  winning_action:  {action_label}");
 
         let mut scenario_ok = true;
-        if let Some(expected_action) = scenario.expect_action.as_deref() {
-            if expected_action != action_label {
-                println!("  MISMATCH expect_action={expected_action} actual={action_label}",);
-                scenario_ok = false;
-            }
+        if let Some(expected_action) = scenario.expect_action.as_deref()
+            && expected_action != action_label
+        {
+            println!("  MISMATCH expect_action={expected_action} actual={action_label}",);
+            scenario_ok = false;
         }
-        if let Some(expected_rule) = scenario.expect_rule.as_deref() {
-            if !winner_name.contains(expected_rule) {
-                println!("  MISMATCH expect_rule={expected_rule} actual={winner_name}",);
-                scenario_ok = false;
-            }
+        if let Some(expected_rule) = scenario.expect_rule.as_deref()
+            && !winner_name.contains(expected_rule)
+        {
+            println!("  MISMATCH expect_rule={expected_rule} actual={winner_name}",);
+            scenario_ok = false;
         }
         if scenario_ok {
             println!("  status:          OK");

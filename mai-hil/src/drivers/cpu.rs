@@ -40,10 +40,10 @@ impl CpuDriver {
             .map_err(|e| HilError::Unavailable(format!("/proc/cpuinfo unreadable: {e}")))?;
 
         for line in content.lines() {
-            if let Some((key, value)) = parse_proc_line(line) {
-                if key == "model name" {
-                    return Ok(value.to_string());
-                }
+            if let Some((key, value)) = parse_proc_line(line)
+                && key == "model name"
+            {
+                return Ok(value.to_string());
             }
         }
 
@@ -94,16 +94,16 @@ impl CpuDriver {
         let mut types = vec![ComputeType::CPUFallback];
 
         for line in content.lines() {
-            if let Some((key, value)) = parse_proc_line(line) {
-                if key == "flags" {
-                    if value.contains("avx512f") || value.contains("avx512_bf16") {
-                        types.push(ComputeType::BF16);
-                        types.push(ComputeType::INT8);
-                    } else if value.contains("avx2") {
-                        types.push(ComputeType::INT8);
-                    }
-                    break; // flags are same for all cores
+            if let Some((key, value)) = parse_proc_line(line)
+                && key == "flags"
+            {
+                if value.contains("avx512f") || value.contains("avx512_bf16") {
+                    types.push(ComputeType::BF16);
+                    types.push(ComputeType::INT8);
+                } else if value.contains("avx2") {
+                    types.push(ComputeType::INT8);
                 }
+                break; // flags are same for all cores
             }
         }
 

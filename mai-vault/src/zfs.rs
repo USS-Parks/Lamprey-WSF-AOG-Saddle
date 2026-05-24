@@ -139,27 +139,27 @@ impl ZfsVault {
                 Ok(entries) => {
                     for entry in entries.flatten() {
                         let path = entry.path();
-                        if path.is_dir() {
-                            if let Some(model_id) = path.file_name().and_then(|n| n.to_str()) {
-                                let manifest_path = path.join("manifest.json");
-                                if manifest_path.exists() {
-                                    // Parse manifest to get expected hash and size
-                                    match Self::read_model_manifest(&manifest_path) {
-                                        Ok((hash, size)) => {
-                                            debug!(model_id, hash = %hash, size, "Found model in vault");
-                                            index.insert(
-                                                model_id.to_string(),
-                                                ModelEntry {
-                                                    expected_hash: hash,
-                                                    size_bytes: size,
-                                                    path: path.clone(),
-                                                    verified: false,
-                                                },
-                                            );
-                                        }
-                                        Err(e) => {
-                                            warn!(model_id, error = %e, "Skipping model with invalid manifest");
-                                        }
+                        if path.is_dir()
+                            && let Some(model_id) = path.file_name().and_then(|n| n.to_str())
+                        {
+                            let manifest_path = path.join("manifest.json");
+                            if manifest_path.exists() {
+                                // Parse manifest to get expected hash and size
+                                match Self::read_model_manifest(&manifest_path) {
+                                    Ok((hash, size)) => {
+                                        debug!(model_id, hash = %hash, size, "Found model in vault");
+                                        index.insert(
+                                            model_id.to_string(),
+                                            ModelEntry {
+                                                expected_hash: hash,
+                                                size_bytes: size,
+                                                path: path.clone(),
+                                                verified: false,
+                                            },
+                                        );
+                                    }
+                                    Err(e) => {
+                                        warn!(model_id, error = %e, "Skipping model with invalid manifest");
                                     }
                                 }
                             }

@@ -80,13 +80,13 @@ impl RequestComplexityEstimator {
         }
 
         // 2. Explicit model check
-        if let Some(ref model) = features.requested_model {
-            if self.is_large_model(model) {
-                debug!(model = %model, "Sentinel: explicit large model -> promote");
-                return Complexity::Promote(PromoteReason::ExplicitModel {
-                    requested: model.clone(),
-                });
-            }
+        if let Some(ref model) = features.requested_model
+            && self.is_large_model(model)
+        {
+            debug!(model = %model, "Sentinel: explicit large model -> promote");
+            return Complexity::Promote(PromoteReason::ExplicitModel {
+                requested: model.clone(),
+            });
         }
 
         // 3. Token threshold check

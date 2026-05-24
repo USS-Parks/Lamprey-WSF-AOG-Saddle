@@ -354,14 +354,13 @@ pub async fn production_probe(State(state): State<AppState>) -> impl IntoRespons
         writer.read_recent(64).await
     })
     .await
+        && let Err((idx, msg)) = crate::audit::verify_chain(&recent)
     {
-        if let Err((idx, msg)) = crate::audit::verify_chain(&recent) {
-            reasons.push(format!(
-                "audit_chain_broken_at_{}:{}",
-                idx,
-                msg.chars().take(48).collect::<String>()
-            ));
-        }
+        reasons.push(format!(
+            "audit_chain_broken_at_{}:{}",
+            idx,
+            msg.chars().take(48).collect::<String>()
+        ));
     }
 
     // (3) hardware alert level is Normal or Warn

@@ -100,31 +100,31 @@ pub fn discover_usb_packages() -> DiscoveryResult {
             Ok(entries) => {
                 for entry in entries.flatten() {
                     let entry_path = entry.path();
-                    if entry_path.is_dir() {
-                        if let Some(dir_name) = entry_path.file_name() {
-                            let dir_name = dir_name.to_string_lossy();
-                            if is_package_dir(&dir_name) {
-                                match ModelPackage::open(&entry_path) {
-                                    Ok(pkg) => {
-                                        info!(
-                                            package = %pkg.name,
-                                            model = %pkg.manifest.model.name,
-                                            path = %entry_path.display(),
-                                            "Discovered MAI model package on USB"
-                                        );
-                                        packages.push(pkg);
-                                    }
-                                    Err(e) => {
-                                        warn!(
-                                            path = %entry_path.display(),
-                                            error = %e,
-                                            "Skipping invalid package directory"
-                                        );
-                                        errors.push(format!(
-                                            "Invalid package at {}: {e}",
-                                            entry_path.display()
-                                        ));
-                                    }
+                    if entry_path.is_dir()
+                        && let Some(dir_name) = entry_path.file_name()
+                    {
+                        let dir_name = dir_name.to_string_lossy();
+                        if is_package_dir(&dir_name) {
+                            match ModelPackage::open(&entry_path) {
+                                Ok(pkg) => {
+                                    info!(
+                                        package = %pkg.name,
+                                        model = %pkg.manifest.model.name,
+                                        path = %entry_path.display(),
+                                        "Discovered MAI model package on USB"
+                                    );
+                                    packages.push(pkg);
+                                }
+                                Err(e) => {
+                                    warn!(
+                                        path = %entry_path.display(),
+                                        error = %e,
+                                        "Skipping invalid package directory"
+                                    );
+                                    errors.push(format!(
+                                        "Invalid package at {}: {e}",
+                                        entry_path.display()
+                                    ));
                                 }
                             }
                         }
@@ -177,19 +177,19 @@ pub fn scan_path_for_packages(path: &Path) -> Vec<ModelPackage> {
         Ok(entries) => {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
-                if entry_path.is_dir() {
-                    if let Some(dir_name) = entry_path.file_name() {
-                        let dir_name = dir_name.to_string_lossy();
-                        if is_package_dir(&dir_name) {
-                            match ModelPackage::open(&entry_path) {
-                                Ok(pkg) => packages.push(pkg),
-                                Err(e) => {
-                                    warn!(
-                                        path = %entry_path.display(),
-                                        error = %e,
-                                        "Skipping invalid package during scan"
-                                    );
-                                }
+                if entry_path.is_dir()
+                    && let Some(dir_name) = entry_path.file_name()
+                {
+                    let dir_name = dir_name.to_string_lossy();
+                    if is_package_dir(&dir_name) {
+                        match ModelPackage::open(&entry_path) {
+                            Ok(pkg) => packages.push(pkg),
+                            Err(e) => {
+                                warn!(
+                                    path = %entry_path.display(),
+                                    error = %e,
+                                    "Skipping invalid package during scan"
+                                );
                             }
                         }
                     }

@@ -265,15 +265,15 @@ impl MultiFactorScorer {
         };
 
         // First check: does the instance's last_sequence_id match?
-        if let Some(ref last_seq) = state.metrics.last_sequence_id {
-            if last_seq == continuation_seq {
-                // Second check: is the sequence still in the KV cache?
-                if let Some(ref kv) = self.kv_manager {
-                    return kv.sequence_meta(*continuation_seq).is_some();
-                }
-                // No KV manager: rely on the instance-level hint
-                return true;
+        if let Some(ref last_seq) = state.metrics.last_sequence_id
+            && last_seq == continuation_seq
+        {
+            // Second check: is the sequence still in the KV cache?
+            if let Some(ref kv) = self.kv_manager {
+                return kv.sequence_meta(*continuation_seq).is_some();
             }
+            // No KV manager: rely on the instance-level hint
+            return true;
         }
 
         false

@@ -97,14 +97,14 @@ impl SemanticCache {
             }
         }
 
-        if best_score >= self.similarity_threshold {
-            if let Some(idx) = best_idx {
-                self.entries[idx].hit_count += 1;
-                let mut response = self.entries[idx].response.clone();
-                response.cache_hit = true;
-                debug!(score = best_score, profile_id, "Semantic cache hit");
-                return Some(response);
-            }
+        if best_score >= self.similarity_threshold
+            && let Some(idx) = best_idx
+        {
+            self.entries[idx].hit_count += 1;
+            let mut response = self.entries[idx].response.clone();
+            response.cache_hit = true;
+            debug!(score = best_score, profile_id, "Semantic cache hit");
+            return Some(response);
         }
 
         None

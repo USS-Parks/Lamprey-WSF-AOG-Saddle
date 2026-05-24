@@ -83,19 +83,19 @@ pub(crate) async fn remove_model(
     let mut snapshot_created = false;
 
     // Create pre-removal snapshot (if storage is available)
-    if options.create_snapshot {
-        if let Some(storage) = storage {
-            match storage
-                .create_snapshot(&format!("pre-remove-{model_id}"))
-                .await
-            {
-                Ok(_) => {
-                    info!(model_id, "Pre-removal snapshot created");
-                    snapshot_created = true;
-                }
-                Err(e) => {
-                    warn!(error = %e, "Failed to create pre-removal snapshot, continuing");
-                }
+    if options.create_snapshot
+        && let Some(storage) = storage
+    {
+        match storage
+            .create_snapshot(&format!("pre-remove-{model_id}"))
+            .await
+        {
+            Ok(_) => {
+                info!(model_id, "Pre-removal snapshot created");
+                snapshot_created = true;
+            }
+            Err(e) => {
+                warn!(error = %e, "Failed to create pre-removal snapshot, continuing");
             }
         }
     }

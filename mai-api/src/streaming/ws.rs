@@ -290,13 +290,12 @@ async fn handle_ws_connection(socket: WebSocket, state: AppState) {
                                     &mut conn,
                                     &state,
                                 ).await;
-                                if let Some(resp) = response {
-                                    if let Ok(ws_msg) = resp.to_ws_message() {
-                                        if ws_tx.send(ws_msg).await.is_err() {
-                                            debug!(conn_id = %conn_id, "WebSocket send failed");
-                                            break;
-                                        }
-                                    }
+                                if let Some(resp) = response
+                                    && let Ok(ws_msg) = resp.to_ws_message()
+                                    && ws_tx.send(ws_msg).await.is_err()
+                                {
+                                    debug!(conn_id = %conn_id, "WebSocket send failed");
+                                    break;
                                 }
                             }
                             Message::Binary(data) => {

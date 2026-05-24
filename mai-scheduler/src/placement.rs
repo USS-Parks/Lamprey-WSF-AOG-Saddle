@@ -132,20 +132,20 @@ impl PlacementEngine {
         // Step 2: Continuation affinity check
         if let Some(ref continuation_seq) = request.continuation_of {
             for (id, state) in &pool {
-                if let Some(ref last_seq) = state.metrics.last_sequence_id {
-                    if last_seq == continuation_seq {
-                        debug!(
-                            instance = %id,
-                            seq = %continuation_seq,
-                            "Continuation affinity match"
-                        );
-                        return Ok(ScheduleDecision {
-                            instance_id: id.clone(),
-                            assigned_gpus: state.config.gpu_ids.clone(),
-                            estimated_latency_ms: estimate_latency(state),
-                            placement_reason: "continuation-affinity".to_string(),
-                        });
-                    }
+                if let Some(ref last_seq) = state.metrics.last_sequence_id
+                    && last_seq == continuation_seq
+                {
+                    debug!(
+                        instance = %id,
+                        seq = %continuation_seq,
+                        "Continuation affinity match"
+                    );
+                    return Ok(ScheduleDecision {
+                        instance_id: id.clone(),
+                        assigned_gpus: state.config.gpu_ids.clone(),
+                        estimated_latency_ms: estimate_latency(state),
+                        placement_reason: "continuation-affinity".to_string(),
+                    });
                 }
             }
             // No affinity match found; fall through to normal scoring

@@ -226,13 +226,13 @@ impl LocalTrustCache {
         expected_tenant: Option<&str>,
         now_secs: u64,
     ) -> Result<(), TrustCacheError> {
-        if let Some(expected) = expected_tenant {
-            if bundle.metadata.tenant_id != expected {
-                return Err(TrustCacheError::TenantMismatch {
-                    expected: expected.to_string(),
-                    bundle_tenant: bundle.metadata.tenant_id.clone(),
-                });
-            }
+        if let Some(expected) = expected_tenant
+            && bundle.metadata.tenant_id != expected
+        {
+            return Err(TrustCacheError::TenantMismatch {
+                expected: expected.to_string(),
+                bundle_tenant: bundle.metadata.tenant_id.clone(),
+            });
         }
         let payload = bundle.verified_payload(verifier, now_secs)?;
         // verified_payload guarantees issued_at_secs <= now_secs.

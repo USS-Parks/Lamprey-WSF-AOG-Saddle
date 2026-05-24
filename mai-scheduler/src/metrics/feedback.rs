@@ -101,38 +101,38 @@ impl FeedbackProcessor {
 
         // Check for anomalies
         let now = report.actual_latency_ms + report.scheduled_at;
-        if let Some(severity) = anomaly.check_latency_spike() {
-            if let Ok(mut events) = self.anomaly_events.lock() {
-                events.push(AnomalyEvent {
-                    instance_id: report.instance_id.clone(),
-                    kind: AnomalyKind::LatencySpike,
-                    severity,
-                    timestamp: now,
-                    description: format!("Latency spike detected: ratio={severity:.2}"),
-                });
-            }
+        if let Some(severity) = anomaly.check_latency_spike()
+            && let Ok(mut events) = self.anomaly_events.lock()
+        {
+            events.push(AnomalyEvent {
+                instance_id: report.instance_id.clone(),
+                kind: AnomalyKind::LatencySpike,
+                severity,
+                timestamp: now,
+                description: format!("Latency spike detected: ratio={severity:.2}"),
+            });
         }
-        if let Some(severity) = anomaly.check_memory_leak() {
-            if let Ok(mut events) = self.anomaly_events.lock() {
-                events.push(AnomalyEvent {
-                    instance_id: report.instance_id.clone(),
-                    kind: AnomalyKind::MemoryLeak,
-                    severity,
-                    timestamp: now,
-                    description: format!("Memory leak detected: slope={severity:.4}"),
-                });
-            }
+        if let Some(severity) = anomaly.check_memory_leak()
+            && let Ok(mut events) = self.anomaly_events.lock()
+        {
+            events.push(AnomalyEvent {
+                instance_id: report.instance_id.clone(),
+                kind: AnomalyKind::MemoryLeak,
+                severity,
+                timestamp: now,
+                description: format!("Memory leak detected: slope={severity:.4}"),
+            });
         }
-        if let Some(severity) = anomaly.check_throughput_drop() {
-            if let Ok(mut events) = self.anomaly_events.lock() {
-                events.push(AnomalyEvent {
-                    instance_id: report.instance_id.clone(),
-                    kind: AnomalyKind::ThroughputDrop,
-                    severity,
-                    timestamp: now,
-                    description: format!("Throughput drop detected: drop_ratio={severity:.2}"),
-                });
-            }
+        if let Some(severity) = anomaly.check_throughput_drop()
+            && let Ok(mut events) = self.anomaly_events.lock()
+        {
+            events.push(AnomalyEvent {
+                instance_id: report.instance_id.clone(),
+                kind: AnomalyKind::ThroughputDrop,
+                severity,
+                timestamp: now,
+                description: format!("Throughput drop detected: drop_ratio={severity:.2}"),
+            });
         }
 
         // Compute updated metrics

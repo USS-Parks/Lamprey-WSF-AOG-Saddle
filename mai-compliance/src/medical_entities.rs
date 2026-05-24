@@ -148,19 +148,19 @@ pub fn parse_lab_values(text: &str) -> Vec<LabValue> {
         .expect("lab-value regex must compile");
     let mut out = Vec::new();
     for caps in pattern.captures_iter(text) {
-        if let (Some(num), Some(unit)) = (caps.name("value"), caps.name("unit")) {
-            if let Ok(value) = num.as_str().parse::<f64>() {
-                // Filter out obvious non-units like "the" — heuristic:
-                // valid unit token contains a slash or starts with a
-                // recognized prefix.
-                let u = unit.as_str();
-                if is_lab_unit(u) {
-                    out.push(LabValue {
-                        value,
-                        unit: u.to_string(),
-                        span: (num.start(), unit.end()),
-                    });
-                }
+        if let (Some(num), Some(unit)) = (caps.name("value"), caps.name("unit"))
+            && let Ok(value) = num.as_str().parse::<f64>()
+        {
+            // Filter out obvious non-units like "the" — heuristic:
+            // valid unit token contains a slash or starts with a
+            // recognized prefix.
+            let u = unit.as_str();
+            if is_lab_unit(u) {
+                out.push(LabValue {
+                    value,
+                    unit: u.to_string(),
+                    span: (num.start(), unit.end()),
+                });
             }
         }
     }

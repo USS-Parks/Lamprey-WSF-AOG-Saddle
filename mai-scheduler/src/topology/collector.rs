@@ -231,14 +231,14 @@ pub fn parse_topo_matrix(output: &str) -> Result<ParsedTopology, TopologyError> 
                 continue;
             }
 
-            if let Some(link_type) = LinkType::parse_label(tokens[token_idx]) {
-                if link_type != LinkType::SelfLink {
-                    links.push(ParsedLink {
-                        from: GpuId(row_gpu_id),
-                        to: GpuId(col_gpu_id),
-                        link_type,
-                    });
-                }
+            if let Some(link_type) = LinkType::parse_label(tokens[token_idx])
+                && link_type != LinkType::SelfLink
+            {
+                links.push(ParsedLink {
+                    from: GpuId(row_gpu_id),
+                    to: GpuId(col_gpu_id),
+                    link_type,
+                });
             }
         }
     }

@@ -128,10 +128,10 @@ impl ResponseCache {
         }
 
         // Check model exclusion list
-        if let Some(ref model) = request.model_name {
-            if self.config.exclude_models.contains(model) {
-                return false;
-            }
+        if let Some(ref model) = request.model_name
+            && self.config.exclude_models.contains(model)
+        {
+            return false;
         }
 
         true

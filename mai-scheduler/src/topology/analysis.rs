@@ -324,10 +324,10 @@ fn compute_cpu_affinity_groups(graph: &GpuGraph, gpu_ids: &[GpuId]) -> Vec<Vec<G
     let mut groups: HashMap<u32, Vec<GpuId>> = HashMap::new();
 
     for &id in gpu_ids {
-        if let Some(node) = graph.node(id) {
-            if let Some(numa) = node.numa_node {
-                groups.entry(numa).or_default().push(id);
-            }
+        if let Some(node) = graph.node(id)
+            && let Some(numa) = node.numa_node
+        {
+            groups.entry(numa).or_default().push(id);
         }
     }
 

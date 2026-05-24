@@ -82,11 +82,11 @@ impl ProfileManager {
             .map_err(|e| VaultError::ProfileStoreError(e.to_string()))?;
 
         // Ensure parent directory exists
-        if let Some(parent) = self.config.db_path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| VaultError::ProfileStoreError(e.to_string()))?;
-            }
+        if let Some(parent) = self.config.db_path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| VaultError::ProfileStoreError(e.to_string()))?;
         }
 
         std::fs::write(&self.config.db_path, json)

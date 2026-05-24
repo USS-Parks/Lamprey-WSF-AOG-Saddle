@@ -126,11 +126,11 @@ impl ContextManager {
         session_id: &SessionId,
     ) -> Result<&mut ConversationSession, AgentError> {
         // Check expiry first
-        if let Some(session) = self.sessions.get(session_id) {
-            if session.last_active.elapsed() > session.config.session_ttl {
-                self.sessions.remove(session_id);
-                return Err(AgentError::SessionExpired(session_id.to_string()));
-            }
+        if let Some(session) = self.sessions.get(session_id)
+            && session.last_active.elapsed() > session.config.session_ttl
+        {
+            self.sessions.remove(session_id);
+            return Err(AgentError::SessionExpired(session_id.to_string()));
         }
         self.sessions
             .get_mut(session_id)

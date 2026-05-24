@@ -79,10 +79,10 @@ pub(crate) async fn install_package(
 
     // 1. Create ZFS snapshot before installation
     let _ = progress.map(|p| p(InstallProgress::Snapshotting));
-    if let Some(storage) = storage {
-        if let Err(e) = storage.create_snapshot("pre-install").await {
-            warn!(error = %e, "Failed to create pre-install snapshot, continuing");
-        }
+    if let Some(storage) = storage
+        && let Err(e) = storage.create_snapshot("pre-install").await
+    {
+        warn!(error = %e, "Failed to create pre-install snapshot, continuing");
     }
 
     // 2. Verify package

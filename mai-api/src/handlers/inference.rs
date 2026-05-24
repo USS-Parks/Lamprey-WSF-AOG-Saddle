@@ -602,36 +602,36 @@ fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
         ));
     }
 
-    if let Some(temp) = req.temperature {
-        if !(0.0..=2.0).contains(&temp) {
-            return Err(ApiError::ValidationFailed(format!(
-                "Temperature must be between 0.0 and 2.0, got {temp}"
-            )));
-        }
+    if let Some(temp) = req.temperature
+        && !(0.0..=2.0).contains(&temp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "Temperature must be between 0.0 and 2.0, got {temp}"
+        )));
     }
 
-    if let Some(top_p) = req.top_p {
-        if !(0.0..=1.0).contains(&top_p) {
-            return Err(ApiError::ValidationFailed(format!(
-                "top_p must be between 0.0 and 1.0, got {top_p}"
-            )));
-        }
+    if let Some(top_p) = req.top_p
+        && !(0.0..=1.0).contains(&top_p)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "top_p must be between 0.0 and 1.0, got {top_p}"
+        )));
     }
 
-    if let Some(fp) = req.frequency_penalty {
-        if !(-2.0..=2.0).contains(&fp) {
-            return Err(ApiError::ValidationFailed(format!(
-                "frequency_penalty must be between -2.0 and 2.0, got {fp}"
-            )));
-        }
+    if let Some(fp) = req.frequency_penalty
+        && !(-2.0..=2.0).contains(&fp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "frequency_penalty must be between -2.0 and 2.0, got {fp}"
+        )));
     }
 
-    if let Some(pp) = req.presence_penalty {
-        if !(-2.0..=2.0).contains(&pp) {
-            return Err(ApiError::ValidationFailed(format!(
-                "presence_penalty must be between -2.0 and 2.0, got {pp}"
-            )));
-        }
+    if let Some(pp) = req.presence_penalty
+        && !(-2.0..=2.0).contains(&pp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "presence_penalty must be between -2.0 and 2.0, got {pp}"
+        )));
     }
 
     Ok(())

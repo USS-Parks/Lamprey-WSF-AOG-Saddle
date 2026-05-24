@@ -47,7 +47,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 
 /// Decode a lowercase-hex string. Returns `None` on malformed input.
 fn hex_decode(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     (0..s.len())
@@ -160,11 +160,11 @@ impl AuditWriter {
         let json = serde_json::to_string(&*entries)
             .map_err(|e| VaultError::AuditStoreError(e.to_string()))?;
 
-        if let Some(parent) = self.config.db_path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| VaultError::AuditStoreError(e.to_string()))?;
-            }
+        if let Some(parent) = self.config.db_path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| VaultError::AuditStoreError(e.to_string()))?;
         }
 
         std::fs::write(&self.config.db_path, json)
@@ -221,7 +221,7 @@ impl AuditStore for AuditWriter {
         let mut stored = entry.clone();
         if let Some(pqc) = self.pqc.as_ref() {
             let interval = self.config.sign_interval.max(1);
-            if new_count % interval == 0 {
+            if new_count.is_multiple_of(interval) {
                 match pqc.sign_package(entry.entry_hash.as_bytes()).await {
                     Ok(sig) => {
                         stored.pqc_signature = Some(hex_encode(&sig));

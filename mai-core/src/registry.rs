@@ -494,15 +494,14 @@ impl ModelRegistry {
             .filter(|(_, entry)| {
                 if let Some(f) = filter {
                     // Filter by backend compatibility
-                    if let Some(ref backend) = f.backend_compatible_with {
-                        if !entry
+                    if let Some(ref backend) = f.backend_compatible_with
+                        && !entry
                             .manifest
                             .compatibility
                             .supported_backends
                             .contains(backend)
-                        {
-                            return false;
-                        }
+                    {
+                        return false;
                     }
                     // Filter by capability
                     if let Some(ref cap) = f.requires_capability {
@@ -519,10 +518,10 @@ impl ModelRegistry {
                         }
                     }
                     // Filter by VRAM budget
-                    if let Some(max_vram) = f.max_vram_bytes {
-                        if entry.manifest.model.required_vram_bytes > max_vram {
-                            return false;
-                        }
+                    if let Some(max_vram) = f.max_vram_bytes
+                        && entry.manifest.model.required_vram_bytes > max_vram
+                    {
+                        return false;
                     }
                 }
                 true
