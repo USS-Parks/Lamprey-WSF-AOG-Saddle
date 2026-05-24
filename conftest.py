@@ -108,3 +108,41 @@ def ollama_embedding_model(ollama_available: dict[str, Any] | None) -> str | Non
         if any(h in name.lower() for h in embed_hints):
             return name
     return None
+
+
+# ─── llama.cpp availability ─────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def llamacpp_available() -> dict[str, Any] | None:
+    """Session-scoped check for a reachable llama-server backend.
+
+    Returns a dict with `host` (str) and optional `model` (str — the
+    discovered model path or empty string) when llama-server is
+    reachable; returns None otherwise. The adapter discovers the
+    actual model via /props during initialize, so the fixture does
+    not need to know the model name a priori.
+
+    Tests use this fixture to skip cleanly when the backend is not
+    available — see
+    `adapters/llamacpp/tests/test_integration_live.py`.
+
+    Honoured env vars:
+      LLAMACPP_HOST — base URL of the llama-server (e.g.
+                      `http://127.0.0.1:8081`). When unset, this
+                      fixture returns None and live tests skip.
+
+    Probe path: `GET /health`. llama-server returns a JSON object
+    like `{"status": "ok"}` when ready. Anything else (including
+    plain-text 503 from a still-loading server) is treated as
+    unavailable.
+    """
+    host = os.environ.get("LLAMACPP_HOST")
+    if not host:
+        return None
+
+    health = _http_get_json(f"{host.rstrip('/')}/health", timeout_s=2.0)
+    if health is None or health.get("status") != "ok":
+        return None
+
+    return {"host": host, "model": ""}
