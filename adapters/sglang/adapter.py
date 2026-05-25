@@ -70,6 +70,7 @@ class SglangAdapter(AdapterBase):
                 base_url=self._cfg.base_url,
                 timeout_ms=self._cfg.timeout_ms,
                 stream_timeout_ms=self._cfg.stream_timeout_ms,
+                health_check_timeout_ms=self._cfg.health_check_timeout_ms,
             )
         # Verify backend is reachable. Typed errors propagate; bare
         # socket failures become BackendUnavailableError.

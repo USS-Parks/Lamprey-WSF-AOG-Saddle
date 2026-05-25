@@ -55,10 +55,18 @@ class SglangClient:
     for constrained generation and RadixAttention cache management.
     """
 
-    def __init__(self, base_url: str, timeout_ms: int, stream_timeout_ms: int):
+    def __init__(
+        self,
+        base_url: str,
+        timeout_ms: int,
+        stream_timeout_ms: int,
+        *,
+        health_check_timeout_ms: int = 5000,
+    ):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_ms / 1000.0
         self._stream_timeout = stream_timeout_ms / 1000.0
+        self._health_timeout = health_check_timeout_ms / 1000.0
 
     def _request(
         self, method: str, path: str, body: dict[str, Any] | None = None,
@@ -222,7 +230,7 @@ class SglangClient:
     def health(self) -> bool:
         """Check SGLang server health."""
         try:
-            resp = self._request("GET", "/health", timeout=5.0)
+            resp = self._request("GET", "/health", timeout=self._health_timeout)
             return resp.status_code == 200
         except (AdapterTimeoutError, BackendUnavailableError):
             return False
@@ -230,7 +238,7 @@ class SglangClient:
     def get_model_info(self) -> dict[str, Any]:
         """Get model info from SGLang."""
         try:
-            resp = self._request("GET", "/get_model_info", timeout=5.0)
+            resp = self._request("GET", "/get_model_info", timeout=self._health_timeout)
             return resp.body
         except (AdapterTimeoutError, BackendUnavailableError):
             return {}

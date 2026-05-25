@@ -56,10 +56,18 @@ class TgiClient:
     with endpoints: /generate, /generate_stream, /info, /health.
     """
 
-    def __init__(self, base_url: str, timeout_ms: int, stream_timeout_ms: int):
+    def __init__(
+        self,
+        base_url: str,
+        timeout_ms: int,
+        stream_timeout_ms: int,
+        *,
+        health_check_timeout_ms: int = 5000,
+    ):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_ms / 1000.0
         self._stream_timeout = stream_timeout_ms / 1000.0
+        self._health_timeout = health_check_timeout_ms / 1000.0
 
     def _request(
         self, method: str, path: str, body: dict[str, Any] | None = None,
@@ -221,7 +229,7 @@ class TgiClient:
     def info(self) -> dict[str, Any]:
         """Get model info (model_id, max_tokens, quantization, etc.)."""
         try:
-            resp = self._request("GET", "/info", timeout=5.0)
+            resp = self._request("GET", "/info", timeout=self._health_timeout)
             return resp.body if isinstance(resp.body, dict) else {}
         except (AdapterTimeoutError, BackendUnavailableError):
             return {}
@@ -229,7 +237,7 @@ class TgiClient:
     def health(self) -> bool:
         """Check TGI server health."""
         try:
-            self._request("GET", "/health", timeout=5.0)
+            self._request("GET", "/health", timeout=self._health_timeout)
             return True
         except (AdapterTimeoutError, BackendUnavailableError):
             return False
@@ -243,7 +251,7 @@ class TgiClient:
         url = f"{self._base_url}/metrics"
         req = urllib.request.Request(url, method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=self._health_timeout) as resp:
                 return resp.read().decode("utf-8", errors="replace")
         except (urllib.error.URLError, TimeoutError, urllib.error.HTTPError):
             return ""

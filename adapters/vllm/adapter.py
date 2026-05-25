@@ -69,6 +69,7 @@ class VllmAdapter(AdapterBase):
                 base_url=self._config.base_url,
                 timeout_ms=self._config.timeout_ms,
                 stream_timeout_ms=self._config.stream_timeout_ms,
+                health_check_timeout_ms=self._config.health_check_timeout_ms,
             )
 
         # Verify server is up

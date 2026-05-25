@@ -57,10 +57,18 @@ class VllmClient:
     by the adapter layer).
     """
 
-    def __init__(self, base_url: str, timeout_ms: int, stream_timeout_ms: int):
+    def __init__(
+        self,
+        base_url: str,
+        timeout_ms: int,
+        stream_timeout_ms: int,
+        *,
+        health_check_timeout_ms: int = 5000,
+    ):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_ms / 1000.0
         self._stream_timeout = stream_timeout_ms / 1000.0
+        self._health_timeout = health_check_timeout_ms / 1000.0
 
     def _request(
         self, method: str, path: str, body: dict[str, Any] | None = None,
@@ -233,7 +241,7 @@ class VllmClient:
     def health(self) -> bool:
         """Check vLLM server health."""
         try:
-            self._request("GET", "/health", timeout=5.0)
+            self._request("GET", "/health", timeout=self._health_timeout)
             return True
         except (AdapterTimeoutError, BackendUnavailableError):
             return False
@@ -241,7 +249,7 @@ class VllmClient:
     def metrics(self) -> dict[str, Any]:
         """Fetch vLLM Prometheus metrics endpoint (parsed as text)."""
         try:
-            resp = self._request("GET", "/metrics", timeout=5.0)
+            resp = self._request("GET", "/metrics", timeout=self._health_timeout)
             return resp.body
         except (AdapterTimeoutError, BackendUnavailableError):
             return {}
