@@ -1,10 +1,10 @@
 # RC1 Tester Feedback
 
 **Project:** Island Mountain MAI + Lamprey
-**Release:** RC1 v2 (Tester Bundle — source + binaries)
-**Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)
-**Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-09
-**Companion docs:** `README-FIRST.md`, `TESTER-INSTRUCTIONS.md`, `RC1-BUNDLE-NOTES.md`
+**Release:** RC1.2 (Tester Bundle — source + binaries, post-DOUGHERTY re-bundle)
+**Freeze commit:** `059a6e3` (Merge DOUGHERTY lane to main, 2026-05-24)
+**Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-10
+**Companion docs:** `README-FIRST.md`, `TESTER-INSTRUCTIONS.md`, `RC1.2-BUNDLE-NOTES.md`, `RC1.2-BUILD-NOTES.md`, `RC1.2-TEST-EVIDENCE.md`, `RC1.2-REBUNDLE-CHECKLIST.md`, `RC1-TESTER-RESPONSE-DOUGHERTY.md`
 
 This document is the audit trail for the RC-09 outside-tester pass.
 It records who was sent the bundle, what they ran, what they found,
@@ -41,38 +41,46 @@ What this document does **not** capture:
 
 ## 2. Bundle Artefacts Available For Distribution
 
-Re-assembled 2026-05-24 after the RC-10 RC1.1-docs patch pass
-(commit `b0fcdee`). Binary freeze unchanged at `dceaabc`; binary
-hashes unchanged from RC-03; only the source/docs/ tree differs
-from the RC-08 assembly. **Use the hashes below when sending to a
-tester — the original RC-08 hashes are stale.**
+Re-assembled 2026-05-24 in RC-10 (post-DOUGHERTY re-bundle). Freeze
+advanced from `dceaabc` (RC1.1-docs) to `059a6e3` (RC1.2). Binary
+hashes both refreshed — J-08 + J-13 touched `mai-api` source between
+the two freezes, so both `mai-api.exe` and `mai-ship-validate.exe`
+have new hashes. **Use the RC1.2 hashes below when sending to a
+tester — the RC1.1 hashes (preserved with the `-v1.1` suffix) are
+stale for current testing.**
 
 **Authoritative source for archive hashes:** the `SHA256SUMS` file
-at the release directory (`Island-Mountain-RC1-release/SHA256SUMS`,
-177 bytes). The hashes inline in the table below are a snapshot at
-the time of this commit; if the bundle is re-rolled,
-`SHA256SUMS` wins. (Embedding hashes inside the bundle hits a
-classic self-reference: each rebuild changes a file inside, which
-changes the archive hash, which would need a new commit, which
-would change the file again. The external SHA256SUMS is the
-fixed point.)
+at the release directory (`Island-Mountain-RC1-release/SHA256SUMS`).
+The hashes inline in the table below are a snapshot at the time of
+this commit; if the bundle is re-rolled, `SHA256SUMS` wins. (Embedding
+hashes inside the bundle hits a classic self-reference: each rebuild
+changes a file inside, which changes the archive hash, which would
+need a new commit, which would change the file again. The external
+SHA256SUMS is the fixed point.)
 
 | Artefact | Size | SHA-256 (snapshot) |
 |---|---|---|
-| `MAI-Lamprey-RC1/` (uncompressed folder, 670 file entries) | 19 MB | per `MAI-Lamprey-RC1/CHECKSUMS.txt` (internal) |
-| `MAI-Lamprey-RC1.tar.gz` | 5.7 MB | `35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a` |
-| `MAI-Lamprey-RC1.zip` | 6.1 MB | `6200c1ccfcd25132e417c03f465eef474ccf35cbd9a8e063256f0089d3ccee84` |
-| `SHA256SUMS` | 177 B | (covers the two archives above) |
+| `MAI-Lamprey-RC1/` (uncompressed folder, 808 file entries) | 24.7 MB | per `MAI-Lamprey-RC1/CHECKSUMS.txt` (internal, 808 lines) |
+| `MAI-Lamprey-RC1.2.tar.gz` | 11.51 MB | `f637b99bbbca3d34fc450576c56c4626377e0539ecb70640b0fbafe3f1b91caf` |
+| `MAI-Lamprey-RC1.2.zip` | 11.94 MB | `d56ef62390dde467bdd89b10e77916188483d3913abbb86e66eb75a00ab70a7d` |
+| `SHA256SUMS` | 187 B | (covers the two archives above) |
 
-Bundle and archives live at `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/`
-on the build host. Both archives carry the same 671 file entries
-(670 in CHECKSUMS.txt + CHECKSUMS.txt itself); the zip also
-includes a small number of explicit empty-directory markers, which
-is the normal POSIX-tar vs PKZip metadata difference, not a content
-difference.
+Bundle and archives live at `Island-Mountain-RC1-release/` (on the
+build host, nested inside the project working tree). Both archives
+carry the same 809 file entries (808 in CHECKSUMS.txt + CHECKSUMS.txt
+itself); the zip also includes a small number of explicit
+empty-directory markers, which is the normal POSIX-tar vs PKZip
+metadata difference, not a content difference.
 
 Pick **tar.gz** for Unix recipients, **zip** for Windows recipients
 who do not have a tar implementation.
+
+**Preserved RC1.1 artefacts** (audit only, NOT for new testing):
+`MAI-Lamprey-RC1-v1.1/`, `MAI-Lamprey-RC1-v1.1.tar.gz` (sha256
+`35ada78f…`), `MAI-Lamprey-RC1-v1.1.zip` (sha256 `6200c1cc…`),
+`SHA256SUMS-v1.1`. These hold the `dceaabc` freeze + RC1.1-docs
+patches; the binaries inside are the RC-03 build (`4e201a84…` /
+`a32ddc28…`).
 
 **Self-reference note for testers reading this inside the bundle:**
 If you opened this doc *inside* the archive you just downloaded,
@@ -84,14 +92,17 @@ your download integrity, compare your `sha256sum` against the
 external `SHA256SUMS` file your sender provided alongside the
 archive — that file is the contract.
 
-**Delta from the RC-08 assembly:** 3 new docs added to
-`source/docs/` (RC1-CHANGES.md, RC1-SELF-REVIEW-TRACK-C.md,
-RC1-TESTER-FEEDBACK.md) and 13 docs updated (README-FIRST.md
-mirrored at top level and inside source/docs/,
-TESTER-INSTRUCTIONS.md, RC1-PACKAGE-MANIFEST.md, the four
-acquisition demos, runbooks/README.md, and five individual
-runbooks). See `source/docs/RC1-CHANGES.md` for the per-file
-finding-by-finding patch matrix.
+**Delta from the RC1.1-docs assembly:** advanced freeze from
+`dceaabc` to `059a6e3` to incorporate the full DOUGHERTY lane
+(26 J-tagged sessions, mai-sdk-rs HTTP+SSE closure, J-14 rescan
+evidence, J-15 response doc). Binary hashes refreshed via fresh
+`cargo build --release -p mai-api --bins` on x86_64-pc-windows-msvc
+(3 min 53 s, 0 warnings). File count 670 → 808 (+138, dominated
+by 15 GitDoctor screenshots now tracked in `source/test-evidence/`,
+the new GITDOCTOR-75 lane scaffold, and the J-session test files
+that landed in `source/`). See `source/docs/RC1.2-BUNDLE-NOTES.md`
+for the assembly recipe and `source/docs/RC1.2-BUILD-NOTES.md` for
+the binary delta.
 
 ## 3. Current Status
 
@@ -140,8 +151,8 @@ compliance-governance stack, frozen at commit dceaabc. The
 I'll send you [MAI-Lamprey-RC1.zip / .tar.gz] (~6 MB). After
 download, verify SHA-256:
 
-  [35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a for .tar.gz]
-  [6200c1ccfcd25132e417c03f465eef474ccf35cbd9a8e063256f0089d3ccee84 for .zip]
+  [f637b99bbbca3d34fc450576c56c4626377e0539ecb70640b0fbafe3f1b91caf for .tar.gz]
+  [d56ef62390dde467bdd89b10e77916188483d3913abbb86e66eb75a00ab70a7d for .zip]
 
 Then unpack and open README-FIRST.md. Total reading is ~10 min;
 TESTER-INSTRUCTIONS.md tells you which sections of README-FIRST
@@ -199,8 +210,8 @@ HOW TO RECEIVE THE BUNDLE
 I'll send you [MAI-Lamprey-RC1.zip / MAI-Lamprey-RC1.tar.gz] via
 [mechanism]. After download, please verify the SHA-256:
 
-  .tar.gz: 35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a
-  .zip:    6200c1ccfcd25132e417c03f465eef474ccf35cbd9a8e063256f0089d3ccee84
+  .tar.gz: f637b99bbbca3d34fc450576c56c4626377e0539ecb70640b0fbafe3f1b91caf
+  .zip:    d56ef62390dde467bdd89b10e77916188483d3913abbb86e66eb75a00ab70a7d
 
 If the hash does not match, do not unpack — message me and I'll
 re-send.
