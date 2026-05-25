@@ -1,6 +1,6 @@
 # RC1 Package Manifest
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 (Tester Bundle)
 **Date:** 2026-05-23
 **Audience:** release engineers preparing the RC1 tarball, RC1 testers verifying what they received
@@ -40,7 +40,7 @@ file alongside. RC1 v1 ships without `bin/`.
 The unpacked tester bundle:
 
 ```
-MAI-Lamprey-RC1/
+Lamprey-MAI-RC1/
 ├── README-FIRST.md             # quickstart — populated by RC-04 (placeholder until then)
 ├── source/                     # the mai/ workspace, filtered per §3 + §4
 │   ├── Cargo.toml, Cargo.lock, pyproject.toml, conftest.py, README.md
@@ -55,7 +55,7 @@ MAI-Lamprey-RC1/
 └── test-evidence/              # populated by RC-05
 ```
 
-The package root (`MAI-Lamprey-RC1/`) is what the tester sees after
+The package root (`Lamprey-MAI-RC1/`) is what the tester sees after
 unpacking. `source/` mirrors the existing `mai/` checkout almost
 verbatim — the only differences are exclusions listed in §4.
 
@@ -198,7 +198,7 @@ of headroom.
 | Manifest lists excluded folders | §4 |
 | `mai/target/debug/` explicitly excluded | §4.1 (entire `target/` excluded) |
 | Build-or-ship decision recorded | §1 (source-build first; binary deferred to RC-03) |
-| Folder layout for `MAI-Lamprey-RC1/` | §2 |
+| Folder layout for `Lamprey-MAI-RC1/` | §2 |
 | Package plan smaller than 60 GB+ working folder | §6 (~15–20 MB sans `.git/`) |
 | Stray tracked files identified and dispositioned | §5 (`et HEAD` — remove before packaging) |
 
@@ -208,5 +208,5 @@ Session RC-03 (Build Release Binary) runs
 `cargo build --release -p mai-api` against the freeze commit
 `dceaabc`, captures the binary size and build-environment notes,
 validates the health endpoint, and either populates
-`MAI-Lamprey-RC1/bin/` or formally records "no prebuilt binary in
+`Lamprey-MAI-RC1/bin/` or formally records "no prebuilt binary in
 RC1 v1" if the build is deferred. Output: `mai/docs/RC1-BUILD-NOTES.md`.

@@ -8,10 +8,12 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-# Renders as `mai.exe` — the front-door binary users click to open
-# the program. Distinct from `mai-api.exe` (headless service) and
-# `mai-admin.exe` (operator tooling).
-name = "mai"
+# Renders as `lamprey-mai.exe` — the front-door binary users click
+# to open the program. Distinct from `lamprey-mai-api.exe` (headless
+# service) and `lamprey-mai-admin.exe` (operator tooling). BRAND-01
+# rebrand: short `mai.exe` was the WELCOME-01 ship; consistent
+# `lamprey-mai-*` naming makes the package self-identifying.
+name = "lamprey-mai"
 path = "src/main.rs"
 
 [dependencies]

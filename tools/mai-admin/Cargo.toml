@@ -8,7 +8,9 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "mai-admin"
+# BRAND-01: shipped binary carries the `lamprey-mai-*` naming. The
+# crate name (`mai-admin`) stays as-is internally.
+name = "lamprey-mai-admin"
 path = "src/main.rs"
 
 [dependencies]

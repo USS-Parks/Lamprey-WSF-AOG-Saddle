@@ -1,10 +1,10 @@
 # RC1 Bundle Assembly Notes
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 v2 (Tester Bundle — source + binaries)
 **Date of assembly:** 2026-05-23
 **Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)
-**Bundle location:** `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/MAI-Lamprey-RC1/`
+**Bundle location:** `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/Lamprey-MAI-RC1/`
 **Build host HEAD at assembly time:** `d42591d` (RC-07 commit)
 **Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-08
 
@@ -31,7 +31,7 @@ part of RC-08; that is RC-09's job.
 
 | Item | Value |
 |---|---|
-| Path | `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/MAI-Lamprey-RC1/` |
+| Path | `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/Lamprey-MAI-RC1/` |
 | Total size, uncompressed | **19 MB** |
 | Total file count | **666** (per top-level `CHECKSUMS.txt`) |
 | Top-level layout | `README-FIRST.md`, `bin/`, `source/`, `test-evidence/`, `CHECKSUMS.txt` |
@@ -41,7 +41,7 @@ Size breakdown by top-level entry:
 | Entry | Size | Contents |
 |---|---|---|
 | `source/` | 6.9 MB | filtered `mai/` workspace at `dceaabc` (no `.git/`) plus RC1 docs copied forward |
-| `bin/` | 12 MB | `mai-api.exe`, `mai-ship-validate.exe`, `SHA256SUMS` |
+| `bin/` | 12 MB | `lamprey-mai-api.exe`, `lamprey-mai-ship-validate.exe`, `SHA256SUMS` |
 | `test-evidence/` | 169 KB | `rc-05/` (full-workspace test logs) + `rc-06/` (fresh-machine rehearsal logs) |
 | `README-FIRST.md` | 16 KB | canonical first-run guide, also mirrored at `source/docs/README-FIRST.md` |
 | `CHECKSUMS.txt` | 64 KB | SHA-256 of every file in the bundle, except itself |
@@ -55,14 +55,14 @@ size — within the order of magnitude predicted by manifest §6
 
 | Step | Command | Result |
 |---|---|---|
-| 1. Make bundle root | `mkdir -p MAI-Lamprey-RC1/{source,bin,test-evidence}` | three empty subdirs |
+| 1. Make bundle root | `mkdir -p Lamprey-MAI-RC1/{source,bin,test-evidence}` | three empty subdirs |
 | 2. Extract source from freeze | `git archive --format=tar dceaabc \| tar -x -C source/` | 6.9 MB, includes the four tracked-but-excluded items |
 | 3. Remove `et HEAD` | `rm "source/et HEAD"` | gone (manifest §5) |
 | 4. Remove `.claude/` | `rm -rf source/.claude` | gone (manifest §4.3) |
 | 5. Remove pytest cache | `rm -rf source/pytest-cache-files-*` | gone (manifest §4.2) |
-| 6. Copy README-FIRST to top level | `cp mai/docs/README-FIRST.md MAI-Lamprey-RC1/README-FIRST.md` | 16 KB |
+| 6. Copy README-FIRST to top level | `cp mai/docs/README-FIRST.md Lamprey-MAI-RC1/README-FIRST.md` | 16 KB |
 | 7. Copy RC1 docs into `source/docs/` | `cp mai/docs/{RC1-*.md,README-FIRST.md,TESTER-INSTRUCTIONS.md} source/docs/` | 7 files |
-| 8. Copy binaries | `cp mai/target/release/{mai-api.exe,mai-ship-validate.exe} bin/` | 12 MB |
+| 8. Copy binaries | `cp mai/target/release/{lamprey-mai-api.exe,lamprey-mai-ship-validate.exe} bin/` | 12 MB |
 | 9. Write per-binary hashes | `(cd bin && sha256sum *.exe > SHA256SUMS)` | 2 lines |
 | 10. Copy test-evidence | `cp -r mai/test-evidence/{rc-05,rc-06} test-evidence/` | 169 KB |
 | 11. Write top-level checksums | `find . -type f ! -name CHECKSUMS.txt -print0 \| sort -z \| xargs -0 sha256sum > CHECKSUMS.txt` | 666 entries |
@@ -116,10 +116,10 @@ recorded in `RC1-BUILD-NOTES.md` for the RC-03 build:
 
 | Binary | Expected (RC-03) | Bundle (RC-08) | Match |
 |---|---|---|---|
-| `mai-api.exe` | `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6` | `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6` | yes |
-| `mai-ship-validate.exe` | `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8` | `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8` | yes |
+| `lamprey-mai-api.exe` | `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6` | `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6` | yes |
+| `lamprey-mai-ship-validate.exe` | `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8` | `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8` | yes |
 
-Verified by `sha256sum mai-api.exe mai-ship-validate.exe` on the
+Verified by `sha256sum lamprey-mai-api.exe lamprey-mai-ship-validate.exe` on the
 build-host copy before staging into `bin/`, and again on the bundle
 copy via the top-level `CHECKSUMS.txt` rollup.
 
@@ -152,7 +152,7 @@ specific reviewer asks for it; not added preemptively.
 
 | Criterion | Result |
 |---|---|
-| RC1 bundle exists | Yes — `MAI-Lamprey-RC1/` at the path in §2. |
+| RC1 bundle exists | Yes — `Lamprey-MAI-RC1/` at the path in §2. |
 | Bundle size is explainable | Yes — §2 size breakdown table. |
 | Bundle contents match the manifest | Yes — §4.1 include sweep + §4.2 exclude sweep. |
 | No accidental `target/debug/` inside it | Yes — §4.2 anti-exclusion sweep, line 1. |
@@ -191,8 +191,8 @@ Per the test-evidence-literalism rule, this section is load-bearing:
 
 - **Compression.** When RC-09 picks a transfer mechanism, the
   release engineer compresses the folder. Suggested commands:
-  - POSIX: `tar -czf MAI-Lamprey-RC1.tar.gz MAI-Lamprey-RC1/`
-  - PowerShell: `Compress-Archive -Path MAI-Lamprey-RC1 -DestinationPath MAI-Lamprey-RC1.zip`
+  - POSIX: `tar -czf Lamprey-MAI-RC1.3.tar.gz Lamprey-MAI-RC1/`
+  - PowerShell: `Compress-Archive -Path Lamprey-MAI-RC1 -DestinationPath Lamprey-MAI-RC1.3.zip`
   Re-hash the archive after compression and publish that hash
   alongside the bundle.
 - **RC-09** (First Outside Tester). Send the bundle to one

@@ -1,6 +1,6 @@
 # RC1 Freeze Notes
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 (Tester Bundle)
 **Date:** 2026-05-23
 **Audience:** release engineers, RC1 testers, acquirer reviewers

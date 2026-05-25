@@ -1,4 +1,4 @@
-# Acquisition Production Readiness — Island Mountain MAI + Lamprey
+# Acquisition Production Readiness — Lamprey MAI
 
 **Date:** 2026-05-23
 **Tag:** Session 46 closes Gate D (Acquisition-Ready Release)
@@ -175,7 +175,7 @@ blocks Gate D.
 
 ## 6. Compliance certification statement
 
-As of the post-Session-46 commit, the Island Mountain MAI +
+As of the post-Session-46 commit, the Lamprey MAI +
 Lamprey implementation satisfies the Gate D acceptance criteria
 stated in `BUILD-EXECUTION-PLAN-V2-UPDATED.md` §1434:
 

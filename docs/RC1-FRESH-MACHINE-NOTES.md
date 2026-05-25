@@ -3,11 +3,11 @@
 > **STATUS — CLOSED (2026-05-23)**
 > Historical record of the RC-06 fresh-machine rehearsal against freeze `dceaabc`. 8 frictions logged (4 packaging gaps fixed via `git archive` cleanup + 2 quickstart gaps fixed via README-FIRST patches + 2 cosmetic). Lessons folded into the live README-FIRST and TESTER-INSTRUCTIONS docs. Kept as literal record; do not edit retroactively.
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 (Tester Bundle)
 **Date of run:** 2026-05-23
 **Freeze commit:** `dceaabc` (SHIP-17 hotfix)
-**Bundle build location:** `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-rehearsal/MAI-Lamprey-RC1/`
+**Bundle build location:** `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-rehearsal/Lamprey-MAI-RC1/`
 **HEAD on build host at rehearsal time:** `8182249` (RC-05 commit)
 **Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-06
 **Artifacts directory:** `test-evidence/rc-06/`
@@ -58,16 +58,16 @@ Toolchain-installation bugs and cross-OS gaps are not.
 
 | Step | Command (POSIX) | Result |
 |---|---|---|
-| 1. Make bundle root | `mkdir -p MAI-Lamprey-RC1/{source,bin,test-evidence}` | three empty subdirs |
-| 2. Export source from freeze | `git archive --format=tar dceaabc \| tar -x -C MAI-Lamprey-RC1/source/` | 6.9 MB tracked content at the freeze |
-| 3. Remove stray `et HEAD` (manifest §5) | `rm MAI-Lamprey-RC1/source/"et HEAD"` | gone |
-| 4. Remove `.claude/` (manifest §4.3) | `rm -rf MAI-Lamprey-RC1/source/.claude` | gone (was tracked: `.claude/CLAUDE.md`, `.claude/skills/safe-edit/SKILL.md`) |
-| 5. Remove `pytest-cache-files-*` (manifest §4.2) | `rm -rf MAI-Lamprey-RC1/source/pytest-cache-files-*` | gone (was tracked: `pytest-cache-files-txhvvf0c/v/cache/nodeids`) |
-| 6. Add RC1 docs (post-freeze) | `cp docs/README-FIRST.md docs/RC1-{FREEZE-NOTES,PACKAGE-MANIFEST,BUILD-NOTES,TEST-EVIDENCE}.md MAI-Lamprey-RC1/source/docs/` | the RC1-* docs land in the bundle |
-| 7. Add prebuilt binaries (RC1 v2 only) | `cp target/release/mai-api.exe target/release/mai-ship-validate.exe MAI-Lamprey-RC1/bin/` then `cd bin && sha256sum *.exe > SHA256SUMS` | bin/ populated, sums file lowercase per Unix convention |
-| 8. Place README at bundle root | `cp docs/README-FIRST.md MAI-Lamprey-RC1/README-FIRST.md` | duplicate copy, but the root one is the entry point |
+| 1. Make bundle root | `mkdir -p Lamprey-MAI-RC1/{source,bin,test-evidence}` | three empty subdirs |
+| 2. Export source from freeze | `git archive --format=tar dceaabc \| tar -x -C Lamprey-MAI-RC1/source/` | 6.9 MB tracked content at the freeze |
+| 3. Remove stray `et HEAD` (manifest §5) | `rm Lamprey-MAI-RC1/source/"et HEAD"` | gone |
+| 4. Remove `.claude/` (manifest §4.3) | `rm -rf Lamprey-MAI-RC1/source/.claude` | gone (was tracked: `.claude/CLAUDE.md`, `.claude/skills/safe-edit/SKILL.md`) |
+| 5. Remove `pytest-cache-files-*` (manifest §4.2) | `rm -rf Lamprey-MAI-RC1/source/pytest-cache-files-*` | gone (was tracked: `pytest-cache-files-txhvvf0c/v/cache/nodeids`) |
+| 6. Add RC1 docs (post-freeze) | `cp docs/README-FIRST.md docs/RC1-{FREEZE-NOTES,PACKAGE-MANIFEST,BUILD-NOTES,TEST-EVIDENCE}.md Lamprey-MAI-RC1/source/docs/` | the RC1-* docs land in the bundle |
+| 7. Add prebuilt binaries (RC1 v2 only) | `cp target/release/lamprey-mai-api.exe target/release/lamprey-mai-ship-validate.exe Lamprey-MAI-RC1/bin/` then `cd bin && sha256sum *.exe > SHA256SUMS` | bin/ populated, sums file lowercase per Unix convention |
+| 8. Place README at bundle root | `cp docs/README-FIRST.md Lamprey-MAI-RC1/README-FIRST.md` | duplicate copy, but the root one is the entry point |
 
-Final bundle layout: `MAI-Lamprey-RC1/{README-FIRST.md, source/, bin/, test-evidence/}`.
+Final bundle layout: `Lamprey-MAI-RC1/{README-FIRST.md, source/, bin/, test-evidence/}`.
 
 Final bundle size: **19 MB** (6.9 MB source + 12 MB bin + small
 files). Compared with the >60 GB working folder, that's the
@@ -78,7 +78,7 @@ manifest's stated three-orders-of-magnitude reduction.
 ### 3.1 §5.A Hash verification (PowerShell)
 
 ```
-PS> $h = (Get-FileHash bin\mai-api.exe -Algorithm SHA256).Hash
+PS> $h = (Get-FileHash bin\lamprey-mai-api.exe -Algorithm SHA256).Hash
 PS> $h
 4E201A8498D3E46361C83FC4EFF6E04C1021FCA3187B04A4D9F55F398B1462B6
 ```
@@ -90,7 +90,7 @@ mismatch with `bin/SHA256SUMS` — see §4 friction 5.)
 
 ```
 mkdir mai-test-run; cd mai-test-run
-../bin/mai-api.exe > stdout.log 2> stderr.log &
+../bin/lamprey-mai-api.exe > stdout.log 2> stderr.log &
 ```
 
 | Field | Value |
@@ -118,7 +118,7 @@ PASS.
 ### 3.4 §6 Compliance demos from the bundle
 
 ```
-cd MAI-Lamprey-RC1/source
+cd Lamprey-MAI-RC1/source
 cargo test -p mai-compliance --test compliance_demos
 ```
 
@@ -141,7 +141,7 @@ additional Python-side dry-run, the OpenBao trust-demo scaffold was
 exercised from the bundle:
 
 ```
-cd MAI-Lamprey-RC1/source
+cd Lamprey-MAI-RC1/source
 export PYTHONPATH="$PWD/mai-sdk-python/src"   # NOT in README — see friction 7
 python -m pytest apps/openbao-trust-demo/tests/
 ```
@@ -302,9 +302,9 @@ Per the test-evidence-literalism rule, this section is explicit.
 
 | Criterion | Status |
 |---|---|
-| Bundle copied to a clean directory | §2 — `Island-Mountain-RC1-rehearsal/MAI-Lamprey-RC1/` |
+| Bundle copied to a clean directory | §2 — `Island-Mountain-RC1-rehearsal/Lamprey-MAI-RC1/` |
 | Quickstart run from scratch | §3 — README-FIRST followed verbatim, with PYTHONPATH unset |
-| API started | §3.2 — `bin/mai-api.exe`, ~77 ms to ready, port 8420 listening |
+| API started | §3.2 — `bin/lamprey-mai-api.exe`, ~77 ms to ready, port 8420 listening |
 | At least one Trust Manifold dry-run | §3.4 (`test_trust_manifold_disconnected_and_expired`) + §3.5 (openbao-trust-demo scaffold) |
 | At least one compliance demo test | §3.4 — 6/6 pass |
 | Every missing dependency or confusing step documented | §4 — 8 friction items |
@@ -316,7 +316,7 @@ Per the test-evidence-literalism rule, this section is explicit.
 |---|---|
 | `rehearsal-start.txt`, `rehearsal-end.txt` | Wall-clock bracket of the rehearsal |
 | `bundle-bin-SHA256SUMS.txt` | Copy of the bundle's `bin/SHA256SUMS` so the doc points at a verifiable hash record |
-| `bundle-first-boot-stdout.log` | Unredacted boot transcript from the bundle's `mai-api.exe`. Contains a one-time admin key for a process that was immediately killed; do not propagate. |
+| `bundle-first-boot-stdout.log` | Unredacted boot transcript from the bundle's `lamprey-mai-api.exe`. Contains a one-time admin key for a process that was immediately killed; do not propagate. |
 | `bundle-compliance-demos.log` | Output of `cargo test -p mai-compliance --test compliance_demos` from inside the bundle |
 | `openbao-trust-demo-tests.log` | Output of `python -m pytest apps/openbao-trust-demo/tests/` from inside the bundle, with PYTHONPATH set |
 

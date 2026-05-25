@@ -1,6 +1,6 @@
 # TESTER INSTRUCTIONS
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 (Tester Bundle)
 **Date:** 2026-05-23
 **Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)
@@ -38,7 +38,7 @@ previous track's setup is in place.
    hardware list, and the folder layout. Five minutes.
 2. **Confirm the freeze commit.** From the unpacked bundle:
    ```
-   cd MAI-Lamprey-RC1/source
+   cd Lamprey-MAI-RC1/source
    git rev-parse HEAD     # if the bundle is a git checkout
    ```
    Expected: `dceaabc...`. If your bundle was built from `git
@@ -106,8 +106,8 @@ against on the build host, so you can calibrate.
 
 ## 4. What To Run By Track
 
-The commands below assume your CWD is `MAI-Lamprey-RC1/` or
-`MAI-Lamprey-RC1/source/` as appropriate. POSIX shell syntax;
+The commands below assume your CWD is `Lamprey-MAI-RC1/` or
+`Lamprey-MAI-RC1/source/` as appropriate. POSIX shell syntax;
 PowerShell equivalents are in `README-FIRST.md`.
 
 ### 4.A Track A - Local Smoke Tester
@@ -135,7 +135,7 @@ You are done. You do **not** need to run the demos (`README-FIRST.md`
 your platform, and capture your local `compliance_perf` numbers.
 
 1. Run Track A first. Confirm green.
-2. From `MAI-Lamprey-RC1/source/`, run the full workspace test
+2. From `Lamprey-MAI-RC1/source/`, run the full workspace test
    suite:
    ```
    cargo test --workspace

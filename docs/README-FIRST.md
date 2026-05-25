@@ -1,6 +1,6 @@
 # README FIRST
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 (Tester Bundle)
 **Date:** 2026-05-23
 **Audience:** technical testers and acquirer reviewers running this
@@ -17,7 +17,7 @@ package that assumes you have not yet looked at the rest of the repo.
 ## 1. What This Is
 
 This bundle is the **Release Candidate 1 (RC1) tester package** for
-the Island Mountain MAI inference engine and the Lamprey compliance
+the Lamprey MAI inference engine and the Lamprey compliance
 governance stack that sits above it.
 
 In one sentence: **MAI runs local AI inference; Lamprey decides what
@@ -78,9 +78,9 @@ Without it, pytest fails during collection with
 `ModuleNotFoundError: No module named 'mai'`.
 
 ```
-# POSIX shell, from MAI-Lamprey-RC1/:
+# POSIX shell, from Lamprey-MAI-RC1/:
 export PYTHONPATH="$PWD/source/mai-sdk-python/src"
-# PowerShell, from MAI-Lamprey-RC1\:
+# PowerShell, from Lamprey-MAI-RC1\:
 $env:PYTHONPATH = "$PWD\source\mai-sdk-python\src"
 ```
 
@@ -92,15 +92,15 @@ matters for `pytest`.
 After you unpack the bundle:
 
 ```
-MAI-Lamprey-RC1/
+Lamprey-MAI-RC1/
 |-- README-FIRST.md           <- you are here
 |-- source/                   <- the mai/ workspace (filtered, see RC1-PACKAGE-MANIFEST.md)
 |   |-- docs/                 <- RC1-FREEZE-NOTES.md, RC1-PACKAGE-MANIFEST.md, RC1-BUILD-NOTES.md, runbooks/, acquisition/, ...
 |   |-- mai-api/, mai-compliance/, ...
 |   `-- ...
 |-- bin/                      <- OPTIONAL - prebuilt binaries if this is an RC1 v2 bundle
-|   |-- mai-api.exe
-|   |-- mai-ship-validate.exe
+|   |-- lamprey-mai-api.exe
+|   |-- lamprey-mai-ship-validate.exe
 |   `-- SHA256SUMS
 `-- test-evidence/            <- captured logs from the RC-05 test re-run
 ```
@@ -118,15 +118,15 @@ Two paths. Pick one. The success criteria at the end are the same.
 **Windows PowerShell:**
 
 ```
-cd MAI-Lamprey-RC1
+cd Lamprey-MAI-RC1
 # (Optional) verify the binary against the published hashes:
-Get-FileHash bin\mai-api.exe -Algorithm SHA256
+Get-FileHash bin\lamprey-mai-api.exe -Algorithm SHA256
 # Expect: 4E201A8498D3E46361C83FC4EFF6E04C1021FCA3187B04A4D9F55F398B1462B6
 
 # Run from a clean working directory (no config\ subfolder) so the
 # first-boot path fires and prints a fresh admin key.
 mkdir mai-test-run; cd mai-test-run
-..\bin\mai-api.exe
+..\bin\lamprey-mai-api.exe
 ```
 
 **Hash case note.** `Get-FileHash` prints SHA-256 in upper-case hex;
@@ -140,12 +140,12 @@ PowerShell output reads as an exact match.
 **POSIX shell:**
 
 ```
-cd MAI-Lamprey-RC1/source
+cd Lamprey-MAI-RC1/source
 cargo build --release -p mai-api
 # Expect: "Finished `release` profile [optimized] target(s) in N s"
 
 cd ..; mkdir mai-test-run; cd mai-test-run
-../source/target/release/mai-api      # or mai-api.exe on Windows
+../source/target/release/mai-api      # or lamprey-mai-api.exe on Windows
 ```
 
 A cold release build of the workspace took **3 m 14 s** on our
@@ -194,7 +194,7 @@ on a real install, but for the smoke test you can skip persistence.
 
 ### 5.D Health check
 
-Open a second terminal in `MAI-Lamprey-RC1/`. With the daemon still
+Open a second terminal in `Lamprey-MAI-RC1/`. With the daemon still
 running from 5.A or 5.B:
 
 **curl:**
@@ -233,7 +233,7 @@ makes the decisions the docs say it makes. Six tests, all under one
 cargo command. None need a GPU.
 
 ```
-cd MAI-Lamprey-RC1/source
+cd Lamprey-MAI-RC1/source
 cargo test -p mai-compliance --test compliance_demos
 ```
 
@@ -308,7 +308,7 @@ For each issue, send:
 5. **What you expected vs. what you saw.** "Expected HTTP 200 from
    /v1/health, got connection refused" is a complete report.
 6. **The freeze commit you tested.** It should be `dceaabc` - run
-   `git rev-parse HEAD` from `MAI-Lamprey-RC1/source/` (or
+   `git rev-parse HEAD` from `Lamprey-MAI-RC1/source/` (or
    `cd source; git log -1 --format=%H`) to confirm.
 
 Open an issue at

@@ -1,6 +1,6 @@
 # RC1 Changes
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-10
 **Tracks:** revisions to the RC1 tester bundle after the initial
 `dceaabc` freeze.
@@ -16,9 +16,9 @@ when code changes; doc-only revisions ship under the same freeze.
 
 **Freeze commit:** `dceaabc` (unchanged)
 **Binary hashes:** unchanged
-- `bin/mai-api.exe`:
+- `bin/lamprey-mai-api.exe`:
   `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6`
-- `bin/mai-ship-validate.exe`:
+- `bin/lamprey-mai-ship-validate.exe`:
   `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8`
 
 **Source of input:** `mai/docs/RC1-SELF-REVIEW-TRACK-C.md`
@@ -39,12 +39,12 @@ extracted bundle, 2026-05-24).
 |---|---|---|---|
 | H-1 | High | docs | Added "Status against RC1 freeze" header band to runbooks `05-verify-audit-chain.md`, `06-generate-compliance-report.md`, `11-trust-bundle-expired.md`, `12-audit-wal-tamper.md`, `13-air-gap-violation.md`, noting which cited `mai-admin` subcommands are stubbed (`audit`, `trust`, `vault`) or undeclared (`compliance`, `policy`) and pointing each to the live HTTP equivalent on the running daemon. |
 | H-2 | High | docs | Rewrote all four acquisition demo narratives (`healthcare.md`, `defense.md`, `tribal.md`, `multi-domain.md`) to use `curl` against the live HTTP surface (`/v1/chat/completions`, `/v1/compliance/{status,audit,reports/generate,reports/{id}/download,policies/template}`, `/v1/system/airgap/engage`) with `X-IM-Auth-Token` header. Each demo now references the `compliance_demos.rs` test that exercises the same scenario as a fallback. |
-| H-3 | High | docs | All four demos: REST port `8080` → `8420`, dashboard port `8081` flagged as a companion-process start (not auto-started by `mai-api.exe`). |
-| H-4 | High | docs | All four demos: replaced the hardcoded builder-workspace `cd` with `cd source` from `MAI-Lamprey-RC1/`. |
+| H-3 | High | docs | All four demos: REST port `8080` → `8420`, dashboard port `8081` flagged as a companion-process start (not auto-started by `lamprey-mai-api.exe`). |
+| H-4 | High | docs | All four demos: replaced the hardcoded builder-workspace `cd` with `cd source` from `Lamprey-MAI-RC1/`. |
 | H-5 | High | docs | `TESTER-INSTRUCTIONS.md` §4.C step 4 runbook numbers fixed: `04→05`, `05→06`, `09→11`, `10→12`, `11→13`. |
 | M-1 | Medium | docs | `TESTER-INSTRUCTIONS.md` §4.C step 2 rewritten to note the router/policy/audit layers are described inline in `ARCHITECTURE.md`, not as separate files. Cross-pointed to `LAMPREY-BRIEF.md`, `TRUST-MANIFOLD.md`, `AUDIT-CORRELATION.md` for deeper coverage. |
 | M-2 | Medium | docs | `README-FIRST.md` §5.C amended to match observed runtime: logs and banner both stream on stdout at the freeze; "a future RC will route logs to stderr" pending. Doc-side fix only; no runtime change. |
-| M-3 | Medium | docs | Demos now lead with the bundled `bin/mai-api.exe` and treat `cargo run --release --bin mai-api` as the source-path alternative. |
+| M-3 | Medium | docs | Demos now lead with the bundled `bin/lamprey-mai-api.exe` and treat `cargo run --release --bin mai-api` as the source-path alternative. |
 | M-4 | Medium | docs | `runbooks/README.md` gained an audience note explaining that the runbooks describe Linux systemd production posture; the RC1 bundle is Windows MSVC tester-only. |
 | L-1 | Low | docs | `README-FIRST.md` "MAI server ready" line: hyphen → em-dash to match the runtime emission. |
 

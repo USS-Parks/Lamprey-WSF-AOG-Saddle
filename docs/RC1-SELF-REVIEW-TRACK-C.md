@@ -3,12 +3,12 @@
 > **STATUS — CLOSED (2026-05-24)**
 > Self-review delivered 12 findings (5H/4M/3L); 9 resolved in the RC-10 RC1.1-docs pass (commit `b0fcdee`), 3 deferred. Self-review work fed into the DOUGHERTY remediation lane after John Dougherty's external review superseded it. Kept as literal record of the internal pre-tester check.
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 v2 (Tester Bundle — source + binaries)
 **Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)
 **Reviewer:** Claude (co-author on the build effort)
 **Date of review:** 2026-05-24
-**Bundle reviewed:** `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-self-review/MAI-Lamprey-RC1/` (extracted from `MAI-Lamprey-RC1.zip` sha256 `9a2f95ee…`)
+**Bundle reviewed:** `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-self-review/Lamprey-MAI-RC1/` (extracted from `Lamprey-MAI-RC1.3.zip` sha256 `9a2f95ee…`)
 **Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-09
 **Track:** C (security / compliance review) per `docs/TESTER-INSTRUCTIONS.md` §4.C
 
@@ -51,7 +51,7 @@ was not exercised in this pass.
 | Step | Command | Result |
 |---|---|---|
 | Bundle integrity | `sha256sum -c CHECKSUMS.txt` | 667/667 OK, 0 FAILED |
-| Track A binary path | `bin/mai-api.exe` cold boot, `curl /v1/health` | Boot 76 ms, HTTP 200, `"status":"healthy"`, `"air_gap_status":"compliant"` |
+| Track A binary path | `bin/lamprey-mai-api.exe` cold boot, `curl /v1/health` | Boot 76 ms, HTTP 200, `"status":"healthy"`, `"air_gap_status":"compliant"` |
 | Track B subset | `cargo test -p mai-compliance --test compliance_demos` | 6 passed / 0 failed (build 1m28s cold, test 0.32s) |
 | Track B perf | `cargo test -p mai-compliance --test compliance_perf --release -- --nocapture` | 3 passed / 0 failed — composer P99 **300 ns**, audit **119 494/s**, report **1.687 ms** |
 
@@ -170,8 +170,8 @@ hypothetical `mai` CLI:
 - `mai scheduler instance-metrics ranger-eu-001`
 
 The bundle ships exactly three binaries:
-- `bin/mai-api.exe` (the daemon)
-- `bin/mai-ship-validate.exe` (the ship-profile validator)
+- `bin/lamprey-mai-api.exe` (the daemon)
+- `bin/lamprey-mai-ship-validate.exe` (the ship-profile validator)
 - `tools/mai-admin/` (build-from-source CLI, with the stub
   limitations documented in H-1)
 
@@ -238,7 +238,7 @@ cd "$env:USERPROFILE\Documents\Claude\Island Mountain Mighty Eel OS\mai"
 ```
 
 This is the build host's path. A tester unpacking the RC1 bundle
-to `~/MAI-Lamprey-RC1/` or any other location fails immediately —
+to `~/Lamprey-MAI-RC1/` or any other location fails immediately —
 the `cd` either silently puts them in their own user's empty
 directory or errors.
 
@@ -253,7 +253,7 @@ tested.
 
 **Suggested fix in RC-10:** Replace each `cd` with `cd source` (the
 bundle convention) and add a pre-flight note: "Assumes the
-bundle was unpacked at `MAI-Lamprey-RC1/`; all paths are relative
+bundle was unpacked at `Lamprey-MAI-RC1/`; all paths are relative
 to its `source/`."
 
 ### H-5. TESTER-INSTRUCTIONS.md §4.C cites all five runbook numbers wrong
@@ -336,10 +336,10 @@ in its §'System diagram' and §'Source-of-truth navigation'."
 
 **Files:**
 - `docs/README-FIRST.md:157-158`
-- vs runtime behavior of `bin/mai-api.exe`
+- vs runtime behavior of `bin/lamprey-mai-api.exe`
 
 **What I saw:** Track A smoke test ran
-`bin/mai-api.exe > stdout.log 2> stderr.log`. After daemon was
+`bin/lamprey-mai-api.exe > stdout.log 2> stderr.log`. After daemon was
 ready, `stderr.log` was empty; `stdout.log` contained every JSON
 log line plus the boxed first-boot banner.
 
@@ -369,7 +369,7 @@ runbooks; defaulting toward fixing the runtime is probably right.
 
 **What I saw:** Every demo's setup script ends with
 `cargo run --release --bin mai-api`. RC1 v2 ships pre-built
-`bin/mai-api.exe`; the demos do not mention it.
+`bin/lamprey-mai-api.exe`; the demos do not mention it.
 
 **Why it matters:** Adds ~3 minutes of cold release build to every
 demo on first run (verified against this self-review's 1m56s
@@ -378,7 +378,7 @@ target). Wastes the demo's "ten minutes end to end" budget.
 
 **Suggested fix in RC-10:** Replace `cargo run --release …` with:
 "Use the bundled binary if you took the RC1 v2 path:
-`..\bin\mai-api.exe` (Windows) or `../bin/mai-api` (Unix); or
+`..\bin\lamprey-mai-api.exe` (Windows) or `../bin/mai-api` (Unix); or
 build from source: `cargo run --release --bin mai-api`."
 
 ### M-4. Runbooks describe Linux production; bundle is Windows tester
@@ -584,7 +584,7 @@ self-review did not flag it.
 - **Dashboard tests.** RC-05 covered (20 pass).
 - **App scaffold tests** (`apps/<scaffold>/tests/`). RC-05 covered
   (61 across six scaffolds).
-- **`mai-ship-validate.exe` invocation.** Binary is present, hash
+- **`lamprey-mai-ship-validate.exe` invocation.** Binary is present, hash
   verified; I did not run it. Per H-1 the runbook 11 reference to
   `PROD-TRUST-100` is therefore unverified.
 - **gRPC surface (port 8421).** Daemon binds it; I only hit REST.

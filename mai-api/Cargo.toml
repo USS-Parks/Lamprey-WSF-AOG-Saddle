@@ -76,9 +76,17 @@ ml-dsa = "0.0.4"
 [lints]
 workspace = true
 
-# SHIP-07 Slice B: standalone production-readiness validator binary.
-# Exposed as `mai-ship-validate` so SHIP-08 packaging can ship it next
-# to `mai-api` under /usr/bin. Exit codes follow SHIP-HARDENING-PLAN §13.
+# BRAND-01: shipped binaries carry the `lamprey-mai-*` naming. The
+# crate name (`mai-api`) stays as-is for internal Rust consumers and
+# `use` statements; only the produced .exe filenames change.
 [[bin]]
-name = "mai-ship-validate"
+name = "lamprey-mai-api"
+path = "src/main.rs"
+
+# SHIP-07 Slice B: standalone production-readiness validator binary.
+# Exposed as `lamprey-mai-ship-validate` so packaging can ship it
+# next to `lamprey-mai-api` under /usr/bin. Exit codes follow
+# SHIP-HARDENING-PLAN §13.
+[[bin]]
+name = "lamprey-mai-ship-validate"
 path = "src/bin/mai_ship_validate.rs"

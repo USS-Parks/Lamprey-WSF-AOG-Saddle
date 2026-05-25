@@ -1,4 +1,5 @@
-//! `mai.exe` — the front-door launcher (WELCOME-01).
+//! `lamprey-mai.exe` — the front-door launcher (WELCOME-01 +
+//! BRAND-01 rename).
 //!
 //! What a user sees when they double-click the program:
 //!   1. A console window opens (we are a console-subsystem app, on
@@ -10,12 +11,13 @@
 //!      above an interactive prompt.
 //!   4. Commands: `demo`, `start`, `status`, `help`, `quit`. Both
 //!      `demo` (narrated compliance walk) and `start` (supervise
-//!      the headless `mai-api.exe` daemon) shell out to sibling
-//!      binaries discovered next to the launcher.
+//!      the headless `lamprey-mai-api.exe` daemon) shell out to
+//!      sibling binaries discovered next to the launcher.
 //!
 //! The launcher intentionally stays small: it owns the *experience*,
-//! not the implementation. Compliance lives in `mai-admin demo`,
-//! inference lives in `mai-api`. `mai.exe` is the front door.
+//! not the implementation. Compliance lives in `lamprey-mai-admin
+//! demo`, inference lives in `lamprey-mai-api`. `lamprey-mai.exe`
+//! is the front door.
 
 #![allow(unsafe_code)]
 
@@ -81,19 +83,19 @@ fn run_terminal_ui() -> io::Result<()> {
                 return Ok(());
             }
             "h" | "help" | "?" => print_help(),
-            "demo" => run_sibling("mai-admin", &["demo", "all"])?,
+            "demo" => run_sibling("lamprey-mai-admin", &["demo", "all"])?,
             "demo --no-pacing" | "demo nopace" => {
                 // Convenience: faster playback for re-runs.
                 unsafe {
                     env::set_var("MAI_DEMO_PACING_MS", "0");
                 }
-                run_sibling("mai-admin", &["demo", "all"])?;
+                run_sibling("lamprey-mai-admin", &["demo", "all"])?;
             }
             cmd if cmd.starts_with("demo ") => {
                 let scenario = cmd.trim_start_matches("demo ").trim();
-                run_sibling("mai-admin", &["demo", "run", scenario])?;
+                run_sibling("lamprey-mai-admin", &["demo", "run", scenario])?;
             }
-            "start" => run_sibling("mai-api", &[])?,
+            "start" => run_sibling("lamprey-mai-api", &[])?,
             "status" => print_status(),
             other => {
                 writeln!(
@@ -119,15 +121,12 @@ fn print_banner() {
 
 fn print_intro() {
     let mut out = io::stdout().lock();
-    let _ = writeln!(
-        out,
-        "  Island Mountain MAI + Lamprey   build {}",
-        env!("CARGO_PKG_VERSION")
-    );
+    let _ = writeln!(out, "  Lamprey MAI   build {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(
         out,
         "  air-gapped local AI inference + compliance governance"
     );
+    let _ = writeln!(out, "  © 2026 Island Mountain — USS-Parks LLC");
     let _ = writeln!(out);
     let _ = writeln!(out, "  Commands:  demo  start  status  help  quit");
     let _ = writeln!(
@@ -150,7 +149,7 @@ fn print_help() {
     );
     let _ = writeln!(
         out,
-        "    start               launch the mai-api headless daemon (Ctrl-C to stop)"
+        "    start               launch the lamprey-mai-api headless daemon (Ctrl-C to stop)"
     );
     let _ = writeln!(
         out,
@@ -178,7 +177,7 @@ fn print_status() {
     let _ = writeln!(out, "  launcher path       {}", current_exe_display());
     let _ = writeln!(out, "  bin directory       {}", bin_dir_display());
     let _ = writeln!(out);
-    for sibling in ["mai-api.exe", "mai-admin.exe"] {
+    for sibling in ["lamprey-mai-api.exe", "lamprey-mai-admin.exe"] {
         let path = sibling_binary_path(sibling);
         let present = path.as_ref().is_some_and(|p| p.exists());
         let _ = writeln!(

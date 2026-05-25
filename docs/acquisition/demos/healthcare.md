@@ -1,6 +1,6 @@
 # Demo 1 — Healthcare (HIPAA)
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Demo target:** Acquirer technical reviewer can run this end to end
 in under ten minutes with green output.
 **Status:** Session 45 demo script — RC1.1-docs revision (2026-05-24)
@@ -23,8 +23,8 @@ For the higher-level demo catalogue, see
 ## Pre-flight
 
 - RC1 bundle unpacked. Commands below assume your CWD is the
-  bundle root (`MAI-Lamprey-RC1/`).
-- For the binary path (RC1 v2): `bin/mai-api.exe` is present. No
+  bundle root (`Lamprey-MAI-RC1/`).
+- For the binary path (RC1 v2): `bin/lamprey-mai-api.exe` is present. No
   toolchain required.
 - For the source path: rustc 1.85+ available.
 - `curl` available (Windows 10+ ships it; on PowerShell you can
@@ -44,7 +44,7 @@ in `TESTER-INSTRUCTIONS.md` §4.B).
 **1. Start the daemon** (RC1 v2 binary path):
 
 ```
-.\bin\mai-api.exe
+.\bin\lamprey-mai-api.exe
 ```
 
 Or source path: `cd source && cargo run --release --bin mai-api`.

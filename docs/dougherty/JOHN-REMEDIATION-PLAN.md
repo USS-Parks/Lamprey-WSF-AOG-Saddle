@@ -257,7 +257,7 @@ The lane closes when ALL of:
 1. Every J-session in the roster is committed with the canonical co-author footer.
 2. `mai/docs/RC1-TESTER-RESPONSE-DOUGHERTY.md` is committed and references every J-session by commit hash.
 3. GitDoctor re-scan attached as PNGs in `mai/test-evidence/dougherty-rescan/`, with the score deltas summarised in §3 of the response doc.
-4. The RC1 v2 bundle at `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/MAI-Lamprey-RC1/` is rebuilt to include the post-DOUGHERTY commits, with new SHA-256s in `CHECKSUMS.txt`.
+4. The RC1 v2 bundle at `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/Lamprey-MAI-RC1/` is rebuilt to include the post-DOUGHERTY commits, with new SHA-256s in `CHECKSUMS.txt`.
 5. `RC1-TESTER-FEEDBACK.md §9` is updated: John's section moved from "open" to "responded — awaiting tester re-test".
 6. RC-10 prerequisites declared met in a one-line update to `project_rc_release_lane` memory.
 

@@ -1,6 +1,6 @@
 # Demo 2 — Defence (ITAR/EAR)
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Demo target:** Acquirer technical reviewer can run this end to end
 in under ten minutes with green output.
 **Status:** Session 45 demo script — RC1.1-docs revision (2026-05-24)
@@ -24,8 +24,8 @@ specifics, see [`../../LAMPREY-BRIEF.md`](../../LAMPREY-BRIEF.md)
 
 ## Pre-flight
 
-- RC1 bundle unpacked. CWD is `MAI-Lamprey-RC1/`.
-- `bin/mai-api.exe` present (RC1 v2) or rustc 1.85+ for source path.
+- RC1 bundle unpacked. CWD is `Lamprey-MAI-RC1/`.
+- `bin/lamprey-mai-api.exe` present (RC1 v2) or rustc 1.85+ for source path.
 - `curl` available.
 - For the **allow path** (§"Expected output, allow path") at least
   one inference backend must be tagged `jurisdiction = "US"` and
@@ -41,7 +41,7 @@ specifics, see [`../../LAMPREY-BRIEF.md`](../../LAMPREY-BRIEF.md)
 **1. Start the daemon:**
 
 ```
-.\bin\mai-api.exe
+.\bin\lamprey-mai-api.exe
 ```
 
 **2. Capture the first-boot admin key** from the boxed stdout

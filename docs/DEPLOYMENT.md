@@ -18,7 +18,7 @@ scripts\launch.ps1
 ```
 
 The launcher prefers an existing release binary at
-`target/release/mai-api` (or `mai-api.exe`); otherwise it falls back to
+`target/release/mai-api` (or `lamprey-mai-api.exe`); otherwise it falls back to
 `cargo run -p mai-api`. First boot prints a one-time admin API key to
 stdout -- **save it before the log noise starts.**
 

@@ -209,7 +209,7 @@ mean by "scanner false negative" in §2.
 
 We are about to roll a new bundle. Specifically:
 
-- **RC-10 (re-bundle):** copy the post-DOUGHERTY tree into a new `MAI-Lamprey-RC1/`
+- **RC-10 (re-bundle):** copy the post-DOUGHERTY tree into a new `Lamprey-MAI-RC1/`
   bundle, regenerate `CHECKSUMS.txt`, rebuild both archives, publish new
   canonical hashes in `Island-Mountain-RC1-release/SHA256SUMS`. The freeze
   commit will advance from `dceaabc` (SHIP-17) to whatever HEAD is on `main`

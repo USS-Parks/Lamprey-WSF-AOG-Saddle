@@ -47,7 +47,7 @@ diff summary against `dceaabc`.
 3. Run RC-05-equivalent test evidence pass at the new freeze; emit
    `RC1.2-TEST-EVIDENCE.md`. Per the test-evidence-literalism rule, include
    the "what was NOT exercised" section.
-4. Copy post-DOUGHERTY tree into a fresh `MAI-Lamprey-RC1/` per the existing
+4. Copy post-DOUGHERTY tree into a fresh `Lamprey-MAI-RC1/` per the existing
    RC-08 recipe in `RC1-BUNDLE-NOTES.md`. Apply the 4 packaging gaps from
    RC-06 frictions (no `et HEAD`, no `.claude/`, no `pytest-cache-files-*/`,
    forward the RC1-era docs).

@@ -1,6 +1,6 @@
 # Demo 4 — Multi-domain Conflict (HIPAA + OCAP)
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Demo target:** Acquirer technical reviewer can run this end to end
 in under fifteen minutes and observe the composer's conflict-
 resolution behaviour explicitly.
@@ -25,8 +25,8 @@ For the higher-level demo catalogue, see
 
 ## Pre-flight
 
-- RC1 bundle unpacked. CWD is `MAI-Lamprey-RC1/`.
-- `bin/mai-api.exe` present (RC1 v2) or rustc 1.85+ for source path.
+- RC1 bundle unpacked. CWD is `Lamprey-MAI-RC1/`.
+- `bin/lamprey-mai-api.exe` present (RC1 v2) or rustc 1.85+ for source path.
 - `curl` available.
 
 ---
@@ -36,7 +36,7 @@ For the higher-level demo catalogue, see
 **1. Start the daemon:**
 
 ```
-.\bin\mai-api.exe
+.\bin\lamprey-mai-api.exe
 ```
 
 **2. Capture and export the first-boot admin key:**
@@ -269,7 +269,7 @@ HIPAA `cloud_allowed` is contrived.
 
    Then open `http://127.0.0.1:8081/alerts`. The multi-domain
    decision appears in the live SSE stream with both `ocap` and
-   `hipaa` module tags. (Dashboard is not started by `mai-api.exe`;
+   `hipaa` module tags. (Dashboard is not started by `lamprey-mai-api.exe`;
    it is an optional companion process.)
 
 ---

@@ -1,6 +1,6 @@
 # RC1 Tester Feedback
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 v2 (Tester Bundle — source + binaries)
 **Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)
 **Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-09
@@ -59,9 +59,9 @@ fixed point.)
 
 | Artefact | Size | SHA-256 (snapshot) |
 |---|---|---|
-| `MAI-Lamprey-RC1/` (uncompressed folder, 670 file entries) | 19 MB | per `MAI-Lamprey-RC1/CHECKSUMS.txt` (internal) |
-| `MAI-Lamprey-RC1.tar.gz` | 5.7 MB | `35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a` |
-| `MAI-Lamprey-RC1.zip` | 6.1 MB | `6200c1ccfcd25132e417c03f465eef474ccf35cbd9a8e063256f0089d3ccee84` |
+| `Lamprey-MAI-RC1/` (uncompressed folder, 670 file entries) | 19 MB | per `Lamprey-MAI-RC1/CHECKSUMS.txt` (internal) |
+| `Lamprey-MAI-RC1.3.tar.gz` | 5.7 MB | `35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a` |
+| `Lamprey-MAI-RC1.3.zip` | 6.1 MB | `6200c1ccfcd25132e417c03f465eef474ccf35cbd9a8e063256f0089d3ccee84` |
 | `SHA256SUMS` | 177 B | (covers the two archives above) |
 
 Bundle and archives live at `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/`
@@ -130,14 +130,14 @@ is what protects the recipient from a tampered archive.
 
 ```
 Hi [Name] — would you be up for spending [~30 min / ~90 min /
-~3 hr] testing the Island Mountain MAI + Lamprey RC1 tester bundle
+~3 hr] testing the Lamprey MAI RC1 tester bundle
 next week?
 
 It's a self-contained release-candidate for our local-AI-with-
 compliance-governance stack, frozen at commit dceaabc. The
 [smoke / build+test / security] track is what I'd ask of you.
 
-I'll send you [MAI-Lamprey-RC1.zip / .tar.gz] (~6 MB). After
+I'll send you [Lamprey-MAI-RC1.3.zip / .tar.gz] (~6 MB). After
 download, verify SHA-256:
 
   [35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a for .tar.gz]
@@ -160,12 +160,12 @@ one person besides the original builder has tried it," so your
 ### 5.B Long version (email)
 
 ```
-Subject: RC1 tester ask — Island Mountain MAI + Lamprey, ~[30 min / 90 min / 3 hr]
+Subject: RC1 tester ask — Lamprey MAI, ~[30 min / 90 min / 3 hr]
 
 Hi [Name],
 
 I'm at Session RC-09 of the release plan for our local AI +
-compliance stack (Island Mountain MAI + Lamprey), and the
+compliance stack (Lamprey MAI), and the
 acceptance criterion for this session is literally "at least one
 person besides the original builder has tried RC1." I'd like that
 person to be you, if you have the time.
@@ -196,7 +196,7 @@ than me."
 
 HOW TO RECEIVE THE BUNDLE
 
-I'll send you [MAI-Lamprey-RC1.zip / MAI-Lamprey-RC1.tar.gz] via
+I'll send you [Lamprey-MAI-RC1.3.zip / Lamprey-MAI-RC1.3.tar.gz] via
 [mechanism]. After download, please verify the SHA-256:
 
   .tar.gz: 35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a
@@ -246,7 +246,7 @@ One subsection per tester. Add as feedback arrives.
 **Type:** Self-review (parallel to RC-06's Track A+B rehearsal).
 **Track:** C — security/compliance review.
 **Date:** 2026-05-24.
-**Bundle:** extracted from `MAI-Lamprey-RC1.zip` (sha256 `9a2f95ee…`)
+**Bundle:** extracted from `Lamprey-MAI-RC1.3.zip` (sha256 `9a2f95ee…`)
 to `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-self-review/`.
 **Full memo:** [`RC1-SELF-REVIEW-TRACK-C.md`](RC1-SELF-REVIEW-TRACK-C.md)
 (626 lines).
@@ -371,7 +371,7 @@ roadmap's four buckets and assign disposition.
 | H-5 | self-review §6.1 | C | High | docs | TESTER-INSTRUCTIONS.md §4.C step 4 cites all five runbook numbers wrong (04/05/09/10/11 vs actual 05/06/11/12/13) | fix-in-RC10 |
 | M-1 | self-review §6.1 | C | Medium | docs | TESTER-INSTRUCTIONS.md §4.C step 2 references "three layer docs (router, policy, audit)" that do not exist as separate files (they're inline in ARCHITECTURE.md) | fix-in-RC10 |
 | M-2 | self-review §6.1 | C | Medium | docs OR code | README-FIRST.md §5.C documents logs on stderr; observed runtime puts all logs + banner on stdout | needs-investigation (decide doc vs runtime fix) |
-| M-3 | self-review §6.1 | C | Medium | docs | Demos prescribe `cargo run --release --bin mai-api` instead of leveraging the bundled `bin/mai-api.exe` from RC1 v2 | fix-in-RC10 |
+| M-3 | self-review §6.1 | C | Medium | docs | Demos prescribe `cargo run --release --bin mai-api` instead of leveraging the bundled `bin/lamprey-mai-api.exe` from RC1 v2 | fix-in-RC10 |
 | M-4 | self-review §6.1 | C | Medium | docs | Runbooks 05/06/11/12/13 use Linux systemd / `/var/lib/mai/...` paths exclusively; bundle is Windows MSVC tester-only. Gap is implicit — no header note tells Track C reviewer these runbooks describe production posture, not tester procedure | fix-in-RC10 |
 | L-1 | self-review §6.1 | C | Low | docs | README-FIRST.md:175 "MAI server ready - REST …" uses hyphen; runtime emits em-dash. Cosmetic | dismiss-or-low-fix |
 | L-2 | self-review §6.1 | C | Low | docs | ARCHITECTURE.md:318 references `mai/compliance-dashboard/` and `mai/deployment/...` — inside the bundle the path is bare (no `mai/` prefix) | dismiss |

@@ -113,7 +113,7 @@ profiles, demos, and optionally release binaries from `mai/target/release/`.
 - Explicitly exclude `mai/target/debug/`.
 - Decide whether RC1 includes a prebuilt `mai-api` release binary or
   expects testers to build it.
-- Add a simple folder layout for `MAI-Lamprey-RC1/`.
+- Add a simple folder layout for `Lamprey-MAI-RC1/`.
 - Create `mai/docs/RC1-PACKAGE-MANIFEST.md`.
 
 **Acceptance:**
@@ -241,7 +241,7 @@ folder.
 
 **Work:**
 
-- Create `MAI-Lamprey-RC1/` outside the working tree or under a release
+- Create `Lamprey-MAI-RC1/` outside the working tree or under a release
   staging directory.
 - Copy only files listed in the package manifest.
 - Include docs, source, deployment profiles, configs, demos, scripts,

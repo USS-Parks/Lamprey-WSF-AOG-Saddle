@@ -1,6 +1,6 @@
 # RC1 Build Notes
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Release:** RC1 (Tester Bundle)
 **Date:** 2026-05-23
 **Audience:** release engineers preparing the RC1 tarball; RC1 testers
@@ -23,7 +23,7 @@ serves the health endpoints.
 RC-02 reserved an optional `bin/` slot in the RC1 layout pending the
 RC-03 build outcome. RC-03 succeeded with a clean 3m 14s release
 build on Windows MSVC. **Updated decision:** RC1 v2 may ship with
-`bin/mai-api.exe` + `bin/mai-ship-validate.exe` + a SHA-256 sidecar.
+`bin/lamprey-mai-api.exe` + `bin/lamprey-mai-ship-validate.exe` + a SHA-256 sidecar.
 Whether to actually ship the binaries is left to the release engineer
 at packaging time:
 
@@ -65,8 +65,8 @@ two-binary crate (`src/main.rs` plus `src/bin/mai_ship_validate.rs`).
 
 | Binary | Size | SHA-256 | Notes |
 |---|---|---|---|
-| `mai-api.exe` | 10 361 856 B (9.9 MB) | `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6` | The HTTP/REST + gRPC server. The "smallest practical runnable API artifact" the RC-03 goal asks for. |
-| `mai-ship-validate.exe` | 1 750 016 B (1.7 MB) | `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8` | The SHIP-12 / SHIP-17 offline profile validator. Useful in RC2 hardening; included here because it is built in the same `cargo build -p mai-api` step. |
+| `lamprey-mai-api.exe` | 10 361 856 B (9.9 MB) | `4e201a8498d3e46361c83fc4eff6e04c1021fca3187b04a4d9f55f398b1462b6` | The HTTP/REST + gRPC server. The "smallest practical runnable API artifact" the RC-03 goal asks for. |
+| `lamprey-mai-ship-validate.exe` | 1 750 016 B (1.7 MB) | `a32ddc2891a7690cb015a9d1ed06cb84d4160f92976e61ac50cb14069e9ae8f8` | The SHIP-12 / SHIP-17 offline profile validator. Useful in RC2 hardening; included here because it is built in the same `cargo build -p mai-api` step. |
 
 File type (both): `PE32+ executable for MS Windows 6.00 (console),
 x86-64, 5 sections`.
@@ -81,7 +81,7 @@ Future optimisation (deferred — RC-03 goal is "practical", not
 "minimal"):
 
 - `strip = "symbols"` in the release profile would likely cut
-  `mai-api.exe` by ~15-25 %.
+  `lamprey-mai-api.exe` by ~15-25 %.
 - `lto = "fat"` + `codegen-units = 1` would trade build time for
   another ~10-15 %.
 - A second pass with `opt-level = "z"` is rarely worth it for a
@@ -124,7 +124,7 @@ existing dev `config/auth_keys.toml` in the workspace.
 
 ```
 cd /tmp/mai-rc03-smoke/
-mai-api.exe > mai-api-stdout.log 2> mai-api-stderr.log &
+lamprey-mai-api.exe > mai-api-stdout.log 2> mai-api-stderr.log &
 ```
 
 ### 5.2 Boot timing
@@ -234,7 +234,7 @@ committed location.
 | Criterion | Status |
 |---|---|
 | Release build succeeds | §2 (3 m 14 s, 0 warnings, 0 errors) |
-| Release binary exists under `mai/target/release/` | §3 (`mai-api.exe` 9.9 MB, `mai-ship-validate.exe` 1.7 MB) |
+| Release binary exists under `mai/target/release/` | §3 (`lamprey-mai-api.exe` 9.9 MB, `lamprey-mai-ship-validate.exe` 1.7 MB) |
 | Binary size recorded | §3 (bytes + MiB) |
 | Build environment recorded | §4 (rustc, cargo, host OS, target triple) |
 | API starts locally | §5.1, §5.2 (Scout tier, ~57 ms to ready) |

@@ -29,7 +29,7 @@ pub fn print_boot_banner(freeze: &str) {
         let _ = writeln!(out);
         let _ = writeln!(
             out,
-            "    {bold}Island Mountain MAI + Lamprey{reset}   freeze {dim}{freeze}{reset}",
+            "    {bold}Lamprey MAI{reset}   freeze {dim}{freeze}{reset}",
             bold = color.bold(),
             reset = color.reset(),
             dim = color.dim(),
@@ -38,11 +38,7 @@ pub fn print_boot_banner(freeze: &str) {
     } else {
         // Narrow path: text-only mini-banner avoids wrapping the art.
         let _ = out.write_all(MINI_BANNER.as_bytes());
-        let _ = writeln!(
-            out,
-            "  Island Mountain MAI + Lamprey  freeze {freeze}",
-            freeze = freeze
-        );
+        let _ = writeln!(out, "  Lamprey MAI  freeze {freeze}", freeze = freeze);
     }
     let _ = writeln!(out);
 }

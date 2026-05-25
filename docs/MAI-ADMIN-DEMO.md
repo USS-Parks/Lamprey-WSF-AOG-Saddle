@@ -84,7 +84,7 @@ conventions (TTY check + `NO_COLOR` + `TERM=dumb`).
 ## When to use this
 
 - **First-run experience** after unpacking the RC1.2 bundle — pair
-  with `bin/mai-api.exe` + `curl http://127.0.0.1:8420/v1/health`
+  with `bin/lamprey-mai-api.exe` + `curl http://127.0.0.1:8420/v1/health`
   for the daemon side. `mai-admin demo` shows the compliance side.
 - **Acquirer / partner demo** when explaining what Lamprey actually
   does. Slow pacing + color is the default for this case.

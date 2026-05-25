@@ -1,6 +1,6 @@
 # Demo 3 — Tribal Data Sovereignty (OCAP)
 
-**Project:** Island Mountain MAI + Lamprey
+**Project:** Lamprey MAI
 **Demo target:** Acquirer technical reviewer can run this end to end
 in under fifteen minutes with green output.
 **Status:** Session 45 demo script — RC1.1-docs revision (2026-05-24)
@@ -24,8 +24,8 @@ specifics, see [`../../LAMPREY-BRIEF.md`](../../LAMPREY-BRIEF.md)
 
 ## Pre-flight
 
-- RC1 bundle unpacked. CWD is `MAI-Lamprey-RC1/`.
-- `bin/mai-api.exe` present (RC1 v2) or rustc 1.85+ for source path.
+- RC1 bundle unpacked. CWD is `Lamprey-MAI-RC1/`.
+- `bin/lamprey-mai-api.exe` present (RC1 v2) or rustc 1.85+ for source path.
 - `curl` available.
 - A tribal-governance role (`elder` or `cultural_steward`) attached
   to the admin key for the consent-required paths. The RC1 freeze
@@ -39,7 +39,7 @@ specifics, see [`../../LAMPREY-BRIEF.md`](../../LAMPREY-BRIEF.md)
 **1. Start the daemon:**
 
 ```
-.\bin\mai-api.exe
+.\bin\lamprey-mai-api.exe
 ```
 
 **2. Capture and export the first-boot admin key:**
