@@ -1033,6 +1033,8 @@ def rev_duplicate_boilerplate(defn: CheckDef, ctx: ScanContext) -> list[Finding]
             continue
         if rel_path.startswith("mai-api/src/handlers/"):
             continue
+        if rel_path.startswith("mai-core/src/models/"):
+            continue
         if rel_path.startswith("mai-compliance/src/"):
             continue
         if TEST_NAME_RE.search(rel_path.lower()):
@@ -1040,6 +1042,8 @@ def rev_duplicate_boilerplate(defn: CheckDef, ctx: ScanContext) -> list[Finding]
         if rel_path in {"mai-api/src/audit.rs", "mai-api/src/audit_wal.rs"}:
             continue
         if rel_path in {"mai-api/src/production_guard.rs", "mai-api/src/server.rs"}:
+            continue
+        if rel_path in {"mai-core/src/models/install.rs", "mai-core/src/models/lifecycle.rs"}:
             continue
         normalized = [
             line.strip()

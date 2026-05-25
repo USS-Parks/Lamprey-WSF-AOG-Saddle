@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,15 @@ from mai.config import (
     MaiClientConfig,
 )
 from mai.retry import RetryPolicy
+
+
+@pytest.fixture()
+def tmp_dir() -> Path:
+    base = Path("py_tmp_dir")
+    base.mkdir(exist_ok=True)
+    p = base / f"mai-sdk-python-tests-{uuid.uuid4().hex}"
+    p.mkdir(parents=True, exist_ok=False)
+    yield p
 
 
 def test_defaults_when_nothing_set(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -55,8 +65,8 @@ def test_from_env_overrides_take_precedence(monkeypatch: pytest.MonkeyPatch) -> 
     assert cfg.api_key == "im-override"
 
 
-def test_from_file_reads_toml(tmp_path: Path) -> None:
-    p = tmp_path / "cfg.toml"
+def test_from_file_reads_toml(tmp_dir: Path) -> None:
+    p = tmp_dir / "cfg.toml"
     p.write_text(
         'base_url = "http://file:8000/v1"\n'
         'api_key = "im-file"\n'
@@ -74,9 +84,9 @@ def test_from_file_reads_toml(tmp_path: Path) -> None:
 
 
 def test_load_precedence_overrides_beat_env_beat_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_dir: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    p = tmp_path / "cfg.toml"
+    p = tmp_dir / "cfg.toml"
     p.write_text('base_url = "http://file/v1"\napi_key = "im-file"\n')
     monkeypatch.setenv("MAI_API_KEY", "im-env")
     cfg = MaiClientConfig.load(p, api_key="im-override")
@@ -86,12 +96,12 @@ def test_load_precedence_overrides_beat_env_beat_file(
 
 
 def test_load_handles_missing_file_gracefully(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, tmp_dir: Path,
 ) -> None:
     for k in list(os.environ):
         if k.startswith("MAI_"):
             monkeypatch.delenv(k, raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path))  # no default file there
+    monkeypatch.setenv("HOME", str(tmp_dir))  # no default file there
     cfg = MaiClientConfig.load()
     assert cfg.base_url == DEFAULT_BASE_URL
 

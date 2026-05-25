@@ -1,0 +1,3 @@
+[settings]
+allow_internal_profile_header = true
+rate_limit_per_minute = 600

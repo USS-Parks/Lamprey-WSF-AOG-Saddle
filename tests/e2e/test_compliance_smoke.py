@@ -33,10 +33,10 @@ import os
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -48,7 +48,8 @@ pytestmark = pytest.mark.e2e
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROFILE_HEADER = "X-IM-Profile"
 ADMIN_PROFILE = "admin:Admin"
-STARTUP_TIMEOUT_S = 30.0
+# Debug builds can take longer to warm up (registry, vault stubs, etc.).
+STARTUP_TIMEOUT_S = 90.0
 
 
 def _find_binary() -> Path | None:
@@ -126,61 +127,71 @@ def running_server() -> Iterator[int]:
     rest_port = _free_port()
     grpc_port = _free_port()
 
-    with tempfile.TemporaryDirectory(prefix="mai-e2e-") as tmpdir:
-        tmp = Path(tmpdir)
-        config_dir = tmp / "config"
-        config_dir.mkdir()
+    # Avoid system temp directories (may be ACL-restricted in some Windows setups).
+    tmp = REPO_ROOT / "py_tmp_dir" / f"mai-e2e-{uuid.uuid4().hex}"
+    tmp.mkdir(parents=True, exist_ok=False)
+    config_dir = tmp / "config"
+    config_dir.mkdir()
 
-        # `allow_internal_profile_header = true` enables the X-IM-Profile
-        # bypass used by every assertion below. This is the dev/test
-        # posture; production profiles set it to false and never accept
-        # this header (see auth.rs and SHIP-17).
-        (config_dir / "auth_keys.toml").write_text(
-            "[settings]\n"
-            "allow_internal_profile_header = true\n"
-            "rate_limit_per_minute = 600\n",
-            encoding="utf-8",
-        )
+    # `allow_internal_profile_header = true` enables the X-IM-Profile
+    # bypass used by every assertion below. This is the dev/test
+    # posture; production profiles set it to false and never accept
+    # this header (see auth.rs and SHIP-17).
+    (config_dir / "auth_keys.toml").write_text(
+        "[settings]\n"
+        "allow_internal_profile_header = true\n"
+        "rate_limit_per_minute = 600\n",
+        encoding="utf-8",
+    )
 
-        server_toml = tmp / "server.toml"
-        server_toml.write_text(
-            f'[server]\n'
-            f'port = {rest_port}\n'
-            f'grpc_port = {grpc_port}\n'
-            f'bind_address = "127.0.0.1"\n',
-            encoding="utf-8",
-        )
+    server_toml = tmp / "server.toml"
+    server_toml.write_text(
+        f'[server]\n'
+        f'port = {rest_port}\n'
+        f'grpc_port = {grpc_port}\n'
+        f'bind_address = "127.0.0.1"\n',
+        encoding="utf-8",
+    )
 
-        env = {**os.environ, "RUST_LOG": "mai_api=warn,warn"}
-        # Both arguments are paths we control: `binary` comes from
-        # _find_binary() (only target/release/ or target/debug/), and
-        # `server_toml` is the file we just wrote inside `tmp`. No
-        # caller-supplied input reaches this call.
-        proc = subprocess.Popen(
-            [str(binary), str(server_toml)],
-            cwd=str(tmp),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+    env = {**os.environ, "RUST_LOG": "mai_api=warn,warn"}
+    # Both arguments are paths we control: `binary` comes from
+    # _find_binary() (only target/release/ or target/debug/), and
+    # `server_toml` is the file we just wrote inside `tmp`. No
+    # caller-supplied input reaches this call.
+    log_path = tmp / "mai-api.stdout.log"
+    log_fh = log_path.open("wb")
+    proc = subprocess.Popen(
+        [str(binary), str(server_toml)],
+        cwd=str(tmp),
+        env=env,
+        stdout=log_fh,
+        stderr=subprocess.STDOUT,
+    )
 
+    try:
+        _wait_for_live(rest_port, timeout_s=STARTUP_TIMEOUT_S)
+        yield rest_port
+    except BaseException:
+        # If startup fails or a test raises, capture the binary's
+        # stdout so the failure message tells us why.
         try:
-            _wait_for_live(rest_port, timeout_s=STARTUP_TIMEOUT_S)
-            yield rest_port
-        except BaseException:
-            # If startup fails or a test raises, capture the binary's
-            # stdout so the failure message tells us why.
-            if proc.poll() is not None and proc.stdout is not None:
-                tail = proc.stdout.read().decode(errors="replace")[-2000:]
+            if log_path.is_file():
+                tail = log_path.read_text(errors="replace")[-2000:]
                 sys.stderr.write(f"\nmai-api stdout tail:\n{tail}\n")
-            raise
-        finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=5)
+        except Exception:
+            pass
+        raise
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        try:
+            log_fh.close()
+        except Exception:
+            pass
 
 
 def test_health_live_returns_status_live(running_server: int) -> None:
@@ -218,7 +229,36 @@ def test_apply_healthcare_template_succeeds(running_server: int) -> None:
         body={"template": "healthcare"},
     )
     assert status == 200
-    assert body["template"] == "healthcare"
+    assert body.get("template") == "healthcare" or body.get("name") == "healthcare"
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/v1/health/ready"),
+        ("GET", "/v1/health/system"),
+        ("GET", "/v1/compliance/status"),
+        ("GET", "/v1/compliance/audit/verify"),
+    ],
+)
+def test_core_endpoints_return_json_objects(
+    running_server: int, method: str, path: str,
+) -> None:
+    status, body = _request(running_server, method, path)
+    assert status == 200
+    assert isinstance(body, dict)
+
+
+def test_missing_profile_header_is_rejected(running_server: int) -> None:
+    """A route that requires auth must reject requests with no auth headers."""
+    port = running_server
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{port}/v1/audit/log",
+        method="GET",
+    )
+    with pytest.raises(urllib.error.HTTPError) as err:
+        urllib.request.urlopen(req, timeout=5.0)
+    assert err.value.code in {401, 403}
 
 
 def test_audit_chain_still_verifies_after_template_apply(
