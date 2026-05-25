@@ -14,6 +14,7 @@ explicitly noted.
 
 For SDK-level access, see [`SDK-REFERENCE.md`](SDK-REFERENCE.md).
 For the Python SDK shape, see `mai-sdk-python/`.
+For a machine-readable OpenAPI contract, see [`api/openapi.yaml`](api/openapi.yaml).
 
 ---
 

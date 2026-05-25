@@ -22,17 +22,17 @@ servers:
 # Security
 # ---------------------------------------------------------------------------
 security:
-  - profileToken: []
+  - authToken: []
 
 components:
   securitySchemes:
-    profileToken:
+    authToken:
       type: apiKey
       in: header
-      name: X-IM-Profile
+      name: X-IM-Auth-Token
       description: >
-        Family profile UUID. TPM-sealed token. If omitted, default
-        adult profile is used.
+        API key with `im-` prefix. Required for all non-health endpoints.
+        Health and metrics endpoints are auth-exempt.
 
   # -----------------------------------------------------------------------
   # Shared parameters
