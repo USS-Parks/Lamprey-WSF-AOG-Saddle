@@ -34,7 +34,7 @@ use std::time::Instant;
 use axum::extract::{Request, State};
 use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum::middleware::Next;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use tracing::Instrument;
 use uuid::Uuid;
 
@@ -210,6 +210,40 @@ fn is_known_subaction(seg: &str) -> bool {
             | "verify"
             | "integrity"
     )
+}
+
+// ─── Rate-limit middleware ─────────────────────────────────────────
+
+/// SEC-95 (closes SEC-011-MAI): consult the per-route token-bucket
+/// limiter installed on [`AppState`] and short-circuit the request
+/// with `429 Too Many Requests` + `Retry-After` if the matching
+/// bucket is empty. When no limiter is installed (legacy bring-up /
+/// tests / no-profile path), the middleware is a no-op.
+///
+/// The 429 response is observed by [`metrics_middleware`] via the
+/// existing `mai_rate_limited_total` counter — no new metric needed.
+/// Placement note: this layer runs OUTSIDE auth so a flood of
+/// unauthenticated requests cannot exhaust the auth check itself;
+/// rate-limit decisions are by path prefix, not by caller identity.
+pub async fn rate_limit_middleware(
+    State(state): State<AppState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        let path = request.uri().path();
+        if let Err(retry_after) = limiter.check(path) {
+            let secs = retry_after.as_secs_f64().ceil() as u64;
+            let mut resp =
+                (StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded\n").into_response();
+            if let Ok(value) = HeaderValue::from_str(&secs.to_string()) {
+                resp.headers_mut()
+                    .insert(HeaderName::from_static("retry-after"), value);
+            }
+            return resp;
+        }
+    }
+    next.run(request).await
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────

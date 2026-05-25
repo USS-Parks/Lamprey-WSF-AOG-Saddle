@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
 use tracing::{error, info, warn};
 
+use crate::rate_limit::{BucketConfig, RateLimiter};
+
 /// Complete server configuration
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -104,6 +106,9 @@ pub struct RequestLimits {
     /// Queue depth before backpressure activates
     #[serde(default = "default_backpressure_threshold")]
     pub backpressure_threshold: usize,
+    /// Optional per-route token-bucket rate limits. Empty means disabled.
+    #[serde(default)]
+    pub route_rate_limits: Vec<RouteRateLimit>,
 }
 
 impl Default for RequestLimits {
@@ -114,6 +119,7 @@ impl Default for RequestLimits {
             request_timeout_secs: default_request_timeout_secs(),
             stream_timeout_secs: default_stream_timeout_secs(),
             backpressure_threshold: default_backpressure_threshold(),
+            route_rate_limits: Vec::new(),
         }
     }
 }
@@ -132,6 +138,17 @@ fn default_stream_timeout_secs() -> u64 {
 }
 fn default_backpressure_threshold() -> usize {
     80
+}
+
+/// One per-prefix token-bucket config entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteRateLimit {
+    /// Route prefix to match (e.g. "/v1/chat", "/v1/health").
+    pub prefix: String,
+    /// Bucket capacity (max burst size).
+    pub capacity: u32,
+    /// Refill rate in tokens per second.
+    pub refill_per_sec: f64,
 }
 
 /// Profile store configuration
@@ -296,7 +313,53 @@ impl ServerConfig {
             ));
         }
 
+        for entry in &self.limits.route_rate_limits {
+            let prefix = entry.prefix.trim();
+            if prefix.is_empty() || !prefix.starts_with('/') {
+                return Err(ConfigError::InvalidValue(format!(
+                    "limits.route_rate_limits.prefix must start with '/', got {:?}",
+                    entry.prefix
+                )));
+            }
+            if entry.capacity == 0 {
+                return Err(ConfigError::InvalidValue(format!(
+                    "limits.route_rate_limits.capacity must be > 0 for prefix {prefix:?}"
+                )));
+            }
+            if !(entry.refill_per_sec.is_finite() && entry.refill_per_sec > 0.0) {
+                return Err(ConfigError::InvalidValue(format!(
+                    "limits.route_rate_limits.refill_per_sec must be finite and > 0 for prefix {prefix:?}"
+                )));
+            }
+        }
+
         Ok(())
+    }
+
+    /// Build the optional per-route rate limiter configured under
+    /// [`RequestLimits::route_rate_limits`].
+    ///
+    /// Returns `Ok(None)` when the config disables rate limiting.
+    pub fn build_route_rate_limiter(&self) -> Result<Option<RateLimiter>, ConfigError> {
+        self.validate()?;
+        if self.limits.route_rate_limits.is_empty() {
+            return Ok(None);
+        }
+        let routes: Vec<(String, BucketConfig)> = self
+            .limits
+            .route_rate_limits
+            .iter()
+            .map(|e| {
+                (
+                    e.prefix.clone(),
+                    BucketConfig {
+                        capacity: e.capacity,
+                        refill_per_sec: e.refill_per_sec,
+                    },
+                )
+            })
+            .collect();
+        Ok(Some(RateLimiter::new(&routes)))
     }
 
     /// Like [`Self::validate`] but additionally enforces that, under any

@@ -11,6 +11,8 @@
 
 #![cfg(feature = "integration")]
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use mai_hil::drivers::CpuDriver;
 use mai_hil::traits::{HardwareProbe, MemoryManager, PowerState, PowerStateController};
 

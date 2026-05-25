@@ -31,7 +31,6 @@
 //!   the legacy code path is preserved until SEC-95 explicitly opts
 //!   each route group into a bucket.
 
-use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -105,15 +104,17 @@ impl Bucket {
 /// would be over-engineering.
 #[derive(Debug)]
 pub struct RateLimiter {
-    buckets: Mutex<HashMap<String, Bucket>>,
+    buckets: Mutex<Vec<(String, Bucket)>>,
 }
 
 impl RateLimiter {
     pub fn new(routes: &[(String, BucketConfig)]) -> Self {
-        let mut buckets = HashMap::with_capacity(routes.len());
+        let mut buckets: Vec<(String, Bucket)> = Vec::with_capacity(routes.len());
         for (prefix, cfg) in routes {
-            buckets.insert(prefix.clone(), Bucket::new(*cfg));
+            buckets.push((prefix.clone(), Bucket::new(*cfg)));
         }
+        // Longest prefix first so the most specific bucket wins.
+        buckets.sort_by_key(|entry| std::cmp::Reverse(entry.0.len()));
         Self {
             buckets: Mutex::new(buckets),
         }
@@ -205,5 +206,29 @@ mod tests {
         let err = b.try_take().expect_err("expected rate-limit hit");
         assert!(err.as_secs_f64() > 0.0);
         assert!(err.as_secs_f64() < 2.0);
+    }
+
+    #[test]
+    fn longest_prefix_wins() {
+        let rl = RateLimiter::new(&[
+            (
+                "/v1".to_string(),
+                BucketConfig {
+                    capacity: 1,
+                    refill_per_sec: 0.01,
+                },
+            ),
+            (
+                "/v1/health".to_string(),
+                BucketConfig {
+                    capacity: 3,
+                    refill_per_sec: 0.01,
+                },
+            ),
+        ]);
+        assert!(rl.check("/v1/health").is_ok());
+        assert!(rl.check("/v1/health").is_ok());
+        assert!(rl.check("/v1/health").is_ok());
+        assert!(rl.check("/v1/health").is_err());
     }
 }

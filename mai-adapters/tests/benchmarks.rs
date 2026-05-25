@@ -17,6 +17,8 @@
 //!
 //! Session 10 deliverable.
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 #[cfg(feature = "benchmark")]
 mod benchmarks {
     use std::collections::HashMap;

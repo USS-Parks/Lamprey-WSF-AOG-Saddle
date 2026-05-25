@@ -6,6 +6,8 @@
 //! sample size protects against flake on CI shared runners while still
 //! catching a real regression.
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::time::{Duration, Instant};
 
 use mai_router::{DefaultRouter, RouteRequest, Router};

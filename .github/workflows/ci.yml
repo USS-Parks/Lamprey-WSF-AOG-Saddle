@@ -18,6 +18,21 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  config-check:
+    name: Config & DevOps Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify lock-file parity
+        run: bash scripts/verify-lock-parity.sh .
+
+      - name: Lint Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          config: .hadolint.yaml
+
   rust-check:
     name: Rust Quality Gates
     runs-on: ubuntu-latest

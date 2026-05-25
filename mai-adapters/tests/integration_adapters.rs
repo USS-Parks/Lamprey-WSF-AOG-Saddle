@@ -8,6 +8,8 @@
 //!
 //! Session 08 deliverable.
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 #[cfg(feature = "integration")]
 mod integration {
     use mai_adapters::config::FrameworkConfig;

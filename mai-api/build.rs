@@ -4,6 +4,8 @@
 //! The generated code is included in src/grpc/mod.rs via tonic::include_proto!.
 //! Also generates a file descriptor set for tonic-reflection.
 
+#![allow(clippy::print_stdout)]
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Tell cargo to re-run if the proto file changes
     println!("cargo:rerun-if-changed=proto/mai.proto");

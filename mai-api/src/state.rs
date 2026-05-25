@@ -12,6 +12,7 @@ use crate::auth::AuthState;
 use crate::config::ServerConfig;
 use crate::metrics::MetricsRegistry;
 use crate::production_guard::RuntimeChecks;
+use crate::rate_limit::RateLimiter;
 use crate::ship_profile::ShipProfile;
 use crate::trust_builder::TrustExchangeMode;
 
@@ -93,6 +94,14 @@ pub struct AppState {
     /// metric families so `# TYPE` lines appear in the exposition
     /// even before the first observation.
     pub metrics_registry: Arc<MetricsRegistry>,
+    /// SEC-95 (closes SEC-011-MAI): optional token-bucket rate limiter.
+    /// `None` means rate limiting is disabled — the middleware passes
+    /// every request through, matching pre-SEC-95 behavior. Production
+    /// startup constructs a [`RateLimiter`] keyed by route prefix and
+    /// installs it via [`AppState::with_rate_limiter`]. See
+    /// [`crate::rate_limit`] for the bucket implementation and
+    /// [`crate::middleware::rate_limit_middleware`] for the axum glue.
+    pub rate_limiter: Option<Arc<RateLimiter>>,
 }
 
 /// SHIP-07 Slice B: captured ship-profile + runtime introspection.
@@ -155,6 +164,10 @@ impl AppState {
             // complete `# TYPE` line set on the first scrape, even
             // before the first request is handled.
             metrics_registry: Arc::new(MetricsRegistry::with_ship_11_defaults()),
+            // SEC-95: disabled by default so existing tests and the
+            // no-profile bring-up path are unchanged. Production wires
+            // a limiter via [`AppState::with_rate_limiter`].
+            rate_limiter: None,
         }
     }
 
@@ -237,6 +250,16 @@ impl AppState {
     #[must_use]
     pub fn with_metrics_registry(mut self, registry: Arc<MetricsRegistry>) -> Self {
         self.metrics_registry = registry;
+        self
+    }
+
+    /// SEC-95: install a token-bucket rate limiter. Production startup
+    /// builds a [`RateLimiter`] with the per-route prefix configuration
+    /// from `ServerConfig` and calls this. Tests that exercise the
+    /// 429 path inject a tight-capacity limiter here.
+    #[must_use]
+    pub fn with_rate_limiter(mut self, limiter: Arc<RateLimiter>) -> Self {
+        self.rate_limiter = Some(limiter);
         self
     }
 }

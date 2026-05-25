@@ -296,6 +296,15 @@ pub fn build_router(state: AppState) -> Router {
             state.clone(),
             auth_middleware,
         ))
+        // SEC-95 (closes SEC-011-MAI): token-bucket rate limit. Sits
+        // OUTSIDE auth so an unauthenticated flood cannot exhaust the
+        // auth check, but INSIDE metrics so the 429s are counted by
+        // `mai_rate_limited_total`. No-op when `AppState.rate_limiter`
+        // is None (legacy bring-up / tests).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::middleware::rate_limit_middleware,
+        ))
         // SHIP-11: observability layers (innermost-to-outermost order
         // below means OUTERMOST when the request arrives). Metrics
         // middleware needs the correlation span to be active when it

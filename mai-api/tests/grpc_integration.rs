@@ -8,6 +8,8 @@
 //! - MaiInference.ChatCompletion returns a response (error expected with no model)
 //! - Auth interceptor rejects requests with invalid/missing profile metadata
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 

@@ -13,6 +13,8 @@
 //!   3  state unreadable (manifest missing, paths gone)
 //!   4  internal error
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 

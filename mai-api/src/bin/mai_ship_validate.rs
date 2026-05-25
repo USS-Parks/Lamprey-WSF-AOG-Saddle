@@ -31,6 +31,8 @@
 //! | 3    | State unreadable: `--state-dir` missing, not a directory.               |
 //! | 4    | Internal validator error: JSON serialization failure, panic recovery.   |
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};

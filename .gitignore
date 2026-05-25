@@ -12,6 +12,9 @@ build/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.pytest-tmp/
+pytest_temp/
+py_tmp_dir/
 
 # IDE
 .vscode/
@@ -33,6 +36,10 @@ results/
 tests/benchmarks/results/
 tests/burn-in/results/
 .tmp/
+# Spurious root artifacts (CQ-95 / CFG-CLEAN): keep repo root clean.
+/12
+/et HEAD
+/pytest-cache-files-*
 # Junk from sandbox sed failures
 .integrity/scripts/c *
 

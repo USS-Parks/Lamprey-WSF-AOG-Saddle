@@ -3,6 +3,8 @@
 // derives its icon from the binary itself. Non-Windows targets skip
 // the resource step entirely.
 
+#![allow(clippy::print_stdout)]
+
 fn main() {
     #[cfg(windows)]
     {

@@ -19,6 +19,8 @@
 //!     expect_action = "deny"         # optional: allow|deny|reroute|flag
 //!     expect_rule = "hipaa_phi..."   # optional: substring match on rule name
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::path::PathBuf;
 use std::process::ExitCode;
 

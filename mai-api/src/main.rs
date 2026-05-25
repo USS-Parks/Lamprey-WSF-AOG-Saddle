@@ -11,6 +11,8 @@
 //!   mai-api validate --profile deployment/ship/profile.toml [--json]
 //!                                                 # SHIP-02 readiness check
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::path::PathBuf;
 use std::process::ExitCode;
 

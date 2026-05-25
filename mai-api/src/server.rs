@@ -184,7 +184,7 @@ impl MaiServer {
     /// 5. Start REST + gRPC servers concurrently
     /// 6. Block on shutdown signal (SIGTERM / SIGINT / ctrl-c)
     /// 7. Graceful drain (up to 5 seconds)
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::print_stdout)]
     pub async fn run(self) -> Result<(), ServerError> {
         // WELCOME-01: print the lamprey ASCII banner to stdout before
         // any tracing logs, so the first thing a tester sees when they
@@ -395,6 +395,17 @@ impl MaiServer {
             adapter_manager.clone(),
             metrics_collector,
         );
+
+        // SEC-95: optional per-route rate limiter configured under
+        // `ServerConfig.limits.route_rate_limits`.
+        let state = match self
+            .config
+            .build_route_rate_limiter()
+            .map_err(|e| ServerError::Config(e.to_string()))?
+        {
+            Some(limiter) => state.with_rate_limiter(Arc::new(limiter)),
+            None => state,
+        };
 
         // SHIP-07: when a ship profile is loaded, swap in the
         // sealer-backed compliance audit log and the real trust
@@ -676,6 +687,7 @@ fn apply_ship_profile(
 ///   (default `false`) so it can never silently diverge from the
 ///   value the production guard checked. With no profile at all, the
 ///   legacy dev default of `true` is preserved.
+#[allow(clippy::print_stdout)]
 fn load_auth_state(profile: Option<&ShipProfile>) -> Result<AuthState, ServerError> {
     let is_production = profile
         .map(|p| matches!(p.profile.mode, ProfileMode::Production))
