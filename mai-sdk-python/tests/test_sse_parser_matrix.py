@@ -6,7 +6,6 @@ import json
 
 import httpx
 import pytest
-
 from mai.client import _build_error, _parse_sse_line
 from mai.errors import MaiError
 

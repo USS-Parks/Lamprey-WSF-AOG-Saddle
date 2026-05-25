@@ -15,13 +15,13 @@ from mai.config import (
 from mai.retry import RetryPolicy
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_dir() -> Path:
     base = Path("py_tmp_dir")
     base.mkdir(exist_ok=True)
     p = base / f"mai-sdk-python-tests-{uuid.uuid4().hex}"
     p.mkdir(parents=True, exist_ok=False)
-    yield p
+    return p
 
 
 def test_defaults_when_nothing_set(monkeypatch: pytest.MonkeyPatch) -> None:

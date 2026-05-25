@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from mai.config import MaiClientConfig
 
 
@@ -19,7 +18,13 @@ from mai.config import MaiClientConfig
         (None, "guest:Guest", "normal", False, True),
         (None, "", "normal", False, False),
         ("", "admin:Admin", "normal", False, True),  # empty api key should not count
-        ("  ", "admin:Admin", "normal", True, False),  # whitespace is still a value (caller mistake)
+        (
+            "  ",
+            "admin:Admin",
+            "normal",
+            True,
+            False,
+        ),  # whitespace is still a value (caller mistake)
     ],
 )
 def test_headers_matrix(

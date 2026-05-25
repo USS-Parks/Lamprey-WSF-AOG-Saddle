@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 
 import pytest
-
 from mai.config import DEFAULT_BASE_URL, MaiClientConfig
 
 
@@ -102,4 +101,3 @@ def test_from_env_does_not_require_any_vars(monkeypatch: pytest.MonkeyPatch) -> 
     _clear_mai_env(monkeypatch)
     cfg = MaiClientConfig.from_env()
     assert cfg.base_url == DEFAULT_BASE_URL.rstrip("/")
-
