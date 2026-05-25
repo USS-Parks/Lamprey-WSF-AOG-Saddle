@@ -578,3 +578,30 @@ class TestExLlamaV2ClientErrorMapping:
         # body that isn't JSON should be truncated, not crash the mapper
         with pytest.raises(BackendUnavailableError):
             client._handle_http_error(503, "not-json-at-all" * 50)
+
+
+# ─── J-12: async context manager smoke ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_lifecycle_j12() -> None:
+    """J-12: ``async with`` calls initialize on enter, shutdown on exit."""
+    from unittest.mock import AsyncMock
+
+    from adapters.base import ValidationError
+
+    adapter = ExLlamaV2Adapter()
+    adapter.initialize = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    adapter.shutdown = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    adapter.set_config({"host": "127.0.0.1"}, hil_handle=None)
+    async with adapter as bound:
+        assert bound is adapter
+    adapter.initialize.assert_awaited_once_with(
+        {"host": "127.0.0.1"}, hil_handle=None,
+    )
+    adapter.shutdown.assert_awaited_once()
+
+    fresh = ExLlamaV2Adapter()
+    with pytest.raises(ValidationError, match="config not set"):
+        async with fresh:
+            pass

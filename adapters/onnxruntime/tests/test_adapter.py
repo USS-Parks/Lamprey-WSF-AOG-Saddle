@@ -760,3 +760,28 @@ if __name__ == "__main__":  # pragma: no cover
 # that need awaitable side-effect drivers without restructuring imports.
 _ASYNC_MOCK_SHIM: AsyncMock | None = None
 _TODO_NOOP_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+# ─── J-12: async context manager smoke ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_lifecycle_j12() -> None:
+    """J-12: ``async with`` calls initialize on enter, shutdown on exit."""
+    from adapters.base import ValidationError
+
+    adapter = OnnxRuntimeAdapter()
+    adapter.initialize = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    adapter.shutdown = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    adapter.set_config({"host": "127.0.0.1"}, hil_handle=None)
+    async with adapter as bound:
+        assert bound is adapter
+    adapter.initialize.assert_awaited_once_with(
+        {"host": "127.0.0.1"}, hil_handle=None,
+    )
+    adapter.shutdown.assert_awaited_once()
+
+    fresh = OnnxRuntimeAdapter()
+    with pytest.raises(ValidationError, match="config not set"):
+        async with fresh:
+            pass

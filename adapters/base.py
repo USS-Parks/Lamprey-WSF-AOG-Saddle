@@ -357,6 +357,58 @@ class AdapterBase(ABC):
         self._initialized: bool = False
         self._config: dict[str, Any] = config or {}
         self._hil_handle: Any | None = None
+        # J-12: late-bound config for ``async with`` lifecycle. Separate from
+        # ``_config`` so concrete adapters that store typed config objects on
+        # ``_config`` (e.g. Ollama → OllamaConfig) do not collide.
+        self._entry_config: dict[str, Any] | None = (
+            dict(config) if config is not None else None
+        )
+        self._entry_hil_handle: Any | None = None
+
+    def set_config(
+        self,
+        config: dict[str, Any] | None = None,
+        hil_handle: Any | None = None,
+    ) -> None:
+        """Bind config + hil_handle for use by ``async with``.
+
+        Usage:
+
+            adapter = OllamaAdapter()
+            adapter.set_config({"host": "127.0.0.1"}, hil_handle=hil)
+            async with adapter as a:
+                ...
+
+        Idempotent; replaces any prior binding.
+        """
+        self._entry_config = dict(config) if config is not None else {}
+        self._entry_hil_handle = hil_handle
+
+    async def __aenter__(self) -> AdapterBase:
+        """Enter the async context: call ``initialize(_entry_config, …)``."""
+        if getattr(self, "_entry_config", None) is None:
+            raise ValidationError(
+                "config not set; call set_config() or pass config to the "
+                "constructor before `async with`",
+            )
+        await self.initialize(
+            self._entry_config,
+            hil_handle=getattr(self, "_entry_hil_handle", None),
+        )
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> bool:
+        """Exit the async context: call ``shutdown()``. Never suppresses."""
+        try:
+            await self.shutdown()
+        except Exception:
+            logger.exception("shutdown() raised during __aexit__")
+        return False
 
     @abstractmethod
     async def initialize(
