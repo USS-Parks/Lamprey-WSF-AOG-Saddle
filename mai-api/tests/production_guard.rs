@@ -70,11 +70,11 @@ fn production_guard_production_example_template_is_ship_ready() {
 }
 
 /// Exercise the `mai-api validate` subcommand end-to-end against the
-/// real CLI binary. Uses `CARGO_BIN_EXE_mai-api` which cargo populates
+/// real CLI binary. Uses `CARGO_BIN_EXE_lamprey-mai-api` which cargo populates
 /// for integration tests of bin targets.
 #[test]
 fn production_guard_cli_exits_zero_on_baseline_profile() {
-    let bin = env!("CARGO_BIN_EXE_mai-api");
+    let bin = env!("CARGO_BIN_EXE_lamprey-mai-api");
     let profile = workspace_path(&["deployment", "ship", "profile.toml"]);
     let output = Command::new(bin)
         .arg("validate")
@@ -94,7 +94,7 @@ fn production_guard_cli_exits_zero_on_baseline_profile() {
 
 #[test]
 fn production_guard_cli_json_form_emits_parsable_report() {
-    let bin = env!("CARGO_BIN_EXE_mai-api");
+    let bin = env!("CARGO_BIN_EXE_lamprey-mai-api");
     let profile = workspace_path(&["deployment", "ship", "profile.toml"]);
     let output = Command::new(bin)
         .arg("validate")
@@ -113,7 +113,7 @@ fn production_guard_cli_json_form_emits_parsable_report() {
 
 #[test]
 fn production_guard_cli_exit_code_2_on_missing_profile() {
-    let bin = env!("CARGO_BIN_EXE_mai-api");
+    let bin = env!("CARGO_BIN_EXE_lamprey-mai-api");
     let output = Command::new(bin)
         .arg("validate")
         .arg("--profile")
@@ -130,7 +130,7 @@ fn production_guard_cli_exit_code_2_on_missing_profile() {
 
 #[test]
 fn production_guard_cli_exit_code_2_when_profile_flag_missing() {
-    let bin = env!("CARGO_BIN_EXE_mai-api");
+    let bin = env!("CARGO_BIN_EXE_lamprey-mai-api");
     let output = Command::new(bin)
         .arg("validate")
         .output()
