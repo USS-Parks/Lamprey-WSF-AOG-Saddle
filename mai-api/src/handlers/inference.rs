@@ -23,6 +23,7 @@ use crate::types::{
     EmbeddingInput, EmbeddingRequest, EmbeddingResponse, EmbeddingUsage, FunctionCallRequest,
     ProfileInfo, StructuredGenerationRequest, TokenUsage,
 };
+use validator::Validate;
 
 use mai_core::scheduler::{InferenceRequest, RequestPayload, RequestPriority, RequestType};
 use mai_hil::traits::GenerationParams;
@@ -55,8 +56,8 @@ pub async fn chat_completions(
     check_permission(&profile, "inference")?;
 
     // Validate request
-    validate_chat_request(&req)?;
-
+    req.validate()
+        .map_err(|e| ApiError::ValidationFailed(format!("Invalid chat completion request: {e}")))?;
     // Build internal inference request
     let request_id = Uuid::new_v4();
     let model_name = req.model.clone();
@@ -185,24 +186,12 @@ pub async fn embeddings(
 ) -> Result<impl IntoResponse, ApiError> {
     check_permission(&profile, "inference")?;
 
-    // Validate input is non-empty
+    req.validate()
+        .map_err(|e| ApiError::ValidationFailed(format!("Invalid embedding request: {e}")))?;
+
     let texts = match &req.input {
-        EmbeddingInput::Single(s) => {
-            if s.is_empty() {
-                return Err(ApiError::ValidationFailed(
-                    "Embedding input cannot be empty".to_string(),
-                ));
-            }
-            vec![s.clone()]
-        }
-        EmbeddingInput::Batch(v) => {
-            if v.is_empty() {
-                return Err(ApiError::ValidationFailed(
-                    "Embedding input batch cannot be empty".to_string(),
-                ));
-            }
-            v.clone()
-        }
+        EmbeddingInput::Single(s) => vec![s.clone()],
+        EmbeddingInput::Batch(v) => v.clone(),
     };
 
     let request_id = Uuid::new_v4();
@@ -433,32 +422,8 @@ pub async fn function_call(
 ) -> Result<impl IntoResponse, ApiError> {
     check_permission(&profile, "inference")?;
 
-    if req.messages.is_empty() {
-        return Err(ApiError::ValidationFailed(
-            "Messages array cannot be empty".to_string(),
-        ));
-    }
-
-    if req.tools.is_empty() {
-        return Err(ApiError::ValidationFailed(
-            "Tools array cannot be empty for function_call endpoint".to_string(),
-        ));
-    }
-
-    // Validate tool definitions
-    for tool in &req.tools {
-        if tool.tool_type != "function" {
-            return Err(ApiError::ValidationFailed(format!(
-                "Unsupported tool type '{}'. Only 'function' is supported",
-                tool.tool_type,
-            )));
-        }
-        if tool.function.name.is_empty() {
-            return Err(ApiError::ValidationFailed(
-                "Function name cannot be empty".to_string(),
-            ));
-        }
-    }
+    req.validate()
+        .map_err(|e| ApiError::ValidationFailed(format!("Invalid function_call request: {e}")))?;
 
     let request_id = Uuid::new_v4();
     let model_name = req.model.clone();
@@ -623,48 +588,6 @@ fn build_structured_gen_params(req: &StructuredGenerationRequest) -> GenerationP
 }
 
 // ─── Validation Helpers ────────────────────────────────────────────
-
-fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
-    if req.messages.is_empty() {
-        return Err(ApiError::ValidationFailed(
-            "Messages array cannot be empty".to_string(),
-        ));
-    }
-
-    if let Some(temp) = req.temperature
-        && !(0.0..=2.0).contains(&temp)
-    {
-        return Err(ApiError::ValidationFailed(format!(
-            "Temperature must be between 0.0 and 2.0, got {temp}"
-        )));
-    }
-
-    if let Some(top_p) = req.top_p
-        && !(0.0..=1.0).contains(&top_p)
-    {
-        return Err(ApiError::ValidationFailed(format!(
-            "top_p must be between 0.0 and 1.0, got {top_p}"
-        )));
-    }
-
-    if let Some(fp) = req.frequency_penalty
-        && !(-2.0..=2.0).contains(&fp)
-    {
-        return Err(ApiError::ValidationFailed(format!(
-            "frequency_penalty must be between -2.0 and 2.0, got {fp}"
-        )));
-    }
-
-    if let Some(pp) = req.presence_penalty
-        && !(-2.0..=2.0).contains(&pp)
-    {
-        return Err(ApiError::ValidationFailed(format!(
-            "presence_penalty must be between -2.0 and 2.0, got {pp}"
-        )));
-    }
-
-    Ok(())
-}
 
 // ─── Token Estimation ──────────────────────────────────────────────
 

@@ -234,8 +234,7 @@ pub async fn rate_limit_middleware(
         let path = request.uri().path();
         if let Err(retry_after) = limiter.check(path) {
             let secs = retry_after.as_secs_f64().ceil() as u64;
-            let mut resp =
-                (StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded\n").into_response();
+            let mut resp = (StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded\n").into_response();
             if let Ok(value) = HeaderValue::from_str(&secs.to_string()) {
                 resp.headers_mut()
                     .insert(HeaderName::from_static("retry-after"), value);

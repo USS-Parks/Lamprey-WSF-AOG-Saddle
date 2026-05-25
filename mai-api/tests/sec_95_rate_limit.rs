@@ -129,10 +129,18 @@ async fn sec_95_rate_limit_middleware_returns_429_with_retry_after() {
     )]));
     let app = build_router(build_base_state().with_rate_limiter(limiter));
 
-    let first = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
+    let first = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
     assert_ne!(first.status(), StatusCode::TOO_MANY_REQUESTS);
 
-    let second = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
+    let second = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
     assert_ne!(second.status(), StatusCode::TOO_MANY_REQUESTS);
 
     let third = app.oneshot(request("GET", "/v1/health")).await.unwrap();
@@ -154,7 +162,11 @@ async fn sec_95_rate_limit_middleware_returns_429_with_retry_after() {
 async fn sec_95_rate_limit_is_no_op_when_not_installed() {
     let app = build_router(build_base_state());
     for _ in 0..50 {
-        let resp = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
+        let resp = app
+            .clone()
+            .oneshot(request("GET", "/v1/health"))
+            .await
+            .unwrap();
         assert_ne!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
     }
 }
@@ -170,7 +182,11 @@ async fn sec_95_rate_limit_does_not_affect_non_matching_routes() {
     )]));
     let app = build_router(build_base_state().with_rate_limiter(limiter));
     for _ in 0..10 {
-        let resp = app.clone().oneshot(request("GET", "/v1/models")).await.unwrap();
+        let resp = app
+            .clone()
+            .oneshot(request("GET", "/v1/models"))
+            .await
+            .unwrap();
         assert_ne!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
     }
 }
@@ -194,9 +210,21 @@ async fn sec_95_rate_limit_longest_prefix_wins() {
         ),
     ]));
     let app = build_router(build_base_state().with_rate_limiter(limiter));
-    let a = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
-    let b = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
-    let c = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
+    let a = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
+    let b = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
+    let c = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
     assert_ne!(a.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_ne!(b.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_ne!(c.status(), StatusCode::TOO_MANY_REQUESTS);
@@ -215,12 +243,22 @@ async fn sec_95_rate_limit_429_is_counted_in_metrics() {
     )]));
     let app = build_router(build_base_state().with_rate_limiter(limiter));
 
-    let _ = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
-    let _ = app.clone().oneshot(request("GET", "/v1/health")).await.unwrap();
+    let _ = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
+    let _ = app
+        .clone()
+        .oneshot(request("GET", "/v1/health"))
+        .await
+        .unwrap();
 
     let resp = app.oneshot(request("GET", "/v1/metrics")).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024)
+        .await
+        .unwrap();
     let text = String::from_utf8_lossy(&body);
     assert!(
         text.contains("mai_rate_limited_total"),

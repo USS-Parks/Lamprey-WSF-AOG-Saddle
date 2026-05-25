@@ -10,7 +10,6 @@
 //! Run CPU-only: `cargo test --features integration -p mai-hil -- cpu`
 
 #![cfg(feature = "integration")]
-
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use mai_hil::drivers::CpuDriver;

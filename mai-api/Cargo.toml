@@ -21,6 +21,7 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
+validator = { workspace = true }
 
 # Middleware and HTTP utilities
 tower = { version = "0.5", features = ["util", "timeout"] }

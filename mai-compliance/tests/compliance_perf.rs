@@ -16,7 +16,6 @@
 //! captures the numbers for the READY checklist.
 
 #![allow(clippy::missing_docs_in_private_items)]
-
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -10,25 +10,70 @@
 //! The API layer never exposes internal type names or structures.
 
 use serde::{Deserialize, Serialize};
+use validator::{Validate, ValidationError};
+
+const MAX_EMBEDDING_BATCH_ITEMS: usize = 256;
+const MAX_EMBEDDING_ITEM_CHARS: usize = 32_768;
+
+fn validate_embedding_input(input: &EmbeddingInput) -> Result<(), ValidationError> {
+    match input {
+        EmbeddingInput::Single(s) => {
+            if s.is_empty() {
+                return Err(ValidationError::new("empty"));
+            }
+            if s.chars().count() > MAX_EMBEDDING_ITEM_CHARS {
+                return Err(ValidationError::new("too_large"));
+            }
+        }
+        EmbeddingInput::Batch(v) => {
+            if v.is_empty() {
+                return Err(ValidationError::new("empty"));
+            }
+            if v.len() > MAX_EMBEDDING_BATCH_ITEMS {
+                return Err(ValidationError::new("too_many_items"));
+            }
+            for s in v {
+                if s.is_empty() {
+                    return Err(ValidationError::new("empty_item"));
+                }
+                if s.chars().count() > MAX_EMBEDDING_ITEM_CHARS {
+                    return Err(ValidationError::new("too_large"));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_tool_type_function(value: &str) -> Result<(), ValidationError> {
+    if value == "function" {
+        Ok(())
+    } else {
+        Err(ValidationError::new("unsupported_tool_type"))
+    }
+}
 
 // ─── Chat Completion Request ────────────────────────────────────────
 
 /// OpenAI-compatible chat completion request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct ChatCompletionRequest {
     /// Model identifier (optional; scheduler picks if omitted)
     #[serde(default)]
     pub model: Option<String>,
     /// Conversation messages
+    #[validate(length(min = 1))]
     pub messages: Vec<ApiChatMessage>,
     /// Whether to stream response tokens via SSE
     #[serde(default)]
     pub stream: bool,
     /// Sampling temperature (0.0 - 2.0)
     #[serde(default)]
+    #[validate(range(min = 0.0, max = 2.0))]
     pub temperature: Option<f32>,
     /// Nucleus sampling threshold
     #[serde(default)]
+    #[validate(range(min = 0.0, max = 1.0))]
     pub top_p: Option<f32>,
     /// Maximum tokens to generate
     #[serde(default)]
@@ -38,9 +83,11 @@ pub struct ChatCompletionRequest {
     pub stop: Option<Vec<String>>,
     /// Frequency penalty (-2.0 to 2.0)
     #[serde(default)]
+    #[validate(range(min = -2.0, max = 2.0))]
     pub frequency_penalty: Option<f32>,
     /// Presence penalty (-2.0 to 2.0)
     #[serde(default)]
+    #[validate(range(min = -2.0, max = 2.0))]
     pub presence_penalty: Option<f32>,
     /// User identifier for abuse tracking (local-only)
     #[serde(default)]
@@ -62,12 +109,13 @@ pub struct ApiChatMessage {
 // ─── Embedding Request ──────────────────────────────────────────────
 
 /// OpenAI-compatible embedding request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct EmbeddingRequest {
     /// Model to use for embeddings
     #[serde(default)]
     pub model: Option<String>,
     /// Input text(s) to embed
+    #[validate(custom(function = "validate_embedding_input"))]
     pub input: EmbeddingInput,
     /// Encoding format (float or base64)
     #[serde(default = "default_encoding_format")]
@@ -120,14 +168,16 @@ pub struct ResponseFormat {
 // ─── Function Call Request ──────────────────────────────────────────
 
 /// Request with tool/function calling capability
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct FunctionCallRequest {
     /// Model identifier
     #[serde(default)]
     pub model: Option<String>,
     /// Conversation messages
+    #[validate(length(min = 1))]
     pub messages: Vec<ApiChatMessage>,
     /// Available tools/functions
+    #[validate(length(min = 1))]
     pub tools: Vec<ToolDefinition>,
     /// Tool choice strategy: "auto", "none", or specific tool
     #[serde(default = "default_tool_choice")]
@@ -141,19 +191,22 @@ pub struct FunctionCallRequest {
 }
 
 /// Tool/function definition for function calling
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct ToolDefinition {
     /// Tool type (currently always "function")
     #[serde(rename = "type")]
+    #[validate(custom(function = "validate_tool_type_function"))]
     pub tool_type: String,
     /// Function definition
+    #[validate]
     pub function: FunctionDefinition,
 }
 
 /// Function definition within a tool
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct FunctionDefinition {
     /// Function name
+    #[validate(length(min = 1))]
     pub name: String,
     /// Human-readable description
     #[serde(default)]
