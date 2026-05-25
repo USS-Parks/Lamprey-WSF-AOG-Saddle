@@ -59,6 +59,11 @@ pub mod state;
 pub mod metrics;
 pub mod middleware;
 
+// SCAN-1 (Security SEC-011-MAI): token-bucket rate-limit scaffold.
+// Module compiles + has unit tests; wiring into the route stack is
+// the SEC-95 follow-up. See `docs/SCAN-1-INTERNAL-GITDOCTOR-REPORT.md`.
+pub mod rate_limit;
+
 // Session 11c: SSE Streaming + WebSocket
 pub mod streaming;
 

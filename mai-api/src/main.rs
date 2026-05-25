@@ -80,6 +80,14 @@ async fn main() -> ExitCode {
 /// - 0: every Critical check passes (Deferred checks are not failures)
 /// - 1: at least one Critical check failed
 /// - 2: profile could not be loaded
+//
+// SCAN-1 (Code Quality QUA-005): the `println!`/`eprintln!` calls
+// below are deliberate CLI output (--help text, --json report on
+// stdout, error lines on stderr — `tracing` is not initialized at
+// this point in the lifecycle). Annotated so future scans treat
+// this function as PASS instead of flagging it as debug spam. See
+// `docs/SCAN-1-SECURITY-FALSE-POSITIVES.md` §QUA-005.
+#[allow(clippy::print_stdout, clippy::print_stderr)]
 fn run_validate_subcommand(args: &[String]) -> ExitCode {
     let mut profile_path: Option<PathBuf> = None;
     let mut json = false;

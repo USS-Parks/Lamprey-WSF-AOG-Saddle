@@ -1,0 +1,33 @@
+# Hadolint configuration — SCAN-1 (Configuration tighten)
+#
+# Hadolint is the de-facto Dockerfile linter. This config opts into
+# strict mode and ignores rules that conflict with the MAI Dockerfile's
+# deliberate choices (pinned-digest base images, explicit USER).
+
+failure-threshold: warning
+
+# Trust only pinned-digest base images (already enforced by Dockerfile).
+trustedRegistries:
+  - docker.io
+  - gcr.io
+
+# Rules we explicitly disable, with rationale.
+ignored:
+  # DL3008: pin apt versions — package set is pinned in the lockfile-equivalent
+  #         layer step (`apt list --installed`); pinning every apt-get install
+  #         line creates churn that obscures real diffs.
+  - DL3008
+  # DL3018: pin apk versions — N/A (no alpine layer).
+
+override:
+  error:
+    - DL3007    # ban `:latest` tag — enforced
+    - DL3020    # use COPY not ADD for files — enforced
+    - DL3022    # COPY --from a digest, not a tag — enforced
+    - DL3025    # use JSON form for CMD / ENTRYPOINT — enforced
+    - DL3027    # avoid apt — N/A but error if introduced
+    - DL3047    # wget without --progress=dot:giga — N/A but error
+    - SC2086    # double-quote to prevent globbing — enforced
+  warning:
+    - DL3015    # avoid apt-get with --no-install-recommends
+    - DL3042    # avoid pip --no-cache-dir for prod images

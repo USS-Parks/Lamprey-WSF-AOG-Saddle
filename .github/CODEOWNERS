@@ -1,0 +1,42 @@
+# MAI Code Ownership
+#
+# Format: <path-glob> <owner1> [<owner2> ...]
+# Last matching pattern wins. PRs touching any matched path require
+# review from at least one listed owner before merge (enforced by
+# branch-protection.yml).
+#
+# Owners are GitHub handles. For SCAN-1 these are placeholders; replace
+# with real handles before turning on branch protection.
+
+# Default fallback: anything not matched explicitly
+*                                       @basho-parks
+
+# Compliance / governance surface (Lamprey roadmap)
+/mai-compliance/                        @basho-parks
+/mai-vault/                             @basho-parks
+/docs/JOHN-REMEDIATION-*                @basho-parks
+/docs/RC1-*                             @basho-parks
+/docs/SCAN-1-*                          @basho-parks
+
+# API surface
+/mai-api/                               @basho-parks
+/proto/                                 @basho-parks
+
+# Adapter capsules
+/adapters/                              @basho-parks
+/mai-adapters/                          @basho-parks
+
+# Build / packaging / CI
+/.github/                               @basho-parks
+/Dockerfile                             @basho-parks
+/Cargo.toml                             @basho-parks
+/Cargo.lock                             @basho-parks
+/requirements*.txt                      @basho-parks
+/deny.toml                              @basho-parks
+/.gitleaks.toml                         @basho-parks
+/.hadolint.yaml                         @basho-parks
+
+# Integrity infrastructure (must require owner sign-off on changes)
+/.integrity/                            @basho-parks
+/.githooks/                             @basho-parks
+/tools/                                 @basho-parks
