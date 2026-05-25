@@ -125,20 +125,24 @@ The SHIP-16 §15 grep sweep ran the term list from `docs/SHIP-HARDENING-PLAN.md`
 | `operator's responsibility` | 1 file (tools/mai-admin/src/restore.rs:44) | Doc comment describing operator-owned packaging concern. |
 | `TODO` | 3 files (`mai-adapters/src/manager.rs:586`, `mai-core/src/models/usb.rs:161`, `mai-scheduler/src/default.rs:394/399/402`) | Three carry session-pinned follow-ups (Session 19/22 metrics integration); one (`manager.rs`) is a known scheduler integration gap. None block ship. |
 | `FIXME`, `unimplemented!` | 0 in src | clean. |
-| `todo!()` (Rust macro that panics) | 0 calls in `mai-sdk-rs/src/lib.rs` as of the DOUGHERTY Rust SDK pass | Previously 17 Rust SDK client stubs from Session 11; closed during the DOUGHERTY lane. Keep `rg -n "todo!" mai-sdk-rs/src/lib.rs` in the J-lane verification checklist so the regression stays visible. |
+| `todo!()` (Rust macro that panics) | 0 calls | Cleared. The 17 calls previously in `mai-sdk-rs/src/lib.rs` were closed by `b281b55` (HTTP client, 14 sites) and `8d412c6` / J-17 (SSE streaming + resume, 3 sites). The crate is now a usable client; see Issue 15 below for the closing record. Keep `rg -n "todo!" mai-sdk-rs/src/lib.rs` in the J-lane verification checklist so the regression stays visible. |
 | `deferred` | 12 files | Dominated by `production_guard.rs` (46 occurrences of the `CheckStatus::Deferred` enum variant — legitimate spec terminology); the rest are doc-comment scope statements. |
 
-### 15. `mai-sdk-rs` HTTP client methods were `todo!()` stubs
+### 15. `mai-sdk-rs` HTTP client methods are `todo!()` stubs — **CLOSED**
 
-**Severity:** Low (was no in-tree consumer; John-visible in the RC1 source bundle)
-**Affects:** `mai-sdk-rs/src/lib.rs` client methods and `mai-sdk-rs/tests/http_client.rs`.
-**Status:** **Closed during the DOUGHERTY lane**. The current source has zero `todo!()` hits in `mai-sdk-rs/src/lib.rs`; J-16/J-16b added real `reqwest` transport and wiremock integration coverage.
+**Severity:** Low (no in-tree consumer; Python SDK is the supported client; `mai-sdk-rs` is a workspace member but not a shipped runtime dependency)
+**Affects (historical):** `mai-sdk-rs/src/lib.rs:768-887` — 17 `todo!("Session 11: …")` calls across the chat, completion, embedding, model, health, power, profile, audit, and SSE-stream surfaces.
+**Status:** **CLOSED** 2026-05-24 by the DOUGHERTY lane. Closing record:
 
-The original Session 11 plan called for parallel Rust + Python SDKs. Only the Python SDK reached production before RC1, leaving the Rust SDK's wire methods as panicking `todo!()` bodies. John-visible review made that unacceptable for the source bundle even though there was no in-tree caller.
+| Layer | Commit | What landed |
+|:--|:--|:--|
+| Plain-HTTP client + 14 method bodies | `b281b55` | `reqwest::Client` on `MaiClient`, `get_json` / `post_json` / `request_builder` helpers, error mapping via `api_error_from_body`, all of chat / complete / embed / structured / function_call / list_models / get_model / health / adapter_health / hardware_health / power_state / transition_power / get_profile / audit_log. |
+| Plain-HTTP test coverage | `88fa06e` (J-16b) | `mai-sdk-rs/tests/http_client.rs`: 18 wiremock tests (14 happy-path + 4 edge cases: 401, 500, timeout, malformed JSON). |
+| SSE streaming + resume primitive | J-17 (this lane) | `chat_stream` (buffered SSE parse via `ChatStreamHandle::from_sse_body`); new `chat_stream_resume(req, last_event_id)` that sets the `Last-Event-ID` header per the SSE spec. `mai-sdk-rs/tests/streaming.rs`: 7 wiremock tests covering order, last-event-id capture, DONE-only body, non-2xx mapping, malformed SSE, resume header on the wire, and resume non-2xx propagation. |
 
-**Fix:** The DOUGHERTY SDK pass replaced the client stubs with real HTTP request paths, added `reqwest = "0.12"` to `mai-sdk-rs/Cargo.toml`, and added `mai-sdk-rs/tests/http_client.rs` wiremock coverage. Streaming support now has implementation and in-file unit coverage in `mai-sdk-rs/src/lib.rs`.
+**Verification:** `grep -c 'todo!' mai-sdk-rs/src/lib.rs` returns 0; `cargo test -p mai-sdk-rs` runs the full integration surface (lib unit tests + 18 http_client + 7 streaming) green.
 
-**Regression check:** `rg -n "todo!" mai-sdk-rs/src/lib.rs` should return no matches.
+**What is still NOT here:** the buffered `ChatStreamHandle` waits for the full SSE response before yielding the first chunk. A true incremental stream (yield-as-they-arrive) would require a different design (`tokio_stream::Stream` over `Response::bytes_stream`) — that is out of scope for this closure and not blocking RC-10. Callers wanting incremental delivery should use the Python SDK or wrap the response body manually.
 
 ---
 
