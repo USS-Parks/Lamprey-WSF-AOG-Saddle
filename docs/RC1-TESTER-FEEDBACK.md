@@ -114,7 +114,7 @@ tester is invited, responds, or files a finding.
 
 | # | Tester | Role / why invited | Track | Bundle variant | Invited (date) | Responded (date) | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | John Dougherty (johndou.com, CO) | Independent technical tester sourced by Basho; ran GitDoctor (gitdoctor.io) AI scan against the GitHub mirror `USS-Parks/im-mighty-eel-mai` + a manual read | Hybrid — closest to Track B/C but tool-driven (GitDoctor) rather than the README-FIRST + cargo-test walk | RC1.1-docs (sent from the repo, not the assembled archive) | 2026-05-23 (overnight) | 2026-05-24 (email + 15 scan screenshots) | **triaged** — see §6.2 and the DOUGHERTY plan |
+| 1 | John Dougherty (johndou.com, CO) | Independent technical tester sourced by Basho; ran GitDoctor (gitdoctor.io) AI scan against the GitHub mirror `USS-Parks/im-mighty-eel-mai` + a manual read | Hybrid — closest to Track B/C but tool-driven (GitDoctor) rather than the README-FIRST + cargo-test walk | RC1.1-docs (sent from the repo, not the assembled archive) | 2026-05-23 (overnight) | 2026-05-24 (email + 15 scan screenshots) | **responded — awaiting tester re-test** — see §6.2; DOUGHERTY lane closed 2026-05-24; response doc at [`RC1-TESTER-RESPONSE-DOUGHERTY.md`](RC1-TESTER-RESPONSE-DOUGHERTY.md) |
 
 Add one row per invitation. Status values: `invited` → `running` →
 `reported` → `triaged`. If a tester declines or never responds,
@@ -430,12 +430,12 @@ whose severity is `Blocker` or `High`.
 | Acquisition demos non-runnable as written (H-2 + H-3 + H-4) | H-2, H-3, H-4 | RC-10 | **RESOLVED** in commits `b0fcdee` (RC1.1-docs) + `a6fa65e` (re-assembly) — demos now use curl against `:8420` from `cd source` |
 | Operator runbooks reference unimplemented CLI surfaces (H-1) | H-1 | RC-10 | **RESOLVED** in commit `b0fcdee` — header bands on runbooks 05/06/11/12/13 cite stubbed `mai-admin` subcommands and their HTTP equivalents |
 | Track C reading list points at wrong runbooks (H-5) | H-5 | RC-10 | **RESOLVED** in commit `b0fcdee` — TESTER-INSTRUCTIONS.md §4.C step 4 numbers fixed |
-| `Math.random` in security context (SEC-009 HIGH) | J-2 | DOUGHERTY W1 / J-01 | XS — single Edit at `.integrity/mcp-server/server.js:244` → `crypto.randomUUID()`; mechanical |
-| Missing dependency lock files (PRJ-004 HIGH) | J-5 | DOUGHERTY W2 / J-03 | S — add `requirements-lock.txt` (or `uv.lock`) for Python + `package-lock.json` for mcp-server |
-| mai-sdk-rs HTTP client 17 `todo!()` stubs | J-1, J-1b | DOUGHERTY W10 / J-16+J-17 | M-L — implement HTTP client + SSE/resume protocol; bumps `reqwest`/`eventsource-client` deps (acceptable outside air-gap boundary) |
-| Adapter test thinness (TST-001/004/005/006) | J-8 | DOUGHERTY W3 + W5 | M — live-backend integration tests for Ollama/llama.cpp/vLLM/TGI/SGLang/ExLlamaV2/TensorRT-LLM + assertion fill for thin tests |
-| Error path inconsistency (60/100) | J-18 | DOUGHERTY W4 / J-08 | M — produce ERROR-PATH-AUDIT.md walking every mai-api handler → adapter → backend path |
-| No Docker config | J-6 | DOUGHERTY W2 / J-04 | M — CPU-only multi-stage Dockerfile + .dockerignore + .env.example |
+| `Math.random` in security context (SEC-009 HIGH) | J-2 | DOUGHERTY W1 / J-01 | **RESOLVED** in commit `6621c02` — `crypto.randomUUID()` at `.integrity/mcp-server/server.js:244`; SEC-009 PASS on rescan |
+| Missing dependency lock files (PRJ-004 HIGH) | J-5 | DOUGHERTY W2 / J-03 | **RESOLVED** in commit `468e0e8` — `requirements-lock.txt` + `.integrity/mcp-server/package-lock.json` + policy doc (scanner false-negative on rescan; lock files present at repo root) |
+| mai-sdk-rs HTTP client 17 `todo!()` stubs | J-1, J-1b | DOUGHERTY W10 / J-16+J-17 | **RESOLVED** in commits `b281b55` (J-16 impl) + `88fa06e` (J-16b wiremock tests) + `8d412c6` (J-17 SSE+resume); `grep -c 'todo!' mai-sdk-rs/src/lib.rs` = 0; KNOWN-ISSUES.md Issue 15 CLOSED |
+| Adapter test thinness (TST-001/004/005/006) | J-8 | DOUGHERTY W3 + W5 | **RESOLVED** — J-09 `d18da96` (assertion fill llamacpp 14→58, exllamav2 13→64) + `182e075` (real-HTTP streaming) + J-10 `2a7bced` (assertion gate + e2e smoke) + W3 J-18..J-26 live-backend tests across vLLM/TGI/SGLang/ExLlamaV2/TensorRT/OpenAI-compat/ONNX/MLX/Triton |
+| Error path inconsistency (60/100) | J-18 | DOUGHERTY W4 / J-08 | **RESOLVED** in commit `606e821` — `docs/ERROR-PATH-AUDIT.md` covers 10 handler modules / 56 handlers (53 PASS / 3 FIX-NEEDED, all 3 fixed in same commit); Error Handling 60→85 on rescan |
+| No Docker config | J-6 | DOUGHERTY W2 / J-04 | **RESOLVED** in commit `2cdc23a` (+ fix-up `e32d8fe`) — CPU-only multi-stage `Dockerfile` + `.dockerignore` + `.env.example` at repo root |
 
 **Note:** The first three rows (self-review H-1/H-2/H-3/H-4/H-5)
 were resolved by the RC-10 RC1.1-docs pass (commits `b0fcdee` +
@@ -472,3 +472,16 @@ The "RC-10" in the new sequence is the post-DOUGHERTY re-bundle
 (distinct from the earlier RC-10 RC1.1-docs self-review fix pass
 that already shipped in `b0fcdee` / `a6fa65e`). RC-11 is the
 re-ship to John for verification.
+
+**DOUGHERTY lane CLOSED 2026-05-24.** All 26 sessions committed
+(`6621c02` … `b899a84`). Outside-tester response doc at
+[`RC1-TESTER-RESPONSE-DOUGHERTY.md`](RC1-TESTER-RESPONSE-DOUGHERTY.md)
+with full per-row verdicts, commit hashes, and the §4 refutations of
+items we believe the scan got wrong. Rescan via VibecoderHub (the
+scanner provider differed from John's original GitDoctor run) shows
+overall 52→75, vibe 35→80, production 41→70, testing 25→70, security
+16/16 PASS; evidence at
+[`test-evidence/dougherty-rescan/SUMMARY.md`](../test-evidence/dougherty-rescan/SUMMARY.md).
+All 5 remaining FAILs verified as scanner false negatives against the
+working tree. RC-10 (re-bundle) is now unblocked; prerequisite
+checklist at [`RC1.2-REBUNDLE-CHECKLIST.md`](RC1.2-REBUNDLE-CHECKLIST.md).
