@@ -374,7 +374,7 @@ impl RagPipeline {
                             .payload
                             .get("document_id")
                             .and_then(serde_json::Value::as_str)
-                            .unwrap_or_default()
+                            .unwrap_or("")
                             .to_string(),
                         chunk_index: r
                             .payload
@@ -386,7 +386,7 @@ impl RagPipeline {
                             .payload
                             .get("text")
                             .and_then(serde_json::Value::as_str)
-                            .unwrap_or_default()
+                            .unwrap_or("")
                             .to_string(),
                         metadata: string_meta,
                     },

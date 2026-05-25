@@ -101,7 +101,7 @@ impl proto::mai_audit_server::MaiAudit for MaiAuditService {
                     profile_id: e.profile_id.clone(),
                     method: e.method.clone(),
                     endpoint: e.path.clone(),
-                    model: e.model_name.clone().unwrap_or_default(),
+                    model: e.model_name.clone().unwrap_or_else(String::new),
                     tokens_in: 0,  // Not tracked in AuditEntry
                     tokens_out: 0, // Not tracked in AuditEntry
                     latency_ms: e.duration_ms,

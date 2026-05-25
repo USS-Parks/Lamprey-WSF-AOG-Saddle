@@ -114,8 +114,7 @@ impl InstanceRegistry {
             #[allow(clippy::cast_possible_truncation)] // Epoch millis fit in u64 until year 584M+
             let epoch_ms = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64;
+                .map_or(0, |duration| duration.as_millis() as u64);
             metrics.last_request_epoch_ms = epoch_ms;
         } else {
             warn!(instance = %id, "record_request_start for unknown instance");

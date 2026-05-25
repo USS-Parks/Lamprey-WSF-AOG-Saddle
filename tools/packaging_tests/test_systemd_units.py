@@ -119,7 +119,7 @@ def test_service_runs_as_mai_user(unit: str) -> None:
 def test_api_unit_runs_ship_validate_before_start() -> None:
     parser = _read_unit("mai-api.service")
     pre = parser.get("Service", "ExecStartPre", fallback=None)
-    assert pre is not None, "mai-api.service must run mai-ship-validate before ExecStart"
+    assert pre, "mai-api.service must run mai-ship-validate before ExecStart"
     assert "mai-ship-validate" in pre
 
 

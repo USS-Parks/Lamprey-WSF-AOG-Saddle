@@ -66,21 +66,21 @@ def test_trace_generator_preserves_inter_request_gaps(tmp_path: Path) -> None:
 
     # sim_time = 0: only first event is due
     first = gen.generate(0.0, rng)
-    assert first is not None
+    assert first["seq_id"].endswith("000000000000")
     assert gen.generate(0.0, rng) is None  # second event is at offset 5
 
     # sim_time = 6: second event due, third not
     second = gen.generate(6.0, rng)
-    assert second is not None
+    assert second["seq_id"].endswith("000000000001")
     assert gen.generate(6.0, rng) is None  # third is at offset 7
 
     # sim_time = 7: third event due
     third = gen.generate(7.0, rng)
-    assert third is not None
+    assert third["seq_id"].endswith("000000000002")
 
     # sim_time = 30: fourth event due
     fourth = gen.generate(30.0, rng)
-    assert fourth is not None
+    assert fourth["seq_id"].endswith("000000000003")
     assert gen.generate(30.0, rng) is None
 
 
@@ -120,12 +120,12 @@ def test_hybrid_emits_spike_during_window(tmp_path: Path) -> None:
 
     # Before the spike window: only baseline.
     pre = hyb.generate(1.0, rng)
-    assert pre is not None
+    assert pre["seq_id"].endswith("000000000000")
     assert pre.get("spike") is not True
 
     # In-window first call: spike fires unconditionally.
     inside = hyb.generate(10.0, rng)
-    assert inside is not None
+    assert inside["model_alias"] == "spike"
     assert inside.get("spike") is True
     assert inside["priority"] == "high"
 

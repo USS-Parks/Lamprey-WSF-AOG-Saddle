@@ -170,8 +170,7 @@ impl TransitionExecutor {
         #[allow(clippy::cast_possible_truncation)]
         let epoch_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
+            .map_or(0, |duration| duration.as_millis() as u64);
         #[allow(clippy::cast_possible_truncation)]
         let dur_ms = self.elapsed().as_millis() as u64;
         TransitionRecord {

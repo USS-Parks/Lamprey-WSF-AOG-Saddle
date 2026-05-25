@@ -262,7 +262,11 @@ pub fn plan_restore(
                         .to_string(),
                 );
                 VerifyOutcome::Signed {
-                    anchor_id: manifest.signatures.anchor_id.clone().unwrap_or_default(),
+                    anchor_id: manifest
+                        .signatures
+                        .anchor_id
+                        .clone()
+                        .unwrap_or_else(|| "unknown-anchor".to_string()),
                 }
             } else {
                 VerifyOutcome::Unsigned

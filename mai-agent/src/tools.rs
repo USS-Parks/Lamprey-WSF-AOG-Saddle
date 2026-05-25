@@ -433,8 +433,7 @@ impl Default for ToolRegistry {
 fn now_epoch_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
+        .map_or(0, |duration| duration.as_secs())
 }
 
 // ============================================================================

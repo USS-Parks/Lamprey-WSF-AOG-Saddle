@@ -116,8 +116,8 @@ class MaiClient:
         ``client.scheduler``    - scheduler metrics & instances
         ``client.updates``      - OTA update channel
         ``client.admin``        - profiles, audit log, registry
-        ``client.auth``         - token exchange (stub until BF-6)
-        ``client.trust``        - trust claims/bundle (stub until BF-6)
+        ``client.auth``         - token exchange APIs
+        ``client.trust``        - trust claims/bundle APIs
         ``client.compliance``   - Lamprey APIs (Sessions 36-44)
     """
 

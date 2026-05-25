@@ -96,7 +96,7 @@ impl FrameworkConfig {
             .get("adapter_framework")
             .and_then(toml::Value::as_table)
             .cloned()
-            .unwrap_or_default();
+            .unwrap_or_else(toml::Table::new);
 
         let mut config = Self::default();
 
@@ -249,7 +249,10 @@ impl FrameworkConfig {
                 &init_py
             };
 
-            let content = std::fs::read_to_string(check_file).unwrap_or_default();
+            let Ok(content) = std::fs::read_to_string(check_file) else {
+                debug!(path = %check_file.display(), "Cannot read adapter entry file, skipping");
+                continue;
+            };
             if !content.contains("@mai_adapter") && !content.contains("mai_adapter(") {
                 debug!(dir = %dir_name, "No @mai_adapter decorator found, skipping");
                 continue;

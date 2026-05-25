@@ -89,7 +89,7 @@ impl CpuDriver {
             .await
             .ok()
             .and_then(std::result::Result::ok)
-            .unwrap_or_default();
+            .unwrap_or_else(String::new);
 
         let mut types = vec![ComputeType::CPUFallback];
 

@@ -132,8 +132,7 @@ pub async fn chat_completions(
 
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     let response = ChatCompletionResponse {
         id: format!("chatcmpl-{request_id}"),
@@ -389,8 +388,7 @@ pub async fn structured_generation(
 
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     let response = ChatCompletionResponse {
         id: format!("structcmpl-{request_id}"),
@@ -547,8 +545,7 @@ pub async fn function_call(
 
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     let response = ChatCompletionResponse {
         id: format!("fncall-{request_id}"),
@@ -600,7 +597,7 @@ fn build_generation_params(req: &ChatCompletionRequest) -> GenerationParams {
         temperature: req.temperature.unwrap_or(0.7),
         top_p: req.top_p.unwrap_or(1.0),
         max_tokens: req.max_tokens.map_or(2048, |v| v as usize),
-        stop_sequences: req.stop.clone().unwrap_or_default(),
+        stop_sequences: req.stop.clone().unwrap_or_else(Vec::new),
         structured_schema: None,
     }
 }

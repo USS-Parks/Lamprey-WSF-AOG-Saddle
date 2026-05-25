@@ -8,9 +8,11 @@
 //! Skeleton generated in Session 05; full client implementation in Session 11.
 //! All types align with docs/api/openapi.yaml schemas.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
+use reqwest::{Method, Response, StatusCode};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -114,6 +116,16 @@ pub enum SdkError {
 }
 
 pub type SdkResult<T> = Result<T, SdkError>;
+
+#[derive(Debug, Deserialize)]
+struct ErrorEnvelope {
+    error: MaiError,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelListEnvelope<T> {
+    data: Vec<T>,
+}
 
 // ──────────────────────────────────────────────
 // Enums (aligned with OpenAPI enum definitions)
@@ -741,10 +753,10 @@ impl MaiClientConfig {
 
 /// Async MAI API client
 ///
-/// Full implementation in Session 11. This skeleton defines the public
-/// interface that L4 components can program against.
+/// Async HTTP client for the MAI REST API.
 pub struct MaiClient {
     config: MaiClientConfig,
+    http: reqwest::Client,
 }
 
 impl MaiClient {
@@ -758,97 +770,231 @@ impl MaiClient {
                 "either api_key or profile_id must be set".to_string(),
             ));
         }
-        Ok(Self { config })
+        let http = reqwest::Client::builder()
+            .timeout(config.timeout)
+            .build()
+            .map_err(|e| SdkError::Config(format!("failed to build HTTP client: {e}")))?;
+        Ok(Self { config, http })
+    }
+
+    fn endpoint_url(&self, path: &str) -> String {
+        format!(
+            "{}/{}",
+            self.config.base_url.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        )
+    }
+
+    fn priority_header(&self) -> &'static str {
+        match self.config.priority {
+            RequestPriority::Low => "low",
+            RequestPriority::Normal => "normal",
+            RequestPriority::High => "high",
+            RequestPriority::Critical => "critical",
+        }
+    }
+
+    fn request_builder(&self, method: Method, path: &str) -> reqwest::RequestBuilder {
+        let mut builder = self
+            .http
+            .request(method, self.endpoint_url(path))
+            .header("X-IM-Priority", self.priority_header());
+        for (name, value) in self.config.auth_headers() {
+            builder = builder.header(name, value);
+        }
+        for (name, value) in &self.config.extra_headers {
+            builder = builder.header(name, value);
+        }
+        builder
+    }
+
+    async fn get_json<T>(&self, path: &str) -> SdkResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        let response = self
+            .request_builder(Method::GET, path)
+            .send()
+            .await
+            .map_err(Self::transport_error)?;
+        Self::decode_response(response).await
+    }
+
+    async fn post_json<B, T>(&self, path: &str, body: &B) -> SdkResult<T>
+    where
+        B: Serialize + ?Sized,
+        T: DeserializeOwned,
+    {
+        let response = self
+            .request_builder(Method::POST, path)
+            .json(body)
+            .send()
+            .await
+            .map_err(Self::transport_error)?;
+        Self::decode_response(response).await
+    }
+
+    async fn decode_response<T>(response: Response) -> SdkResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        let status = response.status();
+        let body = response.text().await.map_err(Self::transport_error)?;
+        if status.is_success() {
+            serde_json::from_str(&body).map_err(|e| {
+                SdkError::Deserialization(format!("HTTP {status} body did not match SDK type: {e}"))
+            })
+        } else {
+            Err(Self::api_error_from_body(status, &body))
+        }
+    }
+
+    fn transport_error(error: reqwest::Error) -> SdkError {
+        if error.is_timeout() {
+            SdkError::Timeout(Duration::from_secs(0))
+        } else if error.is_decode() {
+            SdkError::Deserialization(error.to_string())
+        } else {
+            SdkError::Connection(error.to_string())
+        }
+    }
+
+    fn api_error_from_body(status: StatusCode, body: &str) -> SdkError {
+        if let Ok(envelope) = serde_json::from_str::<ErrorEnvelope>(body) {
+            return SdkError::Api(envelope.error);
+        }
+        if let Ok(error) = serde_json::from_str::<MaiError>(body) {
+            return SdkError::Api(error);
+        }
+        SdkError::Api(MaiError {
+            error_type: match status.as_u16() {
+                400 => MaiErrorType::InvalidRequest,
+                401 => MaiErrorType::AuthenticationFailed,
+                403 => MaiErrorType::PermissionDenied,
+                404 => MaiErrorType::ModelUnavailable,
+                408 => MaiErrorType::Timeout,
+                429 => MaiErrorType::RateLimited,
+                503 => MaiErrorType::Overloaded,
+                _ if status.is_server_error() => MaiErrorType::InternalError,
+                _ => MaiErrorType::RequestFailed,
+            },
+            code: format!("MAI-{}", status.as_u16()),
+            message: if body.trim().is_empty() {
+                status.to_string()
+            } else {
+                body.to_string()
+            },
+            retry_after_seconds: None,
+            request_id: None,
+        })
     }
 
     // ── Inference endpoints ──
 
     /// POST /v1/chat/completions (OpenAI-compatible)
-    pub async fn chat(&self, _request: ChatCompletionRequest) -> SdkResult<ChatCompletionResponse> {
-        todo!("Session 11: HTTP client")
+    pub async fn chat(&self, request: ChatCompletionRequest) -> SdkResult<ChatCompletionResponse> {
+        self.post_json("/v1/chat/completions", &request).await
     }
 
     /// POST /v1/chat/completions with stream=true
     /// Returns an async stream of SSE chunks. Resume via Last-Event-ID.
     pub async fn chat_stream(
         &self,
-        _request: ChatCompletionRequest,
+        mut request: ChatCompletionRequest,
     ) -> SdkResult<ChatStreamHandle> {
-        todo!("Session 11: SSE streaming")
+        request.stream = true;
+        let response = self
+            .request_builder(Method::POST, "/v1/chat/completions")
+            .json(&request)
+            .send()
+            .await
+            .map_err(Self::transport_error)?;
+        let status = response.status();
+        let body = response.text().await.map_err(Self::transport_error)?;
+        if !status.is_success() {
+            return Err(Self::api_error_from_body(status, &body));
+        }
+        ChatStreamHandle::from_sse_body(&body)
     }
 
     /// POST /v1/completions
-    pub async fn complete(&self, _request: CompletionRequest) -> SdkResult<CompletionResponse> {
-        todo!("Session 11: HTTP client")
+    pub async fn complete(&self, request: CompletionRequest) -> SdkResult<CompletionResponse> {
+        self.post_json("/v1/completions", &request).await
     }
 
     /// POST /v1/embeddings
-    pub async fn embed(&self, _request: EmbeddingRequest) -> SdkResult<EmbeddingResponse> {
-        todo!("Session 11: HTTP client")
+    pub async fn embed(&self, request: EmbeddingRequest) -> SdkResult<EmbeddingResponse> {
+        self.post_json("/v1/embeddings", &request).await
     }
 
     /// POST /v1/generate/structured
-    pub async fn structured(&self, _request: StructuredRequest) -> SdkResult<StructuredResponse> {
-        todo!("Session 11: HTTP client")
+    pub async fn structured(&self, request: StructuredRequest) -> SdkResult<StructuredResponse> {
+        self.post_json("/v1/generate/structured", &request).await
     }
 
     /// POST /v1/generate/function_call
     pub async fn function_call(
         &self,
-        _request: FunctionCallRequest,
+        request: FunctionCallRequest,
     ) -> SdkResult<FunctionCallResponse> {
-        todo!("Session 11: HTTP client")
+        self.post_json("/v1/generate/function_call", &request).await
     }
 
     // ── Model management endpoints ──
 
     /// GET /v1/models
     pub async fn list_models(&self) -> SdkResult<Vec<ModelObject>> {
-        todo!("Session 11: HTTP client")
+        let envelope: ModelListEnvelope<ModelObject> = self.get_json("/v1/models").await?;
+        Ok(envelope.data)
     }
 
     /// GET /v1/models/{id}
-    pub async fn get_model(&self, _model_id: &str) -> SdkResult<ModelDetail> {
-        todo!("Session 11: HTTP client")
+    pub async fn get_model(&self, model_id: &str) -> SdkResult<ModelDetail> {
+        self.get_json(&format!("/v1/models/{model_id}")).await
     }
 
     // ── Health endpoints ──
 
     /// GET /v1/health
     pub async fn health(&self) -> SdkResult<HealthResponse> {
-        todo!("Session 11: HTTP client")
+        self.get_json("/v1/health").await
     }
 
     /// GET /v1/health/adapters
     pub async fn adapter_health(&self) -> SdkResult<AdapterHealthMap> {
-        todo!("Session 11: HTTP client")
+        self.get_json("/v1/health/adapters").await
     }
 
     /// GET /v1/health/hardware
     pub async fn hardware_health(&self) -> SdkResult<HardwareHealthResponse> {
-        todo!("Session 11: HTTP client")
+        self.get_json("/v1/health/hardware").await
     }
 
     // ── Power management endpoints ──
 
     /// GET /v1/power/state
     pub async fn power_state(&self) -> SdkResult<PowerStateResponse> {
-        todo!("Session 11: HTTP client")
+        self.get_json("/v1/power/state").await
     }
 
     /// POST /v1/power/transition
     pub async fn transition_power(
         &self,
-        _request: PowerTransitionRequest,
+        request: PowerTransitionRequest,
     ) -> SdkResult<PowerTransitionResponse> {
-        todo!("Session 11: HTTP client")
+        self.post_json("/v1/power/transition", &request).await
     }
 
     // ── Profile endpoints ──
 
     /// GET /v1/profiles/me
     pub async fn get_profile(&self) -> SdkResult<ProfileObject> {
-        todo!("Session 11: HTTP client")
+        let profile_id = if self.config.profile_id.is_empty() {
+            "me"
+        } else {
+            self.config.profile_id.as_str()
+        };
+        self.get_json(&format!("/v1/profiles/{profile_id}")).await
     }
 
     // ── Audit endpoints ──
@@ -856,10 +1002,22 @@ impl MaiClient {
     /// GET /v1/audit/log
     pub async fn audit_log(
         &self,
-        _limit: Option<u32>,
-        _offset: Option<u32>,
+        limit: Option<u32>,
+        offset: Option<u32>,
     ) -> SdkResult<AuditLogResponse> {
-        todo!("Session 11: HTTP client")
+        let mut query = Vec::new();
+        if let Some(limit) = limit {
+            query.push(format!("limit={limit}"));
+        }
+        if let Some(offset) = offset {
+            query.push(format!("offset={offset}"));
+        }
+        let path = if query.is_empty() {
+            "/v1/audit/log".to_string()
+        } else {
+            format!("/v1/audit/log?{}", query.join("&"))
+        };
+        self.get_json(&path).await
     }
 
     /// Access to the client configuration
@@ -871,26 +1029,80 @@ impl MaiClient {
 /// Handle for a streaming chat completion response
 ///
 /// Wraps an SSE stream with resume capability via Last-Event-ID.
-/// Full implementation in Session 11.
 pub struct ChatStreamHandle {
-    _private: (),
+    chunks: VecDeque<ChatCompletionChunk>,
+    last_event_id: Option<String>,
 }
 
 impl ChatStreamHandle {
+    fn from_sse_body(body: &str) -> SdkResult<Self> {
+        let mut chunks = VecDeque::new();
+        let mut last_event_id = None;
+        for event in body.split("\n\n") {
+            let mut data_lines = Vec::new();
+            for line in event.lines() {
+                let line = line.trim_end_matches('\r');
+                if let Some(id) = line.strip_prefix("id:") {
+                    let id = id.trim();
+                    if !id.is_empty() {
+                        last_event_id = Some(id.to_string());
+                    }
+                } else if let Some(data) = line.strip_prefix("data:") {
+                    let data = data.trim();
+                    if !data.is_empty() && data != "[DONE]" {
+                        data_lines.push(data);
+                    }
+                }
+            }
+            if data_lines.is_empty() {
+                continue;
+            }
+            let payload = data_lines.join("\n");
+            let chunk = serde_json::from_str::<ChatCompletionChunk>(&payload)
+                .map_err(|e| SdkError::Deserialization(format!("invalid SSE chunk: {e}")))?;
+            chunks.push_back(chunk);
+        }
+        Ok(Self {
+            chunks,
+            last_event_id,
+        })
+    }
+
     /// Get the next chunk from the stream
     pub async fn next_chunk(&mut self) -> SdkResult<Option<ChatCompletionChunk>> {
-        todo!("Session 11: SSE stream")
+        Ok(self.chunks.pop_front())
     }
 
     /// Get the last event ID for resume
     pub fn last_event_id(&self) -> Option<&str> {
-        todo!("Session 11: resume protocol")
+        self.last_event_id.as_deref()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    async fn one_response_server(body: &'static str) -> (String, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0_u8; 4096];
+            let n = stream.read(&mut buf).await.unwrap();
+            let request = String::from_utf8_lossy(&buf[..n]).to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            request
+        });
+        (format!("http://{addr}"), handle)
+    }
 
     #[test]
     fn error_codes_match_spec_taxonomy() {
@@ -995,5 +1207,53 @@ mod tests {
         let json = r#""strict""#;
         let level: ContentFilterLevel = serde_json::from_str(json).unwrap();
         assert_eq!(level, ContentFilterLevel::Strict);
+    }
+
+    #[tokio::test]
+    async fn health_uses_real_http_get_with_auth_headers() {
+        let body = r#"{
+            "status":"healthy",
+            "air_gap_verified":true,
+            "power_state":"sentinel",
+            "uptime_seconds":42,
+            "adapters":{"total":1,"healthy":1,"degraded":0,"unhealthy":0},
+            "hardware":{"gpus":0,"total_vram_bytes":0,"used_vram_bytes":0,"thermal_state":"normal"},
+            "system":{"cpu_load_percent":0.5,"ram_used_bytes":1024,"ram_total_bytes":2048,"disk_vault_free_bytes":4096}
+        }"#;
+        let (base_url, handle) = one_response_server(body).await;
+        let client = MaiClient::new(MaiClientConfig {
+            base_url,
+            api_key: Some("im-test-key".to_string()),
+            profile_id: String::new(),
+            ..MaiClientConfig::default()
+        })
+        .unwrap();
+
+        let health = client.health().await.unwrap();
+        let request = handle.await.unwrap();
+
+        assert_eq!(health.status, SystemHealthStatus::Healthy);
+        assert!(health.air_gap_verified);
+        assert_eq!(health.adapters.healthy, 1);
+        assert!(request.starts_with("GET /v1/health HTTP/1.1"));
+        assert!(request.contains("x-im-auth-token: im-test-key"));
+        assert!(request.contains("x-im-priority: normal"));
+    }
+
+    #[tokio::test]
+    async fn chat_stream_parses_sse_chunks_and_resume_id() {
+        let body = r#"id: evt-1
+data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"demo","choices":[{"index":0,"delta":{"role":"assistant","content":"hi"},"finish_reason":null}]}
+
+data: [DONE]
+
+"#;
+        let mut handle = ChatStreamHandle::from_sse_body(body).unwrap();
+
+        assert_eq!(handle.last_event_id(), Some("evt-1"));
+        let chunk = handle.next_chunk().await.unwrap().unwrap();
+        assert_eq!(chunk.id, "chatcmpl-1");
+        assert_eq!(chunk.choices[0].delta.content.as_deref(), Some("hi"));
+        assert!(handle.next_chunk().await.unwrap().is_none());
     }
 }

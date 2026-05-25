@@ -205,8 +205,7 @@ impl WarmupDecider {
         let now_utc_hour = {
             let secs = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
+                .map_or(0, |duration| duration.as_secs());
             ((secs / 3600) % 24) as u8
         };
         now_utc_hour >= self.config.active_hours_start

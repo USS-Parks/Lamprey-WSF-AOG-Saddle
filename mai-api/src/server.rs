@@ -809,7 +809,10 @@ fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
     };
 
     // Parse framework settings
-    let framework = FrameworkConfig::from_toml(path).unwrap_or_default();
+    let framework = FrameworkConfig::from_toml(path).unwrap_or_else(|e| {
+        warn!(path = %path.display(), error = %e, "Invalid adapter framework config, using defaults");
+        FrameworkConfig::default()
+    });
 
     // Parse per-adapter configs from [adapters.*] sections
     let mut adapter_configs = HashMap::new();
@@ -840,7 +843,7 @@ fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
                             .filter_map(|v| v.as_integer().map(|i| i as u32))
                             .collect()
                     })
-                    .unwrap_or_default(),
+                    .unwrap_or_else(Vec::new),
                 max_concurrent: at
                     .get("max_concurrent")
                     .and_then(toml::Value::as_integer)
@@ -853,7 +856,7 @@ fn load_adapter_boot_config(path: Option<&Path>) -> AdapterBootConfig {
                             .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
                             .collect()
                     })
-                    .unwrap_or_default(),
+                    .unwrap_or_else(Vec::new),
             };
             adapter_configs.insert(name.clone(), entry);
         }

@@ -137,6 +137,13 @@ pub enum ManifestError {
 }
 
 impl BackupManifest {
+    fn anchor_id_for_error(&self) -> String {
+        self.signatures
+            .anchor_id
+            .clone()
+            .unwrap_or_else(|| "unknown-anchor".to_string())
+    }
+
     /// Canonical bytes the signature covers. Equivalent to the
     /// serialized manifest with `signatures` cleared, then encoded as
     /// pretty JSON with sorted keys. Stability matters here — any
@@ -195,9 +202,8 @@ impl BackupManifest {
         let Some(sig_hex) = self.signatures.manifest_mldsa.as_deref() else {
             return Ok(VerifyOutcome::Unsigned);
         };
-        let signature_bytes = hex::decode(sig_hex).map_err(|_| {
-            ManifestError::BadSignature(self.signatures.anchor_id.clone().unwrap_or_default())
-        })?;
+        let signature_bytes = hex::decode(sig_hex)
+            .map_err(|_| ManifestError::BadSignature(self.anchor_id_for_error()))?;
         if signature_bytes.len() != MLDSA87_SIG_LEN {
             return Err(ManifestError::SignatureLength {
                 actual: signature_bytes.len(),
@@ -218,11 +224,10 @@ impl BackupManifest {
                 });
             }
         }
-        verify_with_mldsa87(public_key, &body, &signature_bytes).map_err(|()| {
-            ManifestError::BadSignature(self.signatures.anchor_id.clone().unwrap_or_default())
-        })?;
+        verify_with_mldsa87(public_key, &body, &signature_bytes)
+            .map_err(|()| ManifestError::BadSignature(self.anchor_id_for_error()))?;
         Ok(VerifyOutcome::Signed {
-            anchor_id: self.signatures.anchor_id.clone().unwrap_or_default(),
+            anchor_id: self.anchor_id_for_error(),
         })
     }
 

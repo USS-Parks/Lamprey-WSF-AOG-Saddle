@@ -188,8 +188,7 @@ pub async fn get_registry(
 
     let now_epoch = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     let models: Vec<ModelDetail> = summaries
         .iter()

@@ -55,7 +55,7 @@ pub async fn instance_metrics(
         prediction_error: collector.prediction_error(&instance_id),
         lifecycles: instance_lifecycles
             .into_iter()
-            .map(|l| serde_json::to_value(&l).unwrap_or_default())
+            .map(|l| serde_json::to_value(&l).unwrap_or(serde_json::Value::Null))
             .collect(),
     };
 

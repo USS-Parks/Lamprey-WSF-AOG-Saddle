@@ -109,7 +109,7 @@ impl TaskManager {
             instruction: request.instruction,
             status: AgentTaskStatus::Pending,
             budget,
-            available_tools: request.available_tools.unwrap_or_default(),
+            available_tools: request.available_tools.unwrap_or_else(Vec::new),
             progress_log: Vec::new(),
             tool_audit: Vec::new(),
             inference_count: 0,

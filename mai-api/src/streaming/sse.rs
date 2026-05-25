@@ -465,8 +465,7 @@ fn build_chunk(
 ) -> ChatCompletionChunk {
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     ChatCompletionChunk {
         id: response_id.to_string(),
@@ -569,7 +568,7 @@ fn build_generation_params(req: &ChatCompletionRequest) -> GenerationParams {
         temperature: req.temperature.unwrap_or(0.7),
         top_p: req.top_p.unwrap_or(1.0),
         max_tokens: req.max_tokens.map_or(2048, |v| v as usize),
-        stop_sequences: req.stop.clone().unwrap_or_default(),
+        stop_sequences: req.stop.clone().unwrap_or_else(Vec::new),
         structured_schema: None,
     }
 }

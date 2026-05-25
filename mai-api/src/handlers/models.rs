@@ -119,8 +119,7 @@ pub async fn list_models(
 
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     let mut models: Vec<ModelDetail> = Vec::new();
     for summary in &summaries {
@@ -207,8 +206,7 @@ pub async fn get_model(
 
     let now_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
 
     let detail = ModelDetail {
         id: model_id.clone(),

@@ -84,7 +84,7 @@ def test_no_github_hosted_runner(workflow_text: str) -> None:
 def test_triggers_cover_tags_dispatch_schedule(workflow_yaml: dict) -> None:
     triggers = workflow_yaml.get(True) or workflow_yaml.get("on")
     # YAML's "on:" key can parse as Python True; accept both spellings.
-    assert triggers is not None, "workflow needs an `on:` block"
+    assert isinstance(triggers, dict), "workflow needs an `on:` mapping"
     assert "push" in triggers
     assert "workflow_dispatch" in triggers
     assert "schedule" in triggers

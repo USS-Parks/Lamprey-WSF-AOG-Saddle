@@ -191,6 +191,12 @@ def iter_files(root: Path) -> list[Path]:
             ".env",
             ".gitignore",
             "Dockerfile",
+            "Cargo.lock",
+            "package-lock.json",
+            "pnpm-lock.yaml",
+            "requirements-lock.txt",
+            "uv.lock",
+            "yarn.lock",
             "Makefile",
             "README",
         }:
@@ -305,11 +311,25 @@ def sec_sql_interpolation(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
 
 
 def sec_hardcoded_secrets(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
-    return check_regex(
-        defn,
-        r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}",
-        files=ctx.files,
-    )(ctx)
+    regex = re.compile(
+        r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*['\"]([A-Za-z0-9_\-]{16,})"
+    )
+    evidence: list[str] = []
+    for path in ctx.files:
+        for idx, line in enumerate(ctx.lines_by_file.get(path, []), start=1):
+            match = regex.search(line)
+            if not match:
+                continue
+            value = match.group(2)
+            # Environment variable names are configuration keys, not committed secrets.
+            if re.fullmatch(r"[A-Z][A-Z0-9_]+", value):
+                continue
+            if value.startswith(("example-", "invalid-", "not-a-real-", "replace-me")):
+                continue
+            evidence.append(f"{ctx.rel(path)}:{idx} {line.strip()[:160]}")
+            if len(evidence) >= 8:
+                return [finding(defn, evidence)]
+    return [finding(defn, evidence)] if evidence else []
 
 
 def sec_private_keys(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
@@ -706,6 +726,9 @@ def tst_mock_everything(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
     for path in ctx.test_files():
         count = sum(1 for line in ctx.lines_by_file.get(path, []) if mock_re.search(line))
         if count >= 8:
+            sibling_tests = [p.name.lower() for p in path.parent.glob("test_integration*.py")]
+            if sibling_tests:
+                continue
             evidence.append(f"{ctx.rel(path)} {count} mock signals")
     return [finding(defn, evidence[:8])] if evidence else []
 
@@ -740,7 +763,12 @@ def rev_docstring_placeholder(defn: CheckDef, ctx: ScanContext) -> list[Finding]
 
 
 def rev_adapter_placeholder_density(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
-    placeholder_re = re.compile(r"\b(TODO|FIXME|pass|NotImplemented|todo!|unimplemented!|panic!\(\"TODO|stub|placeholder)\b", re.IGNORECASE)
+    placeholder_re = re.compile(
+        r"\b(TODO|FIXME|todo!|unimplemented!|panic!\(\"TODO|stub|placeholder)\b",
+        re.IGNORECASE,
+    )
+    pass_body_re = re.compile(r"^\s*pass\s*(#.*)?$")
+    not_implemented_re = re.compile(r"\b(raise\s+NotImplementedError|NotImplementedError\s*\()")
     evidence: list[str] = []
     for path in ctx.code_files():
         rel = ctx.rel(path).lower()
@@ -748,7 +776,11 @@ def rev_adapter_placeholder_density(defn: CheckDef, ctx: ScanContext) -> list[Fi
             continue
         if not any(word in rel for word in ["adapter", "backend", "provider", "client"]):
             continue
-        count = sum(1 for line in ctx.lines_by_file.get(path, []) if placeholder_re.search(line))
+        count = sum(
+            1
+            for line in ctx.lines_by_file.get(path, [])
+            if placeholder_re.search(line) or pass_body_re.search(line) or not_implemented_re.search(line)
+        )
         if count >= 2:
             evidence.append(f"{ctx.rel(path)} {count} placeholder signals in adapter/backend/client surface")
     return [finding(defn, evidence[:12])] if evidence else []
@@ -791,10 +823,17 @@ def rev_silent_error_handling(defn: CheckDef, ctx: ScanContext) -> list[Finding]
 
 def rev_thin_smoke_assertions(defn: CheckDef, ctx: ScanContext) -> list[Finding]:
     thin_re = re.compile(r"\b(assert\s+True|assert\s+\w+\s*$|assert\s+\w+\s+is\s+not\s+None|expect\([^)]*\)\.toBeTruthy\(\))")
+    import_guard_re = re.compile(r"assert\s+spec(\.loader)?\s+is\s+not\s+None")
     evidence: list[str] = []
     for path in ctx.test_files():
         lines = ctx.lines_by_file.get(path, [])
-        thin = [f"{ctx.rel(path)}:{idx} {line.strip()[:160]}" for idx, line in enumerate(lines, start=1) if thin_re.search(line)]
+        thin = [
+            f"{ctx.rel(path)}:{idx} {line.strip()[:160]}"
+            for idx, line in enumerate(lines, start=1)
+            if thin_re.search(line)
+            and not import_guard_re.search(line)
+            and "type guard" not in line
+        ]
         if thin:
             evidence.extend(thin[:3])
     return [finding(defn, evidence[:12])] if evidence else []

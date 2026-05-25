@@ -266,8 +266,7 @@ fn mint_local_dev_synthetic(
 ) -> Result<Json<ExchangeTokenResponse>, ApiError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+        .map_or(0, |duration| duration.as_secs());
     // Local-dev TTL: 15 minutes. Production reads this from policy.
     let expires_at = now.saturating_add(15 * 60);
     let tenant = req

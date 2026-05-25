@@ -117,6 +117,18 @@ def test_clean_minimal_project_passes_project_hygiene_checks(tmp_path: Path) -> 
     assert "CFG-007" not in ids
 
 
+def test_lock_files_with_non_text_suffixes_satisfy_project_hygiene(tmp_path: Path) -> None:
+    write(tmp_path / "Cargo.toml", "[package]\nname='demo'\nversion='0.1.0'\n")
+    write(tmp_path / "Cargo.lock", "# lock\n")
+    write(tmp_path / "README.md", "# Demo\n")
+    write(tmp_path / ".gitignore", "node_modules/\n.env\ndist/\nbuild/\n")
+
+    report = scanner.run_scan(tmp_path)
+    ids = {finding.check_id for finding in report.findings}
+
+    assert "PRJ-004" not in ids
+
+
 def test_cli_json_output(tmp_path: Path) -> None:
     write(tmp_path / "README.md", "# Demo\n")
     write(tmp_path / "src" / "app.py", "def health():\n    return 'ok'\n")

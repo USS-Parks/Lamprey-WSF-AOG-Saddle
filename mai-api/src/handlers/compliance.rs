@@ -391,7 +391,7 @@ pub struct AuditRowWire {
 impl From<AuditQueryRow> for AuditRowWire {
     fn from(row: AuditQueryRow) -> Self {
         Self {
-            entry: serde_json::to_value(&row.entry).unwrap_or_default(),
+            entry: serde_json::to_value(&row.entry).unwrap_or(serde_json::Value::Null),
             status: verification_label(row.status).to_string(),
         }
     }

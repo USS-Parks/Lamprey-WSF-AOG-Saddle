@@ -35,6 +35,7 @@ from mai.types import ChatMessage, MaiError
 BASE_URL = os.environ.get("MAI_TEST_BASE_URL", "http://localhost:8420/v1")
 API_KEY = os.environ.get("MAI_TEST_API_KEY", "")
 TEST_MODEL = os.environ.get("MAI_TEST_MODEL", "test-model")
+BAD_API_KEY = os.environ.get("MAI_TEST_BAD_API_KEY", "invalid-key")
 
 
 @pytest.fixture
@@ -68,7 +69,7 @@ def bad_token_client() -> MaiClient:
     """Sync client with an invalid auth token."""
     cfg = MaiClientConfig(
         base_url=BASE_URL,
-        api_key="im-this-key-does-not-exist-at-all",
+        api_key=BAD_API_KEY,
         max_retries=0,
     )
     c = MaiClient(cfg)
@@ -185,7 +186,7 @@ class TestHealthCheck:
         c = MaiClient(cfg)
         try:
             response = c.health()
-            assert response is not None
+            assert response.status in {"healthy", "degraded", "unhealthy"}
         finally:
             c.close()
 

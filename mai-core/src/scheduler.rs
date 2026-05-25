@@ -722,7 +722,10 @@ impl Scheduler {
                 .ok_or_else(|| SchedulerError::NoAdapterAvailable("empty".to_string())),
             SchedulingStrategy::RoundRobin | SchedulingStrategy::ModelAffinity => {
                 // Can't mutate round_robin_index in &self, use first candidate
-                Ok(candidates.first().cloned().unwrap_or_default())
+                candidates
+                    .first()
+                    .cloned()
+                    .ok_or_else(|| SchedulerError::NoAdapterAvailable("empty".to_string()))
             }
             SchedulingStrategy::Hybrid { primary, .. } => {
                 self.select_with_strategy(primary, candidates, request)

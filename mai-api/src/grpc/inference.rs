@@ -110,8 +110,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
 
         let created = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+            .map_or(0, |duration| duration.as_secs());
 
         let response = proto::ChatCompletionResponse {
             id: request_id.clone(),
@@ -233,8 +232,7 @@ impl proto::mai_inference_server::MaiInference for MaiInferenceService {
         tokio::spawn(async move {
             let created = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
+                .map_or(0, |duration| duration.as_secs());
 
             // Placeholder: send role chunk then done chunk
             let role_chunk = proto::ChatCompletionChunk {

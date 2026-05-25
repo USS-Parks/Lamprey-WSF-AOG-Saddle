@@ -66,7 +66,7 @@ impl ModelPackage {
 
         let name = package_dir
             .file_stem()
-            .unwrap_or_default()
+            .ok_or_else(|| PackageError::Io("package path has no file name".to_string()))?
             .to_string_lossy()
             .to_string();
 

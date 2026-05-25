@@ -108,9 +108,8 @@ def test_bash_orchestrates_phases_in_order() -> None:
     # search only the orchestration tail (last 60 lines or so).
     tail = "\n".join(text.splitlines()[-60:])
     for fn in expected:
-        m = re.search(rf"^{fn}$", tail, re.MULTILINE)
-        assert m is not None, f"orchestration tail missing {fn}"
-        positions.append(m.start())
+        assert re.search(rf"^{fn}$", tail, re.MULTILINE), f"orchestration tail missing {fn}"
+        positions.append(tail.index(fn))
     assert positions == sorted(positions), "phases must be invoked in declared order"
 
 
@@ -131,9 +130,8 @@ def test_ps1_orchestrates_phases_in_order() -> None:
     positions = []
     tail = "\n".join(text.splitlines()[-60:])
     for fn in expected:
-        m = re.search(rf"^{fn}$", tail, re.MULTILINE)
-        assert m is not None, f"orchestration tail missing {fn}"
-        positions.append(m.start())
+        assert re.search(rf"^{fn}$", tail, re.MULTILINE), f"orchestration tail missing {fn}"
+        positions.append(tail.index(fn))
     assert positions == sorted(positions), "phases must be invoked in declared order"
 
 
