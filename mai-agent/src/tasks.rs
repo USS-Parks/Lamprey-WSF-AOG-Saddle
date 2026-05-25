@@ -57,6 +57,14 @@ struct ManagedTask {
     completed_at: u64,
 }
 
+#[allow(clippy::manual_unwrap_or_default)]
+fn explicit_tools_or_empty(tools: Option<Vec<String>>) -> Vec<String> {
+    match tools {
+        Some(tools) => tools,
+        None => Vec::new(),
+    }
+}
+
 // ============================================================================
 // Task Manager
 // ============================================================================
@@ -109,7 +117,7 @@ impl TaskManager {
             instruction: request.instruction,
             status: AgentTaskStatus::Pending,
             budget,
-            available_tools: request.available_tools.unwrap_or_else(Vec::new),
+            available_tools: explicit_tools_or_empty(request.available_tools),
             progress_log: Vec::new(),
             tool_audit: Vec::new(),
             inference_count: 0,
