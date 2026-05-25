@@ -94,9 +94,11 @@ jobs:
         run: cargo build --workspace --release
 
       - name: Smoke check release binary
+        # BRAND-01 renamed the mai-api crate's default binary from
+        # `mai-api` to `lamprey-mai-api`. HF-1 sync.
         run: |
-          ./target/release/mai-api --version
-          ./target/release/mai-api validate --profile "${GPU_RELEASE_PROFILE}" --json > readiness-report.json
+          ./target/release/lamprey-mai-api --version
+          ./target/release/lamprey-mai-api validate --profile "${GPU_RELEASE_PROFILE}" --json > readiness-report.json
         continue-on-error: true
 
       - name: Upload readiness report

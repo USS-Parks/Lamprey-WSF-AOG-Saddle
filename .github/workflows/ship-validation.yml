@@ -61,18 +61,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install protobuf compiler
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Build mai-ship-validate
-        run: cargo build -p mai-api --bin mai-ship-validate --locked
+      - name: Build lamprey-mai-ship-validate
+        # BRAND-01 renamed the bin from `mai-ship-validate` to
+        # `lamprey-mai-ship-validate`; HF-1 follow-up syncs this CI
+        # workflow with the rename so the workspace ship-validator
+        # gate stays green on main.
+        run: cargo build -p mai-api --bin lamprey-mai-ship-validate --locked
       - name: Validate deployment/ship/profile.toml (config-only, expect exit 0)
-        run: ./target/debug/mai-ship-validate --profile deployment/ship/profile.toml
+        run: ./target/debug/lamprey-mai-ship-validate --profile deployment/ship/profile.toml
       - name: Validate config/production.example.toml (config-only, expect exit 0)
-        run: ./target/debug/mai-ship-validate --profile config/production.example.toml
+        run: ./target/debug/lamprey-mai-ship-validate --profile config/production.example.toml
       - name: JSON output mode is well-formed
-        run: ./target/debug/mai-ship-validate --profile deployment/ship/profile.toml --json | python3 -m json.tool > /dev/null
+        run: ./target/debug/lamprey-mai-ship-validate --profile deployment/ship/profile.toml --json | python3 -m json.tool > /dev/null
       - name: Missing profile must exit 2
         run: |
           set +e
-          ./target/debug/mai-ship-validate --profile /nonexistent/profile.toml
+          ./target/debug/lamprey-mai-ship-validate --profile /nonexistent/profile.toml
           rc=$?
           set -e
           if [[ "$rc" -ne 2 ]]; then
@@ -82,7 +86,7 @@ jobs:
       - name: Missing state dir must exit 3
         run: |
           set +e
-          ./target/debug/mai-ship-validate \
+          ./target/debug/lamprey-mai-ship-validate \
             --profile deployment/ship/profile.toml \
             --state-dir /nonexistent/state
           rc=$?
