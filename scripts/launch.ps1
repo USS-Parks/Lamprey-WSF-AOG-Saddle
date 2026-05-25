@@ -37,7 +37,8 @@ if (-not $env:MAI_LOG_LEVEL) {
     $env:MAI_LOG_LEVEL = "info"
 }
 
-$Binary = Join-Path "target" "release" "mai-api.exe"
+# BRAND-01 renamed the cargo bin to lamprey-mai-api.
+$Binary = Join-Path "target" "release" "lamprey-mai-api.exe"
 
 if ($Release) {
     Write-Host "launch: building release binary"

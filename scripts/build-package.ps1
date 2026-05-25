@@ -72,7 +72,11 @@ if (-not $ValidateOnly) {
     Write-Log "building release binaries"
     cargo build --release --workspace --locked
     if ($LASTEXITCODE -ne 0) { exit 1 }
-    $bin = if ($IsWindows -or $env:OS -match 'Windows') { 'target\release\mai-api.exe' } else { 'target/release/mai-api' }
+    # BRAND-01 renamed the cargo bin from mai-api to
+    # lamprey-mai-api; the staged install path stays at
+    # usr/bin/mai-api so the rest of the packaging chain
+    # (systemd, debian/install, packaging tests) keeps working.
+    $bin = if ($IsWindows -or $env:OS -match 'Windows') { 'target\release\lamprey-mai-api.exe' } else { 'target/release/lamprey-mai-api' }
     Copy-Item -Force $bin (Join-Path $StagingDir 'usr/bin/mai-api')
 }
 

@@ -13,10 +13,11 @@ binary, no in-process router, no `axum::test::oneshot`, no mocked
 state.
 
 Skip semantics: the binary is not built by this test. When
-`mai/target/release/mai-api(.exe)` (or the debug equivalent) is
-absent, the entire module is skipped with a clear message pointing
-the developer at `cargo build --release -p mai-api`. CI invokes that
-build before pytest.
+`mai/target/release/lamprey-mai-api(.exe)` (or the debug equivalent)
+is absent, the entire module is skipped with a clear message
+pointing the developer at `cargo build --release -p mai-api`. CI
+invokes that build before pytest. (Package name kept as `mai-api`;
+BRAND-01 only renamed the produced binary file.)
 
 Auth: the binary is started against a temp working directory whose
 `config/auth_keys.toml` sets `allow_internal_profile_header = true`,
@@ -51,10 +52,13 @@ STARTUP_TIMEOUT_S = 30.0
 
 
 def _find_binary() -> Path | None:
-    """Return the path to a built mai-api binary, or None if absent."""
+    """Return the path to a built lamprey-mai-api binary, or None if
+    absent. BRAND-01 renamed the cargo bin from mai-api; the package
+    name (`-p mai-api` in cargo) is unchanged.
+    """
     ext = ".exe" if os.name == "nt" else ""
     for variant in ("release", "debug"):
-        candidate = REPO_ROOT / "target" / variant / f"mai-api{ext}"
+        candidate = REPO_ROOT / "target" / variant / f"lamprey-mai-api{ext}"
         if candidate.is_file():
             return candidate
     return None
@@ -115,7 +119,7 @@ def running_server() -> Iterator[int]:
     binary = _find_binary()
     if binary is None:
         pytest.skip(
-            "mai-api binary not built. Run "
+            "lamprey-mai-api binary not built. Run "
             "`cargo build --release -p mai-api` before invoking this e2e.",
         )
 

@@ -18,9 +18,10 @@ scripts\launch.ps1
 ```
 
 The launcher prefers an existing release binary at
-`target/release/mai-api` (or `lamprey-mai-api.exe`); otherwise it falls back to
-`cargo run -p mai-api`. First boot prints a one-time admin API key to
-stdout -- **save it before the log noise starts.**
+`target/release/lamprey-mai-api` (or `lamprey-mai-api.exe` on Windows);
+otherwise it falls back to `cargo run -p mai-api` (the package name
+is unchanged from BRAND-01). First boot prints a one-time admin API
+key to stdout -- **save it before the log noise starts.**
 
 ```text
 ========================================

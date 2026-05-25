@@ -109,8 +109,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --release -p mai-api \
     && mkdir -p /out \
-    && cp target/release/mai-api          /out/mai-api \
-    && cp target/release/mai-ship-validate /out/mai-ship-validate
+    && cp target/release/lamprey-mai-api          /out/mai-api \
+    && cp target/release/lamprey-mai-ship-validate /out/mai-ship-validate
 
 # ----------------------------------------------------------------------
 # Stage 2: python-builder

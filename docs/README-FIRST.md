@@ -145,7 +145,7 @@ cargo build --release -p mai-api
 # Expect: "Finished `release` profile [optimized] target(s) in N s"
 
 cd ..; mkdir mai-test-run; cd mai-test-run
-../source/target/release/mai-api      # or lamprey-mai-api.exe on Windows
+../source/target/release/lamprey-mai-api      # or lamprey-mai-api.exe on Windows
 ```
 
 A cold release build of the workspace took **3 m 14 s** on our

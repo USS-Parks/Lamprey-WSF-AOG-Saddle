@@ -56,7 +56,8 @@ fi
 
 export MAI_LOG_LEVEL="${MAI_LOG_LEVEL:-info}"
 
-BINARY="target/release/mai-api"
+# BRAND-01 renamed the cargo bin to lamprey-mai-api.
+BINARY="target/release/lamprey-mai-api"
 if [[ "${RELEASE}" -eq 1 ]]; then
     echo "launch: building release binary"
     cargo build --release -p mai-api

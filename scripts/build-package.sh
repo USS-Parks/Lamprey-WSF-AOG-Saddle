@@ -81,7 +81,11 @@ mkdir -p \
 if [[ "${VALIDATE_ONLY}" -eq 0 ]]; then
     log "building release binaries"
     cargo build --release --workspace --locked
-    install -m 0755 target/release/mai-api "${STAGING_DIR}/usr/bin/mai-api"
+    # BRAND-01 renamed the cargo bin (mai-api -> lamprey-mai-api);
+    # we still INSTALL at /usr/bin/mai-api so systemd units,
+    # packaging tests, and the mai-ship-validate.sh wrapper keep
+    # working unchanged.
+    install -m 0755 target/release/lamprey-mai-api "${STAGING_DIR}/usr/bin/mai-api"
 fi
 
 install -m 0755 packaging/scripts/mai-ship-validate.sh \
