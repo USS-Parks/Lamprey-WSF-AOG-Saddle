@@ -6,6 +6,8 @@
 
 This file reconciles the external PDF hard static-analysis failures (CFG-004, TST-004, TST-005, PRJ-002, PRJ-004) against the current repo state, to prevent duplicate or speculative remediation.
 
+See `docs/GITDOCTOR-75-EVIDENCE-PACK.md` for the consolidated reviewer entry point.
+
 ## Hard-Fail Reconciliation Table
 
 | ID | PDF finding | Current repo status | Evidence | Next owner session |
