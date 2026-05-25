@@ -166,7 +166,43 @@ GPU / CPU / memory / disk / thermal.
 
 ### `GET /v1/health/system`
 
-OS-level: load average, ZFS state, TPM state, network.
+Adapter-rollup aggregator (J-13). Fans out a live `health_check`
+probe to every registered adapter and folds the per-adapter
+verdicts into a single `overall` field. Used by production
+monitoring.
+
+Response shape:
+
+```json
+{
+  "overall": "ok",
+  "adapters": {
+    "ollama": {
+      "status": "ok",
+      "latency_ms": 12,
+      "process_state": "running",
+      "detail": { "uptime_ms": 9001, "requests_served": 42 }
+    }
+  },
+  "ts": "2026-05-24T19:42:08+00:00"
+}
+```
+
+- `overall` is `ok` when every adapter is Healthy; `degraded` when
+  any adapter is Degraded or in a transient process state
+  (`starting` / `restarting`); `down` when any adapter is
+  Unavailable, crashed, stopped, never started, or its
+  `health_check` errored.
+- `latency_ms` is the wall-clock duration of the per-adapter
+  probe (0 for adapters whose status was derived from the
+  process state without an IPC call).
+- An empty adapter registry returns `overall: "ok"` (vacuous).
+
+### `GET /v1/health/resources`
+
+Disk, RAM, and CPU utilization percentages — the body previously
+served at `/v1/health/system` (renamed by J-13 to free the old
+path for the adapter rollup).
 
 ---
 

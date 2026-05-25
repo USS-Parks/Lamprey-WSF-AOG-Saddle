@@ -154,14 +154,20 @@ pub async fn hardware_health(
     }))
 }
 
-// ─── System Health ─────────────────────────────────────────────────
+// ─── Resource Health (formerly System Health, pre-J-13) ────────────
 
-/// GET /v1/health/system
+/// GET /v1/health/resources
 ///
 /// Returns disk, RAM, and CPU utilization percentages. All metrics
 /// are computed locally and never transmitted off-device.
+///
+/// J-13 renamed this handler from `system_health` and moved it from
+/// `/v1/health/system` to `/v1/health/resources`. The old path now
+/// serves the adapter-rollup endpoint described in
+/// [`system_health`]. The gRPC `GetSystemHealth` RPC keeps the old
+/// schema unchanged (it speaks its own typed proto contract).
 #[allow(clippy::cast_precision_loss)]
-pub async fn system_health(
+pub async fn resources_health(
     State(state): State<AppState>,
     _profile: ProfileInfo,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -184,6 +190,176 @@ pub async fn system_health(
         ram_utilization_percent: ram_pct,
         cpu_utilization_percent: snapshot.system.cpu_utilization * 100.0,
     }))
+}
+
+// ─── J-13: /v1/health/system adapter rollup ────────────────────────
+
+/// J-13 severity ordering for the rollup. `Ok` < `Degraded` < `Down`;
+/// the worst per-adapter verdict bubbles up to the rollup's `overall`.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum Overall {
+    Ok,
+    Degraded,
+    Down,
+}
+
+impl Overall {
+    fn worsen(self, other: Self) -> Self {
+        std::cmp::max(self, other)
+    }
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Degraded => "degraded",
+            Self::Down => "down",
+        }
+    }
+}
+
+/// GET /v1/health/system
+///
+/// System-wide health rollup. Fans out a live `health_check` probe
+/// to every registered adapter, then folds the per-adapter verdicts
+/// into a single `overall` field:
+///
+/// - `ok` — every adapter reports `Healthy`
+/// - `degraded` — at least one adapter is `Degraded` or in a
+///   transient process state (`Starting` / `Restarting`), but none
+///   are down or unreachable
+/// - `down` — at least one adapter is `Unavailable`, crashed,
+///   stopped, never started, or its `health_check` errored
+///
+/// An empty adapter registry returns `ok` (vacuously — no adapters
+/// means no problems). Response shape (J-13 remediation roster):
+///
+/// ```json
+/// {
+///   "overall": "ok",
+///   "adapters": {
+///     "ollama": {
+///       "status": "ok",
+///       "latency_ms": 12,
+///       "process_state": "running",
+///       "detail": { "uptime_ms": 9001, "requests_served": 42 }
+///     }
+///   },
+///   "ts": "2026-05-24T19:42:08+00:00"
+/// }
+/// ```
+///
+/// Probes are dispatched via [`futures_util::future::join_all`]; the
+/// per-adapter IPC mutexes are independent so probes are concurrent
+/// across distinct adapters. The outer
+/// [`crate::state::AppState::adapter_manager`] mutex is held only
+/// briefly inside each future to dispatch the call.
+pub async fn system_health(
+    State(state): State<AppState>,
+    _profile: ProfileInfo,
+) -> Result<impl IntoResponse, ApiError> {
+    use std::time::Instant;
+
+    use mai_adapters::ProcessState;
+    use mai_hil::traits::HealthStatus;
+
+    // (1) Snapshot the adapter set with the outer lock briefly held.
+    let names_and_states: Vec<(String, ProcessState)> = {
+        let mgr = state.adapter_manager.lock().await;
+        mgr.list_adapters().await
+    };
+
+    // (2) Build one probe future per adapter. Adapters in
+    //     `ProcessState::Running` get a live `health_check` IPC
+    //     call; other states map directly to a verdict.
+    let manager = state.adapter_manager.clone();
+    let probes = names_and_states.into_iter().map(|(name, ps)| {
+        let manager = manager.clone();
+        async move {
+            let started = Instant::now();
+            let probe: Option<Result<HealthStatus, String>> = if ps == ProcessState::Running {
+                let mgr = manager.lock().await;
+                Some(mgr.health_check(&name).await.map_err(|e| e.to_string()))
+            } else {
+                None
+            };
+            let latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+            (name, ps, probe, latency_ms)
+        }
+    });
+
+    let results = futures_util::future::join_all(probes).await;
+
+    // (3) Fold per-adapter verdicts into the JSON rollup.
+    let mut overall = Overall::Ok;
+    let mut adapters_obj = serde_json::Map::new();
+    for (name, ps, probe, latency_ms) in results {
+        let (status, detail) = match (ps, probe) {
+            (
+                _,
+                Some(Ok(HealthStatus::Healthy {
+                    uptime_ms,
+                    requests_served,
+                })),
+            ) => (
+                "ok",
+                serde_json::json!({
+                    "uptime_ms": uptime_ms,
+                    "requests_served": requests_served,
+                }),
+            ),
+            (_, Some(Ok(HealthStatus::Degraded { reason, uptime_ms }))) => {
+                overall = overall.worsen(Overall::Degraded);
+                (
+                    "degraded",
+                    serde_json::json!({
+                        "reason": reason,
+                        "uptime_ms": uptime_ms,
+                    }),
+                )
+            }
+            (_, Some(Ok(HealthStatus::Unavailable))) => {
+                overall = overall.worsen(Overall::Down);
+                (
+                    "down",
+                    serde_json::json!({ "reason": "adapter reported Unavailable" }),
+                )
+            }
+            (_, Some(Err(err))) => {
+                overall = overall.worsen(Overall::Down);
+                ("down", serde_json::json!({ "reason": err }))
+            }
+            (ProcessState::Starting | ProcessState::Restarting, None) => {
+                overall = overall.worsen(Overall::Degraded);
+                (
+                    "degraded",
+                    serde_json::json!({ "reason": format!("process_state={ps}") }),
+                )
+            }
+            (_, None) => {
+                // NotStarted / Crashed / Stopped / Failed
+                overall = overall.worsen(Overall::Down);
+                (
+                    "down",
+                    serde_json::json!({ "reason": format!("process_state={ps}") }),
+                )
+            }
+        };
+        adapters_obj.insert(
+            name,
+            serde_json::json!({
+                "status": status,
+                "latency_ms": latency_ms,
+                "process_state": ps.to_string(),
+                "detail": detail,
+            }),
+        );
+    }
+
+    let body = serde_json::json!({
+        "overall": overall.as_str(),
+        "adapters": adapters_obj,
+        "ts": chrono::Utc::now().to_rfc3339(),
+    });
+    Ok(Json(body))
 }
 
 // ─── SHIP-11: Operational Health Probes ────────────────────────────

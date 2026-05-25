@@ -43,6 +43,9 @@ rand = "0.8"
 # File watching for config hot-reload
 notify = { version = "7", features = ["macos_kqueue"] }
 
+# RFC3339 timestamps for the J-13 /v1/health/system rollup
+chrono = { workspace = true }
+
 mai-core = { path = "../mai-core" }
 mai-hil = { path = "../mai-hil" }
 mai-adapters = { path = "../mai-adapters" }

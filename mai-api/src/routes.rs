@@ -117,6 +117,13 @@ pub fn build_router(state: AppState) -> Router {
             get(handlers::health::hardware_health),
         )
         .route("/v1/health/system", get(handlers::health::system_health))
+        // J-13: disk/RAM/CPU rollup moved off /v1/health/system to free
+        // that path for the adapter-rollup endpoint above. The shape
+        // is unchanged; the path is the only break.
+        .route(
+            "/v1/health/resources",
+            get(handlers::health::resources_health),
+        )
         // SHIP-11: operational health probes (live / ready / production)
         // distinct from the hardware-oriented endpoints above. See
         // handlers/health.rs for the four-state semantics table.
