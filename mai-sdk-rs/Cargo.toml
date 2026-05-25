@@ -16,6 +16,11 @@ reqwest = { version = "0.12", features = ["json"] }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+# J-16b: mock HTTP server for the wiremock-based per-method integration tests
+# in tests/http_client.rs. Covers the surface Basho's b281b55 implementation
+# left untested (it shipped with only 2 tokio tests inside lib.rs).
+wiremock = "0.6"
 
 [lints]
 workspace = true
