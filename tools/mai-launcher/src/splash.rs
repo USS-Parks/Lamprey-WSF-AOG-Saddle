@@ -1,9 +1,9 @@
 //! Win32 splash window for the `mai` launcher (WELCOME-01).
 //!
 //! Shows a centered, borderless, always-on-top window displaying the
-//! Lamprey MAI gold-badge logo for a fixed duration, then closes. The
-//! image bytes are baked into the binary via `include_bytes!` so the
-//! launcher is self-contained — no asset files are read at runtime.
+//! Lamprey startup image for a fixed duration, then closes. The image
+//! bytes are baked into the binary via `include_bytes!` so the launcher
+//! is self-contained — no asset files are read at runtime.
 
 use std::ffi::c_void;
 use std::mem::size_of;
@@ -28,7 +28,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{HSTRING, PCWSTR, w};
 
-const LAMPREY_LOGO_PNG: &[u8] = include_bytes!("../../../docs/assets/lamprey-mai-logo.png");
+const LAMPREY_STARTUP_PNG: &[u8] = include_bytes!("../../../docs/assets/lamprey-startup-image.png");
 
 const SPLASH_MAX_DIM: i32 = 600;
 const SPLASH_TIMER_ID: usize = 1;
@@ -36,8 +36,8 @@ const SPLASH_TIMER_ID: usize = 1;
 static SPLASH_BITMAP: OnceLock<isize> = OnceLock::new();
 
 pub fn show_splash(duration_ms: u32) -> Result<()> {
-    let img =
-        image::load_from_memory(LAMPREY_LOGO_PNG).context("decode embedded lamprey logo PNG")?;
+    let img = image::load_from_memory(LAMPREY_STARTUP_PNG)
+        .context("decode embedded lamprey startup PNG")?;
     let (bmp_w, bmp_h) = img.dimensions();
     let (target_w, target_h) = fit_into_box(bmp_w as i32, bmp_h as i32, SPLASH_MAX_DIM);
     let rgba = img.to_rgba8();

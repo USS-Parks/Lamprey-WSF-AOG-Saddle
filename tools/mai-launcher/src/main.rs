@@ -4,11 +4,12 @@
 //! What a user sees when they double-click the program:
 //!   1. A console window opens (we are a console-subsystem app, on
 //!      purpose, so the terminal UI has somewhere to live).
-//!   2. The Win32 splash window floats above the console for 2 sec,
-//!      showing the gold Lamprey MAI badge.
+//!   2. The Win32 splash window floats above the console for 4 sec,
+//!      showing the Lamprey startup image.
 //!   3. The splash dismisses (timer or click); the console clears
-//!      and the ASCII lamprey banner is printed at the top, stapled
-//!      above an interactive prompt.
+//!      and prints the Island Mountain version line, a fake
+//!      `type lamprey.txt` echo, then the ASCII lamprey banner,
+//!      stapled above an interactive prompt.
 //!   4. Commands: `demo`, `start`, `status`, `help`, `quit`. Both
 //!      `demo` (narrated compliance walk) and `start` (supervise
 //!      the headless `lamprey-mai-api.exe` daemon) shell out to
@@ -47,10 +48,10 @@ use std::process::{Command, ExitStatus};
 /// committed in `docs/assets/lamprey-banner.txt`.
 const LAMPREY_ASCII: &str = include_str!("../../../docs/assets/lamprey-banner.txt");
 
-/// Default duration the gold-badge splash floats before auto-dismiss.
+/// Default duration the startup splash floats before auto-dismiss.
 /// Override via `MAI_SPLASH_MS=<ms>`; set to `0` to skip the splash
 /// entirely (developer / CI flow).
-const SPLASH_DEFAULT_MS: u32 = 2000;
+const SPLASH_DEFAULT_MS: u32 = 4000;
 
 fn main() {
     let splash_ms = env::var("MAI_SPLASH_MS")
@@ -75,8 +76,9 @@ fn main() {
 
 fn run_terminal_ui() -> io::Result<()> {
     clear_screen();
-    print_banner();
     print_intro();
+    print_banner();
+    print_command_hint();
 
     let stdin = io::stdin();
     let mut line = String::new();
@@ -135,14 +137,27 @@ fn print_banner() {
 }
 
 fn print_intro() {
+    // Mimic the cmd.exe header in the Lamprey UI reference: a version
+    // line, a copyright line, then a fake `type lamprey.txt` echo so
+    // the ASCII banner that follows reads as the contents of that file.
     let mut out = io::stdout().lock();
-    let _ = writeln!(out, "  Lamprey MAI   build {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(
         out,
-        "  air-gapped local AI inference + compliance governance"
+        "Island Mountain [Version {}]",
+        env!("CARGO_PKG_VERSION")
     );
-    let _ = writeln!(out, "  © 2026 Island Mountain — USS-Parks LLC");
+    let _ = writeln!(out, "(c) Island Mountain 2026. All rights reserved.");
     let _ = writeln!(out);
+    let _ = writeln!(out, "C:\\Lamprey>type lamprey.txt");
+}
+
+fn print_command_hint() {
+    let mut out = io::stdout().lock();
+    let _ = writeln!(
+        out,
+        "  Lamprey MAI   build {}   air-gapped local AI + compliance governance",
+        env!("CARGO_PKG_VERSION")
+    );
     let _ = writeln!(out, "  Commands:  demo  start  status  help  quit");
     let _ = writeln!(
         out,
