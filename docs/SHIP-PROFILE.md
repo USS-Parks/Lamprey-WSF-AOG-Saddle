@@ -53,8 +53,8 @@ SHIP-01 introduced parsing only:
 - `deployment/ship/profile.toml` — canonical profile.
 - `deployment/ship/README.md` — operator-facing summary.
 - `config/production.example.toml` — annotated operator template.
-- `config/ship-validator.toml` — placeholder for the standalone
-  `mai-ship-validate` CLI binary (the SHIP-07 remainder slice).
+- `config/ship-validator.toml` — configuration for the standalone
+  `mai-ship-validate` CLI binary that landed in SHIP-07-endpoint-and-cli.
 - `mai-api/src/ship_profile.rs` — typed schema, loader,
   parse-time validator.
 - `mai-api/tests/ship_profile.rs` — integration test against the
@@ -66,10 +66,9 @@ SHIP-01 explicitly does **not**:
   That wiring landed in SHIP-07 convergence (see status table below).
 - Check that the configured paths exist on disk. That's a runtime
   guard responsibility (SHIP-02 + SHIP-07).
-- Ship the standalone `mai-ship-validate` binary. The runtime
-  fail-closed gate now lives inside `MaiServer::run()`; the
-  standalone binary + admin HTTP endpoint are the SHIP-07
-  remainder slice and are still pending.
+- Ship the standalone `mai-ship-validate` binary. SHIP-01 only
+  created the profile contract; the standalone binary and admin HTTP
+  endpoint landed later in SHIP-07-endpoint-and-cli.
 
 ## Running the parser locally
 
@@ -141,4 +140,4 @@ If any flips to `Fail` (e.g. missing trust anchor), `MaiServer::run()` returns `
 - [SHIP-HARDENING-PLAN.md](SHIP-HARDENING-PLAN.md) — the full execution plan.
 - [`mai/deployment/README.md`](../deployment/README.md) — top-level profile index.
 - [`mai/deployment/ship/README.md`](../deployment/ship/README.md) — ship profile operator notes.
-- `mai/docs/KNOWN-ISSUES.md` — current production-path caveats; SHIP-02..SHIP-16 close these out.
+- `mai/docs/KNOWN-ISSUES.md` — current production-path caveats; SHIP-02..SHIP-17 closed the ship-hardening items.

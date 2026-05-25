@@ -3,7 +3,7 @@
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (current at 46 sessions plus Trust Manifold backfill lane)
 **Instructions:** Update this file after each session completes. Mark deliverables as they are finished. Log blockers and notes as they arise.
-**Active Scope:** Phase H onward — Sessions 26-46 + BF-1..BF-7 + Ship hardening lane (SHIP-01..SHIP-16). Gate D closed by Session 46; SHIP-01..SHIP-07-convergence closed 2026-05-23. Mainline build plan complete; active work is on the SHIP-07-remainder + SHIP-08+ slice and the RC1 → RC2 → appliance deployment ladder (see `docs/COGENT-DEPLOYMENT-ROADMAP.md`).
+**Active Scope:** Historical log for Phase H onward — Sessions 26-46 + BF-1..BF-7 + Ship hardening lane. Gate D closed by Session 46; SHIP-01..SHIP-17 closed 2026-05-23; RC-01..RC-10 produced the RC1 tester bundle. Current active work is the DOUGHERTY remediation lane (J-01..J-26) before RC-11 re-bundle/re-ship; see `docs/INDEX.md`, `docs/COGENT-DEPLOYMENT-ROADMAP.md`, and `docs/dougherty/JOHN-REMEDIATION-PLAN.md`.
 
 ---
 
@@ -857,7 +857,7 @@ buyer requests them).
 
 **Date completed:** 2026-05-23
 **Lane:** Ship hardening (parallel to mainline S1..S46)
-**Status:** Convergence slice complete; remainder pending
+**Status:** Historical convergence entry. The carried SHIP-07-endpoint-and-cli work and SHIP-08..SHIP-17 are now closed; see `SHIP-PROFILE.md` and `SHIP-HARDENING-PLAN.md`.
 **Plan:** `docs/SHIP-HARDENING-PLAN.md` + `docs/SHIP-PROFILE.md`
 
 The hardening lane opened the day Gate D closed. The lane sits on top of S1..S46 and removes the demo-safe defaults (`StubVault`, `MemoryAuditWriter`, `NullSealer`, `AcceptAllBundleVerifier`, `dashboard-dev`, synthetic local-dev token exchange) that would block delivery to a regulated customer. SHIP-01 through SHIP-07-convergence landed in a single day.
@@ -909,15 +909,15 @@ Recovered `mai-api/tests/audit_wal.rs` (7 acceptance tests covering survives-res
 - [x] Compliance audit storage never uses `NullSealer` in production — `build_sealer` enforces this at builder time; `ComplianceAuditLog::builder().sealer(...)` installs the real sealer.
 - [x] Production profile refuses to bind sockets if any Critical Fail is reported — `MaiServer::run()` returns `ServerError::Init` on `!report.is_ship_ready()`.
 - [x] Trust bundles re-verified on boot — `verify_boot_bundle` is called in production with `require_bundle_on_boot=true`.
-- [ ] `POST /v1/auth/exchange_token` cannot mint synthetic local-dev tokens in production — the `TrustExchangeMode` is computed and carried into the runtime report, but `handlers/trust.rs::exchange_token` still unconditionally mints synthetic regardless of profile. **Carried to SHIP-07-endpoint-and-cli.**
-- [ ] `GET /v1/system/production-readiness` admin endpoint — **carried to SHIP-07-endpoint-and-cli.**
-- [ ] `mai-ship-validate` standalone binary — **carried to SHIP-07-endpoint-and-cli.**
+- [x] `POST /v1/auth/exchange_token` cannot mint synthetic local-dev tokens in production - closed in SHIP-07-endpoint-and-cli.
+- [x] `GET /v1/system/production-readiness` admin endpoint - closed in SHIP-07-endpoint-and-cli.
+- [x] `mai-ship-validate` standalone binary - closed in SHIP-07-endpoint-and-cli.
 
 ### Carried forward
 
-- SHIP-07-endpoint-and-cli (admin route + standalone CLI binary + profile-aware exchange_token handler).
+- SHIP-07-endpoint-and-cli (admin route + standalone CLI binary + profile-aware exchange_token handler) - closed.
 - Cleanup of duplicate `GENESIS_HASH` constant in `mai-api/src/audit_wal.rs:51` (guarded today by an inline drift test).
-- SHIP-08..SHIP-16 (packaging, backup/restore, observability, CI gates, GPU release workflow, 72h burn-in, operator docs, final audit pass).
+- SHIP-08..SHIP-17 (packaging, backup/restore, observability, CI gates, GPU release workflow, 72h burn-in, operator docs, final audit pass, auth-bypass consistency guard) - closed.
 
 ### Process notes
 

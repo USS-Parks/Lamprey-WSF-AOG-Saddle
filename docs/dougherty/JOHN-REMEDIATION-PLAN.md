@@ -4,8 +4,8 @@
 **Source Trigger:** Email from John Dougherty (independent tester, Colorado), 2026-05-24
 **Trigger Artifact:** GitDoctor scan of `USS-Parks/im-mighty-eel-mai` (15 screenshots in `.tester-feedback-2026-05-24/`)
 **Lane Name:** DOUGHERTY (sessions prefixed `J-`)
-**Sessions:** J-01 … J-26 (26 sessions, plan-only this session — implementation begins next session). Amended 2026-05-24 to add J-16/J-17 for `mai-sdk-rs` stubs and J-18..J-26 for comprehensive adapter completion. J-14 (rescan) and J-15 (response) keep their numbers; the dependency graph in §4 now routes J-14 through J-16..J-26.
-**Status of plan:** DRAFT 2026-05-24, awaits Basho sign-off before any J-session opens
+**Sessions:** J-01 … J-26 (26 sessions). Amended 2026-05-24 to add J-16/J-17 for `mai-sdk-rs` stubs and J-18..J-26 for comprehensive adapter completion. J-14 (rescan) and J-15 (response) keep their numbers; the dependency graph in §4 routes J-14 through J-16..J-26.
+**Status of plan:** ACTIVE 2026-05-24. J-01..J-13, J-16/J-16b, and multiple adapter-completion sessions have landed; remaining open items are tracked in `JOHN-REMEDIATION-ROSTER.md`.
 **Scope guarantee:** This plan addresses every line of John's email AND every flagged issue across all 15 GitDoctor screenshots. Items judged to be false positives are kept in scope as documented refutations, not silently dropped.
 
 ---

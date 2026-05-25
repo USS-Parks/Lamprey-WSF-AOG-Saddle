@@ -1,7 +1,7 @@
 # MAI Known Issues
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
-**Last Updated:** 2026-05-23 (post-SHIP-17 auth bypass consistency guard; Issue 13 closed; SHIP-16 audit residue and SHIP-17 auth-keys plumbing both reflected below)
+**Last Updated:** 2026-05-24 (governance sweep: SHIP-07 remainder and Rust SDK `todo!()` issue closed; active work is the DOUGHERTY lane)
 
 ---
 
@@ -68,13 +68,13 @@ The BF-1..BF-6 lane ships the Trust Manifold contract, schemas, ML-DSA-87 bundle
 
 The compliance dashboard admin gate uses `X-IM-Auth-Token: $MAI_DASHBOARD_ADMIN_TOKEN` (default `dashboard-dev`). The default value is for local development only — every shipped deployment profile recommends setting `MAI_DASHBOARD_ADMIN_TOKEN` to a real value before exposing the dashboard. Acquirer-side integration guides (`docs/BUYER-INTEGRATION-GUIDE.md` Step 6) call this out.
 
-### 11. SHIP-07 remainder slice (admin endpoint + standalone CLI)
+### 11. SHIP-07 remainder slice (admin endpoint + standalone CLI, closed)
 
 **Severity:** Low (functional gate is already live inside `MaiServer::run()`; this is the network/binary exposure)
 **Affects:** Operator tooling and packaging (SHIP-08).
-**Status:** Pending — tracked in `docs/SHIP-HARDENING-PLAN.md` §SHIP-07 slice B.
+**Status:** **Closed 2026-05-23 in SHIP-07-endpoint-and-cli** (commit `1f40413`; later docs may cite aggregate commit `7b746c0`).
 
-SHIP-07 convergence (commit `48c7d2e`) wired all four builders into `MaiServer::run()` and the production_guard's six deferred runtime checks (`PROD-VAULT-100`, `PROD-AUDIT-100`, `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`, `PROD-POLICY-001`) now flip from Deferred to Pass / Fail via `ProductionReadinessReport::evaluate_with_runtime`. The remaining surface is the `GET /v1/system/production-readiness` admin route, the standalone `mai-ship-validate` binary, and the profile-aware switch in `handlers/trust.rs::exchange_token` on `TrustExchangeMode`.
+SHIP-07 convergence (commit `48c7d2e`) wired all four builders into `MaiServer::run()` and the production_guard's six deferred runtime checks (`PROD-VAULT-100`, `PROD-AUDIT-100`, `PROD-AUDIT-101`, `PROD-TRUST-100`, `PROD-AUTH-100`, `PROD-POLICY-001`) now flip from Deferred to Pass / Fail via `ProductionReadinessReport::evaluate_with_runtime`. SHIP-07-endpoint-and-cli then landed the `GET /v1/system/production-readiness` admin route, standalone `mai-ship-validate` binary, and profile-aware `handlers/trust.rs::exchange_token` switch on `TrustExchangeMode`.
 
 ### 12. Duplicate `GENESIS_HASH` constant in `audit_wal.rs`
 
@@ -125,20 +125,20 @@ The SHIP-16 §15 grep sweep ran the term list from `docs/SHIP-HARDENING-PLAN.md`
 | `operator's responsibility` | 1 file (tools/mai-admin/src/restore.rs:44) | Doc comment describing operator-owned packaging concern. |
 | `TODO` | 3 files (`mai-adapters/src/manager.rs:586`, `mai-core/src/models/usb.rs:161`, `mai-scheduler/src/default.rs:394/399/402`) | Three carry session-pinned follow-ups (Session 19/22 metrics integration); one (`manager.rs`) is a known scheduler integration gap. None block ship. |
 | `FIXME`, `unimplemented!` | 0 in src | clean. |
-| `todo!()` (Rust macro that panics) | 17 calls in `mai-sdk-rs/src/lib.rs` | The Rust SDK crate is type-definition-only; the HTTP client methods were never implemented. `mai-sdk-python` is the supported SDK and is mypy-strict clean. The Rust SDK is a workspace member with no in-tree consumer; the panics are unreachable in shipped binaries. Tracked as deferred item below. |
+| `todo!()` (Rust macro that panics) | 0 calls in `mai-sdk-rs/src/lib.rs` as of the DOUGHERTY Rust SDK pass | Previously 17 Rust SDK client stubs from Session 11; closed during the DOUGHERTY lane. Keep `rg -n "todo!" mai-sdk-rs/src/lib.rs` in the J-lane verification checklist so the regression stays visible. |
 | `deferred` | 12 files | Dominated by `production_guard.rs` (46 occurrences of the `CheckStatus::Deferred` enum variant — legitimate spec terminology); the rest are doc-comment scope statements. |
 
-### 15. `mai-sdk-rs` HTTP client methods are `todo!()` stubs
+### 15. `mai-sdk-rs` HTTP client methods were `todo!()` stubs
 
-**Severity:** Low (no in-tree consumer; Python SDK is the supported client; `mai-sdk-rs` is a workspace member but not a shipped runtime dependency)
-**Affects:** `mai-sdk-rs/src/lib.rs:768-887` — 17 `todo!("Session 11: …")` calls across the chat, completion, embedding, model, health, power, profile, audit, and SSE-stream surfaces.
-**Status:** Surfaced 2026-05-23 by the SHIP-16 §15 grep sweep. Pre-dates the hardening lane.
+**Severity:** Low (was no in-tree consumer; John-visible in the RC1 source bundle)
+**Affects:** `mai-sdk-rs/src/lib.rs` client methods and `mai-sdk-rs/tests/http_client.rs`.
+**Status:** **Closed during the DOUGHERTY lane**. The current source has zero `todo!()` hits in `mai-sdk-rs/src/lib.rs`; J-16/J-16b added real `reqwest` transport and wiremock integration coverage.
 
-The original Session 11 plan called for parallel Rust + Python SDKs. Only the Python SDK reached production. The Rust SDK's types and trait surface compile (and are linked from a few doc examples) but every method that touches the wire panics with `todo!("Session 11: HTTP client")`. There is no in-tree caller; `grep -r mai_sdk_rs` returns only the crate's own files plus docs.
+The original Session 11 plan called for parallel Rust + Python SDKs. Only the Python SDK reached production before RC1, leaving the Rust SDK's wire methods as panicking `todo!()` bodies. John-visible review made that unacceptable for the source bundle even though there was no in-tree caller.
 
-**Mitigation:** Documented in this entry and `docs/INTEGRATION-COVERAGE.md`. The Python SDK (`mai-sdk-python/src/`) is the only supported client surface and is mypy-strict clean.
+**Fix:** The DOUGHERTY SDK pass replaced the client stubs with real HTTP request paths, added `reqwest = "0.12"` to `mai-sdk-rs/Cargo.toml`, and added `mai-sdk-rs/tests/http_client.rs` wiremock coverage. Streaming support now has implementation and in-file unit coverage in `mai-sdk-rs/src/lib.rs`.
 
-**Required fix (deferred — not on the ship-hardening critical path):** Either implement the Rust SDK HTTP client, or excise `mai-sdk-rs` from the workspace + remove the doc references. Tracked but not blocking SHIP-16.
+**Regression check:** `rg -n "todo!" mai-sdk-rs/src/lib.rs` should return no matches.
 
 ---
 

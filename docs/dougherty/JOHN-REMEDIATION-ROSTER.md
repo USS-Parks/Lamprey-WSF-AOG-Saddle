@@ -1217,30 +1217,30 @@ COMMIT: one commit, message `J-15: DOUGHERTY lane response doc + lane closure`. 
 
 The DOUGHERTY lane is CLOSED when every box ticks:
 
-- [ ] J-01 committed (Math.random replaced).
-- [ ] J-02 committed (gitignore patched).
-- [ ] J-03 committed (lock files + policy doc).
-- [ ] J-04 committed (Dockerfile + dockerignore + env example).
-- [ ] J-05 committed (adapter completion matrix + pooling audit doc).
-- [ ] J-06 committed (Ollama live tests passing locally).
-- [ ] J-07 committed (llama.cpp live tests passing locally).
-- [ ] J-18 committed (vLLM adapter completion).
-- [ ] J-19 committed (TGI adapter completion).
-- [ ] J-20 committed (SGLang adapter completion).
-- [ ] J-21 committed (ExLlamaV2 adapter completion).
-- [ ] J-22 committed (TensorRT-LLM/Triton adapter completion).
+- [x] J-01 committed (Math.random replaced; `6621c02`).
+- [x] J-02 committed (gitignore patched; `be7a347`).
+- [x] J-03 committed (lock files + policy doc; `468e0e8`).
+- [x] J-04 committed (Dockerfile + dockerignore + env example; `2cdc23a`, fix-up `e32d8fe`).
+- [x] J-05 committed (adapter completion matrix + pooling audit doc; `63a0327`).
+- [x] J-06 committed (Ollama live tests passing locally; `c92918c`).
+- [x] J-07 committed (llama.cpp live tests passing locally; `3fa93ce`).
+- [x] J-18 committed (vLLM adapter completion; `66eaacd`).
+- [x] J-19 committed (TGI adapter completion; `8f1ac4d`).
+- [x] J-20 committed (SGLang adapter completion; `339d798`).
+- [x] J-21 committed (ExLlamaV2 adapter completion; `ce7ea52`).
+- [x] J-22 committed (TensorRT-LLM/Triton adapter completion; `58e7394`).
 - [ ] J-23 committed (generic OpenAI-compatible local adapter).
-- [ ] J-24 committed (ONNX Runtime adapter).
-- [ ] J-25 committed (MLX adapter).
+- [x] J-24 committed (ONNX Runtime adapter; `74be424`).
+- [x] J-25 committed (MLX adapter; `84cfaf6`, cleanup `4c45754`).
 - [ ] J-26 committed (generic Triton adapter).
-- [ ] J-08 committed (error path audit + targeted fixes).
-- [ ] J-09 committed (llamacpp + exllamav2 tests ≥30 assertions).
-- [ ] J-10 committed (assertion gate + e2e smoke).
-- [ ] J-11 committed (MCP server refactor).
-- [ ] J-12 committed (async context managers).
-- [ ] J-13 committed (/health/system).
-- [ ] J-16 committed (mai-sdk-rs HTTP client; 14 of 17 todo! sites closed; tests/http_client.rs added).
-- [ ] J-17 committed (mai-sdk-rs SSE + resume; final 3 todo! sites closed; tests/streaming.rs added; SHIP KNOWN-ISSUES.md Issue 15 CLOSED).
+- [x] J-08 committed (error path audit + targeted fixes; `606e821`).
+- [x] J-09 committed (llamacpp + exllamav2 tests >=30 assertions; `d18da96`, addendum `182e075`).
+- [x] J-10 committed (assertion gate + e2e smoke; `2a7bced`, evidence fix `6bb6dbc`).
+- [x] J-11 committed (MCP server refactor; `5f14f6a`).
+- [x] J-12 committed (async context managers; `72533ea`, cleanup `233d85c`).
+- [x] J-13 committed (/health/system; `99bfd5a`).
+- [x] J-16 committed (mai-sdk-rs HTTP client; zero `todo!()` in `mai-sdk-rs/src/lib.rs`; tests/http_client.rs added; `88fa06e` captures the wiremock suite).
+- [x] J-17 functional acceptance closed in the current Rust SDK source: streaming/resume bodies are implemented and `rg -n "todo!" mai-sdk-rs/src/lib.rs` returns no matches. No standalone `tests/streaming.rs` commit is visible in the current history; keep this nuance in the J-14/J-15 response evidence.
 - [ ] J-14 committed (re-scan evidence — runs AFTER J-13, J-17, and J-26).
 - [ ] J-15 committed (response doc + memory update).
 - [ ] Every commit carries the canonical co-author footer.

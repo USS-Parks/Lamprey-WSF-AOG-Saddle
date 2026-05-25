@@ -2,7 +2,7 @@
 
 **Project:** Island Mountain Model Abstraction Interface (MAI)
 **Source:** MAI-BUILD-PROMPT-ROSTER-v2.md (46 sessions with Lamprey compliance governance) + `BUILD-EXECUTION-PLAN-V2-UPDATED.md` Appendix A (Trust Manifold backfill BF-1..BF-7).
-**Status:** Sessions 1-30 and 32-46 complete; **Gate C closed**; **Trust Manifold backfill lane closed** (2026-05-22); **Gate D closed** (Session 46); **Ship hardening lane SHIP-01..SHIP-07-convergence closed** (2026-05-23, commits `48c7d2e` + `88cdb87`). Mainline build plan is complete. Active work is the SHIP-07-remainder / SHIP-08+ slice of the ship-hardening lane plus the RC1 → RC2 → appliance ladder described in `docs/COGENT-DEPLOYMENT-ROADMAP.md`.
+**Status:** Sessions 1-30 and 32-46 complete; **Gate C closed**; **Trust Manifold backfill lane closed** (2026-05-22); **Gate D closed** (Session 46); **Ship hardening lane SHIP-01..SHIP-17 closed** (2026-05-23); **RC1 lane RC-01..RC-10 closed** with an outside-tester bundle shipped 2026-05-24. Active work is the DOUGHERTY remediation lane (J-01..J-26) before RC-11 re-bundle/re-ship; see `docs/INDEX.md`, `docs/COGENT-DEPLOYMENT-ROADMAP.md`, and `docs/dougherty/JOHN-REMEDIATION-PLAN.md`.
 **Archive:** Sessions 01-10 archived to `SESSION-LOG-ARCHIVE-01.md`; Sessions 11-25 archived to [SESSION-LOG-ARCHIVE-02.md](SESSION-LOG-ARCHIVE-02.md) on 2026-05-23.
 
 ---
@@ -50,7 +50,7 @@ Four roles, four paths. Find yours and follow it before reading anything else.
 | [ACQUISITION-PACKAGE.md](ACQUISITION-PACKAGE.md) | Five-point buyer thesis with code/test citations. |
 | [BUYER-INTEGRATION-GUIDE.md](BUYER-INTEGRATION-GUIDE.md) | OpenBao-backed trust boundary and integration sequence. |
 | [DEMO-SUITE.md](DEMO-SUITE.md) | Trust Manifold scenario and supporting demos. |
-| [SHIP-HARDENING-PLAN.md](SHIP-HARDENING-PLAN.md) | SHIP-01..SHIP-16 hardening sequence; the lane on top of S1..S46 that removes demo-safe defaults. |
+| [SHIP-HARDENING-PLAN.md](SHIP-HARDENING-PLAN.md) | Closed SHIP-01..SHIP-17 hardening sequence; the lane on top of S1..S46 that removed demo-safe defaults. |
 | [SHIP-PROFILE.md](SHIP-PROFILE.md) | Production-profile contract; status table tracks per-SHIP enforcement. |
 | [COGENT-DEPLOYMENT-ROADMAP.md](COGENT-DEPLOYMENT-ROADMAP.md) | RC1 → RC2 → appliance release ladder bridging Gate D to a shippable installer. |
 
@@ -103,8 +103,8 @@ Parallel tracks:
 - Track D: Power and Lifecycle -- complete.
 - Track L: Lamprey Compliance -- complete.
 - Track H2: Trust Manifold backfills -- complete, lane closed 2026-05-22.
-- Track SHIP (hardening): SHIP-01..SHIP-07-convergence closed 2026-05-23. Remaining: SHIP-07-endpoint-and-cli (admin route + standalone validator binary + profile-aware token-exchange handler), then SHIP-08..SHIP-16 (packaging, backup/restore, observability, CI gates, GPU release workflow, 72h burn-in, operator docs, final audit pass).
-- Track RC (deployment ladder): RC1 tester bundle → RC2 hardened release candidate → installer/appliance. Roadmap in `docs/COGENT-DEPLOYMENT-ROADMAP.md`.
+- Track SHIP (hardening): complete through SHIP-17. Production-readiness endpoint, standalone `mai-ship-validate`, packaging, backup/restore, observability, release gates, burn-in tooling, operator docs, final audit pass, and auth-bypass consistency guard have landed.
+- Track RC / DOUGHERTY: RC1 tester bundle shipped; John Dougherty's outside-tester review opened the active DOUGHERTY remediation lane. Finish remaining J sessions, then RC-11 re-bundle/re-ship. Roadmap in `docs/COGENT-DEPLOYMENT-ROADMAP.md`.
 
 See `BUILD-EXECUTION-PLAN-V2-UPDATED.md` for the governing execution plan, [MAI-BUILD-PROMPT-ROSTER-v2.md](../MAI-BUILD-PROMPT-ROSTER-v2.md) for per-session deliverables, and [SHIP-HARDENING-PLAN.md](SHIP-HARDENING-PLAN.md) for the hardening sequence.
 

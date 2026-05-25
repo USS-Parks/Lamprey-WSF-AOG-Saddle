@@ -11,7 +11,7 @@
 //! - malformed JSON response maps to `SdkError::Deserialization`
 //!
 //! Streaming methods (`chat_stream`, `ChatStreamHandle::*`) are intentionally
-//! NOT exercised here — they remain `todo!()` until J-17.
+//! not exercised here; their parser/resume coverage lives in `src/lib.rs`.
 
 use std::collections::HashMap;
 use std::time::Duration;
