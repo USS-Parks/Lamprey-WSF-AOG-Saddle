@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,19 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCAN_PATH = Path(__file__).resolve().with_name("local_gitdoctor_scan.py")
+EVIDENCE_TMP = REPO_ROOT / ".tmp" / "local-gitdoctor-evidence"
+AUDIT_CACHE = EVIDENCE_TMP / "pip-audit-cache"
+CARGO_ADVISORY_DB = EVIDENCE_TMP / "cargo-advisory-db"
+DETECT_SECRETS_SERIAL = REPO_ROOT / "tools" / "detect_secrets_serial_scan.py"
+SECRET_SCAN_EXCLUDES = (
+    r"(^|[\\/])("
+    r"\.git|\.mypy_cache|\.pytest_cache|\.pytest-tmp|\.ruff_cache|\.tmp|"
+    r"node_modules|py_tmp_dir|pytest-cache-files-[^\\/]+|pytest_temp|"
+    r"results|target|temp_test_dir|test-evidence"
+    r")([\\/]|$)"
+    r"|^docs[\\/]LOCAL-GITDOCTOR-EVIDENCE\.(json|md)$"
+    r"|^docs[\\/]LOCAL-GITDOCTOR-REPORT\.(json|md)$"
+)
 
 
 @dataclass(frozen=True)
@@ -139,10 +153,12 @@ def run_probe(root: Path, probe: ProbeDef) -> ProbeResult:
             command=probe.command,
             reason=reason,
         )
+    prepare_probe_environment()
     try:
         completed = subprocess.run(
             probe.command,
             cwd=root,
+            env=probe_environment(),
             text=True,
             encoding="utf-8",
             errors="replace",
@@ -184,6 +200,20 @@ def run_probe(root: Path, probe: ProbeDef) -> ProbeResult:
     )
 
 
+def prepare_probe_environment() -> None:
+    EVIDENCE_TMP.mkdir(parents=True, exist_ok=True)
+    AUDIT_CACHE.mkdir(parents=True, exist_ok=True)
+    CARGO_ADVISORY_DB.parent.mkdir(parents=True, exist_ok=True)
+
+
+def probe_environment() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("TMP", str(EVIDENCE_TMP))
+    env.setdefault("TEMP", str(EVIDENCE_TMP))
+    env.setdefault("PIP_AUDIT_CACHE_DIR", str(AUDIT_CACHE))
+    return env
+
+
 def tail(text: str, limit: int = 4000) -> str:
     if len(text) <= limit:
         return text
@@ -208,7 +238,7 @@ def build_probes(root: Path) -> list[ProbeDef]:
                 ProbeDef("IND-RS-001", "independent-implementation", "Rust", "cargo check workspace", ["cargo", "check", "--workspace"], timeout_seconds=600),
                 ProbeDef("IND-RS-002", "independent-implementation", "Rust", "cargo clippy workspace", ["cargo", "clippy", "--workspace", "--", "-D", "warnings", "-A", "clippy::pedantic"], timeout_seconds=900),
                 ProbeDef("IND-RS-003", "independent-implementation", "Rust", "cargo test workspace", ["cargo", "test", "--workspace"], timeout_seconds=900),
-                ProbeDef("IND-RS-004", "independent-implementation", "Rust", "cargo audit", ["cargo", "audit"], availability_command=["cargo", "audit", "--version"], timeout_seconds=300),
+                ProbeDef("IND-RS-004", "independent-implementation", "Rust", "cargo audit", ["cargo", "audit", "--db", str(CARGO_ADVISORY_DB), "--stale", "--format", "json"], availability_command=["cargo", "audit", "--version"], timeout_seconds=300),
                 ProbeDef("IND-RS-005", "independent-implementation", "Rust", "cargo deny", ["cargo", "deny", "check"], availability_command=["cargo", "deny", "--version"], timeout_seconds=300),
             ]
         )
@@ -228,7 +258,7 @@ def build_probes(root: Path) -> list[ProbeDef]:
                 # findings; it just no longer FAILs on the formatter, on
                 # asserts-in-tests, or on stdlib-only urllib usage.
                 ProbeDef("IND-PY-003", "independent-implementation", "Python", "bandit security scan", [sys.executable, "-m", "bandit", "-r", ".", "-f", "json", "-c", "pyproject.toml"], availability_module="bandit", timeout_seconds=300),
-                ProbeDef("IND-PY-004", "independent-implementation", "Python", "pip-audit dependency scan", [sys.executable, "-m", "pip_audit"], availability_module="pip_audit", timeout_seconds=300),
+                ProbeDef("IND-PY-004", "independent-implementation", "Python", "pip-audit dependency scan", [sys.executable, "-m", "pip_audit", "--cache-dir", str(AUDIT_CACHE), "--progress-spinner", "off", "--format", "json"], availability_module="pip_audit", timeout_seconds=300),
             ]
         )
     if (root / "package.json").exists():
@@ -242,7 +272,7 @@ def build_probes(root: Path) -> list[ProbeDef]:
     probes.extend(
         [
             ProbeDef("IND-SEC-001", "independent-implementation", "Secrets", "gitleaks secret scan", ["gitleaks", "detect", "--source", ".", "--no-git", "--redact"], availability_command=["gitleaks", "version"], timeout_seconds=300),
-            ProbeDef("IND-SEC-002", "independent-implementation", "Secrets", "detect-secrets scan", ["detect-secrets", "scan", "--all-files"], availability_command=["detect-secrets", "--version"], timeout_seconds=300),
+            ProbeDef("IND-SEC-002", "independent-implementation", "Secrets", "detect-secrets serial scan", [sys.executable, str(DETECT_SECRETS_SERIAL), "--all-files", "--fail-on-findings", "--exclude-files", SECRET_SCAN_EXCLUDES, "."], availability_module="detect_secrets", timeout_seconds=300),
         ]
     )
     if any(path.name == "Dockerfile" or path.name.endswith(".Dockerfile") for path in root.rglob("*") if path.is_file()):
