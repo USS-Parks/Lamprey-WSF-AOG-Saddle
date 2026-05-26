@@ -47,7 +47,10 @@ thiserror = "2"
 # Async trait (dyn-compatible async methods)
 async-trait = "0.1"
 
-# FFI bridge
+# Request validation (API layer)
+validator = { version = "0.16", features = ["derive"] }
+
+# FFI bridge (Rust ↔ Python, adapter framework)
 pyo3 = { version = "0.22", features = ["auto-initialize"] }
 
 # Logging
@@ -72,7 +75,6 @@ dashmap = "6"
 # Testing
 tokio-test = "0.4"
 mockall = "0.13"
-validator = { version = "0.16", features = ["derive"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -34,9 +34,11 @@ pub mod errors;
 pub mod health;
 pub mod manager;
 pub mod process;
+pub mod python_embed;
 pub mod validation;
 
 pub use errors::FrameworkError;
 pub use manager::AdapterManager;
 pub use process::{AdapterProcess, ProcessState};
+pub use python_embed::{PythonRuntimeInfo, python_runtime_info};
 pub use validation::{HostValidationError, validate_adapter_host};

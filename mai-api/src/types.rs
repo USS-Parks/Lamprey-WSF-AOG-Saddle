@@ -11,7 +11,6 @@
 
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
-
 const MAX_EMBEDDING_BATCH_ITEMS: usize = 256;
 const MAX_EMBEDDING_ITEM_CHARS: usize = 32_768;
 
@@ -62,18 +61,18 @@ pub struct ChatCompletionRequest {
     #[serde(default)]
     pub model: Option<String>,
     /// Conversation messages
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "messages must be non-empty"))]
     pub messages: Vec<ApiChatMessage>,
     /// Whether to stream response tokens via SSE
     #[serde(default)]
     pub stream: bool,
     /// Sampling temperature (0.0 - 2.0)
     #[serde(default)]
-    #[validate(range(min = 0.0, max = 2.0))]
+    #[validate(range(min = 0.0, max = 2.0, message = "temperature must be in [0.0, 2.0]"))]
     pub temperature: Option<f32>,
     /// Nucleus sampling threshold
     #[serde(default)]
-    #[validate(range(min = 0.0, max = 1.0))]
+    #[validate(range(min = 0.0, max = 1.0, message = "top_p must be in [0.0, 1.0]"))]
     pub top_p: Option<f32>,
     /// Maximum tokens to generate
     #[serde(default)]
@@ -83,11 +82,19 @@ pub struct ChatCompletionRequest {
     pub stop: Option<Vec<String>>,
     /// Frequency penalty (-2.0 to 2.0)
     #[serde(default)]
-    #[validate(range(min = -2.0, max = 2.0))]
+    #[validate(range(
+        min = -2.0,
+        max = 2.0,
+        message = "frequency_penalty must be in [-2.0, 2.0]"
+    ))]
     pub frequency_penalty: Option<f32>,
     /// Presence penalty (-2.0 to 2.0)
     #[serde(default)]
-    #[validate(range(min = -2.0, max = 2.0))]
+    #[validate(range(
+        min = -2.0,
+        max = 2.0,
+        message = "presence_penalty must be in [-2.0, 2.0]"
+    ))]
     pub presence_penalty: Option<f32>,
     /// User identifier for abuse tracking (local-only)
     #[serde(default)]
@@ -95,11 +102,13 @@ pub struct ChatCompletionRequest {
 }
 
 /// Single chat message in API format
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct ApiChatMessage {
     /// Role: system, user, assistant, tool
+    #[validate(length(min = 1, message = "role must be non-empty"))]
     pub role: String,
     /// Message content
+    #[validate(length(min = 1, message = "content must be non-empty"))]
     pub content: String,
     /// Optional name for multi-participant chats
     #[serde(default)]
@@ -119,6 +128,7 @@ pub struct EmbeddingRequest {
     pub input: EmbeddingInput,
     /// Encoding format (float or base64)
     #[serde(default = "default_encoding_format")]
+    #[validate(custom(function = "validate_encoding_format"))]
     pub encoding_format: String,
 }
 
@@ -132,6 +142,42 @@ pub enum EmbeddingInput {
 
 fn default_encoding_format() -> String {
     "float".to_string()
+}
+
+fn validate_encoding_format(value: &str) -> Result<(), ValidationError> {
+    match value {
+        "float" | "base64" => Ok(()),
+        _ => {
+            let mut err = ValidationError::new("encoding_format");
+            err.message = Some("encoding_format must be 'float' or 'base64'".into());
+            Err(err)
+        }
+    }
+}
+
+fn validate_embedding_input(value: &EmbeddingInput) -> Result<(), ValidationError> {
+    match value {
+        EmbeddingInput::Single(s) => {
+            if s.trim().is_empty() {
+                let mut err = ValidationError::new("input");
+                err.message = Some("input must be a non-empty string".into());
+                return Err(err);
+            }
+        }
+        EmbeddingInput::Batch(v) => {
+            if v.is_empty() {
+                let mut err = ValidationError::new("input");
+                err.message = Some("input must be a non-empty array".into());
+                return Err(err);
+            }
+            if v.iter().any(|s| s.trim().is_empty()) {
+                let mut err = ValidationError::new("input");
+                err.message = Some("input array must not contain empty strings".into());
+                return Err(err);
+            }
+        }
+    }
+    Ok(())
 }
 
 // ─── Structured Generation Request ──────────────────────────────────
@@ -174,16 +220,17 @@ pub struct FunctionCallRequest {
     #[serde(default)]
     pub model: Option<String>,
     /// Conversation messages
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "messages must be non-empty"))]
     pub messages: Vec<ApiChatMessage>,
     /// Available tools/functions
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "tools must be non-empty"))]
     pub tools: Vec<ToolDefinition>,
     /// Tool choice strategy: "auto", "none", or specific tool
     #[serde(default = "default_tool_choice")]
     pub tool_choice: String,
     /// Sampling temperature
     #[serde(default)]
+    #[validate(range(min = 0.0, max = 2.0, message = "temperature must be in [0.0, 2.0]"))]
     pub temperature: Option<f32>,
     /// Maximum tokens
     #[serde(default)]
@@ -206,7 +253,7 @@ pub struct ToolDefinition {
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct FunctionDefinition {
     /// Function name
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "function.name must be non-empty"))]
     pub name: String,
     /// Human-readable description
     #[serde(default)]

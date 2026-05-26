@@ -25,6 +25,7 @@ use crate::config::{DiscoveredAdapter, FrameworkConfig};
 use crate::errors::FrameworkError;
 use crate::health::{AdapterHealthState, HealthCheckResult as HealthCheckOutcome, HealthReport};
 use crate::process::{AdapterProcess, ProcessState};
+use crate::python_embed::python_runtime_info;
 
 /// Handle to a managed adapter returned after initialization.
 #[derive(Debug, Clone)]
@@ -62,6 +63,11 @@ impl AdapterManager {
     /// Create a new adapter manager with the given configuration.
     pub fn new(config: FrameworkConfig) -> Self {
         let config = Arc::new(config);
+        if let Some(info) = python_runtime_info() {
+            info!(python_executable = %info.executable, python_version = %info.version, "Embedded Python runtime detected");
+        } else {
+            warn!("Embedded Python runtime not available (PyO3)");
+        }
         Self {
             config,
             processes: Arc::new(RwLock::new(HashMap::new())),

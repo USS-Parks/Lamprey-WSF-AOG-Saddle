@@ -14,6 +14,7 @@ use std::fmt::Write as _;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{error, info, warn};
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::auth::check_permission;
 use crate::errors::ApiError;
@@ -189,6 +190,7 @@ pub async fn embeddings(
     req.validate()
         .map_err(|e| ApiError::ValidationFailed(format!("Invalid embedding request: {e}")))?;
 
+    // Convert validated input into a flat text list
     let texts = match &req.input {
         EmbeddingInput::Single(s) => vec![s.clone()],
         EmbeddingInput::Batch(v) => v.clone(),
@@ -295,6 +297,9 @@ pub async fn structured_generation(
     Json(req): Json<StructuredGenerationRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     check_permission(&profile, "inference")?;
+
+    req.validate()
+        .map_err(|e| ApiError::ValidationFailed(e.to_string()))?;
 
     if req.messages.is_empty() {
         return Err(ApiError::ValidationFailed(
@@ -589,6 +594,50 @@ fn build_structured_gen_params(req: &StructuredGenerationRequest) -> GenerationP
 
 // ─── Validation Helpers ────────────────────────────────────────────
 
+fn validate_chat_request(req: &ChatCompletionRequest) -> Result<(), ApiError> {
+    req.validate()
+        .map_err(|e| ApiError::ValidationFailed(e.to_string()))?;
+
+    if req.messages.is_empty() {
+        return Err(ApiError::ValidationFailed(
+            "Messages array cannot be empty".to_string(),
+        ));
+    }
+
+    if let Some(temp) = req.temperature
+        && !(0.0..=2.0).contains(&temp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "Temperature must be between 0.0 and 2.0, got {temp}"
+        )));
+    }
+
+    if let Some(top_p) = req.top_p
+        && !(0.0..=1.0).contains(&top_p)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "top_p must be between 0.0 and 1.0, got {top_p}"
+        )));
+    }
+
+    if let Some(fp) = req.frequency_penalty
+        && !(-2.0..=2.0).contains(&fp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "frequency_penalty must be between -2.0 and 2.0, got {fp}"
+        )));
+    }
+
+    if let Some(pp) = req.presence_penalty
+        && !(-2.0..=2.0).contains(&pp)
+    {
+        return Err(ApiError::ValidationFailed(format!(
+            "presence_penalty must be between -2.0 and 2.0, got {pp}"
+        )));
+    }
+
+    Ok(())
+}
 // ─── Token Estimation ──────────────────────────────────────────────
 
 /// Rough token estimate for chat requests (4 chars per token heuristic).
