@@ -1,8 +1,8 @@
 # RC1 Tester Feedback
 
 **Project:** Lamprey MAI
-**Release:** RC1 v2 (Tester Bundle — source + binaries)
-**Freeze commit:** `dceaabc` (SHIP-17 hotfix on `main`)
+**Release:** RC1 v2 (Tester Bundle — source + binaries) + RC1.2 (Post-DOUGHERTY)
+**Freeze commit:** `dceaabc` (RC1.1) / `efe1576` (RC1.2 post-DOUGHERTY)
 **Plan reference:** `docs/COGENT-DEPLOYMENT-ROADMAP.md` Session RC-09
 **Companion docs:** `README-FIRST.md`, `TESTER-INSTRUCTIONS.md`, `RC1-BUNDLE-NOTES.md`
 
@@ -63,6 +63,12 @@ fixed point.)
 | `Lamprey-MAI-RC1.3.tar.gz` | 5.7 MB | `35ada78f66f57901c1c3a438709712cbf0e8f43f60e5b8383eb2343c4a66c76a` |
 | `Lamprey-MAI-RC1.3.zip` | 6.1 MB | `6200c1ccfcd25132e417c03f465eef474ccf35cbd9a8e063256f0089d3ccee84` |
 | `SHA256SUMS` | 177 B | (covers the two archives above) |
+| | | |
+| **RC1.2 (post-DOUGHERTY, 2026-05-25)** | | |
+| `MAI-Lamprey-RC1.2/` (uncompressed folder, 5,115 file entries) | ~18 MB | per `MAI-Lamprey-RC1.2/CHECKSUMS.txt` (internal) |
+| `MAI-Lamprey-RC1.2.zip` | 24.7 MB | `F18C521C0D14627E8129E850B5B368BEF03211EB443FF5CB297033B5EB5D8B1D` |
+| Freeze commit | `efe1576` | DOUGHERTY lane CLOSED (26/26 sessions complete) |
+| Local GitDoctor score | 93/100 | Zero HIGH findings (see `MEMORIAL-DAY-SCAN-REPORT.md`) |
 
 Bundle and archives live at `C:/Users/17076/Documents/Claude/Island-Mountain-RC1-release/`
 on the build host. Both archives carry the same 671 file entries
@@ -114,7 +120,7 @@ tester is invited, responds, or files a finding.
 
 | # | Tester | Role / why invited | Track | Bundle variant | Invited (date) | Responded (date) | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | John Dougherty (johndou.com, CO) | Independent technical tester sourced by Basho; ran GitDoctor (gitdoctor.io) AI scan against the GitHub mirror `USS-Parks/im-mighty-eel-mai` + a manual read | Hybrid — closest to Track B/C but tool-driven (GitDoctor) rather than the README-FIRST + cargo-test walk | RC1.1-docs (sent from the repo, not the assembled archive) | 2026-05-23 (overnight) | 2026-05-24 (email + 15 scan screenshots) | **responded — awaiting tester re-test** — see §6.2; DOUGHERTY lane closed 2026-05-24; response doc at [`RC1-TESTER-RESPONSE-DOUGHERTY.md`](RC1-TESTER-RESPONSE-DOUGHERTY.md) |
+| 1 | John Dougherty (johndou.com, CO) | Independent technical tester sourced by Basho; ran GitDoctor (gitdoctor.io) AI scan against the GitHub mirror `USS-Parks/im-mighty-eel-mai` + a manual read | Hybrid — closest to Track B/C but tool-driven (GitDoctor) rather than the README-FIRST + cargo-test walk | RC1.1-docs → **RC1.2 re-shipped 2026-05-25** | 2026-05-23 (overnight) | 2026-05-24 (email + 15 scan screenshots) | **responded — RC1.2 re-ship ready** — see §6.2; DOUGHERTY lane closed 2026-05-25 (26/26); response doc at [`RC1-TESTER-RESPONSE-DOUGHERTY.md`](RC1-TESTER-RESPONSE-DOUGHERTY.md); re-ship doc at [`RC1.2-RESHIP.md`](RC1.2-RESHIP.md) |
 
 Add one row per invitation. Status values: `invited` → `running` →
 `reported` → `triaged`. If a tester declines or never responds,
