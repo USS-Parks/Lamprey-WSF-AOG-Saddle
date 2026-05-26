@@ -24,7 +24,6 @@ use crate::types::{
     EmbeddingInput, EmbeddingRequest, EmbeddingResponse, EmbeddingUsage, FunctionCallRequest,
     ProfileInfo, StructuredGenerationRequest, TokenUsage,
 };
-use validator::Validate;
 
 use mai_core::scheduler::{InferenceRequest, RequestPayload, RequestPriority, RequestType};
 use mai_hil::traits::GenerationParams;

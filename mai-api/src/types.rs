@@ -17,7 +17,7 @@ const MAX_EMBEDDING_ITEM_CHARS: usize = 32_768;
 fn validate_embedding_input(input: &EmbeddingInput) -> Result<(), ValidationError> {
     match input {
         EmbeddingInput::Single(s) => {
-            if s.is_empty() {
+            if s.trim().is_empty() {
                 return Err(ValidationError::new("empty"));
             }
             if s.chars().count() > MAX_EMBEDDING_ITEM_CHARS {
@@ -32,7 +32,7 @@ fn validate_embedding_input(input: &EmbeddingInput) -> Result<(), ValidationErro
                 return Err(ValidationError::new("too_many_items"));
             }
             for s in v {
-                if s.is_empty() {
+                if s.trim().is_empty() {
                     return Err(ValidationError::new("empty_item"));
                 }
                 if s.chars().count() > MAX_EMBEDDING_ITEM_CHARS {
@@ -155,35 +155,10 @@ fn validate_encoding_format(value: &str) -> Result<(), ValidationError> {
     }
 }
 
-fn validate_embedding_input(value: &EmbeddingInput) -> Result<(), ValidationError> {
-    match value {
-        EmbeddingInput::Single(s) => {
-            if s.trim().is_empty() {
-                let mut err = ValidationError::new("input");
-                err.message = Some("input must be a non-empty string".into());
-                return Err(err);
-            }
-        }
-        EmbeddingInput::Batch(v) => {
-            if v.is_empty() {
-                let mut err = ValidationError::new("input");
-                err.message = Some("input must be a non-empty array".into());
-                return Err(err);
-            }
-            if v.iter().any(|s| s.trim().is_empty()) {
-                let mut err = ValidationError::new("input");
-                err.message = Some("input array must not contain empty strings".into());
-                return Err(err);
-            }
-        }
-    }
-    Ok(())
-}
-
 // ─── Structured Generation Request ──────────────────────────────────
 
 /// Request for structured/constrained output generation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct StructuredGenerationRequest {
     /// Model identifier
     #[serde(default)]
