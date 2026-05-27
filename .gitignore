@@ -53,3 +53,7 @@ package-lock.json.bak
 # Inno Setup build artifacts (LCH-1)
 packaging/windows/Output/
 packaging/windows/bin/
+
+# Local staging artifacts (IGD-01): never commit live keys / tokens.
+deployment/openbao-staging/
+deployment/*-staging/
