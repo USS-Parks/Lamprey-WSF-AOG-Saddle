@@ -2,7 +2,7 @@
 
 **Product:** Lamprey WSF/AOG Saddle — the client/org-facing agentic harness; the first-party governed seat for WSF + AOG.
 **Decided by:** Basho Parks, exploration session 2026-07-11 (run against the Lamprey Harness and Mighty Eel OS working copies).
-**Status:** Direction locked. No code. Next artifact: the Saddle build P-SPR, drafted on explicit request, executed only on explicit STS approval.
+**Status:** **SUPERSEDED IN PART on 2026-07-16.** This remains an honest record of the 2026-07-11 founding session. Its artifact-only WSF/AOG rule, “Loom parked” decision, and seat-only project boundary are superseded by `SADDLE-INDEPENDENCE-DECISION-2026-07-16.md` and the canonical `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`. Unchanged decisions—Lamprey Harness separation, protocol-first client behavior, staged identity, seamless cloud/local routing, and independent versioning—remain in force.
 
 ---
 
@@ -81,10 +81,10 @@ Buyer documentation states exactly this — no stronger claim.
 1. **Codebase bootstrap.** Recommended: one-time snapshot copy of the harness tree at v0.16.0 as Saddle's initial code drop (own history from that point), then weave governance through it. Alternative: fresh scaffold cherry-picking modules. The P-SPR settles this first.
 2. **Naming.** "Lamprey" currently names the OSS harness, the WSF build codename (public name Aeneas), and Lamprey MAI. Saddle needs a client-facing name before buyer docs exist.
 3. **Seat vs. console split.** Recommended: seat-scoped views in-app (my approvals, my receipts, my contract); estate views stay in the Sovereignty Console.
-4. **Cross-repo supply chain.** Saddle consumes cosign-signed service binaries from im-mighty-eel-mai releases, version-pinned with a contracts-style compatibility gate. Never vendored source.
+4. **[SUPERSEDED 2026-07-16] Cross-repo supply chain.** The founding recommendation was to consume version-pinned, cosign-signed service binaries and never import source. The independence decision now requires complete non-secret WSF/AOG/Saddle source ownership in this repository; signed artifacts remain release outputs.
 5. **CI.** The no-mock-only rule extends to the seat: a live-stack CI leg that stands up the appliance compose and runs the governed paths against it.
 6. **Skills/plugins posture.** Org-allowlisted, signed bundles only. RAG-ingest classification (envelope labels at ingest) parked for v2.
-7. **Loom.** Parked. Dispatching `multi_agent_run` to the Loom runtime for org-side orchestration is v2+.
+7. **[SUPERSEDED 2026-07-16] Orchestration.** The founding record parked the then-named Loom runtime. Saddle now replaces that name and the Kubernetes-level independent scheduler/orchestrator is Priority 1.
 8. **Hooks + CI discipline.** Commit-msg footer, no-slop scan, and the verify gate need Layer-3 owners wired in the first scaffold phase.
 
 ---
