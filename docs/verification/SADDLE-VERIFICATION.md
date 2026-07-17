@@ -26,3 +26,20 @@ This ledger is the command-level verification source for the independent Saddle 
 | Staged no-slop gate | PASS | Repository pre-commit hook run explicitly in Git for Windows Bash. |
 | Commit footer | PASS | `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Remote `main` advanced to `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. |
+
+## SAD-01
+
+**State under test:** target `578d3ab` plus planning and ledger updates that
+select the exact source object `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Seed remote lookup | PASS | Live `Mighty-Eel-OS` `refs/heads/main` resolved to `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`. |
+| Git object identity | PASS | Selected object is a published Git `commit`; no local worktree or branch is the source. |
+| Signature and footer | PASS | Git reported a good SSH signature for `basho.parks@gmail.com`, and the exact canonical footer is present. |
+| Reconciled T5/T6 lineage | PASS | The selected object follows the T6 implementation checkpoint `5e541e5324269a051d3304e94ae868080d876a25`. |
+| Open source hardening disposition | PASS | `LSH-D1`–`LSH-D5` and `LSH-X1`–`LSH-X6` map to named Saddle prompts in `SADDLE-SEED-CHECKPOINT-2026-07-17.md`. |
+| Source import absence | PASS | SAD-01 adds only planning and verification records; no WSF/AOG/Saddle product source or runtime data is imported. |
+| `git diff --check` | PASS | SAD-01 documentation tree has no whitespace errors. |
+| Secret scans | PASS | Gitleaks 8.30.1 and explicit private-key/token/credential-URL checks report zero matches. |
+| Staged no-slop gate | PASS | Configured target pre-commit hook reports `no-slop: clean (staged)`. |

@@ -2,7 +2,8 @@
 
 **Purpose:** Make the independent source import and the Loom-to-Saddle replacement mechanically executable.
 **Authority:** Supporting specification for `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
-**Status:** Planning baseline; execution must regenerate counts and hashes at the approved seed SHA.
+**Status:** SAD-01 approved immutable seed pin; SAD-02 must regenerate all
+counts, hashes, and dispositions at that pin before import.
 
 ## 1. Current repository evidence
 
@@ -15,6 +16,18 @@ Observed on 2026-07-16:
 | Seed local `main` | `6b8118975d6e17a1e4e1c7458c8c2594516c224b` | Diverged local T5 work; ahead one and behind five relative to `origin/main` |
 
 `df119fb…` is an **inventory baseline, not an approved import pin**. `SADDLE-SEED-RECONCILIATION-2026-07-16.md` establishes that local T5 commit `6b81189…` is a targeted-gate-clean transplant candidate onto `df119fb…`, with only the DEVLOG append point conflicting. It is still local-only and M3 remains open through the absent T6 production seam. `SAD-01` must produce a new published checkpoint containing both histories and explicitly close or carry every remaining hardening prompt before selecting the immutable import SHA. No local-only commit may be silently canonized.
+
+### 1.1 SAD-01 approved pin
+
+`SAD-01` selected published seed `origin/main`
+`fedf005a30ad388ab156dc8bd693a3aa3f0702ea` as the sole import source. It is a
+signed Git commit whose parent source implementation checkpoint is
+`5e541e5324269a051d3304e94ae868080d876a25`, which closes the T6 production
+tool-governance gate. The counts in this section remain historical inventory
+evidence only. `SAD-02` must regenerate every count, dependency closure, path
+disposition, and content hash from the approved object; no local filesystem
+state may supplement it. See `SADDLE-SEED-CHECKPOINT-2026-07-17.md` for the
+open-finding carry-forward register.
 
 ## 2. Baseline package closure
 

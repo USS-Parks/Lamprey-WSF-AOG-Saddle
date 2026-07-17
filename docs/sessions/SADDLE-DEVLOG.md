@@ -84,3 +84,54 @@ This authorization is durable for every in-scope implementation, verification, l
 ### Commit state
 
 The SAD-00 implementation was committed as `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. The commit carries the exact canonical footer, the full-tree no-slop pre-push gate passed in Git for Windows Bash, and remote `main` advanced from `ba665a4a40802f132df729b7abc80350d11a7171` to `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42` on 2026-07-17.
+
+---
+
+## SAD-01 — Resolve the authoritative seed checkpoint
+
+**Status:** PASS — implementation checkpoint pending publication.
+
+### Decision
+
+- Approved seed remote/object:
+  `Mighty-Eel-OS` `origin/main` at
+  `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`.
+- The selected commit is published, is a Git `commit`, has a good SSH signature
+  for `basho.parks@gmail.com` with fingerprint
+  `SHA256:PE4Wpbp27IeZC6y4dd97YDNLiFrDvky2KOWSqvdkTEc`, and carries the exact
+  canonical footer.
+- Its parent source implementation checkpoint is
+  `5e541e5324269a051d3304e94ae868080d876a25`, which contains reconciled T5 and
+  the fully live-validated T6 production tool-governance composition.
+- The former local-only T5 branch and the pre-reconciliation `df119fb…`
+  baseline remain ineligible.
+
+### Work completed
+
+- Recorded the immutable source pin in
+  `PLANNING/SADDLE-SEED-CHECKPOINT-2026-07-17.md`.
+- Preserved the historical reconciliation report and appended its current
+  resolution rather than rewriting the original evidence.
+- Updated the source/rename manifest to distinguish its historic inventory
+  baseline from the approved object.
+- Mapped all still-open seed hardening prompts `LSH-D1` through `LSH-D5` and
+  `LSH-X1` through `LSH-X6` to named Saddle gates. No open source finding is
+  silently treated as closed.
+- Imported no product source, generated state, runtime data, credentials, or
+  private key material.
+
+### Gate
+
+- live remote `refs/heads/main` lookup — PASS;
+- selected Git object type, SSH signature, and canonical footer — PASS;
+- one immutable source SHA recorded — PASS;
+- all remaining source hardening prompts explicitly carried — PASS; and
+- target change set remains planning/ledger-only — PASS;
+- local Markdown links and `git diff --check` — PASS; and
+- Gitleaks plus explicit private-key/token/credential-URL scans — PASS, zero
+  findings; and
+- staged target no-slop gate — PASS.
+
+### Next prompt
+
+`SAD-02 — Generate the full source-coverage manifest`.

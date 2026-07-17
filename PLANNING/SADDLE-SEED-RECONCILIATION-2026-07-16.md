@@ -112,3 +112,21 @@ These prompts do not need to disappear before Saddle can own the source, but eve
 - M4/M5 open prompts are enumerated for mandatory disposition.
 
 No tracked source may be imported from a working directory or from the disposable verification clone. The eventual import source remains one approved, published Git commit object.
+
+## 7. SAD-01 Resolution — 2026-07-17
+
+This addendum supersedes only the incomplete acceptance conclusion in §6 while
+preserving the 2026-07-16 reconciliation evidence. The required reconciliation
+was completed in the seed repository: T5 was transplanted onto the published
+baseline and reverified, then T6's production tool-governance path passed its
+live OpenBao and full workspace gates.
+
+The approved immutable import pin is published seed `origin/main` commit
+`fedf005a30ad388ab156dc8bd693a3aa3f0702ea`. It has a good SSH signature and
+the exact canonical footer. The prior local-only `6b81189…` candidate and the
+earlier published `df119fb…` inventory baseline remain rejected as import pins.
+
+The complete SAD-01 decision, signature evidence, and non-downgrade mapping for
+every open `LSH-D*` and `LSH-X*` prompt are recorded in
+`SADDLE-SEED-CHECKPOINT-2026-07-17.md`. `SAD-02` must derive the full coverage
+ledger from this Git object; no working-tree materialization is permitted.
