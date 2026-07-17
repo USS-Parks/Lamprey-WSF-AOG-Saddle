@@ -32,7 +32,7 @@ This authorization is durable for every in-scope implementation, verification, l
 
 ## SAD-00 — Bootstrap execution governance
 
-**Status:** PASS — implementation commit pending.
+**Status:** PASS — implementation and remote checkpoint `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`.
 
 ### Initial state
 
@@ -80,3 +80,7 @@ This authorization is durable for every in-scope implementation, verification, l
 ### Next prompt
 
 `SAD-01 — Resolve the authoritative seed checkpoint`.
+
+### Commit state
+
+The SAD-00 implementation was committed as `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. The commit carries the exact canonical footer, the full-tree no-slop pre-push gate passed in Git for Windows Bash, and remote `main` advanced from `ba665a4a40802f132df729b7abc80350d11a7171` to `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42` on 2026-07-17.

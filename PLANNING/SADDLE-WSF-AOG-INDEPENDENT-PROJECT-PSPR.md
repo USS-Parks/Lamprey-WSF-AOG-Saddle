@@ -10,7 +10,7 @@
 **Architecture/conformance contract:** `PLANNING/SADDLE-ARCHITECTURE-AND-CONFORMANCE-CONTRACT.md`
 **Current-state gap matrix:** `PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md`
 **Seed reconciliation:** `PLANNING/SADDLE-SEED-RECONCILIATION-2026-07-16.md`
-**Status:** **AUTHORIZED FOR FULL STS EXECUTION — SAD-00 ACTIVE.** Full execution plus commit and push authorization was granted on 2026-07-17.
+**Status:** **AUTHORIZED FOR FULL STS EXECUTION — SAD-00 COMPLETE; SAD-01 ACTIVE.** SAD-00 implementation and remote checkpoint are `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. Full execution plus commit and push authorization was granted on 2026-07-17.
 
 ---
 

@@ -24,5 +24,5 @@ This ledger is the command-level verification source for the independent Saddle 
 | `git diff --check` | PASS | No whitespace errors. |
 | Secret-pattern scan | PASS | PowerShell high-confidence pattern scan and Gitleaks 8.30.1 both report zero findings. |
 | Staged no-slop gate | PASS | Repository pre-commit hook run explicitly in Git for Windows Bash. |
-| Commit footer/signature | PENDING | Verify after commit. |
-| Remote checkpoint | PENDING | Record after push to `main`. |
+| Commit footer | PASS | `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Remote `main` advanced to `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. |
