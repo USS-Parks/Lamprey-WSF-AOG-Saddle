@@ -43,3 +43,5 @@ select the exact source object `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`.
 | `git diff --check` | PASS | SAD-01 documentation tree has no whitespace errors. |
 | Secret scans | PASS | Gitleaks 8.30.1 and explicit private-key/token/credential-URL checks report zero matches. |
 | Staged no-slop gate | PASS | Configured target pre-commit hook reports `no-slop: clean (staged)`. |
+| Commit footer | PASS | `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `578d3ab8ae7425d3cd1b3f69bd25f934e7c3485a` to `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f`. |

@@ -18,6 +18,7 @@ tracked, allowlisted Saddle import procedure.
 | Parent implementation checkpoint | `5e541e5324269a051d3304e94ae868080d876a25` |
 | Signature result | Good SSH signature for `basho.parks@gmail.com`, ED25519 fingerprint `SHA256:PE4Wpbp27IeZC6y4dd97YDNLiFrDvky2KOWSqvdkTEc` |
 | Required footer | Exact canonical footer verified on the selected commit |
+| Saddle remote checkpoint | `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f` |
 
 The selected object is the current published `origin/main`, not a local branch,
 working tree, disposable clone, or partially reconciled history. It contains the

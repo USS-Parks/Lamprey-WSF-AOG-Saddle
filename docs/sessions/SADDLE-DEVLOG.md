@@ -89,7 +89,7 @@ The SAD-00 implementation was committed as `d959bf0d8e7e14fdd2c73ff9bf42609a1748
 
 ## SAD-01 — Resolve the authoritative seed checkpoint
 
-**Status:** PASS — implementation checkpoint pending publication.
+**Status:** PASS — remote checkpoint `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f`.
 
 ### Decision
 
@@ -135,3 +135,11 @@ The SAD-00 implementation was committed as `d959bf0d8e7e14fdd2c73ff9bf42609a1748
 ### Next prompt
 
 `SAD-02 — Generate the full source-coverage manifest`.
+
+### Commit state
+
+SAD-01 was committed as `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f` with the
+exact canonical footer. The configured target full-tree no-slop pre-push gate
+passed, and remote `main` advanced from
+`578d3ab8ae7425d3cd1b3f69bd25f934e7c3485a` to
+`7f30ea691f91b3ea8774b7fd121fbc8580b1d69f` on 2026-07-17.
