@@ -10,7 +10,7 @@
 - Seed reconciliation: `PLANNING/SADDLE-SEED-RECONCILIATION-2026-07-16.md`
 - Execution log once started: `docs/sessions/SADDLE-DEVLOG.md`
 
-The plan is drafted, not authorized. Execute only after the user says `run it STS` or approves named prompts.
+Full STS execution plus commit and push authorization was granted on 2026-07-17. Execute the complete PSPR in dependency order, validate every prompt gate, maintain `docs/sessions/SADDLE-DEVLOG.md`, and push verified checkpoints to `main`. The authorization does not extend to force-push, history rewriting, deployment, credential rotation, paid services, or unrelated changes.
 
 ## Priority and identity
 

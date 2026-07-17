@@ -10,7 +10,7 @@
 **Architecture/conformance contract:** `PLANNING/SADDLE-ARCHITECTURE-AND-CONFORMANCE-CONTRACT.md`
 **Current-state gap matrix:** `PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md`
 **Seed reconciliation:** `PLANNING/SADDLE-SEED-RECONCILIATION-2026-07-16.md`
-**Status:** **DRAFTED — NOT AUTHORIZED FOR STS EXECUTION.**
+**Status:** **AUTHORIZED FOR FULL STS EXECUTION — SAD-00 ACTIVE.** Full execution plus commit and push authorization was granted on 2026-07-17.
 
 ---
 
@@ -106,7 +106,7 @@ Trust-, credential-, policy-, consensus-, scheduling-, and integration-adjacent 
 
 ### 0.8 STS and Git authority
 
-Drafting or revising this PSPR is not authorization to execute it. Execution begins only when the user says `run it STS` or approves specific prompts/milestones.
+Drafting or revising this PSPR was not authorization to execute it. Full STS execution plus commit and push authorization was granted by the owner on 2026-07-17. That authorization is durable for all in-scope prompt commits, verification closeouts, and pushes to `main`; it excludes force-push, history rewriting, deployment, credential rotation, paid services, and unrelated changes.
 
 STS authorizes reversible repository-local edits and verification in roster order. It does not by itself authorize commits or pushes. `Commit and push` is durable authorization for the in-scope publish sequence under the workspace rule. No force-push, history rewrite, production deployment, credential rotation, or unrelated-repository mutation is implied.
 
@@ -168,7 +168,7 @@ Import means a pinned snapshot with hashes and provenance, not an indefinite mir
 
 ### Phase 0 — Truth, freeze, and safe import design
 
-- [ ] **SAD-00 — Bootstrap execution governance.** Create the isolated worktree, DEVLOG, verification ledger, and toolchain record. Record target HEAD/status and current seed remote SHA.
+- [x] **SAD-00 — Bootstrap execution governance.** Create the isolated worktree, DEVLOG, verification ledger, and toolchain record. Record target HEAD/status and current seed remote SHA.
   **Gate:** clean isolated target worktree; exact SHAs and tools recorded; no code imported.
 
 - [ ] **SAD-01 — Resolve the authoritative seed checkpoint.** Reconcile the active Lamprey Saddle security-hardening lane, open findings, and remote main. Select an approved source SHA; do not canonize an incomplete local-only checkpoint accidentally.

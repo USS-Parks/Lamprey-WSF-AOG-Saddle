@@ -34,4 +34,4 @@ Enforcement doctrine: **server-side enforcement for everything that crosses a wi
 | Canonical threat model | `C:\Users\17076\Documents\Claude\Mighty Eel OS\mai\docs\architecture\AGENTIC-SECURITY-MAP.md` |
 
 ## Current state
-The independence decision and canonical PSPR are drafted. No product source has been imported and STS execution has not been authorized. The first executable lane is `SAD-00` through `SAD-03`; Saddle orchestration remains ahead of governed-seat bootstrap in priority.
+The independence decision and canonical PSPR are under authorized full STS execution as of 2026-07-17. SAD-00 through SAD-03 establish the safe source boundary before product import; Saddle orchestration remains ahead of governed-seat bootstrap in priority. Execution truth is recorded in `docs/sessions/SADDLE-DEVLOG.md` and `docs/verification/SADDLE-VERIFICATION.md`.

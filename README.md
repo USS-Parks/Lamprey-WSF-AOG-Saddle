@@ -35,7 +35,7 @@ The bridge invariant is simple: **no AOG action or workload becomes authoritativ
 
 ## Status
 
-Direction superseded and locked on 2026-07-16. The canonical build and migration plan is [PLANNING/SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md](PLANNING/SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md). It is drafted, not yet authorized for STS execution.
+Direction superseded and locked on 2026-07-16. Full STS execution plus commit and push authorization was granted on 2026-07-17. The canonical build and migration plan is [PLANNING/SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md](PLANNING/SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md), with live execution status in [docs/sessions/SADDLE-DEVLOG.md](docs/sessions/SADDLE-DEVLOG.md) and command-level evidence in [docs/verification/SADDLE-VERIFICATION.md](docs/verification/SADDLE-VERIFICATION.md).
 
 The executable source boundary and rename map are in [PLANNING/SADDLE-SOURCE-AND-RENAME-MANIFEST.md](PLANNING/SADDLE-SOURCE-AND-RENAME-MANIFEST.md). The exact meaning of the Kubernetes-level claim—including the scheduler cycle, WSF↔AOG bridge, live profiles, 20 conformance bars, and initial SLOs—is in [PLANNING/SADDLE-ARCHITECTURE-AND-CONFORMANCE-CONTRACT.md](PLANNING/SADDLE-ARCHITECTURE-AND-CONFORMANCE-CONTRACT.md). The baseline implementation inventory and the honest path from reusable machinery to those acceptance bars are recorded in [PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md](PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md). The published/local seed divergence and the exact safe-pin sequence are resolved in [PLANNING/SADDLE-SEED-RECONCILIATION-2026-07-16.md](PLANNING/SADDLE-SEED-RECONCILIATION-2026-07-16.md).
 
