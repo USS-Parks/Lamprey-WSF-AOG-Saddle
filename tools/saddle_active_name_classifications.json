@@ -6,7 +6,7 @@
     "active-name-verifier": 0,
     "audit-history": 3,
     "canonical-pspr": 5,
-    "current-gap-ledger": 1,
+    "current-gap-ledger": 0,
     "founding-direction": 3,
     "hardening-evidence-history": 7,
     "import-allowlist-evidence": 17,

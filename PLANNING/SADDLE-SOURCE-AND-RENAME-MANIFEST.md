@@ -2,7 +2,7 @@
 
 **Purpose:** Make the independent source import and the Loom-to-Saddle replacement mechanically executable.
 **Authority:** Supporting specification for `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
-**Status:** **SAD-22 PASS — versioned legacy-state migration complete; SAD-23 active-name eradication next.**
+**Status:** **M2 PASS — SAD-20 through SAD-23 complete; Saddle identity cutover and active-name eradication proven.**
 The machine-readable path, disposition, and SHA-256 ledger is
 `test-evidence/saddle/SAD-02/source-manifest.json`; `SAD-03` owns the
 no-secret staged-import proof before any source enters the target.
@@ -344,6 +344,26 @@ migration/rollback and continues with the next receipt.
 The operator procedure is
 `docs/operations/SADDLE-LEGACY-STATE-MIGRATION.md`; deterministic evidence is
 `test-evidence/saddle/SAD-22/legacy-state-migration-gate.json`.
+
+## 4.6 SAD-23 active-name eradication
+
+SAD-23 added a tracked-file-wide, fail-closed eradication verifier. At the
+accepted checkpoint it scans 952 tracked files and count-locks all 309 retired
+orchestrator-name occurrences across 38 reviewed files. Every occurrence must
+resolve to exactly one historical-provenance, named migration-fixture, or
+verification-input rule; new, removed, relocated, ambiguous, or unclassified
+matches fail until the reviewed registry and deterministic evidence are
+updated together.
+
+The gate also proves zero retired-name occurrences in generated Cargo metadata
+for all 37 packages, compiled `saddlectl` help, both generated OpenAPI schemas,
+the production console build, and the tracked console, deployment, packaging,
+and script surfaces. The existing SAD-21 negative-authorization assertion and
+SAD-22 migration seam remain bounded, named fixtures rather than runtime aliases.
+
+The reviewed registry is `tools/saddle_active_name_classifications.json`; the
+verifier and evidence are `tools/verify_saddle_active_name_eradication.py` and
+`test-evidence/saddle/SAD-23/active-name-eradication-gate.json`.
 
 ## 5. Loom-to-Saddle active identity map
 

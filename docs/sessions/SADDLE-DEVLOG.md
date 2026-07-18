@@ -778,3 +778,65 @@ verified remote checkpoint `f7f50efd77813e4f8b76057d38f76a99a610df60`.
 ### Next prompt
 
 `SAD-23 — Active-name eradication gate`.
+
+---
+
+## SAD-23 — Active-name eradication gate
+
+**Status:** PASS — M2 complete; implementation commit
+`4f733ff7ae0e9bc30a1002838fd116c398637f22`.
+
+### Work completed
+
+- Inventoried every tracked retired orchestrator-name match and classified it
+  as historical provenance, a named migration fixture, or a verification input.
+- Added a reviewed classification registry with an exact expected occurrence
+  count per rule. New, deleted, moved, ambiguous, or unclassified matches fail
+  closed instead of inheriting a directory-wide exception silently.
+- Added a deterministic verifier that scans tracked paths and text content,
+  generated Cargo identity metadata, compiled CLI help, both OpenAPI schemas,
+  the tracked console/deployment/packaging/script surfaces, and the generated
+  production console artifact.
+- Preserved the SAD-21 retired-header negative authorization assertion and the
+  SAD-22 legacy-state seam as named fixtures; neither is a runtime alias.
+
+### Gate
+
+- SAD-23 tracked repository scan — PASS: 952 tracked files, 946 text files, six
+  binary files, 38 classified files, 309 count-locked explained occurrences,
+  zero classification-count mismatches, and zero unexplained matches;
+- generated Cargo metadata — PASS: 37 packages, 217 identity strings, zero
+  retired-name occurrences;
+- generated API schemas — PASS: `crates/wsf-api/src/openapi.json` and
+  `docs/api/openapi.yaml`, zero retired-name occurrences;
+- compiled `saddlectl --help` — PASS with zero retired-name occurrences;
+- console tracked/UI and generated artifact gate — PASS: 39 tracked UI files;
+  `npm.cmd --prefix console test` passed eight files/23 tests; production Vite
+  build passed and all four generated artifact files scanned clean;
+- deployment, packaging, and script surfaces — PASS: 46, 20, and 18 tracked
+  files respectively;
+- deterministic SAD-20 package, SAD-21 runtime, SAD-22 migration, and SAD-23
+  eradication verify-only gates — PASS;
+- `cargo fmt --check`, `cargo check --workspace --all-targets --locked`, and
+  strict workspace all-target clippy — PASS;
+- staged `git diff --check`, Gitleaks, explicit credential-pattern scan,
+  anti-truncation, and full no-slop gates — PASS. The anti-truncation hook
+  emitted its existing multi-value `integer expected` warnings but exited zero;
+  and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`, SHA-256
+  `937dd3b43f9e4f2a8a2883fd8165888b74aefda469d9f5dbc9e6ff7d89804adc`;
+- `tools/saddle_active_name_classifications.json`, SHA-256
+  `3605b3429386f275132410b93afed004c479aea300faebd109349de85756984f`;
+- `tools/verify_saddle_active_name_eradication.py`, SHA-256
+  `bf919e6aeeee2ab7e5694f580753164c16364fb69083f5a37ceed4a393ed1a1d`;
+  and
+- implementation commit
+  `4f733ff7ae0e9bc30a1002838fd116c398637f22`.
+
+### Next prompt
+
+`SAD-30 — Establish saddle-bridge and freeze cross-plane contracts`.

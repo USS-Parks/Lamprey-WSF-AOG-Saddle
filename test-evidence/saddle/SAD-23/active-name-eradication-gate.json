@@ -27,15 +27,6 @@
     },
     {
       "category": "historical_provenance",
-      "content_occurrences": 1,
-      "path": "PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md",
-      "path_occurrences": 0,
-      "reason": "Execution ledger describes the completed rename and the eradication rule.",
-      "rule_id": "current-gap-ledger",
-      "total_occurrences": 1
-    },
-    {
-      "category": "historical_provenance",
       "content_occurrences": 3,
       "path": "PLANNING/SADDLE-FOUNDING-DIRECTION.md",
       "path_occurrences": 0,
@@ -359,9 +350,9 @@
       "total_occurrences": 11
     }
   ],
-  "classified_files": 39,
+  "classified_files": 38,
   "classified_occurrences_by_category": {
-    "historical_provenance": 270,
+    "historical_provenance": 269,
     "migration_fixture": 23,
     "verification_input": 17
   },
@@ -396,7 +387,7 @@
   "schema_version": 1,
   "status": "PASS",
   "text_files_scanned": 946,
-  "total_retired_name_occurrences": 310,
+  "total_retired_name_occurrences": 309,
   "tracked_files_scanned": 952,
   "unexplained_matches": []
 }
