@@ -634,7 +634,8 @@ resolution failure; no repository gate was waived.
 `a9e46f013120e9afc6a4afcb6ed21cebbecfa597`; verification closeout and first
 verified remote checkpoint
 `04a859d883268a1faa0b7b7b73e21a31d7e16b1e`; corrective identity closure
-`5ca45e81c3de44d5cdc1e31e1561195b1da12cc2`.
+`5ca45e81c3de44d5cdc1e31e1561195b1da12cc2`; corrective closeout and verified
+remote checkpoint `3e2fef91581c786f96911b4bb607bf12ef72828a`.
 
 ### Work completed
 
@@ -698,7 +699,9 @@ verified remote checkpoint
 - verification closeout and first verified remote checkpoint
   `04a859d883268a1faa0b7b7b73e21a31d7e16b1e`; and
 - corrective active-identity closure
-  `5ca45e81c3de44d5cdc1e31e1561195b1da12cc2`.
+  `5ca45e81c3de44d5cdc1e31e1561195b1da12cc2`; and
+- corrective closeout and verified remote checkpoint
+  `3e2fef91581c786f96911b4bb607bf12ef72828a`.
 
 ### Next prompt
 
