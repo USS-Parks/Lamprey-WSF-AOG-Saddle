@@ -1194,8 +1194,8 @@ verified remote checkpoint `7a13d765ab0e07db14e698327fa7067ce120e346`.
 ## SAD-34 — Per-action reauthorization and receipts
 
 **Status:** PASS — implementation commit
-`3d65900c870e10a812cc1468e3b005cfce96a931`; verification closeout and remote
-checkpoint pending publication of this ledger update.
+`3d65900c870e10a812cc1468e3b005cfce96a931`; verification closeout and first
+verified remote checkpoint `f2be87602bc68f02169211d3e9ad718937e6189a`.
 
 ### Work completed
 
@@ -1264,7 +1264,10 @@ checkpoint pending publication of this ledger update.
 - refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
   SHA-256 `e23e9aeb771516025cc35e5f06587657205287a2c6199db2f3a8298b05bd1a70`;
   and
-- implementation commit `3d65900c870e10a812cc1468e3b005cfce96a931`.
+- implementation commit `3d65900c870e10a812cc1468e3b005cfce96a931`;
+  and
+- verification closeout and first verified remote checkpoint
+  `f2be87602bc68f02169211d3e9ad718937e6189a`.
 
 ### Next prompt
 
