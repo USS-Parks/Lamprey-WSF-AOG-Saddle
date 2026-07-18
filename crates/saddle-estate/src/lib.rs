@@ -34,6 +34,10 @@ pub const ATTESTATION_VERIFIED_AT_ANNOTATION: &str =
     "saddle.islandmountain.io/attestation-verified-at";
 /// Hex ML-DSA signature over the exact node trust profile and validity window.
 pub const ATTESTATION_SIGNATURE_ANNOTATION: &str = "saddle.islandmountain.io/attestation-signature";
+/// Immutable workload digest bound into the placement's runtime capability.
+pub const RUNTIME_DIGEST_ANNOTATION: &str = "saddle.islandmountain.io/runtime-digest";
+/// Runtime class bound into the placement's runtime capability.
+pub const RUNTIME_CLASS_ANNOTATION: &str = "saddle.islandmountain.io/runtime-class";
 
 /// The resource kinds Saddle orchestrates (addendum A1.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

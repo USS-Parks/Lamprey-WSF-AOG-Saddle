@@ -2401,6 +2401,8 @@ dependencies = [
  "fabric-token",
  "hex",
  "saddle-estate",
+ "serde_json",
+ "sha2",
  "thiserror 2.0.18",
 ]
 

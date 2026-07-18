@@ -3,8 +3,9 @@
 //! and reflects the placements bound to it, so each service is a first-class
 //! managed object — with no change to its data-path API (an existing client of
 //! the gateway or a tool caller brokered by the toolproxy is unaffected:
-//! management touches the estate, never the request path). Every declared
-//! [`WorkloadKind`] is reconciled uniformly; metering has no kind of its own —
+//! management touches the estate, never the request path). Gateway, toolproxy,
+//! approvals, governed agent, and inference `WorkloadKind` values are
+//! reconciled uniformly; metering has no kind of its own —
 //! it rides inside the gateway process, so the gateway workload carries it.
 //!
 //! Scope honesty: attested **placement** is the scheduler's (Phase S) — this

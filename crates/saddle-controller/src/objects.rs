@@ -1,13 +1,15 @@
 //! The estate client Phase-R reconcilers act through. Reads come from the
 //! apiserver's read-only [`StoreReader`]; **every write goes through the
-//! admission choke point** ([`Admission::admit_system`]) —
+//! admission choke point** under a non-forgeable [`ControllerGrant`] —
 //! a controller mutation is validated, policy-checked, sealed, CAS-guarded,
 //! and receipted exactly like any external caller's (A1.7, doctrine I-3/I-5).
 //! No controller holds a writable store handle.
 
 use std::sync::Arc;
 
-use saddle_apiserver::admission::{Admission, AdmissionRequest, Verb};
+use saddle_apiserver::admission::{
+    Admission, AdmissionOutcome, AdmissionRequest, ControllerGrant, Verb,
+};
 use saddle_apiserver::codec::parse_kind;
 use saddle_apiserver::error::ApiError;
 use saddle_apiserver::reader::StoreReader;
@@ -39,12 +41,51 @@ pub fn is_terminating(object: &ResourceObject) -> bool {
 pub struct EstateClient {
     admission: Arc<Admission>,
     reader: StoreReader,
+    authority: ControllerAuthority,
+}
+
+#[derive(Clone)]
+enum ControllerAuthority {
+    Grant(ControllerGrant),
+    #[cfg(debug_assertions)]
+    Fixture,
 }
 
 impl EstateClient {
+    /// Debug/test fixture client. Release builds require an exact controller
+    /// grant through [`Self::for_controller`].
+    #[cfg(debug_assertions)]
     #[must_use]
     pub fn new(admission: Arc<Admission>, reader: StoreReader) -> Self {
-        Self { admission, reader }
+        Self {
+            admission,
+            reader,
+            authority: ControllerAuthority::Fixture,
+        }
+    }
+
+    /// Production controller client with one server-minted mutation profile.
+    #[must_use]
+    pub fn for_controller(
+        admission: Arc<Admission>,
+        reader: StoreReader,
+        grant: ControllerGrant,
+    ) -> Self {
+        Self {
+            admission,
+            reader,
+            authority: ControllerAuthority::Grant(grant),
+        }
+    }
+
+    async fn admit(&self, request: AdmissionRequest) -> Result<AdmissionOutcome, ApiError> {
+        match &self.authority {
+            ControllerAuthority::Grant(grant) => {
+                self.admission.admit_controller(request, grant).await
+            }
+            #[cfg(debug_assertions)]
+            ControllerAuthority::Fixture => self.admission.admit_system(request).await,
+        }
     }
 
     /// Fetch one object, typed.
@@ -89,7 +130,7 @@ impl EstateClient {
             name: object.name().to_owned(),
             object: Some(object),
         };
-        match self.admission.admit_system(request).await {
+        match self.admit(request).await {
             Ok(_) | Err(ApiError::Conflict { .. }) => Ok(()),
             Err(e) => Err(e.into()),
         }
@@ -108,7 +149,7 @@ impl EstateClient {
             name: object.name().to_owned(),
             object: Some(object),
         };
-        self.admission.admit_system(request).await?;
+        self.admit(request).await?;
         Ok(())
     }
 
@@ -123,7 +164,7 @@ impl EstateClient {
             name: name.to_owned(),
             object: None,
         };
-        match self.admission.admit_system(request).await {
+        match self.admit(request).await {
             Ok(_) | Err(ApiError::NotFound { .. }) => Ok(()),
             Err(e) => Err(e.into()),
         }

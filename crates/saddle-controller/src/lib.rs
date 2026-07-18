@@ -24,9 +24,9 @@
 //! revocation snapshot — online (the gateway kill-switch path) and on removable
 //! media (air-gap) — so a revoked token is denied on every replica and offline.
 //!
-//! X2: the [`WorkloadController`] brings `aog-gateway` under Saddle as a managed
-//! `Workload` — reconciling its health/readiness and reflecting its placements —
-//! with no change to the gateway's data-path API.
+//! X2/SAD-33: the [`WorkloadController`] manages gateway, toolproxy, approvals,
+//! and governed agent `Workload`s — reconciling health/readiness and reflecting
+//! placements — with no change to their data-path APIs.
 //!
 //! O1: the replica-set [`deploy`] planner makes the binding controller the full
 //! Deployment analog — replica-indexed placements converge a `Workload` to

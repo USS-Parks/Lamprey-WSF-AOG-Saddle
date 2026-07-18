@@ -151,8 +151,8 @@ impl AppState {
     }
 
     /// The admission choke point, for in-process controllers (Phase R). Handing
-    /// this out is safe by construction: `Admission::admit_verified` and the
-    /// server-only controller seam are the full chain
+    /// this out is safe by construction: `Admission::admit_verified` and
+    /// server-minted, profile-scoped controller grants are the full chain
     /// (validate → mutate → commit → receipt) — there is no writable store
     /// handle to leak.
     #[must_use]

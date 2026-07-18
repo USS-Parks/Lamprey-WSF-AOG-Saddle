@@ -3,7 +3,7 @@
 //! Type invariant ("no write reaches `saddle-store` bypassing
 //! admission, enforced by type"): [`Admission`] privately owns the sole writable
 //! `RaftNode` handle in this crate, and [`Admission::admit_verified`] plus the
-//! server-only [`Admission::admit_system`] path are the only methods
+//! server-minted [`Admission::admit_controller`] path are the only methods
 //! that reaches [`RaftNode::write`]. A CRUD handler is handed an `Admission` and
 //! a read-only [`crate::reader::StoreReader`]; neither exposes the raw node, so
 //! no handler can construct a store write that skips the chain.
@@ -15,10 +15,13 @@
 //!   4. commit        (the sole `saddle-store` write, guarded by a CAS precondition)
 //!   5. receipt       (hash-chained `fabric-proof` receipt to `wsf-ledger`)
 //!
-//! All five stages do real work now. The choke point is complete — every mutation
+//! Release builds expose no unrestricted system controller authority; the old
+//! fixture seam is compiled only with debug assertions. All five stages do real
+//! work now. The choke point is complete — every mutation
 //! traverses this one method, and each admitted one is receipted.
 
 use std::collections::{BTreeSet, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use base64::Engine as _;
@@ -34,7 +37,9 @@ use saddle_bridge::{
     AdmissionGrant, AdmissionSpec, AdmissionVerb, CapabilityScope, ReceiptIntentSpec,
     VerifiedSaddleRequest,
 };
-use saddle_estate::{Kind, ResourceObject, TokenRef};
+use saddle_estate::{
+    Kind, RUNTIME_CLASS_ANNOTATION, RUNTIME_DIGEST_ANNOTATION, ResourceObject, TokenRef,
+};
 use saddle_store::raft::RaftNode;
 use saddle_store::raft::types::RaftResponse;
 use saddle_store::{Op, Precondition, Revision};
@@ -52,6 +57,37 @@ pub enum Verb {
     Create,
     Update,
     Delete,
+}
+
+/// Fixed mutation profile for a distinct in-process controller identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControllerProfile {
+    /// Attested scheduler: bind, finish, and revoke placements only.
+    Scheduler,
+}
+
+impl ControllerProfile {
+    fn identity(self) -> &'static str {
+        match self {
+            Self::Scheduler => "saddle-controller/scheduler",
+        }
+    }
+
+    fn allows(self, _verb: Verb, kind: Kind) -> bool {
+        match self {
+            Self::Scheduler => kind == Kind::Placement,
+        }
+    }
+}
+
+/// Non-serializable, server-minted authority for one controller and tenant.
+/// Private fields prevent construction from wire data or controller code.
+#[derive(Debug, Clone)]
+pub struct ControllerGrant {
+    profile: ControllerProfile,
+    tenant: String,
+    expires_at: chrono::DateTime<chrono::Utc>,
+    epoch: u64,
 }
 
 impl Verb {
@@ -118,6 +154,7 @@ impl Principal {
     /// The system principal — for internal callers with no external request
     /// (later-phase controllers). Never minted from an inbound request.
     #[must_use]
+    #[cfg(debug_assertions)]
     fn system() -> Self {
         Self {
             request_principal: WsfPrincipal::establish(
@@ -141,6 +178,29 @@ impl Principal {
         }
     }
 
+    fn controller(grant: &ControllerGrant) -> Self {
+        Self {
+            request_principal: WsfPrincipal::establish(
+                AuthenticatedFacts {
+                    principal_id: grant.profile.identity().to_owned(),
+                    kind: IdentityKind::Workload,
+                    tenant_id: grant.tenant.clone(),
+                    subject_hash: grant.profile.identity().to_owned(),
+                    service_identity: Some(grant.profile.identity().to_owned()),
+                    roles: vec![format!("controller:{:?}", grant.profile).to_ascii_lowercase()],
+                    token_lineage: Some(format!("controller-epoch:{}", grant.epoch)),
+                    auth_strength: AuthStrength::MutualTls,
+                    audience: Audience::Aog,
+                },
+                uuid::Uuid::new_v4().to_string(),
+                chrono::Utc::now().to_rfc3339(),
+            ),
+            system: true,
+            token_ref: None,
+            token: None,
+        }
+    }
+
     #[must_use]
     pub fn subject(&self) -> &str {
         &self.request_principal.subject_hash
@@ -148,9 +208,7 @@ impl Principal {
 
     #[must_use]
     pub fn tenant(&self) -> Option<&str> {
-        (!self.system)
-            .then_some(self.request_principal.tenant_id.as_str())
-            .filter(|tenant| !tenant.is_empty())
+        Some(self.request_principal.tenant_id.as_str()).filter(|tenant| !tenant.is_empty())
     }
 
     /// Explicit estate-wide reader authority. Ordinary tenant principals never
@@ -226,6 +284,7 @@ pub struct Admission {
     sealer: Sealer,
     ledger: Arc<Mutex<Ledger>>,
     delivered_receipts: Mutex<HashSet<String>>,
+    controller_epoch: AtomicU64,
 }
 
 impl Admission {
@@ -242,7 +301,30 @@ impl Admission {
             sealer,
             ledger: Arc::new(Mutex::new(Ledger::new(Arc::new(ledger_signer)))),
             delivered_receipts: Mutex::new(HashSet::new()),
+            controller_epoch: AtomicU64::new(1),
         }
+    }
+
+    /// Mint a bounded controller authority. The returned proof is not
+    /// serializable and becomes invalid when its TTL or controller epoch ends.
+    #[must_use]
+    pub fn issue_controller_grant(
+        &self,
+        profile: ControllerProfile,
+        tenant: impl Into<String>,
+        ttl: chrono::Duration,
+    ) -> ControllerGrant {
+        ControllerGrant {
+            profile,
+            tenant: tenant.into(),
+            expires_at: chrono::Utc::now() + ttl,
+            epoch: self.controller_epoch.load(Ordering::Acquire),
+        }
+    }
+
+    /// Revoke every outstanding controller grant immediately.
+    pub fn revoke_controller_grants(&self) {
+        self.controller_epoch.fetch_add(1, Ordering::AcqRel);
     }
 
     /// Run the admission chain and, only if every stage passes, commit exactly
@@ -453,8 +535,90 @@ impl Admission {
         }
     }
 
-    /// Admit an internal controller mutation with a server-created estate
-    /// principal. Controllers never receive a constructor for that authority.
+    /// Admit one mutation under an exact, current controller grant.
+    pub async fn admit_controller(
+        &self,
+        req: AdmissionRequest,
+        grant: &ControllerGrant,
+    ) -> Result<AdmissionOutcome, ApiError> {
+        if grant.tenant.trim().is_empty()
+            || chrono::Utc::now() >= grant.expires_at
+            || grant.epoch != self.controller_epoch.load(Ordering::Acquire)
+            || !grant.profile.allows(req.verb, req.kind)
+        {
+            return Err(ApiError::Forbidden(
+                "controller grant is expired, revoked, or out of scope".to_owned(),
+            ));
+        }
+        self.validate_controller_mutation(&req, grant.profile)
+            .await?;
+        self.admit_inner(req, &Principal::controller(grant), None)
+            .await
+    }
+
+    async fn validate_controller_mutation(
+        &self,
+        req: &AdmissionRequest,
+        profile: ControllerProfile,
+    ) -> Result<(), ApiError> {
+        match (profile, req.verb) {
+            (ControllerProfile::Scheduler, Verb::Create) => {
+                let Some(ResourceObject::Placement(placement)) = req.object.as_ref() else {
+                    return Err(ApiError::Forbidden(
+                        "scheduler grant can create only placements".to_owned(),
+                    ));
+                };
+                let annotations = &placement.metadata.annotations;
+                if !placement.spec.token_id.is_empty()
+                    || !annotations.contains_key(RUNTIME_DIGEST_ANNOTATION)
+                    || !annotations.contains_key(RUNTIME_CLASS_ANNOTATION)
+                {
+                    return Err(ApiError::Forbidden(
+                        "scheduler placement create must be pending and runtime-bound".to_owned(),
+                    ));
+                }
+            }
+            (ControllerProfile::Scheduler, Verb::Update) => {
+                let Some(ResourceObject::Placement(desired)) = req.object.as_ref() else {
+                    return Err(ApiError::Forbidden(
+                        "scheduler grant can update only placements".to_owned(),
+                    ));
+                };
+                let current = self
+                    .load(&store_key(req.kind, &req.name))
+                    .await?
+                    .ok_or_else(|| ApiError::NotFound {
+                        kind: req.kind.to_string(),
+                        name: req.name.clone(),
+                    })?;
+                let ResourceObject::Placement(current) = current.object else {
+                    return Err(ApiError::Forbidden(
+                        "scheduler grant target is not a placement".to_owned(),
+                    ));
+                };
+                let token_transition = (current.spec.token_id.is_empty()
+                    && !desired.spec.token_id.is_empty())
+                    || current.spec.token_id == desired.spec.token_id;
+                let immutable = current.spec.workload == desired.spec.workload
+                    && current.spec.node == desired.spec.node
+                    && current.metadata.annotations.get(RUNTIME_DIGEST_ANNOTATION)
+                        == desired.metadata.annotations.get(RUNTIME_DIGEST_ANNOTATION)
+                    && current.metadata.annotations.get(RUNTIME_CLASS_ANNOTATION)
+                        == desired.metadata.annotations.get(RUNTIME_CLASS_ANNOTATION);
+                if !token_transition || !immutable {
+                    return Err(ApiError::Forbidden(
+                        "scheduler update may only finalize the bound runtime token".to_owned(),
+                    ));
+                }
+            }
+            (ControllerProfile::Scheduler, Verb::Delete) => {}
+        }
+        Ok(())
+    }
+
+    /// Debug/test fixture seam. Release builds expose no unrestricted internal
+    /// controller mutation path.
+    #[cfg(debug_assertions)]
     pub async fn admit_system(&self, req: AdmissionRequest) -> Result<AdmissionOutcome, ApiError> {
         self.admit_inner(req, &Principal::system(), None).await
     }

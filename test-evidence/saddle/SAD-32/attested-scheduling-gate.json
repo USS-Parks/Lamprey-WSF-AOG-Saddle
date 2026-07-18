@@ -6,7 +6,7 @@
     },
     "kinds": {
       "path": "crates/saddle-estate/src/kinds.rs",
-      "sha256": "cc4a9cdd03076459b8091903458b85afd9d4efaa339e8011ffffdadb61a47f68"
+      "sha256": "04ae79377f5220ab798433be523e256eef1b4677858b65c83aa7f08d5fbf370e"
     },
     "registration": {
       "path": "crates/saddle-node/src/registration.rs",
@@ -18,7 +18,7 @@
     },
     "scheduler": {
       "path": "crates/saddle-controller/src/scheduler.rs",
-      "sha256": "1c7f944112f91fa05a4c9e54052dcf317e29f0fdec2d62a24ee92e9184f2abf9"
+      "sha256": "f3724c11756d12c7f23b10b7c0facff4e77974fe1adfd476a221236f60f85735"
     },
     "types": {
       "path": "crates/saddle-scheduler/src/types.rs",

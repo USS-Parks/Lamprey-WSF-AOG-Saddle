@@ -1,0 +1,61 @@
+{
+  "artifacts": {
+    "admission": {
+      "path": "crates/saddle-apiserver/src/admission.rs",
+      "sha256": "d2904585a9adebab1e27cb1d32e18456592be77e3a2334d8f857f64890ba5ff9"
+    },
+    "kinds": {
+      "path": "crates/saddle-estate/src/kinds.rs",
+      "sha256": "04ae79377f5220ab798433be523e256eef1b4677858b65c83aa7f08d5fbf370e"
+    },
+    "objects": {
+      "path": "crates/saddle-controller/src/objects.rs",
+      "sha256": "2d571a0dbdf3297e586fe615268b9a8d68faba800711f6a71305bec98788d7c9"
+    },
+    "runtime": {
+      "path": "crates/saddle-node/src/runtime.rs",
+      "sha256": "3183ba7aa700db2bc8891ccf13c444cf63fb71dcded9794aa43b86652e81f2b1"
+    },
+    "sad33_aog_workloads": {
+      "path": "crates/saddle-controller/tests/sad33_aog_workloads.rs",
+      "sha256": "dd82e12e0cbf092d8167d127570de177d1dd3331ce4505630b4c4465f3c08f21"
+    },
+    "scheduler": {
+      "path": "crates/saddle-controller/src/scheduler.rs",
+      "sha256": "f3724c11756d12c7f23b10b7c0facff4e77974fe1adfd476a221236f60f85735"
+    }
+  },
+  "controller_authority": {
+    "epoch_revocation": "pass",
+    "profile_and_tenant_scope": "pass",
+    "release_build_without_unrestricted_system_path": "pass",
+    "server_minted_non_serializable_grant": "pass"
+  },
+  "least_privilege": {
+    "bounded_ttl_budget_and_lineage": "pass",
+    "fixed_role_per_kind": "pass",
+    "immutable_runtime_digest_binding": "pass",
+    "placement_uid_and_node_binding": "pass",
+    "sibling_token_theft": "denied",
+    "tenant_and_workload_uid_binding": "pass"
+  },
+  "lifecycle": {
+    "capability_revocation": "pass",
+    "digest_roll": "pass",
+    "live_openbao": "pass",
+    "real_process_driver": "pass",
+    "real_scheduler_controller": "pass",
+    "scale": "pass",
+    "start": "pass",
+    "test_name": "start_scale_roll_and_revoke_are_capability_bound_end_to_end"
+  },
+  "managed_workload_kinds": [
+    "gateway",
+    "toolproxy",
+    "approvals",
+    "agent"
+  ],
+  "prompt": "SAD-33",
+  "schema_version": "saddle-sad33-aog-workload-integration-gate/v1",
+  "status": "pass"
+}

@@ -16,6 +16,8 @@ fabric-identity = { path = "../fabric-identity" }
 fabric-revocation = { path = "../fabric-revocation" }
 fabric-token = { path = "../fabric-token" }
 hex = "0.4"
+serde_json = { workspace = true }
+sha2 = "0.10"
 thiserror = { workspace = true }
 
 [lints]

@@ -119,6 +119,18 @@ pub struct ProcessDriver {
     instances: Mutex<HashMap<String, Child>>,
 }
 
+impl Drop for ProcessDriver {
+    fn drop(&mut self) {
+        if let Ok(instances) = self.instances.get_mut() {
+            for child in instances.values_mut() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            instances.clear();
+        }
+    }
+}
+
 impl WorkloadDriver for ProcessDriver {
     fn name(&self) -> &'static str {
         "process"

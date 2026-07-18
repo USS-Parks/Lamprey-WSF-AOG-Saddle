@@ -30,6 +30,7 @@ pub enum WorkloadKind {
     Gateway,
     Agent,
     Toolproxy,
+    Approvals,
     Inference,
 }
 

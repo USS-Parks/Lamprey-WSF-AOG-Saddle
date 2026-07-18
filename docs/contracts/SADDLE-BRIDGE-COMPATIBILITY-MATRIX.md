@@ -68,8 +68,7 @@ desired-state write and retained when the outbox is finalized with its receipt.
 `crates/saddle-apiserver/tests/saddle_admission.rs` proves missing and replayed
 authority, stale bundle/revocation state, wrong-anchor spoofing, out-of-scope
 resources, and cross-tenant mutation all fail closed through the real API.
-Node runtime and per-action consumption remain SAD-33 through SAD-35; the
-internal controller identity seam remains explicit for SAD-33.
+Node runtime and per-action consumption remain SAD-33 through SAD-35.
 
 ## SAD-32 WSF-attested scheduling binding
 
@@ -90,7 +89,31 @@ run as deny-wins filters before scoring, so pressure, failover, stale cache, or
 a favorable score cannot resurrect an ineligible node.
 
 `crates/saddle-scheduler/tests/sad32_hard_placement.rs` and the signed node
-registration tests are the adversarial gate. The controller still creates
-placements through the explicitly documented internal system seam; replacing
-that seam with a distinct WSF controller identity and binding the serialized
-`PlacementGrant` into the controller/node handoff remains SAD-33 work.
+registration tests are the adversarial gate. SAD-33 replaces the production
+system seam and binds a signed child capability into the node start path.
+
+## SAD-33 governed AOG workload binding
+
+`Gateway`, `Toolproxy`, `Approvals`, and `Agent` are first-class managed
+workload kinds. The scheduler derives one fixed AOG role per kind and attenuates
+the declared, same-tenant `Capability` into a short-lived child bound to the
+tenant, workload UID and immutable runtime digest, placement UID, exact node,
+budget, caveats, routes/models, and lineage. Missing, terminating, or
+cross-tenant roots revoke every placement and child rather than minting a
+minimal ambient token.
+
+`NodeRuntime` locally verifies signature, expiry, revocation, tenant, workload,
+digest, placement, node, and exact role immediately before the process or
+container driver starts. Changed digests stop/restart the ordinal; scale changes
+only add/remove ordinals; deleted roots stop every child. A sibling placement's
+otherwise-valid token cannot start the assignment.
+
+Production controller writes now require a private `ControllerGrant` with an
+exact profile, tenant, TTL, and revocable epoch. The SAD-33 live scheduler uses
+a field-constrained Placement profile; release builds do not expose
+`admit_system` or the fixture `EstateClient::new` path. Other controllers still
+need equally narrow profiles. The typed serialize-only `PlacementGrant` and
+`RuntimeGrant` values remain an explicit compatibility gap: the working signed
+child capability is not represented as those proof types on the persisted
+handoff yet. That binding must close before the SAD-35 live bridge gate; SAD-34
+adds the action-grant/receipt layer above it.

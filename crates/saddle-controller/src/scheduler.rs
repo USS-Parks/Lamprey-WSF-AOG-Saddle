@@ -23,14 +23,16 @@ use std::time::Duration;
 use chrono::Utc;
 use serde_json::json;
 
-use fabric_contracts::{Attenuation, Budget, RevocationStatus, Signature, TrustToken};
+use fabric_contracts::{Attenuation, RevocationStatus, Signature, TrustToken};
 use fabric_crypto::Signer;
 use fabric_crypto::providers::MlDsa87Verifier;
 use wsf_bridge::OpenBaoAuth;
 
 use saddle_estate::{
-    CapabilitySpec, Kind, OwnerRef, Placement, PlacementSpec, Resource, ResourceObject, Workload,
+    CapabilitySpec, Kind, OwnerRef, Placement, PlacementSpec, RUNTIME_CLASS_ANNOTATION,
+    RUNTIME_DIGEST_ANNOTATION, Resource, ResourceObject, Workload,
 };
+use saddle_node::runtime::{runtime_class, service_identity, workload_digest, workload_role};
 use saddle_scheduler::{
     NodeSnapshot, ProviderEligibility, ScheduleRequest, Scheduler, attested_scheduler,
 };
@@ -127,13 +129,16 @@ impl SchedulerController {
     async fn resolve_capability(
         &self,
         workload: &Workload,
-    ) -> Result<Option<CapabilitySpec>, ReconcileError> {
+    ) -> Result<Option<(String, CapabilitySpec)>, ReconcileError> {
         let Some(cap_name) = &workload.spec.capability else {
             return Ok(None);
         };
         match self.client.get(Kind::Capability, cap_name).await? {
-            Some(ResourceObject::Capability(cap)) if cap.metadata.deletion_timestamp.is_none() => {
-                Ok(Some(cap.spec))
+            Some(ResourceObject::Capability(cap))
+                if cap.metadata.deletion_timestamp.is_none()
+                    && cap.metadata.tenant == workload.metadata.tenant =>
+            {
+                Ok(Some((cap_name.clone(), cap.spec)))
             }
             _ => Ok(None),
         }
@@ -191,55 +196,54 @@ impl SchedulerController {
         &self,
         id: &str,
         workload: &Workload,
-        cap: Option<&CapabilitySpec>,
+        placement: &Placement,
+        workload_digest: &str,
+        cap_name: &str,
+        cap: &CapabilitySpec,
     ) -> Result<TrustToken, ReconcileError> {
-        let (allowed_routes, allowed_models, max_class, budget, caveats, ttl_seconds) = match cap {
-            Some(c) => (
-                c.allowed_routes.clone(),
-                c.allowed_models.clone(),
-                c.max_classification,
-                c.budget.clone(),
-                c.caveats.clone(),
-                c.ttl_seconds,
-            ),
-            None => (
-                Vec::new(),
-                Vec::new(),
-                workload.spec.classification_ceiling,
-                Budget::default(),
-                Vec::new(),
-                DEFAULT_TTL_SECONDS,
-            ),
-        };
+        let tenant = workload
+            .metadata
+            .tenant
+            .as_deref()
+            .filter(|tenant| !tenant.trim().is_empty())
+            .ok_or_else(|| ReconcileError("workload has no tenant".to_owned()))?;
+        let max_class = std::cmp::min(cap.max_classification, workload.spec.classification_ceiling);
         let now = Utc::now();
-        let ttl = chrono::Duration::seconds(i64::try_from(ttl_seconds).unwrap_or(i64::MAX));
+        let ttl = chrono::Duration::seconds(
+            i64::try_from(cap.ttl_seconds).unwrap_or(DEFAULT_TTL_SECONDS as i64),
+        );
         let token = TrustToken {
             token_id: id.to_owned(),
             issued_at: now.to_rfc3339(),
             expires_at: (now + ttl).to_rfc3339(),
             issuer: "saddle-scheduler".to_owned(),
             trust_bundle_version: "saddle".to_owned(),
-            tenant_id: workload.metadata.tenant.clone().unwrap_or_default(),
-            subject_id: None,
-            subject_hash: id.to_owned(),
-            service_identity: None,
-            identity_id: None,
-            roles: vec![],
+            tenant_id: tenant.to_owned(),
+            subject_id: Some(workload.metadata.uid.clone()),
+            subject_hash: workload_digest.to_owned(),
+            service_identity: Some(service_identity(
+                tenant,
+                workload.spec.workload_kind,
+                &placement.spec.node,
+                &placement.metadata.uid,
+            )),
+            identity_id: Some(placement.metadata.uid.clone()),
+            roles: vec![workload_role(workload.spec.workload_kind).to_owned()],
             compliance_scopes: vec![],
-            allowed_routes,
-            allowed_models,
+            allowed_routes: cap.allowed_routes.clone(),
+            allowed_models: cap.allowed_models.clone(),
             max_data_classification: max_class,
             country: None,
             person_type: None,
             offline_mode: false,
             revocation_status: RevocationStatus::Valid,
-            budget: Some(budget),
+            budget: Some(cap.budget.clone()),
             attenuation: Attenuation {
-                parent_id: None,
-                root_id: None,
-                depth: 0,
-                ancestor_ids: vec![],
-                caveats,
+                parent_id: Some(cap_name.to_owned()),
+                root_id: Some(cap_name.to_owned()),
+                depth: 1,
+                ancestor_ids: vec![cap_name.to_owned()],
+                caveats: cap.caveats.clone(),
             },
             signature: Signature {
                 alg: String::new(),
@@ -256,14 +260,14 @@ impl SchedulerController {
         workload: &Workload,
         placement_name: &str,
         node: &str,
-        token_id: &str,
+        workload_digest: &str,
     ) -> Placement {
         let mut placement = Resource::new(
             placement_name.to_owned(),
             PlacementSpec {
                 workload: workload.metadata.name.clone(),
                 node: node.to_owned(),
-                token_id: token_id.to_owned(),
+                token_id: String::new(),
             },
         );
         placement.metadata.owner_refs.push(OwnerRef {
@@ -275,6 +279,14 @@ impl SchedulerController {
             .metadata
             .tenant
             .clone_from(&workload.metadata.tenant);
+        placement.metadata.annotations.insert(
+            RUNTIME_DIGEST_ANNOTATION.to_owned(),
+            workload_digest.to_owned(),
+        );
+        placement.metadata.annotations.insert(
+            RUNTIME_CLASS_ANNOTATION.to_owned(),
+            runtime_class(workload.spec.workload_kind).to_owned(),
+        );
         placement
     }
 
@@ -291,6 +303,9 @@ impl SchedulerController {
         }
 
         let desired = usize::try_from(workload.spec.replicas).unwrap_or(usize::MAX);
+        let digest =
+            workload_digest(&workload).map_err(|error| ReconcileError(error.to_string()))?;
+        let cap = self.resolve_capability(&workload).await?;
 
         // Index the live placements by their replica ordinal (parsed from the
         // name) so the planner can decide creates, deletes, and shortfall.
@@ -300,6 +315,44 @@ impl SchedulerController {
                 by_ordinal.insert(ordinal, placement);
             }
         }
+
+        // A missing/cross-tenant capability revokes every child immediately.
+        // A changed runtime digest rolls the replica by deleting its old child
+        // and binding afresh. Empty-token partial bindings are also reclaimed.
+        let revoke_all = cap.is_none();
+        let stale: Vec<usize> = by_ordinal
+            .iter()
+            .filter_map(|(ordinal, placement)| {
+                let digest_changed = placement
+                    .metadata
+                    .annotations
+                    .get(RUNTIME_DIGEST_ANNOTATION)
+                    != Some(&digest);
+                (revoke_all || digest_changed || placement.spec.token_id.is_empty())
+                    .then_some(*ordinal)
+            })
+            .collect();
+        if !stale.is_empty() {
+            let vault = self
+                .openbao
+                .login()
+                .await
+                .map_err(|error| ReconcileError(error.to_string()))?;
+            for ordinal in stale {
+                if let Some(placement) = by_ordinal.remove(&ordinal) {
+                    let pname = placement.metadata.name;
+                    let _ = self
+                        .openbao
+                        .delete_kv(&vault, &self.token_path(&pname))
+                        .await;
+                    self.client.delete(Kind::Placement, &pname).await?;
+                }
+            }
+        }
+        let Some((cap_name, cap)) = cap else {
+            return Ok(Action::RequeueAfter(REQUEUE));
+        };
+
         let existing_nodes: BTreeMap<usize, String> = by_ordinal
             .iter()
             .map(|(ordinal, placement)| (*ordinal, placement.spec.node.clone()))
@@ -328,7 +381,6 @@ impl SchedulerController {
             };
         }
 
-        let cap = self.resolve_capability(&workload).await?;
         let vault = self
             .openbao
             .login()
@@ -350,21 +402,41 @@ impl SchedulerController {
             }
         }
 
-        // Scale up: mint a scoped runtime token per new ordinal, persist it to
-        // OpenBao for the node to fetch, and create the attested `Placement`
-        // through admission (which receipts the binding).
+        // Scale up: create the binding first so admission assigns its immutable
+        // UID. Only then mint the exact child, persist it, and publish the token
+        // reference. A node observing the intermediate empty token fails closed.
         for (ordinal, node) in &plan.create {
             let pname = placement_name(name, *ordinal);
             let token_id = format!("rt:{pname}");
-            let token = self.mint_runtime_token(&token_id, &workload, cap.as_ref())?;
+            let placement = Self::build_placement(&workload, &pname, node, &digest);
+            self.client
+                .ensure_created(ResourceObject::Placement(placement))
+                .await?;
+            let Some(ResourceObject::Placement(mut placement)) =
+                self.client.get(Kind::Placement, &pname).await?
+            else {
+                return Err(ReconcileError(format!(
+                    "placement {pname} disappeared before capability issuance"
+                )));
+            };
+            let token = self
+                .mint_runtime_token(&token_id, &workload, &placement, &digest, &cap_name, &cap)?;
             self.openbao
                 .put_kv_data(&vault, &self.token_path(&pname), json!({ "token": token }))
                 .await
                 .map_err(|e| ReconcileError(e.to_string()))?;
-            let placement = Self::build_placement(&workload, &pname, node, &token_id);
-            self.client
-                .ensure_created(ResourceObject::Placement(placement))
-                .await?;
+            placement.spec.token_id = token_id;
+            if let Err(error) = self
+                .client
+                .update(ResourceObject::Placement(placement))
+                .await
+            {
+                let _ = self
+                    .openbao
+                    .delete_kv(&vault, &self.token_path(&pname))
+                    .await;
+                return Err(error);
+            }
         }
 
         if plan.short > 0 {

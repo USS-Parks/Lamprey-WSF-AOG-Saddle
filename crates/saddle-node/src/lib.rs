@@ -20,3 +20,4 @@ pub mod edge;
 pub mod heartbeat;
 pub mod probes;
 pub mod registration;
+pub mod runtime;

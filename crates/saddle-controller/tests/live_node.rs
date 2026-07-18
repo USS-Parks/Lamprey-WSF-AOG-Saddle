@@ -273,8 +273,10 @@ async fn a_killed_node_reschedules_its_workload() {
     let openbao =
         Arc::new(OpenBaoAuth::new(OpenBaoConfig::new(&addr, role_id, secret_id)).unwrap());
 
+    let mut cap = Resource::new(CAP, capability());
+    cap.metadata.tenant = Some(TENANT.to_owned());
     client
-        .ensure_created(ResourceObject::Capability(Resource::new(CAP, capability())))
+        .ensure_created(ResourceObject::Capability(cap))
         .await
         .unwrap();
     for n in ["node-a", "node-b", "node-c"] {
