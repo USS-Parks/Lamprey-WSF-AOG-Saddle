@@ -1,14 +1,14 @@
 # Saddle Control-Plane — Disaster-Recovery Runbook (H4)
 
 Cold-restore the Saddle control-plane **estate** (desired state) from an encrypted
-backup after a total loss of the control-plane hosts. The estate is `aog-store`;
+backup after a total loss of the control-plane hosts. The estate is `saddle-store`;
 the tamper-evident **receipt** ledger (`wsf-ledger`) is a physically separate
 store and is recovered from its own append-only segments (H3) — this runbook
 covers the estate.
 
-The machinery this runbook drives is `aog_apiserver::backup`
+The machinery this runbook drives is `saddle_apiserver::backup`
 (`backup_estate` / `restore_estate`); the DR drill in
-`crates/aog-apiserver/tests/dr_drill.rs` executes the restore steps below and is
+`crates/saddle-apiserver/tests/dr_drill.rs` executes the restore steps below and is
 the gate for "a full DR drill from cold backup succeeds by the runbook alone."
 
 ## What a backup is

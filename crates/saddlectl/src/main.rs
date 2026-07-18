@@ -8,8 +8,8 @@
 //!   saddlectl describe <Kind> <name>   fetch one as pretty JSON
 //!   saddlectl delete <Kind> <name>     remove a resource
 //!
-//! Server + token come from `AOGCTL_SERVER` (default `http://127.0.0.1:8080`) and
-//! `AOGCTL_TOKEN`. `--output json` selects JSON; the default is a compact table.
+//! Server + token come from `SADDLECTL_SERVER` (default `http://127.0.0.1:8080`) and
+//! `SADDLECTL_TOKEN`. `--output json` selects JSON; the default is a compact table.
 
 use std::process::ExitCode;
 
@@ -30,8 +30,8 @@ async fn main() -> ExitCode {
 async fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let server =
-        std::env::var("AOGCTL_SERVER").unwrap_or_else(|_| "http://127.0.0.1:8080".to_owned());
-    let token = std::env::var("AOGCTL_TOKEN").unwrap_or_default();
+        std::env::var("SADDLECTL_SERVER").unwrap_or_else(|_| "http://127.0.0.1:8080".to_owned());
+    let token = std::env::var("SADDLECTL_TOKEN").unwrap_or_default();
     let json_output = flag(&args, "--output")
         .or_else(|| flag(&args, "-o"))
         .as_deref()

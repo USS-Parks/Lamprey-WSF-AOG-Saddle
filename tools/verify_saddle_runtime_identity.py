@@ -40,6 +40,7 @@ FORBIDDEN_PATHS = (
 )
 REQUIRED_MARKERS = {
     "api_group": "saddle.islandmountain.io/v1",
+    "cli_env": "SADDLECTL_SERVER",
     "cordon_label": "saddle.islandmountain.io/unschedulable",
     "daemon_env": "SADDLED_NODE_ID",
     "deployment": "deployment/saddle-harness",
@@ -51,6 +52,7 @@ REQUIRED_MARKERS = {
 }
 FORBIDDEN_PATTERNS = {
     "old_api_group": re.compile(r"aog\.islandmountain\.io"),
+    "old_cli_env": re.compile(r"\bAOGCTL_[A-Z0-9_]+\b"),
     "old_cordon_or_finalizer": re.compile(r"loom\.(?:aog|io)/", re.IGNORECASE),
     "old_daemon_env": re.compile(r"\bAOGD_[A-Z0-9_]+\b"),
     "old_deployment": re.compile(r"(?:deployment/)?loom-harness", re.IGNORECASE),
