@@ -1,7 +1,7 @@
 # Loom estate — packagings + Phase-V conformance harness
 
-A containerized multi-node Loom estate: **5 `aogd` control-plane nodes** (a
-Raft cluster over the `aog-wire` transport) + **5 `aog-noded` edge nodes**
+A containerized multi-node Loom estate: **5 `saddled` control-plane nodes** (a
+Raft cluster over the `saddle-wire` transport) + **5 `saddle-noded` edge nodes**
 (register + heartbeat) + **OpenBao** (dev), from the one `loom-harness` image
 (`deployment/loom-harness/Dockerfile`). The Phase-V live gates
 (V4/V5/V7/V8/V10) run on the compose packaging of this estate.
@@ -14,7 +14,7 @@ customers; the Loom control plane is the trust plane regardless of the
 substrate beneath it. Nothing about the daemons or their configuration forks;
 `gates/parity-compose-k3s.sh` is the executable proof.
 
-**The hand-managed path is retired.** Running `aogd` / `aog-noded` by hand as
+**The hand-managed path is retired.** Running `saddled` / `saddle-noded` by hand as
 loose processes is not a supported way to operate an estate: pick a packaging.
 The daemons remain plain binaries (the air-gap appliance runs them under
 systemd through the same environment contract), but estate formation, health,
@@ -68,7 +68,7 @@ sh deployment/loom-harness/gates/parity-compose-k3s.sh
 **VH5 (this):** the 5+5 estate topology + OpenBao service + cluster formation, all
 over the wire — the substrate the live gates run on.
 
-**VH5b (next):** the trust hardening — authenticated `aog-apiserver` CRUD (via a new
+**VH5b (next):** the trust hardening — authenticated `saddle-apiserver` CRUD (via a new
 `AppState::from_raft` seam), per-node mTLS on the wire transport (doctrine I-3), and
 the OpenBao-provisioned anchor + `Sealer`/`Authenticator`. Until then the admin API
 is unauthenticated (consistent with VH2/VH3) and the wire transport is plain HTTP.

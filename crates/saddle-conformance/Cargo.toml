@@ -1,0 +1,32 @@
+[package]
+name = "saddle-conformance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+saddle-controller = { path = "../saddle-controller" }
+saddle-store = { path = "../saddle-store" }
+fabric-crypto = { path = "../fabric-crypto" }
+fabric-revocation = { path = "../fabric-revocation" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+fabric-token = { path = "../fabric-token" }
+fabric-contracts = { path = "../fabric-contracts" }
+fabric-envelope = { path = "../fabric-envelope" }
+fabric-cache = { path = "../fabric-cache" }
+fabric-proof = { path = "../fabric-proof" }
+saddle-node = { path = "../saddle-node" }
+aog-toolproxy = { path = "../aog-toolproxy" }
+mai-agent = { path = "../../mai-agent" }
+async-trait = { workspace = true }
+hex = "0.4"
+
+[lints]
+workspace = true

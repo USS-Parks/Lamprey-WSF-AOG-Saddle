@@ -11,7 +11,7 @@
 # Scope: this proves the revocation fans out to every replica over real Raft,
 # under scale. The signature-verified kill-switch DECISION and its fail-closed
 # behavior (rogue/stale snapshot denies) are proven in the in-process
-# `aog-conformance` bar `kill_switch_under_scale` (real ML-DSA-87 anchor +
+# `saddle-conformance` bar `kill_switch_under_scale` (real ML-DSA-87 anchor +
 # fabric-revocation), which the aggressive profile runs at 5 replicas x 100.
 #
 # Prereq: estate up (docker compose -f deployment/loom-harness/docker-compose.yml

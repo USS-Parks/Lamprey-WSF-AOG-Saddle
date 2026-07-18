@@ -6,7 +6,7 @@
 # worst reported.
 #
 # The strict p99 <= 3s bound is asserted precisely in the in-process
-# `aog-conformance` gate `revocation_to_denial_slo` (real openraft + a real
+# `saddle-conformance` gate `revocation_to_denial_slo` (real openraft + a real
 # ML-DSA-87-signed fabric-revocation snapshot; measured there p50 ~0.20s / p99
 # ~0.37s over 100 revocations across 5 replicas), where wall-clock is the estate's.
 # On this live harness each poll is a docker-exec round-trip (~sub-second), so the

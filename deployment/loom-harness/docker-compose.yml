@@ -1,17 +1,17 @@
 name: loom-harness
 
-# Loom Phase-V conformance estate (VH5): a 5-node aogd control plane (Raft over the
-# aog-wire transport) + 5 aog-noded edges + OpenBao (dev), from the VH4
+# Loom Phase-V conformance estate (VH5): a 5-node saddled control plane (Raft over the
+# saddle-wire transport) + 5 saddle-noded edges + OpenBao (dev), from the VH4
 # loom-harness image. `cluster-init` forms the 5-voter cluster from cp1; the edges
 # self-register once it completes. This is the live estate the V4/V5/V7/V8/V10 gates
 # run on. Dev-mode OpenBao — NOT production.
 
-# The compose network is the "trusted, isolated network" case of the aogd
+# The compose network is the "trusted, isolated network" case of the saddled
 # non-loopback bind guard (the 0.2 loopback containment): each cp opts in
 # explicitly via AOGD_ALLOW_INSECURE_BIND=1. Dev harness posture — NOT production.
-x-aogd: &aogd
+x-saddled: &saddled
   image: loom-harness:vh4
-  command: ["/usr/local/bin/aogd"]
+  command: ["/usr/local/bin/saddled"]
   healthcheck:
     test: ["CMD", "curl", "-sf", "http://127.0.0.1:4600/healthz"]
     interval: 2s
@@ -21,7 +21,7 @@ x-aogd: &aogd
 
 x-edge: &edge
   image: loom-harness:vh4
-  command: ["/usr/local/bin/aog-noded"]
+  command: ["/usr/local/bin/saddle-noded"]
   healthcheck:
     test: ["CMD", "curl", "-sf", "http://127.0.0.1:5600/healthz"]
     interval: 2s
@@ -42,10 +42,10 @@ services:
       retries: 20
 
   cp1:
-    <<: *aogd
+    <<: *saddled
     environment:
       AOGD_NODE_ID: "1"
-      AOGD_DATA_DIR: "/tmp/aogd"
+      AOGD_DATA_DIR: "/tmp/saddled"
       AOGD_LISTEN: "0.0.0.0:4600"
       AOGD_ADVERTISE: "http://cp1:4600"
       AOGD_PROFILE: development
@@ -54,10 +54,10 @@ services:
     ports: ["4601:4600"]
 
   cp2:
-    <<: *aogd
+    <<: *saddled
     environment:
       AOGD_NODE_ID: "2"
-      AOGD_DATA_DIR: "/tmp/aogd"
+      AOGD_DATA_DIR: "/tmp/saddled"
       AOGD_LISTEN: "0.0.0.0:4600"
       AOGD_ADVERTISE: "http://cp2:4600"
       AOGD_PROFILE: development
@@ -65,10 +65,10 @@ services:
       AOGD_ALLOW_INSECURE_ADMIN: "1"
 
   cp3:
-    <<: *aogd
+    <<: *saddled
     environment:
       AOGD_NODE_ID: "3"
-      AOGD_DATA_DIR: "/tmp/aogd"
+      AOGD_DATA_DIR: "/tmp/saddled"
       AOGD_LISTEN: "0.0.0.0:4600"
       AOGD_ADVERTISE: "http://cp3:4600"
       AOGD_PROFILE: development
@@ -76,10 +76,10 @@ services:
       AOGD_ALLOW_INSECURE_ADMIN: "1"
 
   cp4:
-    <<: *aogd
+    <<: *saddled
     environment:
       AOGD_NODE_ID: "4"
-      AOGD_DATA_DIR: "/tmp/aogd"
+      AOGD_DATA_DIR: "/tmp/saddled"
       AOGD_LISTEN: "0.0.0.0:4600"
       AOGD_ADVERTISE: "http://cp4:4600"
       AOGD_PROFILE: development
@@ -87,10 +87,10 @@ services:
       AOGD_ALLOW_INSECURE_ADMIN: "1"
 
   cp5:
-    <<: *aogd
+    <<: *saddled
     environment:
       AOGD_NODE_ID: "5"
-      AOGD_DATA_DIR: "/tmp/aogd"
+      AOGD_DATA_DIR: "/tmp/saddled"
       AOGD_LISTEN: "0.0.0.0:4600"
       AOGD_ADVERTISE: "http://cp5:4600"
       AOGD_PROFILE: development

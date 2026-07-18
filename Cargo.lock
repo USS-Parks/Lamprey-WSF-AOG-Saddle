@@ -132,31 +132,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
-name = "aog-apiserver"
-version = "0.1.0"
-dependencies = [
- "aog-estate",
- "aog-store",
- "axum",
- "base64",
- "chrono",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-envelope",
- "fabric-proof",
- "fabric-revocation",
- "fabric-token",
- "mai-compliance",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tower",
- "uuid",
- "wsf-ledger",
-]
-
-[[package]]
 name = "aog-approvals"
 version = "0.1.0"
 dependencies = [
@@ -171,86 +146,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
-]
-
-[[package]]
-name = "aog-conformance"
-version = "0.1.0"
-dependencies = [
- "aog-controller",
- "aog-node",
- "aog-store",
- "aog-toolproxy",
- "async-trait",
- "chrono",
- "fabric-cache",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-envelope",
- "fabric-proof",
- "fabric-revocation",
- "fabric-token",
- "hex",
- "mai-agent",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "aog-controller"
-version = "0.1.0"
-dependencies = [
- "aog-apiserver",
- "aog-estate",
- "aog-gateway",
- "aog-scheduler",
- "aog-store",
- "aog-toolproxy",
- "async-trait",
- "axum",
- "base64",
- "chrono",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-proof",
- "fabric-revocation",
- "fabric-token",
- "hex",
- "mai-agent",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
- "tokio",
- "wsf-bridge",
- "wsf-seal",
- "wsf-tenants",
-]
-
-[[package]]
-name = "aog-estate"
-version = "0.1.0"
-dependencies = [
- "fabric-contracts",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "aog-federation"
-version = "0.1.0"
-dependencies = [
- "aog-estate",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-proof",
- "hex",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -279,58 +174,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "wsf-bridge",
-]
-
-[[package]]
-name = "aog-node"
-version = "0.1.0"
-dependencies = [
- "aog-estate",
- "chrono",
- "fabric-cache",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-identity",
- "fabric-revocation",
- "fabric-token",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "aog-noded"
-version = "0.1.0"
-dependencies = [
- "aog-estate",
- "aog-node",
- "aogd",
- "axum",
- "chrono",
- "fabric-contracts",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "aog-scheduler"
-version = "0.1.0"
-dependencies = [
- "aog-estate",
- "fabric-contracts",
-]
-
-[[package]]
-name = "aog-store"
-version = "0.1.0"
-dependencies = [
- "openraft",
- "redb",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
@@ -374,65 +217,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "zeroize",
-]
-
-[[package]]
-name = "aog-wire"
-version = "0.1.0"
-dependencies = [
- "aog-store",
- "axum",
- "openraft",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tokio-rustls",
- "tracing",
- "x509-parser",
-]
-
-[[package]]
-name = "aogctl"
-version = "0.1.0"
-dependencies = [
- "aog-apiserver",
- "base64",
- "chrono",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-token",
- "reqwest",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
-name = "aogd"
-version = "0.1.0"
-dependencies = [
- "aog-apiserver",
- "aog-store",
- "aog-wire",
- "axum",
- "base64",
- "chrono",
- "fabric-contracts",
- "fabric-crypto",
- "fabric-token",
- "hex",
- "openraft",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "wsf-bridge",
 ]
 
 [[package]]
@@ -2481,6 +2265,222 @@ name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
+
+[[package]]
+name = "saddle-apiserver"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64",
+ "chrono",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-envelope",
+ "fabric-proof",
+ "fabric-revocation",
+ "fabric-token",
+ "mai-compliance",
+ "saddle-estate",
+ "saddle-store",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower",
+ "uuid",
+ "wsf-ledger",
+]
+
+[[package]]
+name = "saddle-conformance"
+version = "0.1.0"
+dependencies = [
+ "aog-toolproxy",
+ "async-trait",
+ "chrono",
+ "fabric-cache",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-envelope",
+ "fabric-proof",
+ "fabric-revocation",
+ "fabric-token",
+ "hex",
+ "mai-agent",
+ "saddle-controller",
+ "saddle-node",
+ "saddle-store",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "saddle-controller"
+version = "0.1.0"
+dependencies = [
+ "aog-gateway",
+ "aog-toolproxy",
+ "async-trait",
+ "axum",
+ "base64",
+ "chrono",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-proof",
+ "fabric-revocation",
+ "fabric-token",
+ "hex",
+ "mai-agent",
+ "reqwest",
+ "saddle-apiserver",
+ "saddle-estate",
+ "saddle-scheduler",
+ "saddle-store",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "wsf-bridge",
+ "wsf-seal",
+ "wsf-tenants",
+]
+
+[[package]]
+name = "saddle-estate"
+version = "0.1.0"
+dependencies = [
+ "fabric-contracts",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "saddle-federation"
+version = "0.1.0"
+dependencies = [
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-proof",
+ "hex",
+ "saddle-estate",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "saddle-node"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fabric-cache",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-identity",
+ "fabric-revocation",
+ "fabric-token",
+ "saddle-estate",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "saddle-noded"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "fabric-contracts",
+ "saddle-estate",
+ "saddle-node",
+ "saddled",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "saddle-scheduler"
+version = "0.1.0"
+dependencies = [
+ "fabric-contracts",
+ "saddle-estate",
+]
+
+[[package]]
+name = "saddle-store"
+version = "0.1.0"
+dependencies = [
+ "openraft",
+ "redb",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
+name = "saddle-wire"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "openraft",
+ "reqwest",
+ "rustls",
+ "saddle-store",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "x509-parser",
+]
+
+[[package]]
+name = "saddlectl"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-token",
+ "reqwest",
+ "saddle-apiserver",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
+name = "saddled"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64",
+ "chrono",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-token",
+ "hex",
+ "openraft",
+ "reqwest",
+ "saddle-apiserver",
+ "saddle-store",
+ "saddle-wire",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wsf-bridge",
+]
 
 [[package]]
 name = "schemars"

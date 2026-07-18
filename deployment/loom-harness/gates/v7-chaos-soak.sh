@@ -10,7 +10,7 @@
 # The data-plane workload-reschedule leg (the scheduler evicting a dead node's
 # Placements and re-placing them, revoking runtime tokens in OpenBao) is the
 # estate's own controllers (live_node / live_scheduler); this script is the live
-# companion of the in-process `aog-conformance` gate `chaos_soak`, which proves the
+# companion of the in-process `saddle-conformance` gate `chaos_soak`, which proves the
 # same self-healing + determinism on real openraft.
 #
 # Prereq: estate up (docker compose -f deployment/loom-harness/docker-compose.yml

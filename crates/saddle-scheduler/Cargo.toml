@@ -1,0 +1,18 @@
+[package]
+name = "saddle-scheduler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+saddle-estate = { path = "../saddle-estate" }
+fabric-contracts = { path = "../fabric-contracts" }
+
+[dev-dependencies]
+saddle-estate = { path = "../saddle-estate" }
+fabric-contracts = { path = "../fabric-contracts" }
+
+[lints]
+workspace = true

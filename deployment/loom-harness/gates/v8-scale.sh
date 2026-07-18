@@ -5,7 +5,7 @@
 # CP replicas — the N-node fan-out at the aggressive profile (5 CP, 100 objects).
 #
 # The reconcile-to-convergence timing bound is proven precisely in the in-process
-# `aog-conformance` bar `scale_target` (real aog-controller reconcile runtime),
+# `saddle-conformance` bar `scale_target` (real saddle-controller reconcile runtime),
 # where wall-clock is the estate's, not the harness's. Here the gate is
 # completeness: no replica may be missing an object under scale. Ingest wall-clock
 # is reported as the estate's commit throughput (the per-object docker-exec

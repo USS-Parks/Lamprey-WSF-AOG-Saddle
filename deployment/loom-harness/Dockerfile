@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# Loom Phase-V conformance harness image (VH4) — builds the aogd control-plane
-# daemon and the aog-noded edge daemon from the Cargo workspace and ships them on
+# Loom Phase-V conformance harness image (VH4) — builds the saddled control-plane
+# daemon and the saddle-noded edge daemon from the Cargo workspace and ships them on
 # a slim runtime. Build context = the mai workspace root (so Cargo.lock resolves);
 # target/ is .dockerignore'd. One image, one binary per compose service (VH5).
 
@@ -14,19 +14,19 @@ COPY . .
 # layer, so the runtime stage can only pick them up from a regular path.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release -p aogd -p aog-noded --bins \
+    cargo build --release -p saddled -p saddle-noded --bins \
     && mkdir -p /out \
-    && cp target/release/aogd      /out/aogd \
-    && cp target/release/aog-noded /out/aog-noded
+    && cp target/release/saddled      /out/saddled \
+    && cp target/release/saddle-noded /out/saddle-noded
 
 FROM debian:bookworm-slim@sha256:60eac759739651111db372c07be67863818726f754804b8707c90979bda511df AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /out/aogd      /usr/local/bin/aogd
-COPY --from=builder /out/aog-noded /usr/local/bin/aog-noded
+COPY --from=builder /out/saddled      /usr/local/bin/saddled
+COPY --from=builder /out/saddle-noded /usr/local/bin/saddle-noded
 RUN useradd -r -u 10001 loom
 USER loom
-# No ENTRYPOINT: the harness compose sets the command per service (aogd for the
-# control plane, aog-noded for the edges). Default to the control-plane daemon.
-CMD ["/usr/local/bin/aogd"]
+# No ENTRYPOINT: the harness compose sets the command per service (saddled for the
+# control plane, saddle-noded for the edges). Default to the control-plane daemon.
+CMD ["/usr/local/bin/saddled"]

@@ -1,6 +1,6 @@
 # Loom estate — k3s packaging. The SAME artifact set as the compose packaging
-# (`../docker-compose.yml`): one `loom-harness` image, two binaries (`aogd`,
-# `aog-noded`), the same environment contract, the same cluster-init script
+# (`../docker-compose.yml`): one `loom-harness` image, two binaries (`saddled`,
+# `saddle-noded`), the same environment contract, the same cluster-init script
 # (mounted from a ConfigMap created from `../cluster-init.sh` — see
 # `../gates/parity-compose-k3s.sh`). Only the orchestrator differs; nothing
 # about the daemons or their configuration forks.
@@ -66,7 +66,7 @@ metadata:
   namespace: loom
 spec:
   clusterIP: None
-  selector: { app: aogd }
+  selector: { app: saddled }
   ports:
     - port: 4600
       targetPort: 4600
@@ -81,13 +81,13 @@ spec:
   replicas: 5
   podManagementPolicy: Parallel
   selector:
-    matchLabels: { app: aogd }
+    matchLabels: { app: saddled }
   template:
     metadata:
-      labels: { app: aogd }
+      labels: { app: saddled }
     spec:
       containers:
-        - name: aogd
+        - name: saddled
           image: loom-harness:vh4
           imagePullPolicy: Never # imported into the k3s containerd from the one artifact set
           # The compose packaging assigns AOGD_NODE_ID / AOGD_ADVERTISE per
@@ -100,10 +100,10 @@ spec:
               H="${HOSTNAME:-$(cat /proc/sys/kernel/hostname)}"
               export AOGD_NODE_ID="$(( ${H##*-} + 1 ))"
               export AOGD_ADVERTISE="http://${H}.cp:4600"
-              exec /usr/local/bin/aogd
+              exec /usr/local/bin/saddled
           env:
             - name: AOGD_DATA_DIR
-              value: /tmp/aogd
+              value: /tmp/saddled
             - name: AOGD_LISTEN
               value: 0.0.0.0:4600
             - name: AOGD_PROFILE
@@ -153,7 +153,7 @@ metadata:
   namespace: loom
 spec:
   clusterIP: None
-  selector: { app: aog-noded }
+  selector: { app: saddle-noded }
   ports:
     - port: 5600
       targetPort: 5600
@@ -168,16 +168,16 @@ spec:
   replicas: 5
   podManagementPolicy: Parallel
   selector:
-    matchLabels: { app: aog-noded }
+    matchLabels: { app: saddle-noded }
   template:
     metadata:
-      labels: { app: aog-noded }
+      labels: { app: saddle-noded }
     spec:
       containers:
-        - name: aog-noded
+        - name: saddle-noded
           image: loom-harness:vh4
           imagePullPolicy: Never
-          command: ["/usr/local/bin/aog-noded"]
+          command: ["/usr/local/bin/saddle-noded"]
           env:
             # The compose packaging names edges edge1..edge5; here the stable
             # pod name (edge-0..edge-4) is the node name. Same env contract.

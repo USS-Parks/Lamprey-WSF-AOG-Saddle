@@ -1,0 +1,39 @@
+{
+  "active_old_identity_findings": [],
+  "binary_map": {
+    "aog-noded": "saddle-noded",
+    "aogctl": "saddlectl",
+    "aogd": "saddled"
+  },
+  "cargo_manifest_loom_references": [],
+  "expected_package_map": {
+    "aog-apiserver": "saddle-apiserver",
+    "aog-conformance": "saddle-conformance",
+    "aog-controller": "saddle-controller",
+    "aog-estate": "saddle-estate",
+    "aog-federation": "saddle-federation",
+    "aog-node": "saddle-node",
+    "aog-noded": "saddle-noded",
+    "aog-scheduler": "saddle-scheduler",
+    "aog-store": "saddle-store",
+    "aog-wire": "saddle-wire",
+    "aogctl": "saddlectl",
+    "aogd": "saddled"
+  },
+  "missing_binaries": [],
+  "missing_directories": [],
+  "missing_packages": [],
+  "missing_retained_aog_packages": [],
+  "old_directories": [],
+  "retained_aog_packages": [
+    "aog-approvals",
+    "aog-gateway",
+    "aog-tool-runtime",
+    "aog-toolproxy"
+  ],
+  "schema_version": 1,
+  "status": "PASS",
+  "unexpected_old_binaries": [],
+  "unexpected_old_packages": [],
+  "workspace_package_count": 37
+}
