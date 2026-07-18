@@ -1018,7 +1018,8 @@ verified remote checkpoint `8a6e3e1ec311afce6e261ec3c807be60c10fe291`.
 ## SAD-32 — WSF-attested scheduling
 
 **Status:** PASS — implementation commit
-`a87aed1604a81ea5680411dd932bc81ab2a3356e`; remote publication pending.
+`a87aed1604a81ea5680411dd932bc81ab2a3356e`; verification closeout and first
+verified remote checkpoint `3da29ab4fffa6499584fce128a77c4451cf1fd84`.
 
 ### Work completed
 
@@ -1086,7 +1087,10 @@ verified remote checkpoint `8a6e3e1ec311afce6e261ec3c807be60c10fe291`.
 - refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
   SHA-256 `2ecd1a5a80a9648493e2d324e90915b7abd2d7ff57969d1760e36e7956bd17fc`;
   and
-- implementation commit `a87aed1604a81ea5680411dd932bc81ab2a3356e`.
+- implementation commit `a87aed1604a81ea5680411dd932bc81ab2a3356e`;
+  and
+- verification closeout and first verified remote checkpoint
+  `3da29ab4fffa6499584fce128a77c4451cf1fd84`.
 
 ### Next prompt
 
