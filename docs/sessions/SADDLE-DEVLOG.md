@@ -210,3 +210,55 @@ staged no-slop gates passed. The configured target full-tree no-slop pre-push
 gate also passed in Git for Windows Bash, and remote `main` advanced from
 `c5e6fc7cc4f1a9a82456e36914e4cb146df26b37` to
 `d506e80aee79717b1a48817d471ce9e89ca934c2` on 2026-07-17.
+
+---
+
+## SAD-03 — Prove the no-secret import path
+
+**Status:** PASS — implementation checkpoint pending publication.
+
+### Work completed
+
+- Added a tracked-blob-only import proof that validates every selected source
+  path's mode, Git object, byte size, and SHA-256 before temporary archive
+  construction and isolated index staging.
+- Added a dependency-free secondary detector alongside strict default-rule
+  Gitleaks; both scanners emit only finding metadata and hash-pinned reviewed
+  exceptions, never matched values.
+- Validated the 49 `hashed_secret` values in `.secrets.baseline` as SHA-1
+  detector digests before narrowly excluding that metadata file from the
+  Gitleaks input.
+- Corrected the source ledger: the generated staging bundle cache and six
+  credential- or token-bearing historical captures are excluded, while their
+  provenance remains recorded.
+- Added runtime-only test-material generation for disposable CA, server/client
+  certificates, private keys, and OpenBao/Saddle/Raft/audit/receipt state.
+  The generated certificates verified against the generated CA; the temporary
+  private material was removed immediately afterward.
+
+### Gate
+
+- clean pinned seed checkout and Git-blob provenance validation — PASS;
+- deterministic temporary archive and raw-blob staged index — PASS, 898 paths
+  and tree `6f963caa9c5cdf44fe07f53cf48af4798ba21065`;
+- private-key path, non-placeholder `.env`, runtime state, generated cache,
+  symlink, and submodule exclusion — PASS;
+- strict default-rule Gitleaks — PASS, zero unsuppressed findings;
+- independent Saddle static detector — PASS, zero unsuppressed findings;
+- reviewed exceptions are exact path/rule/line/fingerprint records with a
+  synthetic-fixture assessment — PASS; and
+- generated server and client certificates verify against the ephemeral test
+  CA — PASS; generated private material removed — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-03/import-allowlist.json`, SHA-256
+  `d1b4106a3ee2e883a1807836b714bb823b97270de05e9a9cf60692dd872886b8`;
+- `test-evidence/saddle/SAD-03/no-secret-import-proof.json`, SHA-256
+  `a00a15cbe9ddd3de48e7ac97f55bda77a8613478f102cb9c5e102ebdd78a9f1c`;
+- `test-evidence/saddle/SAD-03/gitleaks-reviewed-exceptions.json`; and
+- `test-evidence/saddle/SAD-03/secondary-reviewed-exceptions.json`.
+
+### Next prompt
+
+`SAD-10 — Establish the independent workspace`.

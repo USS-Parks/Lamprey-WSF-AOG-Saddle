@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "seed_sha": "fedf005a30ad388ab156dc8bd693a3aa3f0702ea",
+  "suppressed_findings": [
+    {
+      "fingerprint": "963bf5d0658a0c0dad0ad9eeca1f48f847ac2bd7acd41a3ba657c427458b467f",
+      "line": 30,
+      "path": "contracts/receipt.md",
+      "reason": "Synthetic receipt-schema token example; the exact documented fixture is non-routable and has no backing credential.",
+      "rule_id": "generic-api-key"
+    },
+    {
+      "fingerprint": "945af9cf1203b7883de2f87e46c6aefaab69a9894947882686a54a2257e9e20a",
+      "line": 16,
+      "path": "contracts/trust-token.md",
+      "reason": "Synthetic trust-token schema example; the exact documented fixture is non-routable and has no backing credential.",
+      "rule_id": "generic-api-key"
+    },
+    {
+      "fingerprint": "6858ee0f798893ad15cec577640a0af038cdd08b876580b7b57274b2ec246da5",
+      "line": 474,
+      "path": "crates/aog-toolproxy/src/scan.rs",
+      "reason": "Purpose-built AWS redaction detector fixture; the exact string exercises scanner behavior and carries no provider access.",
+      "rule_id": "aws-access-token"
+    },
+    {
+      "fingerprint": "ca7b332c16bf812428639867ee93ea80c720766cd9c7aa64a5603a8826bcf57f",
+      "line": 479,
+      "path": "crates/aog-toolproxy/src/scan.rs",
+      "reason": "Purpose-built AWS redaction assertion fixture; the exact string is matched only to verify scanner output.",
+      "rule_id": "aws-access-token"
+    },
+    {
+      "fingerprint": "a0f1dfb67b800096ac0fa983d4efe4127c6e4a5a0a241f1f183b45cf65e7e605",
+      "line": 64,
+      "path": "crates/aogd/tests/live_openbao_anchor.rs",
+      "reason": "Live-test anchor token identifier; the exact fixture is synthetic and is not an OpenBao credential.",
+      "rule_id": "generic-api-key"
+    },
+    {
+      "fingerprint": "3f6cc517f03341510d47ffb208d84b6d4b96e2688646827675b3d62cd4a37283",
+      "line": 63,
+      "path": "crates/fabric-contracts/tests/contracts.rs",
+      "reason": "Unit-test claim alias fixture; the exact token identifier has no issuance or verification authority.",
+      "rule_id": "generic-api-key"
+    },
+    {
+      "fingerprint": "1efd1ad2017b28a56e2d64c260013a3058a667ce1eb5748368bece393b0b7df5",
+      "line": 238,
+      "path": "crates/wsf-broker/src/gcp.rs",
+      "reason": "Public Google OAuth scope test value; it is a non-secret URI-shaped constant, not bearer authority.",
+      "rule_id": "generic-api-key"
+    }
+  ]
+}

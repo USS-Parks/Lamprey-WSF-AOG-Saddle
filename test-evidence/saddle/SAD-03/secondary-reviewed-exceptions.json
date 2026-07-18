@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "seed_sha": "fedf005a30ad388ab156dc8bd693a3aa3f0702ea",
+  "suppressed_findings": [
+    {
+      "fingerprint": "354e470d6e63db6f56c85ec44b464f6ec12abb73e0d02ddeb97b0440f4c05b67",
+      "line": 103,
+      "path": ".gitleaks.toml",
+      "reason": "Documented synthetic OpenAI-shaped regression fixture; the exact value is used only to exercise redaction policy.",
+      "rule_id": "openai-or-anthropic-key"
+    },
+    {
+      "fingerprint": "41b1ba49d0a3b7eb17065888968958e8d7e5538e8e858d7d229ac1dba9304322",
+      "line": 114,
+      "path": ".gitleaks.toml",
+      "reason": "Documented synthetic AWS-shaped regression fixture; the exact value is used only to exercise redaction policy.",
+      "rule_id": "aws-access-key"
+    }
+  ]
+}

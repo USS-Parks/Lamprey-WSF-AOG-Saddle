@@ -180,10 +180,10 @@ subset here.
 
 | Disposition | Paths | Meaning |
 |---|---:|---|
-| `import` | 636 | Native closure or required independent build, deployment, CI, tool, policy, and placeholder surface; still subject to SAD-03. |
+| `import` | 635 | Native closure or required independent build, deployment, CI, tool, policy, and placeholder surface; still subject to SAD-03. |
 | `extract` | 13 | `mai-scheduler` topology/power primitives preserved for Saddle SAD-43. |
-| `historical-evidence` | 256 | Relevant history and evidence preserved without turning seed claims into Saddle completion claims. |
-| `exclude-with-reason` | 103 | Unrelated MAI surfaces, unsafe negative fixtures, or source that remains deliberately in AOG/runtime scope. |
+| `historical-evidence` | 250 | Relevant history and evidence preserved without turning seed claims into Saddle completion claims. |
+| `exclude-with-reason` | 110 | Unrelated MAI surfaces, unsafe negative fixtures, generated cache material, token-bearing historical evidence, or source that remains deliberately in AOG/runtime scope. |
 | `out-of-scope-no-match` | 483 | Tracked paths with no relevant content/path match and no closure/build dependency. |
 
 The six tracked `deployment/appliance/fixtures/unsafe-*` files are explicitly
@@ -191,6 +191,15 @@ excluded. They are negative-test profiles and may be recreated only with
 ephemeral values under SAD-03. The four tracked `.env.example` files are
 explicitly marked `import` only as placeholders; a single secret finding blocks
 their inclusion.
+
+`deployment/openbao-staging/bundle-cache/bundle.json` is also excluded. It is
+generated staging cache material, not an importable source input; SAD-03's
+ephemeral material procedure replaces it with fresh runtime-only state.
+
+Six historical detector, bootstrap, DEVLOG, or compose-capture files that carry
+credential- or token-shaped fixture material are excluded as well. Their seed
+SHA-256 records remain in the generated ledger, while any future Saddle
+evidence must be regenerated with sanitized or ephemeral values.
 
 ### 3.3 Explicit initial exclusions
 

@@ -68,3 +68,20 @@ the deterministic source-manifest generator and its generated evidence.
 | Staged no-slop gate | PASS | Configured target pre-commit hook reports `no-slop: clean (staged)`. |
 | Commit footer | PASS | `d506e80aee79717b1a48817d471ce9e89ca934c2` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `c5e6fc7cc4f1a9a82456e36914e4cb146df26b37` to `d506e80aee79717b1a48817d471ce9e89ca934c2`. |
+
+## SAD-03
+
+**State under test:** source pin `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`,
+the corrected SAD-02 ledger, and the isolated 898-path staged-import simulation.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Seed binding | PASS | Clean checkout required at the full approved source SHA. |
+| Source-blob verification | PASS | Every allowlisted path's mode, Git object, byte size, and SHA-256 matched the SAD-02 ledger. |
+| Archive and staged index | PASS | Deterministic temporary archive hashed to `e07a17ab4ab682aa912aa7fb4e15ca748788e8dfaa26523578f9ca963790d117`; isolated raw-blob index tree is `6f963caa9c5cdf44fe07f53cf48af4798ba21065`. |
+| Forbidden-path boundary | PASS | Private-key paths, non-placeholder `.env`, generated cache, runtime state, symlink, and submodule material are absent. |
+| Gitleaks | PASS | Strict default rules report zero unsuppressed findings; 49 baseline SHA-1 detector digests were validated before narrow baseline exclusion. |
+| Independent static detector | PASS | 898 paths scanned with zero unsuppressed findings. |
+| Reviewed synthetic fixtures | PASS | Exact path/rule/line/fingerprint exception files contain reasons; the sole path omission is separately validated detector-baseline metadata. |
+| Runtime material generator | PASS | Disposable CA/server/client material generated; `openssl verify` accepted both leaf certificates; private output removed after test. |
+| SAD-02 regeneration | PASS | Corrected manifest deterministically regenerated and verified at 1,491 tracked paths, 1,008 candidates, and 37 closure packages. |

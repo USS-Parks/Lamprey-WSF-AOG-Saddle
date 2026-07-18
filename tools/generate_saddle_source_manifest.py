@@ -123,6 +123,33 @@ SCHEDULER_EXTRACT_PATHS = {
     "mai-scheduler/tests/topology_integration.rs",
 }
 
+SECRET_BEARING_HISTORICAL_PATHS = {
+    "docs/" "compliance/INDEPENDENT-EVIDENCE-DEFERRALS.md": (
+        "Historical evidence carries a token-shaped synthetic literal; preserve its "
+        "provenance in the ledger but regenerate a sanitized Saddle-owned record."
+    ),
+    "docs/" "scans/LOCAL-GITDOCTOR-EVIDENCE-2026-05-26.md": (
+        "Historical detector output contains finding-shaped material; retain its "
+        "provenance hash but do not import raw scan output into the new project."
+    ),
+    "docs/" "sessions/LAMPREY-SADDLE-HARDENING-DEVLOG.md": (
+        "Historical DEVLOG contains a token-shaped fixture; preserve the execution "
+        "status through Saddle records without importing the raw fixture literal."
+    ),
+    "test-evidence/rc-06/bundle-first-boot-stdout.log": (
+        "Captured bootstrap stdout includes a raw test credential; regenerate only "
+        "with ephemeral Saddle test material."
+    ),
+    "test-evidence/security-remediation/PSPR-01/00-BEFORE-effective-compose.txt": (
+        "Captured compose evidence includes a secret-ID fixture; recreate a sanitized "
+        "Saddle evidence view with ephemeral values when needed."
+    ),
+    "test-evidence/security-remediation/PSPR-01/05-AFTER-compose-config-demo.txt": (
+        "Captured compose evidence includes a secret-ID fixture; recreate a sanitized "
+        "Saddle evidence view with ephemeral values when needed."
+    ),
+}
+
 
 def fail(message: str) -> None:
     raise RuntimeError(message)
@@ -300,6 +327,8 @@ def classify(
     closure_paths: set[str],
     relevance_reasons: list[str],
 ) -> tuple[str, str]:
+    if path in SECRET_BEARING_HISTORICAL_PATHS:
+        return "exclude-with-reason", SECRET_BEARING_HISTORICAL_PATHS[path]
     if is_env_placeholder(path):
         return (
             "import",
@@ -317,6 +346,12 @@ def classify(
             "exclude-with-reason",
             "Deliberately unsafe negative deployment fixture; recreate only with "
             "ephemeral generated values under the SAD-03 no-secret test procedure.",
+        )
+    if path.startswith("deployment/openbao-staging/bundle-cache/"):
+        return (
+            "exclude-with-reason",
+            "Generated staging bundle-cache material is prohibited from import; "
+            "regenerate an ephemeral Saddle test bundle under SAD-03 instead.",
         )
     if path.startswith("mai-scheduler/"):
         return scheduler_disposition(path)

@@ -9227,8 +9227,8 @@
     },
     {
       "byte_size": 9755,
-      "disposition": "import",
-      "disposition_reason": "Required root build, contract, integrity, deployment, or policy surface for the independent repository.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Generated staging bundle-cache material is prohibited from import; regenerate an ephemeral Saddle test bundle under SAD-03 instead.",
       "git_object": "a75998506d22be8717b019e042556f7709a70cc2",
       "git_object_type": "blob",
       "mode": "100644",
@@ -10370,8 +10370,8 @@
     },
     {
       "byte_size": 13621,
-      "disposition": "historical-evidence",
-      "disposition_reason": "Relevant executed history, claim evidence, or source inventory preserved without converting the seed claim into a Saddle completion claim.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Historical evidence carries a token-shaped synthetic literal; preserve its provenance in the ledger but regenerate a sanitized Saddle-owned record.",
       "git_object": "fdf446bf0d90f6b9d07276beff3d07e7bdd28cd0",
       "git_object_type": "blob",
       "mode": "100644",
@@ -11252,8 +11252,8 @@
     },
     {
       "byte_size": 49187,
-      "disposition": "historical-evidence",
-      "disposition_reason": "Relevant executed history, claim evidence, or source inventory preserved without converting the seed claim into a Saddle completion claim.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Historical detector output contains finding-shaped material; retain its provenance hash but do not import raw scan output into the new project.",
       "git_object": "ed36857fddac082c6fde80183f0683bba1c4c53a",
       "git_object_type": "blob",
       "mode": "100644",
@@ -11976,8 +11976,8 @@
     },
     {
       "byte_size": 100291,
-      "disposition": "historical-evidence",
-      "disposition_reason": "Relevant executed history, claim evidence, or source inventory preserved without converting the seed claim into a Saddle completion claim.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Historical DEVLOG contains a token-shaped fixture; preserve the execution status through Saddle records without importing the raw fixture literal.",
       "git_object": "3090d529e9927eb69b61268128e5bcd116776b24",
       "git_object_type": "blob",
       "mode": "100644",
@@ -19088,8 +19088,8 @@
     },
     {
       "byte_size": 3620,
-      "disposition": "historical-evidence",
-      "disposition_reason": "Relevant executed history, claim evidence, or source inventory preserved without converting the seed claim into a Saddle completion claim.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Captured bootstrap stdout includes a raw test credential; regenerate only with ephemeral Saddle test material.",
       "git_object": "dd7db9b152b4acd61004e418c87674e90c7257e8",
       "git_object_type": "blob",
       "mode": "100644",
@@ -19516,8 +19516,8 @@
     },
     {
       "byte_size": 4400,
-      "disposition": "historical-evidence",
-      "disposition_reason": "Relevant executed history, claim evidence, or source inventory preserved without converting the seed claim into a Saddle completion claim.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Captured compose evidence includes a secret-ID fixture; recreate a sanitized Saddle evidence view with ephemeral values when needed.",
       "git_object": "bba7b8f2d3ca3248eb5ced8f1c25e8075fc61ec8",
       "git_object_type": "blob",
       "mode": "100644",
@@ -19578,8 +19578,8 @@
     },
     {
       "byte_size": 4433,
-      "disposition": "historical-evidence",
-      "disposition_reason": "Relevant executed history, claim evidence, or source inventory preserved without converting the seed claim into a Saddle completion claim.",
+      "disposition": "exclude-with-reason",
+      "disposition_reason": "Captured compose evidence includes a secret-ID fixture; recreate a sanitized Saddle evidence view with ephemeral values when needed.",
       "git_object": "1425557381eedcf5ae0411791072487c9323b27b",
       "git_object_type": "blob",
       "mode": "100644",
@@ -20925,7 +20925,7 @@
   ],
   "generator": {
     "path": "tools/generate_saddle_source_manifest.py",
-    "sha256": "b8d92466f8366506edf010515b0935b7db27fdbad24175f73b3595c4a91cfeb1"
+    "sha256": "6eb393b7bde71aa6bf99d9149789b316f01f90ba5c54510b1960a39d8e4199fd"
   },
   "schema_version": 1,
   "seed": {
@@ -20935,10 +20935,10 @@
   "totals": {
     "candidate_path_count": 1008,
     "disposition_counts": {
-      "exclude-with-reason": 103,
+      "exclude-with-reason": 110,
       "extract": 13,
-      "historical-evidence": 256,
-      "import": 636,
+      "historical-evidence": 250,
+      "import": 635,
       "out-of-scope-no-match": 483
     },
     "source_like_path_count": 1323,
