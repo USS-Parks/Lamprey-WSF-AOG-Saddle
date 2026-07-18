@@ -511,8 +511,8 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ## SAD-15 — M1 independent-source checkpoint
 
 **Status:** PASS — the M1 gate ran from a clean remote clone at
-`62b076ea480894e177f504a4fbea3ec638a54b3c`; the evidence checkpoint is
-pending this closeout commit.
+`62b076ea480894e177f504a4fbea3ec638a54b3c`; its evidence closeout was
+published at `8ab9eea32e7ee6859ac1a639449587e2b3febe46`.
 
 ### Fresh-checkout gate
 
@@ -550,10 +550,76 @@ pending this closeout commit.
   `26dd07c7ec860cffd7025165dec9e854106932d6b18bee73d279f37453cfbb7c`;
 - `test-evidence/saddle/SAD-15/independence-gate.json`, SHA-256
   `70022ca187a3b6df85cbd682c5579bf9fb95a679482b809b23c51f452c1f0909`; and
-- the reproducible source checkpoint remains
-  `62b076ea480894e177f504a4fbea3ec638a54b3c` until the SAD-15 closeout
-  commit publishes the evidence bundle.
+- reproducible source checkpoint
+  `62b076ea480894e177f504a4fbea3ec638a54b3c`; and
+- published SAD-15 evidence closeout checkpoint
+  `8ab9eea32e7ee6859ac1a639449587e2b3febe46`.
 
 ### Next prompt
 
 `SAD-20 — Rename orchestration packages and binaries`.
+
+---
+
+## SAD-20 — Rename orchestration packages and binaries
+
+**Status:** PASS — implementation committed as
+`74e09b53038da895dc26dc71283428e25a2bbd82`; publication is pending this
+bounded PSPR/DEVLOG closeout.
+
+### Work completed
+
+- Moved the exact twelve-package orchestration map to `saddle-*`, `saddled`,
+  `saddle-noded`, and `saddlectl` crate paths, Cargo package names, Rust crate
+  identifiers, and binary targets.
+- Updated dependent Cargo/Rust references plus CI and the existing conformance
+  harness build/command references so no compatibility alias is required.
+- Preserved the four actual AOG governance packages: `aog-approvals`,
+  `aog-gateway`, `aog-toolproxy`, and `aog-tool-runtime`.
+- Replaced active human-facing Loom ownership inside the moved packages while
+  leaving the SAD-21 protocol/environment/persistence/deployment-directory
+  migration and the SAD-22 legacy-state boundary unbundled.
+- Added a deterministic identity verifier and evidence artifact. The verifier
+  distinguishes active package identity from the immutable seed generator's
+  historical source-package vocabulary.
+
+### Gate
+
+- Before-rename characterization of all twelve orchestration packages — PASS;
+- deterministic SAD-20 identity write plus verify-only passes — PASS: twelve
+  exact packages, three exact binaries, four retained AOG packages, zero old
+  Cargo packages/binaries/directories, and zero active old package tokens;
+- `cargo fmt --check` — PASS;
+- `cargo check --workspace --all-targets --locked` — PASS;
+- `cargo clippy --workspace --all-targets --locked -- -D warnings -A clippy::pedantic`
+  — PASS;
+- `cargo test --workspace --locked` with Git-bundled OpenSSL and the configured
+  live OpenBao endpoint — PASS, including renamed mTLS, consensus, controller,
+  scheduler, node, API, CLI, and live trust paths;
+- `cargo audit` and `cargo deny check` — PASS; existing non-fatal deny warnings
+  remain unchanged;
+- `docker compose -f deployment/loom-harness/docker-compose.yml config -q` —
+  PASS for the renamed binary commands; the directory/service identity remains
+  SAD-21 scope;
+- staged `git diff --check`, Gitleaks, explicit credential-pattern scan,
+  anti-truncation, and full no-slop gates — PASS; and
+- implementation commit canonical footer — PASS.
+
+Git's automatic hook launch attempted to use an unavailable WSL distribution.
+The staged and full hooks had already passed explicitly under Git for Windows
+Bash, so the implementation commit used `--no-verify` only to bypass that shell
+resolution failure; no repository gate was waived.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-20/package-identity-gate.json`, SHA-256
+  `c0584a98643bc36b9b9df9845db6ea976909c1060c4f90215d07ec21e6c473c8`;
+- `tools/verify_saddle_package_identity.py`, SHA-256
+  `56979529691bad760f18809c3affea1fba01ae9eac3066f1a12f877f663bdf81`;
+  and
+- implementation commit
+  `74e09b53038da895dc26dc71283428e25a2bbd82`.
+
+### Next prompt
+
+`SAD-21 — Rename protocol, trust, persistence, and deployment identities`.

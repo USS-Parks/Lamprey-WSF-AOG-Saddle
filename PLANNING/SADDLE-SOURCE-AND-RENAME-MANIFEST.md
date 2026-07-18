@@ -2,7 +2,7 @@
 
 **Purpose:** Make the independent source import and the Loom-to-Saddle replacement mechanically executable.
 **Authority:** Supporting specification for `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
-**Status:** **SAD-02 PASS — generated from the approved immutable seed pin.**
+**Status:** **SAD-20 PASS — package and binary identity cutover complete; SAD-21 protocol, trust, persistence, and deployment identity next.**
 The machine-readable path, disposition, and SHA-256 ledger is
 `test-evidence/saddle/SAD-02/source-manifest.json`; `SAD-03` owns the
 no-secret staged-import proof before any source enters the target.
@@ -282,6 +282,23 @@ matches, five approved transformations, and ten explicit non-portable-source
 exclusions. It additionally binds the 20-path SAD-14 package closure. This is
 an additive reconciliation; the immutable SAD-02 manifest and its original
 dispositions remain preserved as historical provenance.
+
+## 4.3 SAD-20 package and binary identity cutover
+
+SAD-20 moved the twelve orchestration crates in §2.1 to their exact Saddle
+package paths and names. Cargo and Rust dependency identities moved with them,
+and the three operator binaries are now exclusively `saddled`, `saddle-noded`,
+and `saddlectl`. The governance packages `aog-approvals`, `aog-gateway`,
+`aog-toolproxy`, and `aog-tool-runtime` remain AOG by design.
+
+`tools/verify_saddle_package_identity.py` deterministically checks Cargo
+metadata, binary targets, crate directories, active build/configuration text,
+and the retained AOG set. Its evidence is
+`test-evidence/saddle/SAD-20/package-identity-gate.json`. The immutable seed
+inventory generator intentionally continues to recognize the source commit's
+original package names; that provenance vocabulary is not an active package
+alias. Protocol, environment, API-group, persistence, and deployment-directory
+identity remain explicitly assigned to SAD-21.
 
 ## 5. Loom-to-Saddle active identity map
 
