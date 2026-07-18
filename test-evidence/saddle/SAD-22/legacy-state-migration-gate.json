@@ -1,0 +1,29 @@
+{
+  "authority_and_payload_preserved": true,
+  "journal_sha256": "5f8e822179f2136e9520565780144282413b195c9876557213089a0032b4688a",
+  "migrated_sha256": "87d249cbd96197f04617d2c2ea021c5bae7a939c22e6f3d438caa7a656c856c1",
+  "modes": [
+    "inspect",
+    "dry-run",
+    "apply",
+    "verify",
+    "rollback"
+  ],
+  "opaque_non_json_entry_preserved": true,
+  "receipt_chain_preserved": true,
+  "representative_entries": 2,
+  "restored_sha256": "94cd361193bdce877d8701546c104ff424c7d0c4350daadd30e05eb7bfed48b6",
+  "rewritten_paths": [
+    "/api_version",
+    "/metadata/finalizers/0",
+    "/metadata/labels/loom.io~1unschedulable"
+  ],
+  "rollback_exact": true,
+  "schema_version": 1,
+  "source_sha256": "94cd361193bdce877d8701546c104ff424c7d0c4350daadd30e05eb7bfed48b6",
+  "status": "PASS",
+  "structural_rewrites": 3,
+  "tamper_rejection_exit_code": 2,
+  "tampered_receipt_rejected": true,
+  "version_metadata_preserved": true
+}

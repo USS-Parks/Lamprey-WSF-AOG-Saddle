@@ -16,7 +16,10 @@ name = "saddlectl"
 path = "src/lib.rs"
 
 [dependencies]
+blake3 = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+saddle-store = { path = "../saddle-store" }
+serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
@@ -26,6 +29,7 @@ saddle-apiserver = { path = "../saddle-apiserver" }
 fabric-contracts = { path = "../fabric-contracts" }
 fabric-crypto = { path = "../fabric-crypto" }
 fabric-token = { path = "../fabric-token" }
+wsf-ledger = { path = "../wsf-ledger" }
 base64 = "0.22"
 chrono = { workspace = true }
 

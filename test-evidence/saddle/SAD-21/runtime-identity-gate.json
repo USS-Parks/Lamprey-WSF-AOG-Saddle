@@ -6,9 +6,9 @@
   "missing_required_paths": [],
   "negative_authorization_fixture": "crates/saddled/tests/admin_auth.rs",
   "required_marker_counts": {
-    "api_group": 23,
+    "api_group": 25,
     "cli_env": 2,
-    "cordon_label": 1,
+    "cordon_label": 3,
     "daemon_env": 11,
     "deployment": 28,
     "forwarded_header": 1,

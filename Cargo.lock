@@ -2446,15 +2446,19 @@ name = "saddlectl"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "blake3",
  "chrono",
  "fabric-contracts",
  "fabric-crypto",
  "fabric-token",
  "reqwest",
  "saddle-apiserver",
+ "saddle-store",
+ "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "wsf-ledger",
 ]
 
 [[package]]

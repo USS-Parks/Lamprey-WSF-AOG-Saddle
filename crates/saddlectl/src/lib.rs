@@ -6,6 +6,8 @@
 //! (`main.rs`) is a formatting shell over this client; the client is what the
 //! gate exercises.
 
+pub mod migration;
+
 use serde_json::Value;
 
 /// Header carrying the base64-encoded JSON trust token (matches the apiserver).
