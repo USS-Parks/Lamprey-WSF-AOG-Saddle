@@ -66,3 +66,5 @@ the deterministic source-manifest generator and its generated evidence.
 | `git diff --check` | PASS | Final staged SAD-02 tree has no whitespace errors. |
 | Secret scans | PASS | Gitleaks 8.30.1 and explicit private-key/token/credential-URL checks report zero matches. |
 | Staged no-slop gate | PASS | Configured target pre-commit hook reports `no-slop: clean (staged)`. |
+| Commit footer | PASS | `d506e80aee79717b1a48817d471ce9e89ca934c2` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `c5e6fc7cc4f1a9a82456e36914e4cb146df26b37` to `d506e80aee79717b1a48817d471ce9e89ca934c2`. |

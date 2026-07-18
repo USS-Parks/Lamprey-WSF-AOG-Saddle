@@ -148,7 +148,7 @@ passed, and remote `main` advanced from
 
 ## SAD-02 — Generate the full source-coverage manifest
 
-**Status:** PASS — implementation checkpoint pending publication.
+**Status:** PASS — remote checkpoint `d506e80aee79717b1a48817d471ce9e89ca934c2`.
 
 ### Work completed
 
@@ -200,3 +200,13 @@ passed, and remote `main` advanced from
 ### Next prompt
 
 `SAD-03 — Prove the no-secret import path`.
+
+### Commit state
+
+SAD-02 was committed as `d506e80aee79717b1a48817d471ce9e89ca934c2` with
+the exact canonical footer. The generator syntax, deterministic regeneration,
+staged whitespace, Gitleaks, explicit private-key/token/credential-URL, and
+staged no-slop gates passed. The configured target full-tree no-slop pre-push
+gate also passed in Git for Windows Bash, and remote `main` advanced from
+`c5e6fc7cc4f1a9a82456e36914e4cb146df26b37` to
+`d506e80aee79717b1a48817d471ce9e89ca934c2` on 2026-07-17.

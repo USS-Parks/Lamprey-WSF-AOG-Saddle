@@ -10,7 +10,7 @@
 **Architecture/conformance contract:** `PLANNING/SADDLE-ARCHITECTURE-AND-CONFORMANCE-CONTRACT.md`
 **Current-state gap matrix:** `PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md`
 **Seed reconciliation:** `PLANNING/SADDLE-SEED-RECONCILIATION-2026-07-16.md`
-**Status:** **AUTHORIZED FOR FULL STS EXECUTION — SAD-02 COMPLETE; SAD-03 ACTIVE.** SAD-00 implementation and remote checkpoint are `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. SAD-01 selected signed published seed `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`; its Saddle remote checkpoint is `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f`, and its open hardening obligations are mapped in `SADDLE-SEED-CHECKPOINT-2026-07-17.md`. SAD-02 generated the deterministic 1,491-path, 37-package manifest at `test-evidence/saddle/SAD-02/source-manifest.json`. Full execution plus commit and push authorization was granted on 2026-07-17.
+**Status:** **AUTHORIZED FOR FULL STS EXECUTION — SAD-02 COMPLETE; SAD-03 ACTIVE.** SAD-00 implementation and remote checkpoint are `d959bf0d8e7e14fdd2c73ff9bf42609a1748bd42`. SAD-01 selected signed published seed `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`; its Saddle remote checkpoint is `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f`, and its open hardening obligations are mapped in `SADDLE-SEED-CHECKPOINT-2026-07-17.md`. SAD-02 generated the deterministic 1,491-path, 37-package manifest at `test-evidence/saddle/SAD-02/source-manifest.json`; its verified remote checkpoint is `d506e80aee79717b1a48817d471ce9e89ca934c2`. Full execution plus commit and push authorization was granted on 2026-07-17.
 
 ---
 
