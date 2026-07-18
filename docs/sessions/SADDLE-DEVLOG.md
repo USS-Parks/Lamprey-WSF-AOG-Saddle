@@ -784,7 +784,8 @@ verified remote checkpoint `f7f50efd77813e4f8b76057d38f76a99a610df60`.
 ## SAD-23 — Active-name eradication gate
 
 **Status:** PASS — M2 complete; implementation commit
-`4f733ff7ae0e9bc30a1002838fd116c398637f22`.
+`4f733ff7ae0e9bc30a1002838fd116c398637f22`; verification/M2 closeout and
+first verified remote checkpoint `4de1ec3671d630845fb0b4856130506509801023`.
 
 ### Work completed
 
@@ -835,7 +836,9 @@ verified remote checkpoint `f7f50efd77813e4f8b76057d38f76a99a610df60`.
   `bf919e6aeeee2ab7e5694f580753164c16364fb69083f5a37ceed4a393ed1a1d`;
   and
 - implementation commit
-  `4f733ff7ae0e9bc30a1002838fd116c398637f22`.
+  `4f733ff7ae0e9bc30a1002838fd116c398637f22`; and
+- verification/M2 closeout and first verified remote checkpoint
+  `4de1ec3671d630845fb0b4856130506509801023`.
 
 ### Next prompt
 
