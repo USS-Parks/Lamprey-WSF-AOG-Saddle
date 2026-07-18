@@ -1272,3 +1272,83 @@ verified remote checkpoint `f2be87602bc68f02169211d3e9ad718937e6189a`.
 ### Next prompt
 
 `SAD-35 — Live two-tenant bridge gate`.
+
+## CI-R1 - Saddle workflow reconciliation
+
+**Status:** PASS - implementation commit
+`5900fad8be0eb6871340cdd16c933c33a8f3b2fc`; corrective commits
+`4f550545f2ed8eb7fdb0befa426c3b940857e2fb`,
+`2c5ca1ca5d34f857331404bd089a733c50fe4683`,
+`3dfd0b9478fe16b4bfe08b03733cf6dfd0ea8be4`, and
+`c16b07facadd03e2f7c493957d3da2f75d7d55af`; first checkpoint with every
+applicable push workflow green
+`c16b07facadd03e2f7c493957d3da2f75d7d55af`.
+
+This was a focused repair requested after the obsolete inherited workflow set
+failed against the independent Saddle repository. It does not complete or
+supersede SAD-35.
+
+### Work completed
+
+- Replaced inherited MAI application, Python SDK, GPU release, and legacy ship
+  validation jobs with Saddle CI, package, Compose, repository-boundary,
+  Windows-workspace, and supply-chain workflows tied to the actual 38-package
+  Cargo workspace.
+- Removed obsolete workflow-only packaging, release, SDK, systemd, and GPU
+  support surfaces; rewrote the root container and Debian staging contracts for
+  `saddled`, `saddle-noded`, and `saddlectl`.
+- Restored executable modes for every tracked shebang script and Debian rules
+  file, and added a repository test that prevents mode regression.
+- Changed lock parity to validate the locked Cargo graph through
+  `cargo metadata --locked --no-deps`; paired Python requirement files are
+  compared only when that optional surface exists.
+- Reduced inherited dependency and advisory policy to the current workspace,
+  regenerated deterministic SAD-12 and SAD-23 evidence, and added workflow
+  contract tests for known packages, excluded surfaces, job topology, and
+  generated-evidence ordering.
+- Repaired remote-only boundary failures by building `saddlectl` and the console
+  bundle before SAD-23 verification, canonicalizing the CLI artifact identity
+  across Windows and Linux, and making the portability regression independent
+  of how pytest is invoked.
+
+### Local gate
+
+- `cargo fmt --all --check`, locked workspace all-target check, strict
+  all-target clippy, clean sequential `cargo test --workspace --locked`, and
+  `scripts\\saddle-validation.ps1 -Suite all` - PASS.
+- `cargo audit`, `cargo deny check`, locked workspace documentation, lock
+  parity, route policy, Hadolint, package validation on PowerShell and Bash,
+  SAD-12 independence, SAD-23 active-name eradication, SDK compatibility,
+  deployment/packaging/CI contract tests, Gitleaks, staged/full no-slop, and the
+  pre-push gate - PASS. Route policy retained its nonfatal stale declaration
+  warnings; cargo-deny retained allowed duplicate-version warnings; rustdoc
+  retained pre-existing nonfatal warnings.
+- Root runtime, appliance, and harness container builds - PASS before the final
+  verifier-only corrections. A later root-image retry was blocked by external
+  Docker DNS resolution and is not cited as a pass.
+- The local five-replica Compose estate passed V4 partition fencing, V5 mass
+  deletion, V7 repeated kill/heal convergence, V8 replicated-object recovery,
+  and V10 five-round recovery-time validation, then was torn down.
+- Canonical commit footer verification - PASS for every outgoing commit.
+
+### Remote gate
+
+Intermediate Saddle Validation runs correctly failed while the repaired gate
+exposed missing CLI generation, missing console generation, cross-platform
+evidence drift, and a pytest import-path assumption. Each failure received a
+bounded corrective commit and a fresh full push run. On final implementation
+checkpoint `c16b07facadd03e2f7c493957d3da2f75d7d55af`:
+
+- `commit-msg-check` run `29657053347` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29657053347
+- `Saddle Validation` run `29657053380` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29657053380
+- `Saddle CI` run `29657053345` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29657053345
+- `Saddle Workspace Validation` run `29657053366` - PASS, including the full
+  Windows validation suite and uploaded result artifact:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29657053366
+
+### Next prompt
+
+`SAD-35 - Live two-tenant bridge gate`.
