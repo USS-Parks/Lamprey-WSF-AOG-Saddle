@@ -563,9 +563,9 @@ published at `8ab9eea32e7ee6859ac1a639449587e2b3febe46`.
 
 ## SAD-20 — Rename orchestration packages and binaries
 
-**Status:** PASS — implementation committed as
-`74e09b53038da895dc26dc71283428e25a2bbd82`; publication is pending this
-bounded PSPR/DEVLOG closeout.
+**Status:** PASS — implementation commit
+`74e09b53038da895dc26dc71283428e25a2bbd82` and verification closeout/verified
+remote checkpoint `a6cdb0ed215797870dd4b483aeec868cba8147a2`.
 
 ### Work completed
 
@@ -618,7 +618,9 @@ resolution failure; no repository gate was waived.
   `56979529691bad760f18809c3affea1fba01ae9eac3066f1a12f877f663bdf81`;
   and
 - implementation commit
-  `74e09b53038da895dc26dc71283428e25a2bbd82`.
+  `74e09b53038da895dc26dc71283428e25a2bbd82`; and
+- verification closeout and first verified remote checkpoint
+  `a6cdb0ed215797870dd4b483aeec868cba8147a2`.
 
 ### Next prompt
 
