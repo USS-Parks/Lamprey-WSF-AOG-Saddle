@@ -2,12 +2,20 @@
 //! `attested_scheduler()` — the wiring the control plane drives. Grows across
 //! S2 (capacity + utilisation), S3 (ring), S4 (attestation).
 
+use chrono::Utc;
 use fabric_contracts::Classification;
 use saddle_estate::{
-    AttestationPlatform, AttestationProfile, Capacity, Node, NodeSpec, NodeStatus, Workload,
-    WorkloadKind, WorkloadSpec,
+    ATTESTATION_VERIFIED_UNTIL_ANNOTATION, AttestationPlatform, AttestationProfile, Capacity, Node,
+    NodeSpec, NodeStatus, Workload, WorkloadKind, WorkloadSpec,
 };
 use saddle_scheduler::{NodeSnapshot, ScheduleRequest, attested_scheduler};
+
+fn mark_verified(node: &mut Node) {
+    node.metadata.annotations.insert(
+        ATTESTATION_VERIFIED_UNTIL_ANNOTATION.to_owned(),
+        (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+    );
+}
 
 fn workload() -> Workload {
     Workload::new(
@@ -20,6 +28,7 @@ fn workload() -> Workload {
             image: None,
             command: Vec::new(),
             capability: None,
+            scheduling: saddle_estate::SchedulingConstraints::default(),
         },
     )
 }
@@ -35,9 +44,10 @@ fn node(name: &str, total: Capacity, free: Capacity) -> NodeSnapshot {
             capacity: total,
         },
     );
+    mark_verified(&mut n);
     n.status = Some(NodeStatus {
         ready: true,
-        last_heartbeat: Some("2026-07-04T00:00:00Z".to_owned()),
+        last_heartbeat: Some(Utc::now().to_rfc3339()),
         allocatable: free,
         ..NodeStatus::default()
     });
@@ -109,9 +119,10 @@ fn ring_node(name: &str, ring: u8) -> NodeSnapshot {
             capacity: slots(4),
         },
     );
+    mark_verified(&mut n);
     n.status = Some(NodeStatus {
         ready: true,
-        last_heartbeat: Some("2026-07-04T00:00:00Z".to_owned()),
+        last_heartbeat: Some(Utc::now().to_rfc3339()),
         allocatable: slots(4),
         ..NodeStatus::default()
     });
@@ -158,9 +169,10 @@ fn attested_node(
             capacity: slots(4),
         },
     );
+    mark_verified(&mut n);
     n.status = Some(NodeStatus {
         ready: true,
-        last_heartbeat: Some("2026-07-04T00:00:00Z".to_owned()),
+        last_heartbeat: Some(Utc::now().to_rfc3339()),
         allocatable: slots(4),
         ..NodeStatus::default()
     });

@@ -162,7 +162,7 @@ async fn settle<R: Reconciler>(c: &mut Controller<R>) {
 
 /// Create a node and report it ready with allocatable capacity — the readiness
 /// the node agent will publish in Phase N, supplied here directly.
-async fn ready_node(client: &EstateClient, name: &str) {
+async fn ready_node(client: &EstateClient, name: &str, signer: &dyn Signer) {
     let capacity = Capacity {
         cpu_millis: 8000,
         memory_mb: 16384,
@@ -184,6 +184,10 @@ async fn ready_node(client: &EstateClient, name: &str) {
     let Some(ResourceObject::Node(mut node)) = client.get(Kind::Node, name).await.unwrap() else {
         panic!("node {name} missing after create");
     };
+    saddle_node::registration::mint_node_attestation(&node, signer, chrono::Duration::hours(1))
+        .unwrap()
+        .stamp(&mut node)
+        .unwrap();
     node.status = Some(NodeStatus {
         ready: true,
         last_heartbeat: Some(Utc::now().to_rfc3339()),
@@ -202,6 +206,7 @@ fn workload() -> WorkloadSpec {
         image: None,
         command: Vec::new(),
         capability: Some(CAP.to_owned()),
+        scheduling: saddle_estate::SchedulingConstraints::default(),
     }
 }
 
@@ -254,8 +259,8 @@ async fn scheduler_binds_replicas_with_scoped_tokens() {
         .ensure_created(ResourceObject::Capability(cap_res))
         .await
         .unwrap();
-    ready_node(&client, "node-a").await;
-    ready_node(&client, "node-b").await;
+    ready_node(&client, "node-a", anchor.as_ref()).await;
+    ready_node(&client, "node-b", anchor.as_ref()).await;
     let mut wl = Resource::new(WORKLOAD, workload());
     wl.metadata.tenant = Some(TENANT.to_owned());
     client

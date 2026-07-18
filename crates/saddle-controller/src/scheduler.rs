@@ -25,12 +25,15 @@ use serde_json::json;
 
 use fabric_contracts::{Attenuation, Budget, RevocationStatus, Signature, TrustToken};
 use fabric_crypto::Signer;
+use fabric_crypto::providers::MlDsa87Verifier;
 use wsf_bridge::OpenBaoAuth;
 
 use saddle_estate::{
     CapabilitySpec, Kind, OwnerRef, Placement, PlacementSpec, Resource, ResourceObject, Workload,
 };
-use saddle_scheduler::{NodeSnapshot, ScheduleRequest, Scheduler, attested_scheduler};
+use saddle_scheduler::{
+    NodeSnapshot, ProviderEligibility, ScheduleRequest, Scheduler, attested_scheduler,
+};
 
 use crate::deploy::{placement_name, plan_replicas, replica_index};
 use crate::objects::{EstateClient, parse_key};
@@ -41,6 +44,8 @@ use crate::runtime::{Action, ReconcileError, Reconciler};
 const DEFAULT_TTL_SECONDS: u64 = 3600;
 /// How long to wait before retrying a workload with replicas still unplaced.
 const REQUEUE: Duration = Duration::from_secs(15);
+/// Provider health older than this cannot authorize a placement.
+const PROVIDER_OBSERVATION_TTL_SECONDS: i64 = 30;
 
 /// Attested placement controller. Run it on a `"Workload/"` informer.
 #[derive(Clone)]
@@ -100,7 +105,16 @@ impl SchedulerController {
             if let ResourceObject::Node(node) = object
                 && !crate::maintenance::is_cordoned(&node.metadata)
             {
-                snapshots.push(NodeSnapshot::from_node(&node));
+                let mut snapshot = NodeSnapshot::from_node(&node);
+                if !saddle_node::registration::verify_stamped_attestation(
+                    &node,
+                    &MlDsa87Verifier,
+                    self.signer.public_key(),
+                    Utc::now(),
+                ) {
+                    snapshot.attestation_verified_until = None;
+                }
+                snapshots.push(snapshot);
             }
         }
         Ok(snapshots)
@@ -122,6 +136,52 @@ impl SchedulerController {
                 Ok(Some(cap.spec))
             }
             _ => Ok(None),
+        }
+    }
+
+    async fn provider_eligibility(
+        &self,
+        workload: &Workload,
+        observed_at: chrono::DateTime<Utc>,
+    ) -> Result<ProviderEligibility, ReconcileError> {
+        let required = &workload.spec.scheduling.required_models;
+        if required.is_empty() {
+            return Ok(ProviderEligibility::NotRequired);
+        }
+        let mut current_models = std::collections::BTreeSet::new();
+        let mut saw_status = false;
+        let mut saw_stale = false;
+        for object in self.client.list(Kind::ProviderPool).await? {
+            let ResourceObject::ProviderPool(pool) = object else {
+                continue;
+            };
+            let Some(status) = pool.status else {
+                continue;
+            };
+            saw_status = true;
+            let Some(timestamp) = status.observed_at.as_deref() else {
+                saw_stale = true;
+                continue;
+            };
+            let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(timestamp) else {
+                saw_stale = true;
+                continue;
+            };
+            let age = observed_at - timestamp.with_timezone(&Utc);
+            if age.num_seconds() < 0 || age.num_seconds() > PROVIDER_OBSERVATION_TTL_SECONDS {
+                saw_stale = true;
+                continue;
+            }
+            current_models.extend(status.healthy);
+        }
+        if required.iter().all(|model| current_models.contains(model)) {
+            Ok(ProviderEligibility::Eligible)
+        } else if saw_stale {
+            Ok(ProviderEligibility::Stale)
+        } else if saw_status {
+            Ok(ProviderEligibility::Unhealthy)
+        } else {
+            Ok(ProviderEligibility::Missing)
         }
     }
 
@@ -245,8 +305,11 @@ impl SchedulerController {
             .map(|(ordinal, placement)| (*ordinal, placement.spec.node.clone()))
             .collect();
 
+        let observed_at = Utc::now();
         let snapshots = self.node_snapshots().await?;
-        let request = ScheduleRequest::from_workload(&workload);
+        let provider_eligibility = self.provider_eligibility(&workload, observed_at).await?;
+        let request = ScheduleRequest::from_workload_at(&workload, observed_at)
+            .with_provider_eligibility(provider_eligibility);
         let plan = plan_replicas(
             desired,
             &existing_nodes,

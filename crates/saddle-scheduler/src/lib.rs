@@ -42,13 +42,16 @@ pub mod preemption;
 pub mod scorers;
 pub mod types;
 
-pub use filters::{AttestationFilter, CapacityFilter, ReadinessFilter, RingFilter};
+pub use filters::{
+    AttestationFilter, CapacityFilter, ConnectivityFilter, ProviderEligibilityFilter,
+    ReadinessFilter, RingFilter,
+};
 pub use framework::{Filter, Scheduler, Scorer};
 pub use preemption::{NodeOccupancy, PreemptionPlan, Victim, plan_preemption};
 pub use scorers::{ConsolidationScorer, SpreadScorer, UtilizationScorer};
 pub use types::{
-    FilterVerdict, NodeEvaluation, NodeSnapshot, ScheduleOutcome, ScheduleRequest,
-    SchedulingDecision, SignalProvenance,
+    FilterVerdict, NodeEvaluation, NodeSnapshot, ProviderEligibility, ScheduleOutcome,
+    ScheduleRequest, SchedulingDecision, SignalProvenance,
 };
 
 /// The S1 baseline wiring: the readiness foundation only, no capacity or
@@ -68,6 +71,8 @@ pub fn attested_scheduler() -> Scheduler {
         .with_filter(ReadinessFilter)
         .with_filter(RingFilter)
         .with_filter(AttestationFilter)
+        .with_filter(ConnectivityFilter)
+        .with_filter(ProviderEligibilityFilter)
         .with_filter(CapacityFilter)
         .with_scorer(1.0, UtilizationScorer)
         .with_scorer(1.0, SpreadScorer)

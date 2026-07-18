@@ -2351,6 +2351,7 @@ dependencies = [
  "reqwest",
  "saddle-apiserver",
  "saddle-estate",
+ "saddle-node",
  "saddle-scheduler",
  "saddle-store",
  "serde",
@@ -2398,6 +2399,7 @@ dependencies = [
  "fabric-identity",
  "fabric-revocation",
  "fabric-token",
+ "hex",
  "saddle-estate",
  "thiserror 2.0.18",
 ]
@@ -2423,6 +2425,7 @@ dependencies = [
 name = "saddle-scheduler"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "fabric-contracts",
  "saddle-estate",
 ]

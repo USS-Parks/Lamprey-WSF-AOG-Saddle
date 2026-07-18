@@ -3,8 +3,27 @@
 //! the type-level half of the S1 defect purge — there is nowhere in these
 //! structures to store an invented metric.
 
+use chrono::{DateTime, Utc};
 use fabric_contracts::Classification;
-use saddle_estate::{AttestationProfile, Capacity, Node, PlacementSpec, Workload, WorkloadKind};
+use saddle_estate::{
+    ATTESTATION_VERIFIED_UNTIL_ANNOTATION, AttestationProfile, Capacity, Node, PlacementSpec,
+    SchedulingConstraints, Workload, WorkloadKind,
+};
+
+/// Provider/model state observed for one scheduling request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderEligibility {
+    /// The workload declares no provider/model dependency.
+    NotRequired,
+    /// Every declared model was healthy in a current provider observation.
+    Eligible,
+    /// Required provider state was absent.
+    Missing,
+    /// Provider observations existed but exceeded their freshness bound.
+    Stale,
+    /// At least one required model was not healthy.
+    Unhealthy,
+}
 
 /// A scheduler-facing projection of a [`Node`]'s real, reconciled state.
 ///
@@ -22,6 +41,9 @@ pub struct NodeSnapshot {
     pub attestation_floor: Classification,
     /// How the node proves that floor (platform, air-gap, PCR).
     pub attestation: AttestationProfile,
+    /// Expiry of the control-plane-verified attestation statement. Absence is
+    /// unverified, regardless of what the node self-declares in its spec.
+    pub attestation_verified_until: Option<String>,
     /// Real liveness, reconciled from heartbeats by the node controller.
     /// `false` when the node has no status yet — fail-closed by construction.
     pub ready: bool,
@@ -47,6 +69,11 @@ impl NodeSnapshot {
             ring: node.spec.ring,
             attestation_floor: node.spec.attestation_floor,
             attestation: node.spec.attestation.clone(),
+            attestation_verified_until: node
+                .metadata
+                .annotations
+                .get(ATTESTATION_VERIFIED_UNTIL_ANNOTATION)
+                .cloned(),
             ready: status.is_some_and(|s| s.ready),
             capacity: node.spec.capacity,
             allocatable: status.map_or_else(Capacity::default, |s| s.allocatable),
@@ -68,6 +95,14 @@ pub struct ScheduleRequest {
     /// Its data-classification ceiling — must be `<=` the node's attestation
     /// floor to be placed (S4).
     pub classification_ceiling: Classification,
+    /// CPU/memory/GPU/slot, connectivity, model, and measurement requirements.
+    pub constraints: SchedulingConstraints,
+    /// Current provider/model eligibility resolved from the estate.
+    pub provider_eligibility: ProviderEligibility,
+    /// Coherent decision time used for heartbeat and attestation freshness.
+    pub observed_at: DateTime<Utc>,
+    /// Maximum heartbeat age accepted by the scheduler itself.
+    pub heartbeat_ttl_seconds: i64,
     /// Nodes already hosting a replica of this workload (from existing
     /// `Placement`s). The spread scorer (S6) uses it for anti-affinity. Empty for
     /// the first replica; the binding controller enriches it per replica.
@@ -79,13 +114,34 @@ impl ScheduleRequest {
     /// starts empty — a single `Workload` does not carry its own placements; the
     /// binding controller fills it per replica from the estate (S6/S7).
     pub fn from_workload(workload: &Workload) -> Self {
+        Self::from_workload_at(workload, Utc::now())
+    }
+
+    /// Project a workload at an explicit coherent snapshot time.
+    pub fn from_workload_at(workload: &Workload, observed_at: DateTime<Utc>) -> Self {
+        let provider_eligibility = if workload.spec.scheduling.required_models.is_empty() {
+            ProviderEligibility::NotRequired
+        } else {
+            ProviderEligibility::Missing
+        };
         Self {
             workload_name: workload.metadata.name.clone(),
             workload_kind: workload.spec.workload_kind,
             ring: workload.spec.ring,
             classification_ceiling: workload.spec.classification_ceiling,
+            constraints: workload.spec.scheduling.clone(),
+            provider_eligibility,
+            observed_at,
+            heartbeat_ttl_seconds: 30,
             already_placed_on: Vec::new(),
         }
+    }
+
+    /// Attach provider/model eligibility resolved from a current estate view.
+    #[must_use]
+    pub fn with_provider_eligibility(mut self, eligibility: ProviderEligibility) -> Self {
+        self.provider_eligibility = eligibility;
+        self
     }
 }
 
@@ -133,6 +189,10 @@ pub struct SignalProvenance {
     pub ready: bool,
     /// Whether a real heartbeat was present.
     pub heartbeat_present: bool,
+    /// Exact heartbeat timestamp consulted for freshness.
+    pub heartbeat_timestamp: Option<String>,
+    /// Expiry of the verified node-attestation statement consulted.
+    pub attestation_verified_until: Option<String>,
     /// The free capacity the node reported.
     pub allocatable: Capacity,
 }
@@ -145,6 +205,8 @@ impl SignalProvenance {
             resource_version: node.resource_version,
             ready: node.ready,
             heartbeat_present: node.last_heartbeat.is_some(),
+            heartbeat_timestamp: node.last_heartbeat.clone(),
+            attestation_verified_until: node.attestation_verified_until.clone(),
             allocatable: node.allocatable,
         }
     }

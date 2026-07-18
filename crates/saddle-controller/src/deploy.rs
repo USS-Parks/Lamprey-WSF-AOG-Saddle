@@ -158,9 +158,10 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    use chrono::Utc;
     use fabric_contracts::Classification;
-    use saddle_estate::{AttestationProfile, Capacity, WorkloadKind};
-    use saddle_scheduler::attested_scheduler;
+    use saddle_estate::{AttestationProfile, Capacity, SchedulingConstraints, WorkloadKind};
+    use saddle_scheduler::{ProviderEligibility, attested_scheduler};
 
     /// A ready, public-classification node with `slots` declared workload slots
     /// and `free` of them available. Public ceiling needs no hardware root, so
@@ -171,6 +172,9 @@ mod tests {
             ring: 1,
             attestation_floor: Classification::Public,
             attestation: AttestationProfile::default(),
+            attestation_verified_until: Some(
+                (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+            ),
             ready: true,
             capacity: Capacity {
                 max_workloads: slots,
@@ -180,7 +184,7 @@ mod tests {
                 max_workloads: free,
                 ..Capacity::default()
             },
-            last_heartbeat: Some("t".to_owned()),
+            last_heartbeat: Some(Utc::now().to_rfc3339()),
             resource_version: 1,
         }
     }
@@ -191,6 +195,10 @@ mod tests {
             workload_kind: WorkloadKind::Gateway,
             ring: 1,
             classification_ceiling: Classification::Public,
+            constraints: SchedulingConstraints::default(),
+            provider_eligibility: ProviderEligibility::NotRequired,
+            observed_at: Utc::now(),
+            heartbeat_ttl_seconds: 30,
             already_placed_on: Vec::new(),
         }
     }

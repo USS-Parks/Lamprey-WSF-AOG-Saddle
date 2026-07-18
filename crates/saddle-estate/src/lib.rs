@@ -26,6 +26,14 @@ pub use kinds::*;
 /// The API group + version every Saddle resource is served under. Schema
 /// evolution is handled by conversion; this is the current stored form.
 pub const API_VERSION: &str = "saddle.islandmountain.io/v1";
+/// Node annotation written only after WSF verifies a bounded attestation statement.
+pub const ATTESTATION_VERIFIED_UNTIL_ANNOTATION: &str =
+    "saddle.islandmountain.io/attestation-verified-until";
+/// Issuance timestamp paired with the verified-attestation expiry.
+pub const ATTESTATION_VERIFIED_AT_ANNOTATION: &str =
+    "saddle.islandmountain.io/attestation-verified-at";
+/// Hex ML-DSA signature over the exact node trust profile and validity window.
+pub const ATTESTATION_SIGNATURE_ANNOTATION: &str = "saddle.islandmountain.io/attestation-signature";
 
 /// The resource kinds Saddle orchestrates (addendum A1.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -164,7 +164,7 @@ async fn settle<R: Reconciler>(c: &mut Controller<R>) {
 }
 
 /// A ready node with room for `slots` workloads.
-async fn ready_node(client: &EstateClient, name: &str, slots: u32) {
+async fn ready_node(client: &EstateClient, name: &str, slots: u32, signer: &dyn Signer) {
     let capacity = Capacity {
         cpu_millis: 8000,
         memory_mb: 16384,
@@ -186,6 +186,10 @@ async fn ready_node(client: &EstateClient, name: &str, slots: u32) {
     let Some(ResourceObject::Node(mut node)) = client.get(Kind::Node, name).await.unwrap() else {
         panic!("node {name} missing after create");
     };
+    saddle_node::registration::mint_node_attestation(&node, signer, chrono::Duration::hours(1))
+        .unwrap()
+        .stamp(&mut node)
+        .unwrap();
     node.status = Some(NodeStatus {
         ready: true,
         last_heartbeat: Some(Utc::now().to_rfc3339()),
@@ -204,6 +208,7 @@ fn workload_spec(replicas: u32) -> WorkloadSpec {
         image: None,
         command: Vec::new(),
         capability: Some(CAP.to_owned()),
+        scheduling: saddle_estate::SchedulingConstraints::default(),
     }
 }
 
@@ -287,8 +292,8 @@ async fn packs_replicas_beyond_node_count() {
     // Two nodes, room for two workloads each; three replicas must pack. The
     // workload name is unique to this test: replica token paths in the shared
     // live OpenBao derive from it, and the sibling test must never race them.
-    ready_node(&client, "node-a", 2).await;
-    ready_node(&client, "node-b", 2).await;
+    ready_node(&client, "node-a", 2, anchor.as_ref()).await;
+    ready_node(&client, "node-b", 2, anchor.as_ref()).await;
     let mut wl = Resource::new("gw-pack", workload_spec(3));
     wl.metadata.tenant = Some(TENANT.to_owned());
     client
@@ -353,8 +358,8 @@ async fn scale_down_removes_the_dropped_replicas_token() {
     seed_capability(&client).await;
     // Unique workload name: its replica token paths in the shared live OpenBao
     // must never collide with the sibling test's.
-    ready_node(&client, "node-a", 4).await;
-    ready_node(&client, "node-b", 4).await;
+    ready_node(&client, "node-a", 4, anchor.as_ref()).await;
+    ready_node(&client, "node-b", 4, anchor.as_ref()).await;
     let mut wl = Resource::new("gw-scale", workload_spec(2));
     wl.metadata.tenant = Some(TENANT.to_owned());
     client

@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 saddle-estate = { path = "../saddle-estate" }
 fabric-contracts = { path = "../fabric-contracts" }
+chrono = { workspace = true }
 
 [dev-dependencies]
 saddle-estate = { path = "../saddle-estate" }

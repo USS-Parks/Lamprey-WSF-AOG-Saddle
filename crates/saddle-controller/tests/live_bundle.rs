@@ -250,6 +250,7 @@ async fn a_policy_bundle_is_signed_distributed_and_verified_at_the_edge() {
                 image: None,
                 command: vec![],
                 capability: None,
+                scheduling: saddle_estate::SchedulingConstraints::default(),
             },
         )))
         .await

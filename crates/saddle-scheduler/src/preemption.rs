@@ -113,6 +113,8 @@ mod tests {
                 resource_version: 1,
                 ready: true,
                 heartbeat_present: true,
+                heartbeat_timestamp: Some("2026-07-18T00:00:00Z".to_owned()),
+                attestation_verified_until: Some("2026-07-19T00:00:00Z".to_owned()),
                 allocatable: Capacity::default(),
             },
             verdicts,

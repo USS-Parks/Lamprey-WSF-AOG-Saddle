@@ -89,6 +89,36 @@ pub struct Capacity {
     pub max_workloads: u32,
 }
 
+/// Connectivity posture a workload requires from its placement node.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectivityRequirement {
+    /// Either connected or physically air-gapped nodes are acceptable.
+    #[default]
+    Any,
+    /// The workload must run on a node whose attestation declares an air gap.
+    AirGapped,
+    /// The workload needs network/provider access and cannot run air-gapped.
+    Connected,
+}
+
+/// Hard scheduling requirements carried by a workload's desired state.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchedulingConstraints {
+    /// Minimum free resources required on the target node.
+    #[serde(default)]
+    pub resources: Capacity,
+    /// Required node connectivity posture.
+    #[serde(default)]
+    pub connectivity: ConnectivityRequirement,
+    /// Models which must be current and healthy in the provider estate.
+    #[serde(default)]
+    pub required_models: Vec<String>,
+    /// Exact attested workload/node measurement required when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required_measurement: Option<String>,
+}
+
 /// One rule in a policy bundle. `when` is an opaque predicate the policy engine
 /// (mai-compliance composer) interprets; the estate stores it verbatim.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -357,6 +387,9 @@ pub struct ProviderPoolStatus {
     pub phase: Phase,
     #[serde(default)]
     pub healthy: Vec<String>,
+    /// Timestamp of the provider health observation; absence is never current.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_at: Option<String>,
 }
 
 impl EstateKind for ProviderPoolSpec {
@@ -400,6 +433,9 @@ pub struct WorkloadSpec {
     /// Name of the [`Capability`] whose scope the runtime token is minted from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability: Option<String>,
+    /// Deny-wins feasibility requirements evaluated before any scoring.
+    #[serde(default)]
+    pub scheduling: SchedulingConstraints,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -422,6 +458,25 @@ impl Validate for WorkloadSpec {
             return Err(invalid(
                 Kind::Workload,
                 format!("ring {} not in 1..=3", self.ring),
+            ));
+        }
+        if self
+            .scheduling
+            .required_models
+            .iter()
+            .any(|model| model.trim().is_empty())
+        {
+            return Err(invalid(Kind::Workload, "required model is empty"));
+        }
+        if self
+            .scheduling
+            .required_measurement
+            .as_deref()
+            .is_some_and(|measurement| measurement.trim().is_empty())
+        {
+            return Err(invalid(
+                Kind::Workload,
+                "required attestation measurement is empty",
             ));
         }
         Ok(())

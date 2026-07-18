@@ -10,6 +10,7 @@
 use std::fs;
 use std::path::Path;
 
+use chrono::Utc;
 use fabric_contracts::Classification;
 use saddle_estate::{
     AttestationProfile, Capacity, Node, NodeSpec, NodeStatus, Workload, WorkloadKind, WorkloadSpec,
@@ -27,6 +28,7 @@ fn workload(ring: u8, ceiling: Classification) -> Workload {
             image: None,
             command: Vec::new(),
             capability: None,
+            scheduling: saddle_estate::SchedulingConstraints::default(),
         },
     )
 }
@@ -44,7 +46,7 @@ fn ready_node(name: &str, resource_version: u64) -> Node {
     node.metadata.resource_version = resource_version;
     node.status = Some(NodeStatus {
         ready: true,
-        last_heartbeat: Some("2026-07-04T00:00:00Z".to_owned()),
+        last_heartbeat: Some(Utc::now().to_rfc3339()),
         allocatable: Capacity {
             cpu_millis: 8000,
             memory_mb: 16384,

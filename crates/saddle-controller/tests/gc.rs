@@ -282,6 +282,7 @@ async fn orphans_are_collected_by_owner_reference() {
             image: None,
             command: vec![],
             capability: None,
+            scheduling: saddle_estate::SchedulingConstraints::default(),
         },
     );
     client

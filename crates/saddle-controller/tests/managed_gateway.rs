@@ -342,6 +342,7 @@ async fn an_openai_client_is_unaffected_across_the_cutover_to_management() {
                 image: None,
                 command: vec![],
                 capability: None,
+                scheduling: saddle_estate::SchedulingConstraints::default(),
             },
         )))
         .await

@@ -157,7 +157,7 @@ async fn settle<R: Reconciler>(c: &mut Controller<R>) {
     panic!("controller did not settle within 200 rounds");
 }
 
-async fn ready_node(client: &EstateClient, name: &str) {
+async fn ready_node(client: &EstateClient, name: &str, signer: &dyn Signer) {
     let capacity = Capacity {
         cpu_millis: 8000,
         memory_mb: 16384,
@@ -179,6 +179,10 @@ async fn ready_node(client: &EstateClient, name: &str) {
     let Some(ResourceObject::Node(mut node)) = client.get(Kind::Node, name).await.unwrap() else {
         panic!("node {name} missing after create");
     };
+    saddle_node::registration::mint_node_attestation(&node, signer, chrono::Duration::hours(1))
+        .unwrap()
+        .stamp(&mut node)
+        .unwrap();
     node.status = Some(NodeStatus {
         ready: true,
         last_heartbeat: Some(Utc::now().to_rfc3339()),
@@ -237,6 +241,7 @@ fn workload() -> WorkloadSpec {
         image: None,
         command: Vec::new(),
         capability: Some(CAP.to_owned()),
+        scheduling: saddle_estate::SchedulingConstraints::default(),
     }
 }
 
@@ -273,7 +278,7 @@ async fn a_killed_node_reschedules_its_workload() {
         .await
         .unwrap();
     for n in ["node-a", "node-b", "node-c"] {
-        ready_node(&client, n).await;
+        ready_node(&client, n, anchor.as_ref()).await;
     }
     let mut wl = Resource::new(WORKLOAD, workload());
     wl.metadata.tenant = Some(TENANT.to_owned());

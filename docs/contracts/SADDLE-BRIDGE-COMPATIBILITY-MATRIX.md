@@ -68,5 +68,29 @@ desired-state write and retained when the outbox is finalized with its receipt.
 `crates/saddle-apiserver/tests/saddle_admission.rs` proves missing and replayed
 authority, stale bundle/revocation state, wrong-anchor spoofing, out-of-scope
 resources, and cross-tenant mutation all fail closed through the real API.
-Scheduling, node runtime, and per-action consumption remain SAD-32 through
-SAD-35; the internal controller identity seam remains explicit for SAD-33.
+Node runtime and per-action consumption remain SAD-33 through SAD-35; the
+internal controller identity seam remains explicit for SAD-33.
+
+## SAD-32 WSF-attested scheduling binding
+
+The real `SchedulerController` now accepts a node snapshot only after verifying
+an anchor-signed `saddle.node-attestation/v1` statement over its exact name,
+ring, classification floor, platform, measurement, issuance time, and expiry.
+Changing any covered field invalidates the signature. Missing, malformed,
+attacker-signed, or expired evidence clears the trusted marker before the hard
+filter chain evaluates the node.
+
+`SchedulingConstraints` carries minimum CPU, memory, GPU, and slot capacity;
+connectivity/air-gap posture; required provider models; and an optional exact
+measurement. Readiness now parses and ages the heartbeat inside the scheduling
+decision itself. Provider/model state is independently timestamped, resolved
+from `ProviderPool` health, and fenced when missing, stale, or unhealthy. Ring,
+classification, attestation, connectivity, provider, and capacity plugins all
+run as deny-wins filters before scoring, so pressure, failover, stale cache, or
+a favorable score cannot resurrect an ineligible node.
+
+`crates/saddle-scheduler/tests/sad32_hard_placement.rs` and the signed node
+registration tests are the adversarial gate. The controller still creates
+placements through the explicitly documented internal system seam; replacing
+that seam with a distinct WSF controller identity and binding the serialized
+`PlacementGrant` into the controller/node handoff remains SAD-33 work.

@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 saddle-apiserver = { path = "../saddle-apiserver" }
 saddle-estate = { path = "../saddle-estate" }
+saddle-node = { path = "../saddle-node" }
 saddle-scheduler = { path = "../saddle-scheduler" }
 saddle-store = { path = "../saddle-store" }
 chrono = { workspace = true }

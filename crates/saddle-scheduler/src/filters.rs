@@ -3,7 +3,9 @@
 //! the attestation predicate live here too.
 
 use crate::framework::Filter;
-use crate::types::{FilterVerdict, NodeSnapshot, ScheduleRequest};
+use chrono::{DateTime, Utc};
+
+use crate::types::{FilterVerdict, NodeSnapshot, ProviderEligibility, ScheduleRequest};
 
 /// Hard filter: a node is a candidate only when it has actually reported —
 /// `status.ready` is true and a heartbeat is present.
@@ -22,14 +24,30 @@ impl Filter for ReadinessFilter {
         "readiness"
     }
 
-    fn filter(&self, _request: &ScheduleRequest, node: &NodeSnapshot) -> FilterVerdict {
-        match (node.ready, node.last_heartbeat.is_some()) {
-            (true, true) => FilterVerdict::Fit,
+    fn filter(&self, request: &ScheduleRequest, node: &NodeSnapshot) -> FilterVerdict {
+        match (node.ready, node.last_heartbeat.as_deref()) {
+            (true, Some(heartbeat)) => {
+                let Ok(heartbeat) = DateTime::parse_from_rfc3339(heartbeat) else {
+                    return FilterVerdict::unfit("readiness", "node heartbeat is unparseable");
+                };
+                let age = request.observed_at - heartbeat.with_timezone(&Utc);
+                if age.num_seconds() > request.heartbeat_ttl_seconds || age.num_seconds() < 0 {
+                    FilterVerdict::unfit(
+                        "readiness",
+                        format!(
+                            "node heartbeat is stale or future-dated (age {}s)",
+                            age.num_seconds()
+                        ),
+                    )
+                } else {
+                    FilterVerdict::Fit
+                }
+            }
             (false, _) => FilterVerdict::unfit(
                 "readiness",
                 "node status.ready is false (no reconciled liveness)",
             ),
-            (true, false) => {
+            (true, None) => {
                 FilterVerdict::unfit("readiness", "node has never reported a heartbeat")
             }
         }
@@ -50,7 +68,21 @@ impl Filter for CapacityFilter {
         "capacity"
     }
 
-    fn filter(&self, _request: &ScheduleRequest, node: &NodeSnapshot) -> FilterVerdict {
+    fn filter(&self, request: &ScheduleRequest, node: &NodeSnapshot) -> FilterVerdict {
+        let required = request.constraints.resources;
+        let available = node.allocatable;
+        if available.cpu_millis < required.cpu_millis
+            || available.memory_mb < required.memory_mb
+            || available.gpu < required.gpu
+            || available.max_workloads < required.max_workloads
+        {
+            return FilterVerdict::unfit(
+                "capacity",
+                format!(
+                    "reported allocatable capacity {available:?} is below required {required:?}"
+                ),
+            );
+        }
         if node.capacity.max_workloads > 0 && node.allocatable.max_workloads == 0 {
             return FilterVerdict::unfit(
                 "capacity",
@@ -117,6 +149,18 @@ impl Filter for AttestationFilter {
 
         let ceiling = request.classification_ceiling;
         let floor = node.attestation_floor;
+        let Some(verified_until) = node.attestation_verified_until.as_deref() else {
+            return FilterVerdict::unfit(
+                "attestation",
+                "node has no control-plane-verified attestation statement",
+            );
+        };
+        let Ok(verified_until) = DateTime::parse_from_rfc3339(verified_until) else {
+            return FilterVerdict::unfit("attestation", "node attestation expiry is unparseable");
+        };
+        if verified_until.with_timezone(&Utc) <= request.observed_at {
+            return FilterVerdict::unfit("attestation", "node attestation statement is stale");
+        }
         if ceiling > floor {
             return FilterVerdict::unfit(
                 "attestation",
@@ -149,7 +193,71 @@ impl Filter for AttestationFilter {
                 );
             }
         }
+        if let Some(required) = request.constraints.required_measurement.as_deref()
+            && node.attestation.pcr.as_deref() != Some(required)
+        {
+            return FilterVerdict::unfit(
+                "attestation",
+                "node measurement does not match the workload requirement",
+            );
+        }
         FilterVerdict::Fit
+    }
+}
+
+/// Hard filter for explicit air-gap/network compatibility.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ConnectivityFilter;
+
+impl Filter for ConnectivityFilter {
+    fn name(&self) -> &'static str {
+        "connectivity"
+    }
+
+    fn filter(&self, request: &ScheduleRequest, node: &NodeSnapshot) -> FilterVerdict {
+        use saddle_estate::ConnectivityRequirement;
+        match request.constraints.connectivity {
+            ConnectivityRequirement::Any => FilterVerdict::Fit,
+            ConnectivityRequirement::AirGapped if node.attestation.air_gapped => FilterVerdict::Fit,
+            ConnectivityRequirement::Connected if !node.attestation.air_gapped => {
+                FilterVerdict::Fit
+            }
+            ConnectivityRequirement::AirGapped => {
+                FilterVerdict::unfit("connectivity", "workload requires an air-gapped node")
+            }
+            ConnectivityRequirement::Connected => FilterVerdict::unfit(
+                "connectivity",
+                "workload requires provider connectivity but node is air-gapped",
+            ),
+        }
+    }
+}
+
+/// Hard filter for current provider/model eligibility.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ProviderEligibilityFilter;
+
+impl Filter for ProviderEligibilityFilter {
+    fn name(&self) -> &'static str {
+        "provider-eligibility"
+    }
+
+    fn filter(&self, request: &ScheduleRequest, _node: &NodeSnapshot) -> FilterVerdict {
+        match request.provider_eligibility {
+            ProviderEligibility::NotRequired | ProviderEligibility::Eligible => FilterVerdict::Fit,
+            ProviderEligibility::Missing => FilterVerdict::unfit(
+                "provider-eligibility",
+                "required provider/model state is missing",
+            ),
+            ProviderEligibility::Stale => FilterVerdict::unfit(
+                "provider-eligibility",
+                "required provider/model state is stale",
+            ),
+            ProviderEligibility::Unhealthy => FilterVerdict::unfit(
+                "provider-eligibility",
+                "a required provider model is not healthy",
+            ),
+        }
     }
 }
 
@@ -157,7 +265,9 @@ impl Filter for AttestationFilter {
 mod tests {
     use super::*;
     use fabric_contracts::Classification;
-    use saddle_estate::{AttestationPlatform, AttestationProfile, Capacity, WorkloadKind};
+    use saddle_estate::{
+        AttestationPlatform, AttestationProfile, Capacity, SchedulingConstraints, WorkloadKind,
+    };
 
     fn snap(ready: bool, heartbeat: bool) -> NodeSnapshot {
         NodeSnapshot {
@@ -165,10 +275,13 @@ mod tests {
             ring: 1,
             attestation_floor: Classification::Public,
             attestation: AttestationProfile::default(),
+            attestation_verified_until: Some(
+                (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+            ),
             ready,
             capacity: Capacity::default(),
             allocatable: Capacity::default(),
-            last_heartbeat: heartbeat.then(|| "t".to_owned()),
+            last_heartbeat: heartbeat.then(|| Utc::now().to_rfc3339()),
             resource_version: 1,
         }
     }
@@ -179,6 +292,9 @@ mod tests {
             ring: 1,
             attestation_floor: Classification::Public,
             attestation: AttestationProfile::default(),
+            attestation_verified_until: Some(
+                (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+            ),
             ready: true,
             capacity: Capacity {
                 max_workloads: total_slots,
@@ -188,7 +304,7 @@ mod tests {
                 max_workloads: free_slots,
                 ..Capacity::default()
             },
-            last_heartbeat: Some("t".to_owned()),
+            last_heartbeat: Some(Utc::now().to_rfc3339()),
             resource_version: 1,
         }
     }
@@ -199,6 +315,10 @@ mod tests {
             workload_kind: WorkloadKind::Gateway,
             ring: 1,
             classification_ceiling: Classification::Public,
+            constraints: SchedulingConstraints::default(),
+            provider_eligibility: ProviderEligibility::NotRequired,
+            observed_at: Utc::now(),
+            heartbeat_ttl_seconds: 30,
             already_placed_on: Vec::new(),
         }
     }
@@ -262,10 +382,13 @@ mod tests {
                 air_gapped: true,
                 pcr: pcr.then(|| "pcr-digest".to_owned()),
             },
+            attestation_verified_until: Some(
+                (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+            ),
             ready: true,
             capacity: Capacity::default(),
             allocatable: Capacity::default(),
-            last_heartbeat: Some("t".to_owned()),
+            last_heartbeat: Some(Utc::now().to_rfc3339()),
             resource_version: 1,
         }
     }
@@ -276,6 +399,10 @@ mod tests {
             workload_kind: WorkloadKind::Gateway,
             ring: 3,
             classification_ceiling: ceiling,
+            constraints: SchedulingConstraints::default(),
+            provider_eligibility: ProviderEligibility::NotRequired,
+            observed_at: Utc::now(),
+            heartbeat_ttl_seconds: 30,
             already_placed_on: Vec::new(),
         }
     }

@@ -105,8 +105,10 @@ impl Scorer for SpreadScorer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ProviderEligibility;
+    use chrono::Utc;
     use fabric_contracts::Classification;
-    use saddle_estate::{AttestationProfile, Capacity, WorkloadKind};
+    use saddle_estate::{AttestationProfile, Capacity, SchedulingConstraints, WorkloadKind};
 
     fn snap(total: Capacity, free: Capacity) -> NodeSnapshot {
         NodeSnapshot {
@@ -114,10 +116,13 @@ mod tests {
             ring: 1,
             attestation_floor: Classification::Public,
             attestation: AttestationProfile::default(),
+            attestation_verified_until: Some(
+                (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+            ),
             ready: true,
             capacity: total,
             allocatable: free,
-            last_heartbeat: Some("t".to_owned()),
+            last_heartbeat: Some(Utc::now().to_rfc3339()),
             resource_version: 1,
         }
     }
@@ -128,6 +133,10 @@ mod tests {
             workload_kind: WorkloadKind::Gateway,
             ring: 1,
             classification_ceiling: Classification::Public,
+            constraints: SchedulingConstraints::default(),
+            provider_eligibility: ProviderEligibility::NotRequired,
+            observed_at: Utc::now(),
+            heartbeat_ttl_seconds: 30,
             already_placed_on: Vec::new(),
         }
     }

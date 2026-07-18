@@ -255,6 +255,7 @@ async fn darkening_a_ring_kills_its_envelopes_and_halts_its_workloads() {
                 image: None,
                 command: vec![],
                 capability: None,
+                scheduling: saddle_estate::SchedulingConstraints::default(),
             },
         )))
         .await

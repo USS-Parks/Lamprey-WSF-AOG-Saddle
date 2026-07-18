@@ -6,8 +6,9 @@ use saddle_estate::{
     MissionContract, MissionContractSpec, Node, NodeSpec, Placement, PlacementSpec, PolicyBundle,
     PolicyBundleSpec, PolicyMode, PolicyRule, ProviderPool, ProviderPoolSpec, Resource,
     ResourceObject, RevocationIntent, RevocationIntentSpec, RevocationTarget, RolloutPlan,
-    RolloutPlanSpec, RolloutStrategy, Tenant, TenantSpec, ToolGrant, ToolGrantSpec, TrustRing,
-    TrustRingSpec, VirtualKey, VirtualKeySpec, Workload, WorkloadKind, WorkloadSpec,
+    RolloutPlanSpec, RolloutStrategy, SchedulingConstraints, Tenant, TenantSpec, ToolGrant,
+    ToolGrantSpec, TrustRing, TrustRingSpec, VirtualKey, VirtualKeySpec, Workload, WorkloadKind,
+    WorkloadSpec,
 };
 
 // ---- sample builders (one valid instance per kind) --------------------------
@@ -97,6 +98,7 @@ fn workload() -> Workload {
             image: Some("aog-gateway:latest".to_owned()),
             command: vec![],
             capability: Some("cap-chat".to_owned()),
+            scheduling: SchedulingConstraints::default(),
         },
     )
 }

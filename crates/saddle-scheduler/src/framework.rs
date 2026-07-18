@@ -170,8 +170,10 @@ impl Scheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ProviderEligibility;
+    use chrono::Utc;
     use fabric_contracts::Classification;
-    use saddle_estate::{AttestationProfile, Capacity, WorkloadKind};
+    use saddle_estate::{AttestationProfile, Capacity, SchedulingConstraints, WorkloadKind};
 
     fn snap(name: &str, ready: bool) -> NodeSnapshot {
         NodeSnapshot {
@@ -179,10 +181,13 @@ mod tests {
             ring: 1,
             attestation_floor: Classification::Public,
             attestation: AttestationProfile::default(),
+            attestation_verified_until: Some(
+                (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+            ),
             ready,
             capacity: Capacity::default(),
             allocatable: Capacity::default(),
-            last_heartbeat: ready.then(|| "t".to_owned()),
+            last_heartbeat: ready.then(|| Utc::now().to_rfc3339()),
             resource_version: 1,
         }
     }
@@ -193,6 +198,10 @@ mod tests {
             workload_kind: WorkloadKind::Gateway,
             ring: 1,
             classification_ceiling: Classification::Public,
+            constraints: SchedulingConstraints::default(),
+            provider_eligibility: ProviderEligibility::NotRequired,
+            observed_at: Utc::now(),
+            heartbeat_ttl_seconds: 30,
             already_placed_on: Vec::new(),
         }
     }

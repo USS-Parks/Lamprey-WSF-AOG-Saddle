@@ -12,10 +12,11 @@
 //! write is CAS-guarded. What remains — pressure, a fleet of unfit flavors, and an
 //! out-of-ring attested node — is exercised directly below.
 
+use chrono::Utc;
 use fabric_contracts::Classification;
 use saddle_estate::{
-    AttestationPlatform, AttestationProfile, Capacity, Node, NodeSpec, NodeStatus, Workload,
-    WorkloadKind, WorkloadSpec,
+    ATTESTATION_VERIFIED_UNTIL_ANNOTATION, AttestationPlatform, AttestationProfile, Capacity, Node,
+    NodeSpec, NodeStatus, Workload, WorkloadKind, WorkloadSpec,
 };
 use saddle_scheduler::{NodeSnapshot, ScheduleRequest, attested_scheduler};
 
@@ -48,9 +49,13 @@ fn node(
             capacity: slots(4),
         },
     );
+    n.metadata.annotations.insert(
+        ATTESTATION_VERIFIED_UNTIL_ANNOTATION.to_owned(),
+        (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+    );
     n.status = Some(NodeStatus {
         ready: true,
-        last_heartbeat: Some("2026-07-06T00:00:00Z".to_owned()),
+        last_heartbeat: Some(Utc::now().to_rfc3339()),
         allocatable: slots(free),
         ..NodeStatus::default()
     });
@@ -68,6 +73,7 @@ fn ring3_secret() -> Workload {
             image: None,
             command: Vec::new(),
             capability: None,
+            scheduling: saddle_estate::SchedulingConstraints::default(),
         },
     )
 }

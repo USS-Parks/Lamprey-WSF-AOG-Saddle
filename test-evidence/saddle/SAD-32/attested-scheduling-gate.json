@@ -1,0 +1,59 @@
+{
+  "artifacts": {
+    "filters": {
+      "path": "crates/saddle-scheduler/src/filters.rs",
+      "sha256": "4762b4213a71e5e1a254ef9f66001afa892a21c4e3a31e49a3dc8347a5722542"
+    },
+    "kinds": {
+      "path": "crates/saddle-estate/src/kinds.rs",
+      "sha256": "cc4a9cdd03076459b8091903458b85afd9d4efaa339e8011ffffdadb61a47f68"
+    },
+    "registration": {
+      "path": "crates/saddle-node/src/registration.rs",
+      "sha256": "88c1d3a29ac4010da5ec543758c9d2f7ffc494d8c539660d290b75971c342115"
+    },
+    "sad32_hard_placement": {
+      "path": "crates/saddle-scheduler/tests/sad32_hard_placement.rs",
+      "sha256": "213878fec086563cf76e7ee47d5857dff4b84e14c1da1d7b613acc7dd287af32"
+    },
+    "scheduler": {
+      "path": "crates/saddle-controller/src/scheduler.rs",
+      "sha256": "1c7f944112f91fa05a4c9e54052dcf317e29f0fdec2d62a24ee92e9184f2abf9"
+    },
+    "types": {
+      "path": "crates/saddle-scheduler/src/types.rs",
+      "sha256": "0ceeeeb88da0341b2640aa6beab8d54e3007c66cf4d86ff24442d8413189e677"
+    }
+  },
+  "fail_closed": {
+    "attacker_signed_attestation": "pass",
+    "failover": "pass",
+    "pressure": "pass",
+    "stale_attestation": "pass",
+    "stale_heartbeat": "pass",
+    "stale_provider_cache": "pass",
+    "tampered_attestation_profile": "pass",
+    "test_count": 6,
+    "test_names": [
+      "pressure_and_failover_never_choose_an_under_attested_node",
+      "stale_heartbeat_or_attestation_cache_cannot_authorize_placement",
+      "air_gap_capacity_and_provider_model_eligibility_are_hard_predicates",
+      "stale_provider_observation_fences_an_otherwise_eligible_node",
+      "a_tampered_node_profile_does_not_inherit_verified_attestation",
+      "an_attacker_signed_attestation_is_rejected"
+    ]
+  },
+  "hard_predicates": {
+    "air_gap_connectivity": "pass",
+    "classification_ceiling": "pass",
+    "cpu_memory_gpu_slot_capacity": "pass",
+    "current_provider_model_eligibility": "pass",
+    "fresh_anchor_signed_attestation": "pass",
+    "measurement_compatibility": "pass",
+    "score_resurrection": "structurally_impossible",
+    "trust_ring": "pass"
+  },
+  "prompt": "SAD-32",
+  "schema_version": "saddle-sad32-attested-scheduling-gate/v1",
+  "status": "pass"
+}

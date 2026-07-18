@@ -15,6 +15,7 @@ fabric-crypto = { path = "../fabric-crypto" }
 fabric-identity = { path = "../fabric-identity" }
 fabric-revocation = { path = "../fabric-revocation" }
 fabric-token = { path = "../fabric-token" }
+hex = "0.4"
 thiserror = { workspace = true }
 
 [lints]

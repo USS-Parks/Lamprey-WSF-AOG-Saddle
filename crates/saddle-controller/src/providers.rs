@@ -12,6 +12,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use chrono::Utc;
 use saddle_estate::{Kind, Phase, ProviderPoolStatus, ResourceObject};
 
 use crate::health::HealthProbe;
@@ -69,7 +70,23 @@ impl<P: HealthProbe> ProviderPoolController<P> {
         } else {
             Phase::Ready
         };
-        let desired = ProviderPoolStatus { phase, healthy };
+        let now = Utc::now();
+        if let Some(current) = pool.status.as_ref()
+            && current.phase == phase
+            && current.healthy == healthy
+            && current
+                .observed_at
+                .as_deref()
+                .and_then(|timestamp| chrono::DateTime::parse_from_rfc3339(timestamp).ok())
+                .is_some_and(|timestamp| (now - timestamp.with_timezone(&Utc)).num_seconds() < 5)
+        {
+            return Ok(Action::Done);
+        }
+        let desired = ProviderPoolStatus {
+            phase,
+            healthy,
+            observed_at: Some(now.to_rfc3339()),
+        };
         if pool.status.as_ref() != Some(&desired) {
             let mut converged = pool;
             converged.status = Some(desired);

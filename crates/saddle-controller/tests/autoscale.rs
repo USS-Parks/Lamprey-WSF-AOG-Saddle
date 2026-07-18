@@ -60,6 +60,7 @@ async fn workload(client: &EstateClient, name: &str, replicas: u32) {
                 image: None,
                 command: Vec::new(),
                 capability: None,
+                scheduling: saddle_estate::SchedulingConstraints::default(),
             },
         )))
         .await

@@ -425,6 +425,7 @@ async fn tool_calls_and_metering_continue_across_the_cutover_receipts_unbroken()
                     image: None,
                     command: vec![],
                     capability: None,
+                    scheduling: saddle_estate::SchedulingConstraints::default(),
                 },
             )))
             .await
