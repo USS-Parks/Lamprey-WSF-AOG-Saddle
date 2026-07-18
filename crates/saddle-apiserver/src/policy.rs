@@ -18,7 +18,8 @@
 
 use fabric_contracts::{Classification, ComplianceScope};
 use mai_compliance::{
-    ComplianceReason, ComposerConfig, Destination, ModuleDecision, ModuleId, PolicyComposer,
+    AggregateDecision, ComplianceReason, ComposerConfig, Destination, ModuleDecision, ModuleId,
+    PolicyComposer,
 };
 use saddle_estate::{Kind, ResourceObject};
 
@@ -41,17 +42,23 @@ impl AdmissionPolicy {
         }
     }
 
-    /// Evaluate a mutation against policy. `Ok(())` admits; a violation is an
+    /// Evaluate a mutation against policy. The successful value is the exact
+    /// deny-wins aggregate consumed by `saddle-bridge`; policy is not recomposed
+    /// at the grant boundary.
     /// [`ApiError::Forbidden`] carrying the specific reason(s).
     ///
     /// # Errors
     /// [`ApiError::Forbidden`] when the resource asserts authority the token does
     /// not hold (classification over-reach, or an unheld compliance regime).
-    pub fn evaluate(&self, object: &ResourceObject, principal: &Principal) -> Result<(), ApiError> {
+    pub fn evaluate(
+        &self,
+        object: &ResourceObject,
+        principal: &Principal,
+    ) -> Result<AggregateDecision, ApiError> {
         // The system principal (internal controllers, later phases) carries no
         // token; it is trusted and skips policy. API requests always carry one.
         let Some(token) = principal.token() else {
-            return Ok(());
+            return Ok(self.allow_all_modules(object.kind()));
         };
         let facts = policy_facts(object);
 
@@ -68,23 +75,25 @@ impl AdmissionPolicy {
         }
 
         // 2. Compliance, deny-wins over the regimes the resource declares.
-        if facts.compliance_scopes.is_empty() {
-            return Ok(());
-        }
-        let decisions: Vec<ModuleDecision> = facts
-            .compliance_scopes
-            .iter()
-            .map(|scope| {
-                scope_decision(
-                    *scope,
-                    token.compliance_scopes.contains(scope),
-                    object.kind(),
-                )
-            })
-            .collect();
+        let decisions: Vec<ModuleDecision> = [
+            ComplianceScope::Hipaa,
+            ComplianceScope::ItarEar,
+            ComplianceScope::Ocap,
+        ]
+        .into_iter()
+        .map(|scope| {
+            let required = facts.compliance_scopes.contains(&scope);
+            scope_decision(
+                scope,
+                !required || token.compliance_scopes.contains(&scope),
+                object.kind(),
+                required,
+            )
+        })
+        .collect();
         let aggregate = self.composer.compose(decisions.iter().cloned());
         if aggregate.allowed {
-            Ok(())
+            Ok(aggregate)
         } else {
             let reason = decisions
                 .iter()
@@ -94,6 +103,18 @@ impl AdmissionPolicy {
                 .join("; ");
             Err(ApiError::Forbidden(reason))
         }
+    }
+
+    fn allow_all_modules(&self, kind: Kind) -> AggregateDecision {
+        self.composer.compose(
+            [
+                ComplianceScope::Hipaa,
+                ComplianceScope::ItarEar,
+                ComplianceScope::Ocap,
+            ]
+            .into_iter()
+            .map(|scope| scope_decision(scope, true, kind, false)),
+        )
     }
 }
 
@@ -142,14 +163,21 @@ fn module_of(scope: ComplianceScope) -> ModuleId {
     }
 }
 
-fn scope_decision(scope: ComplianceScope, held: bool, kind: Kind) -> ModuleDecision {
+fn scope_decision(
+    scope: ComplianceScope,
+    held: bool,
+    kind: Kind,
+    required: bool,
+) -> ModuleDecision {
     let module = module_of(scope);
     let (allowed, route) = if held {
         (true, Destination::Cloud)
     } else {
         (false, Destination::Local)
     };
-    let summary = if held {
+    let summary = if !required {
+        format!("{kind} does not require {} authority", module.as_str())
+    } else if held {
         format!("{kind} is within the token's {} authority", module.as_str())
     } else {
         format!(

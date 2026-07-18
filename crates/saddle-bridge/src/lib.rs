@@ -130,10 +130,25 @@ pub struct CapabilityScope {
 
 impl CapabilityScope {
     fn is_within(&self, parent: &Self) -> bool {
-        subset(&self.resource_prefixes, &parent.resource_prefixes)
+        resource_subset(&self.resource_prefixes, &parent.resource_prefixes)
             && subset(&self.models, &parent.models)
             && subset(&self.tools, &parent.tools)
     }
+
+    fn allows_resource(&self, resource: &str) -> bool {
+        self.resource_prefixes.is_empty()
+            || self
+                .resource_prefixes
+                .iter()
+                .any(|prefix| resource.starts_with(prefix))
+    }
+}
+
+fn resource_subset(child: &BTreeSet<String>, parent: &BTreeSet<String>) -> bool {
+    parent.is_empty()
+        || child
+            .iter()
+            .all(|value| parent.iter().any(|prefix| value.starts_with(prefix)))
 }
 
 fn subset(child: &BTreeSet<String>, parent: &BTreeSet<String>) -> bool {
@@ -638,6 +653,14 @@ impl<P: AogPolicy, R: ReplayStore> GrantIssuer<P, R> {
         }
         if spec.object_name != request.context.resource().name() {
             return Err(BridgeError::TenantIsolation);
+        }
+        let resource = format!(
+            "{}s/{}",
+            request.context.resource().kind().to_ascii_lowercase(),
+            request.context.resource().name()
+        );
+        if !request.scope.allows_resource(&resource) {
+            return Err(BridgeError::ScopeWidens);
         }
         ensure_expiry(&spec.expires_at, &request.expires_at)?;
         if !spec.scope.is_within(&request.scope) {

@@ -29,6 +29,7 @@ saddle-apiserver = { path = "../saddle-apiserver" }
 fabric-contracts = { path = "../fabric-contracts" }
 fabric-crypto = { path = "../fabric-crypto" }
 fabric-token = { path = "../fabric-token" }
+fabric-revocation = { path = "../fabric-revocation" }
 wsf-ledger = { path = "../wsf-ledger" }
 base64 = "0.22"
 chrono = { workspace = true }

@@ -1,11 +1,11 @@
 //! Typed CRUD handlers. Every mutating route funnels through
-//! [`crate::admission::Admission::admit`] with the verified [`Principal`] the
+//! [`crate::admission::Admission::admit_verified`] with the verified [`Principal`] the
 //! front-door authenticator stashed in request extensions; the read routes
 //! use the read-only [`crate::reader::StoreReader`]. There is no handler path
 //! that writes the store directly.
 
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::Deserialize;
@@ -28,6 +28,7 @@ pub async fn create(
     State(state): State<AppState>,
     Path(kind_seg): Path<String>,
     Extension(principal): Extension<Principal>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let kind = parse_kind(&kind_seg).ok_or(ApiError::UnknownKind(kind_seg))?;
@@ -39,9 +40,12 @@ pub async fn create(
         });
     }
     let name = object.name().to_owned();
+    let verified = state
+        .authenticator
+        .verify_saddle_request(&principal, kind, &name, &headers)?;
     let outcome = state
         .admission
-        .admit(
+        .admit_verified(
             AdmissionRequest {
                 verb: Verb::Create,
                 kind,
@@ -49,6 +53,7 @@ pub async fn create(
                 object: Some(object),
             },
             &principal,
+            &verified,
         )
         .await?;
     let stored = outcome
@@ -151,6 +156,7 @@ pub async fn update(
     State(state): State<AppState>,
     Path((kind_seg, name)): Path<(String, String)>,
     Extension(principal): Extension<Principal>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let kind = parse_kind(&kind_seg).ok_or(ApiError::UnknownKind(kind_seg))?;
@@ -167,9 +173,12 @@ pub async fn update(
             body: object.name().to_owned(),
         });
     }
+    let verified = state
+        .authenticator
+        .verify_saddle_request(&principal, kind, &name, &headers)?;
     let outcome = state
         .admission
-        .admit(
+        .admit_verified(
             AdmissionRequest {
                 verb: Verb::Update,
                 kind,
@@ -177,6 +186,7 @@ pub async fn update(
                 object: Some(object),
             },
             &principal,
+            &verified,
         )
         .await?;
     // An update that removed the last finalizer from a terminating object
@@ -202,11 +212,15 @@ pub async fn delete(
     State(state): State<AppState>,
     Path((kind_seg, name)): Path<(String, String)>,
     Extension(principal): Extension<Principal>,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let kind = parse_kind(&kind_seg).ok_or(ApiError::UnknownKind(kind_seg))?;
+    let verified = state
+        .authenticator
+        .verify_saddle_request(&principal, kind, &name, &headers)?;
     let outcome = state
         .admission
-        .admit(
+        .admit_verified(
             AdmissionRequest {
                 verb: Verb::Delete,
                 kind,
@@ -214,6 +228,7 @@ pub async fn delete(
                 object: None,
             },
             &principal,
+            &verified,
         )
         .await?;
     match outcome.object {

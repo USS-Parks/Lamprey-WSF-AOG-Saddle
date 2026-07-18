@@ -206,7 +206,8 @@ async fn an_intent_denies_a_token_on_every_replica_and_over_media() {
             "snap-r9-baseline",
             now.to_rfc3339(),
             (now + chrono::Duration::hours(1)).to_rfc3339(),
-        ),
+        )
+        .with_sequence(1),
         anchor.as_ref(),
     )
     .expect("sign baseline snapshot");

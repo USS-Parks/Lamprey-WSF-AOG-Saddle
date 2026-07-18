@@ -123,18 +123,23 @@ impl RevocationController {
 
         // Idempotent: republish only when the revoked set drifts from what is
         // live (or the live snapshot no longer verifies under the anchor).
-        let in_sync = self.published(&vault).await?.is_some_and(|s| {
+        let published = self.published(&vault).await?;
+        let in_sync = published.as_ref().is_some_and(|s| {
             s.revoked_tokens == tokens
                 && s.revoked_subjects == subjects
-                && fabric_revocation::verify(&s, &MlDsa87Verifier, self.signer.public_key()).is_ok()
+                && fabric_revocation::verify(s, &MlDsa87Verifier, self.signer.public_key()).is_ok()
         });
         if !in_sync {
             let now = Utc::now();
+            let sequence = published
+                .as_ref()
+                .map_or(1, |snapshot| snapshot.sequence.saturating_add(1));
             let mut snapshot = RevocationSnapshot::new(
                 SNAPSHOT_ID,
                 now.to_rfc3339(),
                 (now + chrono::Duration::days(3650)).to_rfc3339(),
-            );
+            )
+            .with_sequence(sequence);
             snapshot.revoked_tokens.clone_from(&tokens);
             snapshot.revoked_subjects.clone_from(&subjects);
             let signed =

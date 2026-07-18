@@ -1,6 +1,6 @@
 //! The estate client Phase-R reconcilers act through. Reads come from the
 //! apiserver's read-only [`StoreReader`]; **every write goes through the
-//! admission choke point** ([`Admission::admit`], as the system principal) —
+//! admission choke point** ([`Admission::admit_system`]) —
 //! a controller mutation is validated, policy-checked, sealed, CAS-guarded,
 //! and receipted exactly like any external caller's (A1.7, doctrine I-3/I-5).
 //! No controller holds a writable store handle.

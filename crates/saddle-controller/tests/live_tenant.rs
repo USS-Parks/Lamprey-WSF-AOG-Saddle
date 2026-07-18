@@ -22,11 +22,11 @@ use fabric_contracts::{
 };
 use fabric_crypto::Signer;
 use fabric_crypto::providers::{MlDsa87Verifier, RustCryptoMlDsa87};
-use fabric_revocation::RevocationSnapshot;
+use fabric_revocation::{RevocationSnapshot, sign as sign_revocation};
 use reqwest::{Client, Method};
 use saddle_apiserver::AppState;
 use saddle_apiserver::admission::{AdmissionRequest, Principal, Verb};
-use saddle_apiserver::auth::{Authenticator, TOKEN_HEADER};
+use saddle_apiserver::auth::{Authenticator, NONCE_HEADER, TOKEN_HEADER};
 use saddle_apiserver::seal::Sealer;
 use saddle_controller::{
     AlwaysLeader, Controller, EstateClient, GarbageCollector, OPENBAO_FINALIZER, Reconciler,
@@ -255,10 +255,22 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
     ));
 
     // The estate, front-doored on the same anchor.
+    let snapshot = sign_revocation(
+        RevocationSnapshot::new(
+            "live-tenant-current",
+            (Utc::now() - chrono::Duration::minutes(1)).to_rfc3339(),
+            (Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+        )
+        .with_sequence(1),
+        &*anchor,
+    )
+    .unwrap();
     let state = AppState::bootstrap(
         1,
         fresh_dir("saddle-r3-live"),
-        Authenticator::new(anchor.public_key().to_vec()),
+        Authenticator::new(anchor.public_key().to_vec())
+            .with_revocation(snapshot)
+            .unwrap(),
         Sealer::generate().unwrap(),
     )
     .await
@@ -278,9 +290,14 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
             subject_hmac_rotation_days: 0,
         },
     );
+    let mut tenant_headers = HeaderMap::new();
+    tenant_headers.insert(NONCE_HEADER, "live-tenant-create".parse().unwrap());
+    let tenant_verified = state
+        .verify_saddle_request(&operator, Kind::Tenant, TENANT, &tenant_headers)
+        .unwrap();
     state
         .admission()
-        .admit(
+        .admit_verified(
             AdmissionRequest {
                 verb: Verb::Create,
                 kind: Kind::Tenant,
@@ -288,6 +305,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
                 object: Some(ResourceObject::Tenant(tenant)),
             },
             &operator,
+            &tenant_verified,
         )
         .await
         .unwrap();
@@ -303,9 +321,19 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
         },
     );
     cap.metadata.tenant = Some(TENANT.to_owned());
+    let mut capability_headers = HeaderMap::new();
+    capability_headers.insert(NONCE_HEADER, "live-capability-create".parse().unwrap());
+    let capability_verified = state
+        .verify_saddle_request(
+            &operator,
+            Kind::Capability,
+            "saddle-acme-cap",
+            &capability_headers,
+        )
+        .unwrap();
     state
         .admission()
-        .admit(
+        .admit_verified(
             AdmissionRequest {
                 verb: Verb::Create,
                 kind: Kind::Capability,
@@ -313,6 +341,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
                 object: Some(ResourceObject::Capability(cap)),
             },
             &operator,
+            &capability_verified,
         )
         .await
         .unwrap();

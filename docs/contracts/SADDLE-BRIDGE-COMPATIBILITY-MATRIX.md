@@ -52,3 +52,21 @@ deny-wins `AggregateDecision`, and `wsf-ledger` remains the receipt authority.
 The wire version is intentionally stable. Adding fields must be backward
 compatible; changing an invariant or construction path requires a new contract
 version and an explicit migration gate.
+
+## SAD-31 real admission binding
+
+`saddle-apiserver` now consumes the frozen request and admission contracts on
+every HTTP mutation. The front door derives the principal only from a verified
+WSF token; the handler binds `SaddleAdmission` to the parsed kind, final object
+name, and authenticated tenant; and `x-saddle-nonce` is consumed once per token
+lineage. A current signed monotonic revocation snapshot, current trust bundle,
+unexhausted budget, matching resource-prefix caveat, and deny-wins AOG aggregate
+are required before `AdmissionGrant` issuance.
+
+The exact grant is persisted inside the Raft-backed audit outbox before the
+desired-state write and retained when the outbox is finalized with its receipt.
+`crates/saddle-apiserver/tests/saddle_admission.rs` proves missing and replayed
+authority, stale bundle/revocation state, wrong-anchor spoofing, out-of-scope
+resources, and cross-tenant mutation all fail closed through the real API.
+Scheduling, node runtime, and per-action consumption remain SAD-32 through
+SAD-35; the internal controller identity seam remains explicit for SAD-33.

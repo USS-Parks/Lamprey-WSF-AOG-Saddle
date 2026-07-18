@@ -15,7 +15,7 @@
 //! provenance and attenuate a child from it).
 
 use std::collections::HashSet;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use axum::extract::{Request, State};
 use axum::http::HeaderMap;
@@ -23,9 +23,17 @@ use axum::middleware::Next;
 use axum::response::Response;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use fabric_contracts::{Budget, TrustToken};
+use fabric_contracts::{
+    Budget, CanonicalResource, RequestOperation, TrustToken, VerifiedRequestContext,
+};
 use fabric_crypto::providers::MlDsa87Verifier;
-use fabric_revocation::{RevocationError, RevocationSnapshot};
+use fabric_revocation::{MonotonicRevocationStore, RevocationError, RevocationSnapshot};
+use mai_compliance::AggregateDecision;
+use saddle_bridge::{
+    AdmissionGrant, AdmissionSpec, AogPolicy, BridgeError, GrantIssuer, PolicyInput,
+    VerifiedSaddleRequest,
+};
+use saddle_estate::Kind;
 
 use crate::AppState;
 use crate::admission::Principal;
@@ -33,6 +41,24 @@ use crate::error::ApiError;
 
 /// Header carrying the base64-encoded JSON trust token.
 pub const TOKEN_HEADER: &str = "x-wsf-token";
+/// Required one-use nonce for every desired-state mutation.
+pub const NONCE_HEADER: &str = "x-saddle-nonce";
+
+const CURRENT_BUNDLE: &str = "2026.07.saddle";
+
+struct FencePolicy;
+
+impl AogPolicy for FencePolicy {
+    fn evaluate(&self, _input: &PolicyInput<'_>) -> AggregateDecision {
+        AggregateDecision {
+            allowed: false,
+            route: None,
+            flags: Vec::new(),
+            reasons: Vec::new(),
+            modules_applied: Vec::new(),
+        }
+    }
+}
 
 /// The estate-driven kill view: what the declarative `RevocationIntent`
 /// objects currently revoke, folded in by the revocation-indexing controller
@@ -63,7 +89,9 @@ impl RevocationView {
 /// declarative `RevocationIntent` objects.
 pub struct Authenticator {
     token_public_key: Vec<u8>,
-    revocation: Option<RevocationSnapshot>,
+    revocation: MonotonicRevocationStore,
+    request_issuer: Mutex<GrantIssuer<FencePolicy>>,
+    current_bundle: String,
     live: Arc<RwLock<RevocationView>>,
 }
 
@@ -73,7 +101,9 @@ impl Authenticator {
     pub fn new(token_public_key: Vec<u8>) -> Self {
         Self {
             token_public_key,
-            revocation: None,
+            revocation: MonotonicRevocationStore::new(),
+            request_issuer: Mutex::new(GrantIssuer::new(FencePolicy)),
+            current_bundle: CURRENT_BUNDLE.to_owned(),
             live: Arc::new(RwLock::new(RevocationView::default())),
         }
     }
@@ -96,8 +126,8 @@ impl Authenticator {
         mut self,
         snapshot: RevocationSnapshot,
     ) -> Result<Self, RevocationError> {
-        fabric_revocation::verify(&snapshot, &MlDsa87Verifier, &self.token_public_key)?;
-        self.revocation = Some(snapshot);
+        self.revocation
+            .advance(snapshot, &MlDsa87Verifier, &self.token_public_key)?;
         Ok(self)
     }
 
@@ -133,7 +163,7 @@ impl Authenticator {
         // Kill switch, snapshot leg: any revocation dimension (token, subject,
         // signing key, issuer, bundle version, tenant, service identity) halts
         // the next call — matching the gateway's complete predicate.
-        if let Some(snap) = &self.revocation
+        if let Some(snap) = self.revocation.current()
             && snap.revokes(&token).is_some()
         {
             return Err(ApiError::Unauthenticated);
@@ -154,6 +184,87 @@ impl Authenticator {
         }
 
         Ok(Principal::authenticated(token))
+    }
+
+    /// Bind one authenticated token to the server-resolved Saddle operation,
+    /// tenant, resource identity, current revocation sequence, and a one-use
+    /// nonce. The returned proof value cannot be constructed from wire JSON.
+    pub fn verify_saddle_request(
+        &self,
+        principal: &Principal,
+        kind: Kind,
+        name: &str,
+        headers: &HeaderMap,
+    ) -> Result<VerifiedSaddleRequest, ApiError> {
+        let token = principal.token().ok_or(ApiError::Unauthenticated)?;
+        if token.budget.as_ref().is_some_and(budget_exhausted) {
+            return Err(ApiError::BudgetExhausted);
+        }
+        let nonce = headers
+            .get(NONCE_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| !value.trim().is_empty())
+            .ok_or(ApiError::Unauthenticated)?;
+        let resource = CanonicalResource::resolved(
+            kind.to_string(),
+            name,
+            principal.tenant().map(str::to_owned),
+        )
+        .map_err(|error| ApiError::Forbidden(error.to_string()))?;
+        let context = VerifiedRequestContext::establish(
+            principal.request_principal().clone(),
+            RequestOperation::SaddleAdmission,
+            resource,
+        )
+        .map_err(|error| ApiError::Forbidden(error.to_string()))?;
+        self.request_issuer
+            .lock()
+            .map_err(|_| ApiError::Unauthenticated)?
+            .verify_request(
+                context,
+                token,
+                nonce,
+                chrono::Utc::now(),
+                &MlDsa87Verifier,
+                &self.token_public_key,
+                &self.current_bundle,
+                &self.revocation,
+            )
+            .map_err(map_bridge_auth_error)
+    }
+
+    /// Recheck current revocation and narrow a verified request into one exact
+    /// admission grant using the already-composed deny-wins AOG decision.
+    pub fn issue_admission_grant(
+        &self,
+        request: &VerifiedSaddleRequest,
+        spec: AdmissionSpec,
+        decision: AggregateDecision,
+    ) -> Result<AdmissionGrant, ApiError> {
+        struct DecisionPolicy(AggregateDecision);
+        impl AogPolicy for DecisionPolicy {
+            fn evaluate(&self, _input: &PolicyInput<'_>) -> AggregateDecision {
+                self.0.clone()
+            }
+        }
+        GrantIssuer::new(DecisionPolicy(decision))
+            .issue_admission(request, spec, chrono::Utc::now(), &self.revocation)
+            .map_err(map_bridge_grant_error)
+    }
+}
+
+fn map_bridge_auth_error(_error: BridgeError) -> ApiError {
+    ApiError::Unauthenticated
+}
+
+fn map_bridge_grant_error(error: BridgeError) -> ApiError {
+    match error {
+        BridgeError::Token(_)
+        | BridgeError::Revocation(_)
+        | BridgeError::Replay
+        | BridgeError::ReplayUnavailable(_)
+        | BridgeError::LineageMismatch => ApiError::Unauthenticated,
+        other => ApiError::Forbidden(other.to_string()),
     }
 }
 

@@ -7,6 +7,7 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use fabric_crypto::Signer;
 use fabric_crypto::providers::RustCryptoMlDsa87;
@@ -169,7 +170,8 @@ async fn exchange_is_grant_scoped_not_raw_arn() {
         bridge: Arc::new(TrustBridge::new(
             ob(),
             bridge_signer,
-            BridgeConfig::new("2026.07.grant", vec![3u8; 32]),
+            BridgeConfig::new("2026.07.grant", vec![3u8; 32])
+                .with_token_ttl(Duration::from_secs(1_200)),
         )),
         broker: Arc::new(AwsStsBroker::new(
             ob(),
@@ -236,8 +238,14 @@ async fn exchange_is_grant_scoped_not_raw_arn() {
 
     // 1. Approved grant → 200 with scoped creds.
     let ok = exchange(json!({ "token": token, "grant_id": "aws-approved" })).await;
-    assert_eq!(ok.status(), StatusCode::OK, "approved grant brokers creds");
-    let creds: Value = ok.json().await.unwrap();
+    let ok_status = ok.status();
+    let ok_body = ok.text().await.unwrap();
+    assert_eq!(
+        ok_status,
+        StatusCode::OK,
+        "approved grant brokers creds: {ok_body}"
+    );
+    let creds: Value = serde_json::from_str(&ok_body).unwrap();
     assert!(!creds["access_key_id"].as_str().unwrap_or("").is_empty());
 
     // 2. A smuggled raw role_arn is rejected outright (422) — the caller cannot

@@ -13,6 +13,7 @@ use fabric_contracts::{
 };
 use fabric_crypto::Signer;
 use fabric_crypto::providers::RustCryptoMlDsa87;
+use fabric_revocation::{RevocationSnapshot, sign as sign_revocation};
 use saddle_apiserver::AppState;
 use saddle_apiserver::auth::Authenticator;
 use saddle_apiserver::seal::Sealer;
@@ -61,7 +62,19 @@ fn mint(signer: &RustCryptoMlDsa87, budget: Option<Budget>) -> TrustToken {
 /// Bind an apiserver on an ephemeral port and return its address + a token header.
 async fn spawn(dir: &str, budget: Option<Budget>) -> (SocketAddr, String) {
     let signer = RustCryptoMlDsa87::generate("cli-anchor").unwrap();
-    let auth = Authenticator::new(signer.public_key().to_vec());
+    let snapshot = sign_revocation(
+        RevocationSnapshot::new(
+            "saddlectl-current",
+            (Utc::now() - Duration::minutes(1)).to_rfc3339(),
+            (Utc::now() + Duration::hours(1)).to_rfc3339(),
+        )
+        .with_sequence(1),
+        &signer,
+    )
+    .unwrap();
+    let auth = Authenticator::new(signer.public_key().to_vec())
+        .with_revocation(snapshot)
+        .unwrap();
     let state = AppState::bootstrap(1, fresh_dir(dir), auth, Sealer::generate().unwrap())
         .await
         .unwrap();

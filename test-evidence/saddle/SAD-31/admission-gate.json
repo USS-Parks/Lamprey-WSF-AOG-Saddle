@@ -1,0 +1,56 @@
+{
+  "artifacts": {
+    "admission": {
+      "path": "crates/saddle-apiserver/src/admission.rs",
+      "sha256": "3442106f3680bef81eb60edd151e20ca3521870f62902a20ec90042a0f8ce195"
+    },
+    "auth": {
+      "path": "crates/saddle-apiserver/src/auth.rs",
+      "sha256": "e3f3adce442bef0c259b2ac359a2a59944d5d1e4771dd41c9a3377ab0b29cc1e"
+    },
+    "handlers": {
+      "path": "crates/saddle-apiserver/src/handlers.rs",
+      "sha256": "b840ce5cabdd9555bb2062cae2a235bdc0e10c0d42ef360d281a4a0f4a9cff83"
+    },
+    "lib": {
+      "path": "crates/saddlectl/src/lib.rs",
+      "sha256": "95f82026d375e8244f6369131f2c5ef0c08e79c5e19f38be15ba680fecffa14f"
+    },
+    "policy": {
+      "path": "crates/saddle-apiserver/src/policy.rs",
+      "sha256": "408af7bda98e3cc10d237804d31bb1ba61289f9ece213a701d694ab59bd755be"
+    },
+    "saddle_admission": {
+      "path": "crates/saddle-apiserver/tests/saddle_admission.rs",
+      "sha256": "365f77689f243cc1de2020977563d8e43e285f9b00f6044e23cf26ccf90c3f67"
+    }
+  },
+  "boundary": {
+    "audit_before_mutation": "pass",
+    "current_bundle": "2026.07.saddle",
+    "deny_wins_policy_reuse": "pass",
+    "final_resource_binding": "pass",
+    "nonce_header": "x-saddle-nonce",
+    "request_operation": "saddle_admission",
+    "token_header": "x-wsf-token"
+  },
+  "fail_closed": {
+    "cross_tenant": "pass",
+    "missing_authority": "pass",
+    "replay": "pass",
+    "resource_caveat": "pass",
+    "spoofed_anchor": "pass",
+    "stale_bundle": "pass",
+    "stale_revocation": "pass",
+    "test_count": 4,
+    "test_names": [
+      "missing_nonce_and_replayed_authority_fail_closed",
+      "stale_bundle_and_stale_revocation_fail_closed_on_mutation",
+      "spoofed_anchor_and_out_of_scope_resource_fail_closed",
+      "cross_tenant_authority_cannot_mutate_the_final_resource"
+    ]
+  },
+  "prompt": "SAD-31",
+  "schema_version": "saddle-sad31-admission-gate/v1",
+  "status": "pass"
+}

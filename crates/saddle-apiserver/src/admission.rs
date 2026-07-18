@@ -2,7 +2,8 @@
 //!
 //! Type invariant ("no write reaches `saddle-store` bypassing
 //! admission, enforced by type"): [`Admission`] privately owns the sole writable
-//! `RaftNode` handle in this crate, and [`Admission::admit`] is the only method
+//! `RaftNode` handle in this crate, and [`Admission::admit_verified`] plus the
+//! server-only [`Admission::admit_system`] path are the only methods
 //! that reaches [`RaftNode::write`]. A CRUD handler is handed an `Admission` and
 //! a read-only [`crate::reader::StoreReader`]; neither exposes the raw node, so
 //! no handler can construct a store write that skips the chain.
@@ -17,7 +18,7 @@
 //! All five stages do real work now. The choke point is complete — every mutation
 //! traverses this one method, and each admitted one is receipted.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::sync::{Arc, Mutex};
 
 use base64::Engine as _;
@@ -28,12 +29,18 @@ use fabric_contracts::{
     WsfPrincipal,
 };
 use fabric_crypto::providers::RustCryptoMlDsa87;
+use mai_compliance::AggregateDecision;
+use saddle_bridge::{
+    AdmissionGrant, AdmissionSpec, AdmissionVerb, CapabilityScope, ReceiptIntentSpec,
+    VerifiedSaddleRequest,
+};
 use saddle_estate::{Kind, ResourceObject, TokenRef};
 use saddle_store::raft::RaftNode;
 use saddle_store::raft::types::RaftResponse;
 use saddle_store::{Op, Precondition, Revision};
 use wsf_ledger::{EvidencePack, Ledger};
 
+use crate::auth::Authenticator;
 use crate::codec::{decode, encode, store_key};
 use crate::error::ApiError;
 use crate::policy::AdmissionPolicy;
@@ -93,7 +100,7 @@ impl Principal {
                 roles: token.roles.clone(),
                 token_lineage: Some(fabric_token::lineage_key(&token).to_string()),
                 auth_strength: AuthStrength::WorkloadToken,
-                audience: Audience::Aog,
+                audience: Audience::Saddle,
             },
             uuid::Uuid::new_v4().to_string(),
             chrono::Utc::now().to_rfc3339(),
@@ -168,14 +175,26 @@ impl Principal {
         self.token.as_ref()
     }
 
+    pub(crate) fn request_principal(&self) -> &WsfPrincipal {
+        &self.request_principal
+    }
+
     fn request_context(&self, req: &AdmissionRequest) -> Result<VerifiedRequestContext, ApiError> {
-        let operation = match req.verb {
-            Verb::Create => RequestOperation::AogCreate,
-            Verb::Update => RequestOperation::AogUpdate,
-            Verb::Delete => RequestOperation::AogDelete,
+        let operation = if self.system {
+            match req.verb {
+                Verb::Create => RequestOperation::AogCreate,
+                Verb::Update => RequestOperation::AogUpdate,
+                Verb::Delete => RequestOperation::AogDelete,
+            }
+        } else {
+            RequestOperation::SaddleAdmission
         };
-        let resource = CanonicalResource::resolved(req.kind.to_string(), &req.name, None)
-            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+        let resource = CanonicalResource::resolved(
+            req.kind.to_string(),
+            &req.name,
+            self.tenant().map(str::to_owned),
+        )
+        .map_err(|e| ApiError::Forbidden(e.to_string()))?;
         VerifiedRequestContext::establish(self.request_principal.clone(), operation, resource)
             .map_err(|e| ApiError::Forbidden(e.to_string()))
     }
@@ -202,6 +221,7 @@ pub struct AdmissionOutcome {
 /// docs for the type invariant this enforces.
 pub struct Admission {
     raft: Arc<RaftNode>,
+    authenticator: Arc<Authenticator>,
     policy: AdmissionPolicy,
     sealer: Sealer,
     ledger: Arc<Mutex<Ledger>>,
@@ -210,13 +230,14 @@ pub struct Admission {
 
 impl Admission {
     #[must_use]
-    pub fn new(raft: Arc<RaftNode>, sealer: Sealer) -> Self {
+    pub fn new(raft: Arc<RaftNode>, sealer: Sealer, authenticator: Arc<Authenticator>) -> Self {
         // The receipt ledger signs its evidence pack; ML-DSA keygen is infallible
         // (fabric-crypto), so this construction cannot fail.
         let ledger_signer = RustCryptoMlDsa87::generate("saddle-apiserver-receipts")
             .expect("ML-DSA keygen infallible");
         Self {
             raft,
+            authenticator,
             policy: AdmissionPolicy::baseline(),
             sealer,
             ledger: Arc::new(Mutex::new(Ledger::new(Arc::new(ledger_signer)))),
@@ -232,23 +253,54 @@ impl Admission {
     /// The first stage to refuse: [`ApiError::Invalid`] (structural) or
     /// [`ApiError::Forbidden`] (policy); [`ApiError::NotFound`] /
     /// [`ApiError::Conflict`] at commit; or [`ApiError::Store`] on backend failure.
-    pub async fn admit(
+    pub async fn admit_verified(
         &self,
         req: AdmissionRequest,
         principal: &Principal,
+        verified: &VerifiedSaddleRequest,
+    ) -> Result<AdmissionOutcome, ApiError> {
+        self.admit_inner(req, principal, Some(verified)).await
+    }
+
+    async fn admit_inner(
+        &self,
+        req: AdmissionRequest,
+        principal: &Principal,
+        verified: Option<&VerifiedSaddleRequest>,
     ) -> Result<AdmissionOutcome, ApiError> {
         // Stage 1 (authenticate) is the front-door middleware (`crate::auth`):
         // `principal` is already a verified token by the time admission runs.
         // The chain here is validate -> mutate -> commit -> receipt.
-        let context = principal.request_context(&req)?;
-        self.validate(&req, principal, &context)?;
+        let context = verified.map_or_else(
+            || principal.request_context(&req),
+            |request| Ok(request.context().clone()),
+        )?;
+        let policy_decision = self.validate(&req, principal, &context)?;
         let staged = self.mutate(&req, principal, &context).await?;
         let before_digest = staged.before_digest.clone();
         let mutated = staged.op.is_some();
         let audit_intent = if mutated {
+            let intent_id = uuid::Uuid::new_v4().to_string();
+            let grant = if let Some(request) = verified {
+                let decision = policy_decision
+                    .or_else(|| staged.policy_decision.clone())
+                    .ok_or_else(|| {
+                        ApiError::Forbidden("policy supplied no admission decision".to_owned())
+                    })?;
+                Some(self.issue_grant(&req, &staged, request, intent_id.clone(), decision)?)
+            } else {
+                None
+            };
             Some(
-                self.persist_audit_intent(&req, principal, &context, &staged)
-                    .await?,
+                self.persist_audit_intent(
+                    &req,
+                    principal,
+                    &context,
+                    &staged,
+                    intent_id,
+                    grant.as_ref(),
+                )
+                .await?,
             )
         } else {
             None
@@ -271,15 +323,66 @@ impl Admission {
         Ok(outcome)
     }
 
+    fn issue_grant(
+        &self,
+        req: &AdmissionRequest,
+        staged: &Staged,
+        request: &VerifiedSaddleRequest,
+        intent_id: String,
+        decision: AggregateDecision,
+    ) -> Result<AdmissionGrant, ApiError> {
+        let mutation_digest = staged
+            .object
+            .as_ref()
+            .and_then(digest)
+            .or_else(|| staged.before_digest.clone())
+            .ok_or_else(|| ApiError::Forbidden("mutation has no canonical digest".to_owned()))?;
+        let resource = format!(
+            "{}s/{}",
+            req.kind.to_string().to_ascii_lowercase(),
+            req.name
+        );
+        self.authenticator.issue_admission_grant(
+            request,
+            AdmissionSpec {
+                verb: match req.verb {
+                    Verb::Create => AdmissionVerb::Create,
+                    Verb::Update => AdmissionVerb::Update,
+                    Verb::Delete => AdmissionVerb::Delete,
+                },
+                object_uid: staged.object_uid.clone(),
+                object_name: req.name.clone(),
+                tenant_id: request.tenant_id().to_owned(),
+                mutation_digest: mutation_digest.clone(),
+                expires_at: request.expires_at().to_owned(),
+                scope: CapabilityScope {
+                    resource_prefixes: BTreeSet::from([resource]),
+                    models: BTreeSet::new(),
+                    tools: BTreeSet::new(),
+                },
+                receipt: ReceiptIntentSpec {
+                    receipt_id: intent_id,
+                    request_digest: mutation_digest,
+                },
+            },
+            decision,
+        )
+    }
+
     async fn persist_audit_intent(
         &self,
         req: &AdmissionRequest,
         principal: &Principal,
         context: &VerifiedRequestContext,
         staged: &Staged,
+        intent_id: String,
+        grant: Option<&AdmissionGrant>,
     ) -> Result<AuditIntent, ApiError> {
-        let intent_id = uuid::Uuid::new_v4().to_string();
         let key = format!("AuditOutbox/{intent_id}");
+        let grant_value = grant
+            .map(serde_json::to_value)
+            .transpose()
+            .map_err(|error| ApiError::Store(format!("serialize admission grant: {error}")))?;
         let value = serde_json::to_vec(&serde_json::json!({
             "schema": "aog.audit-intent/v1",
             "intent_id": intent_id,
@@ -292,6 +395,7 @@ impl Admission {
             "before_digest": staged.before_digest,
             "after_digest": staged.object.as_ref().and_then(digest),
             "planned_op": staged.op,
+            "admission_grant": grant_value,
             "created_at": now_rfc3339(),
         }))
         .map_err(|e| ApiError::Store(format!("serialize audit intent: {e}")))?;
@@ -308,6 +412,7 @@ impl Admission {
             RaftResponse::Applied { revision, .. } => Ok(AuditIntent {
                 id: intent_id,
                 revision,
+                grant: grant_value,
             }),
             RaftResponse::Rejected { reason } => Err(ApiError::Store(format!(
                 "audit intent rejected before mutation: {reason}"
@@ -327,6 +432,7 @@ impl Admission {
             "schema": "aog.audit-outbox/v1",
             "intent_id": intent.id,
             "status": "ready",
+            "admission_grant": intent.grant,
             "receipt": receipt,
         }))
         .map_err(|error| ApiError::Store(format!("serialize audit outbox: {error}")))?;
@@ -350,7 +456,7 @@ impl Admission {
     /// Admit an internal controller mutation with a server-created estate
     /// principal. Controllers never receive a constructor for that authority.
     pub async fn admit_system(&self, req: AdmissionRequest) -> Result<AdmissionOutcome, ApiError> {
-        self.admit(req, &Principal::system()).await
+        self.admit_inner(req, &Principal::system(), None).await
     }
 
     // 2. validate — structural (fail-closed) + policy (deny-wins over regimes).
@@ -359,20 +465,24 @@ impl Admission {
         req: &AdmissionRequest,
         principal: &Principal,
         context: &VerifiedRequestContext,
-    ) -> Result<(), ApiError> {
-        let expected_operation = match req.verb {
-            Verb::Create => RequestOperation::AogCreate,
-            Verb::Update => RequestOperation::AogUpdate,
-            Verb::Delete => RequestOperation::AogDelete,
+    ) -> Result<Option<AggregateDecision>, ApiError> {
+        let expected_operation = if principal.system {
+            match req.verb {
+                Verb::Create => RequestOperation::AogCreate,
+                Verb::Update => RequestOperation::AogUpdate,
+                Verb::Delete => RequestOperation::AogDelete,
+            }
+        } else {
+            RequestOperation::SaddleAdmission
         };
         context
             .require_operation(expected_operation)
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
         debug_assert_eq!(context.resource().kind(), req.kind.to_string());
         debug_assert_eq!(context.resource().name(), req.name);
-        if let Some(object) = &req.object {
+        let decision = if let Some(object) = &req.object {
             object.validate()?;
-            self.policy.evaluate(object, principal)?;
+            let decision = self.policy.evaluate(object, principal)?;
             if let ResourceObject::RevocationIntent(intent) = object {
                 self.authorize_revocation(req, principal, &intent.spec.target)?;
             }
@@ -380,8 +490,11 @@ impl Admission {
                 EstateScope::authorize(context, PrivilegedCapability::PolicyPublication)
                     .map_err(|error| ApiError::Forbidden(error.to_string()))?;
             }
-        }
-        Ok(())
+            Some(decision)
+        } else {
+            None
+        };
+        Ok(decision)
     }
 
     fn authorize_revocation(
@@ -411,11 +524,7 @@ impl Admission {
             .map_err(|error| ApiError::Forbidden(error.to_string()))?;
             let context = VerifiedRequestContext::establish(
                 principal.request_principal.clone(),
-                match req.verb {
-                    Verb::Create => RequestOperation::AogCreate,
-                    Verb::Update => RequestOperation::AogUpdate,
-                    Verb::Delete => RequestOperation::AogDelete,
-                },
+                RequestOperation::SaddleAdmission,
                 resource,
             )
             .map_err(|error| ApiError::Forbidden(error.to_string()))?;
@@ -449,6 +558,7 @@ impl Admission {
                     .ok_or_else(|| ApiError::BadBody("create requires a body".to_owned()))?;
                 stamp_create(&mut object, principal);
                 self.finish_mutation(&mut object, principal)?;
+                let object_uid = object.metadata().uid.clone();
                 let value = encode(&object)?;
                 Ok(Staged {
                     op: Some(Op::Put {
@@ -458,6 +568,8 @@ impl Admission {
                     }),
                     object: Some(object),
                     before_digest: None,
+                    object_uid,
+                    policy_decision: None,
                 })
             }
             Verb::Update => {
@@ -517,9 +629,12 @@ impl Admission {
                         }),
                         object: None,
                         before_digest,
+                        object_uid: current.object.metadata().uid.clone(),
+                        policy_decision: None,
                     });
                 }
                 self.finish_mutation(&mut object, principal)?;
+                let object_uid = object.metadata().uid.clone();
                 let value = encode(&object)?;
                 Ok(Staged {
                     op: Some(Op::Put {
@@ -529,6 +644,8 @@ impl Admission {
                     }),
                     object: Some(object),
                     before_digest,
+                    object_uid,
+                    policy_decision: None,
                 })
             }
             Verb::Delete => {
@@ -551,7 +668,7 @@ impl Admission {
                 // which let any authenticated principal delete any object incl. a
                 // RevocationIntent (reversing a live kill). Run the same policy here,
                 // and bind a tenant-scoped principal to its own tenant.
-                self.policy.evaluate(&current.object, principal)?;
+                let policy_decision = self.policy.evaluate(&current.object, principal)?;
                 if let (Some(pt), Some(ot)) = (principal.tenant(), meta.tenant.as_deref())
                     && pt != ot
                 {
@@ -572,6 +689,8 @@ impl Admission {
                         }),
                         object: None,
                         before_digest,
+                        object_uid: current.object.metadata().uid.clone(),
+                        policy_decision: Some(policy_decision),
                     })
                 } else if meta.deletion_timestamp.is_some() {
                     // Already terminating — a repeat delete is idempotent: no
@@ -580,6 +699,8 @@ impl Admission {
                         op: None,
                         object: Some(current.object.clone()),
                         before_digest: None,
+                        object_uid: current.object.metadata().uid.clone(),
+                        policy_decision: Some(policy_decision),
                     })
                 } else {
                     let mut object = current.object.clone();
@@ -598,6 +719,8 @@ impl Admission {
                         }),
                         object: Some(object),
                         before_digest,
+                        object_uid: current.object.metadata().uid.clone(),
+                        policy_decision: Some(policy_decision),
                     })
                 }
             }
@@ -873,6 +996,8 @@ struct Staged {
     op: Option<Op>,
     object: Option<ResourceObject>,
     before_digest: Option<String>,
+    object_uid: String,
+    policy_decision: Option<AggregateDecision>,
 }
 
 /// Current committed state of a key (for read-modify-write).
@@ -884,6 +1009,7 @@ struct Current {
 struct AuditIntent {
     id: String,
     revision: Revision,
+    grant: Option<serde_json::Value>,
 }
 
 /// Stamp the identity/bookkeeping a fresh object gets on admission. `generation`

@@ -26,6 +26,7 @@ pub mod seal;
 use std::path::Path;
 use std::sync::Arc;
 
+use axum::http::HeaderMap;
 use axum::routing::get;
 use axum::{Router, middleware};
 
@@ -101,10 +102,15 @@ impl AppState {
     /// rather than a separately bootstrapped one.
     #[must_use]
     pub fn from_raft(raft: Arc<RaftNode>, authenticator: Authenticator, sealer: Sealer) -> Self {
+        let authenticator = Arc::new(authenticator);
         Self {
-            admission: Arc::new(Admission::new(Arc::clone(&raft), sealer)),
+            admission: Arc::new(Admission::new(
+                Arc::clone(&raft),
+                sealer,
+                Arc::clone(&authenticator),
+            )),
             reader: StoreReader::new(raft),
-            authenticator: Arc::new(authenticator),
+            authenticator,
         }
     }
 
@@ -145,12 +151,26 @@ impl AppState {
     }
 
     /// The admission choke point, for in-process controllers (Phase R). Handing
-    /// this out is safe by construction: `Admission::admit` *is* the full chain
+    /// this out is safe by construction: `Admission::admit_verified` and the
+    /// server-only controller seam are the full chain
     /// (validate → mutate → commit → receipt) — there is no writable store
     /// handle to leak.
     #[must_use]
     pub fn admission(&self) -> Arc<Admission> {
         Arc::clone(&self.admission)
+    }
+
+    /// Verify authority for an in-process caller against the same WSF/Saddle
+    /// boundary used by HTTP mutation handlers.
+    pub fn verify_saddle_request(
+        &self,
+        principal: &crate::admission::Principal,
+        kind: saddle_estate::Kind,
+        name: &str,
+        headers: &HeaderMap,
+    ) -> Result<saddle_bridge::VerifiedSaddleRequest, crate::error::ApiError> {
+        self.authenticator
+            .verify_saddle_request(principal, kind, name, headers)
     }
 
     /// The read-only estate view, for controllers.

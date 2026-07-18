@@ -10,6 +10,7 @@ description = "Saddle control-plane API server: typed CRUD per estate kind, ever
 [dependencies]
 saddle-estate = { path = "../saddle-estate" }
 saddle-store = { path = "../saddle-store" }
+saddle-bridge = { path = "../saddle-bridge" }
 fabric-contracts = { path = "../fabric-contracts" }
 fabric-crypto = { path = "../fabric-crypto" }
 fabric-token = { path = "../fabric-token" }

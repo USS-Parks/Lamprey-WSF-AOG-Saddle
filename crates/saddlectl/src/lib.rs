@@ -9,9 +9,12 @@
 pub mod migration;
 
 use serde_json::Value;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Header carrying the base64-encoded JSON trust token (matches the apiserver).
 const TOKEN_HEADER: &str = "x-wsf-token";
+const NONCE_HEADER: &str = "x-saddle-nonce";
+static REQUEST_NONCE: AtomicU64 = AtomicU64::new(1);
 /// The estate's API group + version path segment.
 const API_BASE: &str = "apis/saddle.islandmountain.io/v1";
 
@@ -66,6 +69,14 @@ impl Client {
     async fn send(&self, request: reqwest::RequestBuilder) -> Result<Value, ClientError> {
         let response = request
             .header(TOKEN_HEADER, &self.token)
+            .header(
+                NONCE_HEADER,
+                format!(
+                    "saddlectl-{}-{}",
+                    std::process::id(),
+                    REQUEST_NONCE.fetch_add(1, Ordering::Relaxed)
+                ),
+            )
             .send()
             .await
             .map_err(|e| ClientError::Http(e.to_string()))?;

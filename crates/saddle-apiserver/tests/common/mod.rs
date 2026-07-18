@@ -8,6 +8,7 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
@@ -18,8 +19,8 @@ use chrono::{Duration, Utc};
 use fabric_contracts::{Attenuation, Classification, RevocationStatus, Signature, TrustToken};
 use fabric_crypto::Signer;
 use fabric_crypto::providers::RustCryptoMlDsa87;
-use fabric_revocation::RevocationSnapshot;
-use saddle_apiserver::auth::{Authenticator, TOKEN_HEADER};
+use fabric_revocation::{RevocationSnapshot, sign as sign_revocation};
+use saddle_apiserver::auth::{Authenticator, NONCE_HEADER, TOKEN_HEADER};
 use saddle_apiserver::convert::ConversionRegistry;
 use saddle_apiserver::seal::Sealer;
 use saddle_apiserver::{AppState, router};
@@ -27,6 +28,7 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 
 pub const BASE: &str = "/apis/saddle.islandmountain.io/v1";
+static REQUEST_NONCE: AtomicU64 = AtomicU64::new(1);
 
 pub fn fresh_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(name);
@@ -84,16 +86,34 @@ pub fn header_for(token: &TrustToken) -> String {
     BASE64.encode(serde_json::to_vec(token).unwrap())
 }
 
+fn current_snapshot(signer: &RustCryptoMlDsa87) -> RevocationSnapshot {
+    sign_revocation(
+        RevocationSnapshot::new(
+            "saddle-test-current",
+            (Utc::now() - Duration::minutes(1)).to_rfc3339(),
+            (Utc::now() + Duration::hours(1)).to_rfc3339(),
+        )
+        .with_sequence(1),
+        signer,
+    )
+    .unwrap()
+}
+
+fn current_authenticator(signer: &RustCryptoMlDsa87) -> Authenticator {
+    Authenticator::new(signer.public_key().to_vec())
+        .with_revocation(current_snapshot(signer))
+        .unwrap()
+}
+
 /// A fresh app anchored on `signer`'s key, with an optional revocation snapshot.
 pub async fn app_anchored(
     dir_name: &str,
     signer: &RustCryptoMlDsa87,
     revocation: Option<RevocationSnapshot>,
 ) -> Router {
-    let mut auth = Authenticator::new(signer.public_key().to_vec());
-    if let Some(snap) = revocation {
-        auth = auth.with_revocation(snap).unwrap();
-    }
+    let auth = Authenticator::new(signer.public_key().to_vec())
+        .with_revocation(revocation.unwrap_or_else(|| current_snapshot(signer)))
+        .unwrap();
     let state = AppState::bootstrap(1, fresh_dir(dir_name), auth, Sealer::generate().unwrap())
         .await
         .unwrap();
@@ -111,7 +131,7 @@ pub async fn authed_app(dir_name: &str) -> (Router, String) {
 /// inspect the receipt ledger.
 pub async fn authed_app_state(dir_name: &str) -> (Router, AppState, String) {
     let signer = anchor();
-    let auth = Authenticator::new(signer.public_key().to_vec());
+    let auth = current_authenticator(&signer);
     let state = AppState::bootstrap(1, fresh_dir(dir_name), auth, Sealer::generate().unwrap())
         .await
         .unwrap();
@@ -125,7 +145,7 @@ pub async fn authed_app_with_conversions(
     conversions: ConversionRegistry,
 ) -> (Router, AppState, String) {
     let signer = anchor();
-    let auth = Authenticator::new(signer.public_key().to_vec());
+    let auth = current_authenticator(&signer);
     let state = AppState::bootstrap(1, fresh_dir(dir_name), auth, Sealer::generate().unwrap())
         .await
         .unwrap()
@@ -142,9 +162,31 @@ pub async fn send(
     token: Option<&str>,
     body: Option<Value>,
 ) -> (StatusCode, Value) {
+    let nonce = matches!(method, "POST" | "PUT" | "DELETE").then(|| {
+        format!(
+            "test-nonce-{}",
+            REQUEST_NONCE.fetch_add(1, Ordering::Relaxed)
+        )
+    });
+    send_with_nonce(app, method, uri, token, body, nonce.as_deref()).await
+}
+
+/// Send a request with an explicitly selected mutation nonce. `None` proves
+/// the fail-closed missing-authority path.
+pub async fn send_with_nonce(
+    app: &Router,
+    method: &str,
+    uri: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+    nonce: Option<&str>,
+) -> (StatusCode, Value) {
     let mut builder = Request::builder().method(method).uri(uri);
     if let Some(t) = token {
         builder = builder.header(TOKEN_HEADER, t);
+    }
+    if let Some(nonce) = nonce {
+        builder = builder.header(NONCE_HEADER, nonce);
     }
     let request = match body {
         Some(b) => builder

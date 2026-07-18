@@ -2,11 +2,11 @@
   "artifacts": {
     "bridge_source": {
       "path": "crates/saddle-bridge/src/lib.rs",
-      "sha256": "1127e465fc0a1c3431b5a2efb7cd3f82100661d16a975ed8578e94d42a2f6533"
+      "sha256": "528d2558d70f25f30a401d102bd2358c08e2c2a3e3012f40ce8014c14c5ead83"
     },
     "compatibility_matrix": {
       "path": "docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md",
-      "sha256": "f9517d44e8f3b7768dd113be2e689eba5e718e8c62a6f54eca49ffc3d64fdb41"
+      "sha256": "3c29babefabb14acf23faf6c46707397c6aa4e7e5f177243da8554db566f5a92"
     },
     "property_tests": {
       "path": "crates/saddle-bridge/tests/contract_properties.rs",
