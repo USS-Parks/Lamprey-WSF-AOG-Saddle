@@ -1,0 +1,43 @@
+{
+  "action_kinds": [
+    "model",
+    "tool",
+    "control"
+  ],
+  "artifacts": {
+    "lib": {
+      "path": "crates/saddle-bridge/src/lib.rs",
+      "sha256": "a5b32008f0923568e82241f755a3558c0875fbecca153f9923ef20695e3b6eb2"
+    },
+    "sad34_action_gate": {
+      "path": "crates/saddle-bridge/tests/sad34_action_gate.rs",
+      "sha256": "cf1910aed91306072f4994b53ac1ab95e68f1e13854ccae54116f68acd20d7ae"
+    }
+  },
+  "budget": {
+    "concurrent_over_reservation": "denied",
+    "conservative_charge_before_uncertain_effect": "pass",
+    "shared_atomic_reservation": "pass"
+  },
+  "last_responsible_moment": {
+    "cross_tenant_token_theft": "denied",
+    "current_wsf_authority_rechecked_before_effect": "pass",
+    "expired_prepared_action": "denied",
+    "lineage_scoped_nonce_replay": "denied",
+    "receipt_request_digest_mismatch": "denied"
+  },
+  "prompt": "SAD-34",
+  "proof_before_effect": {
+    "empty_or_failed_receipt_proof": "denied",
+    "metadata_only_authorization_receipt": "pass",
+    "real_ml_dsa_signer": "pass",
+    "real_wsf_ledger_chain": "pass",
+    "receipt_committed_before_effect_observation": "pass"
+  },
+  "revocation_race": {
+    "effect_observed": false,
+    "newer_signed_snapshot_after_receipt": "denied_before_effect"
+  },
+  "schema_version": "saddle-sad34-action-reauthorization-gate/v1",
+  "status": "pass"
+}

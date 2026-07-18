@@ -24,6 +24,9 @@ use chrono::{DateTime, Utc};
 use fabric_contracts::{Budget, RequestOperation, TrustToken, VerifiedRequestContext};
 use fabric_crypto::Verifier;
 use fabric_revocation::MonotonicRevocationStore;
+use fabric_token::spend::{
+    Reservation, ReservationError, ReservationKey, ReservationLedger, Spent,
+};
 use fabric_token::{Operation, VerificationContext, lineage_key, verify_in_context};
 use mai_compliance::AggregateDecision;
 use serde::{Deserialize, Serialize};
@@ -505,6 +508,211 @@ impl ActionGrant {
     }
 }
 
+/// Metadata-only proof committed before an AOG action may reach its effect
+/// sink. Payloads and credentials are deliberately absent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ActionAuthorizationReceipt {
+    contract_version: &'static str,
+    receipt_id: String,
+    tenant_id: String,
+    lineage: String,
+    kind: ActionKind,
+    action: String,
+    arguments_digest: String,
+    request_digest: String,
+    destination: String,
+    budget: GrantBudget,
+    nonce: String,
+    revocation_sequence: u64,
+    expires_at: String,
+    authorized_at: String,
+    phase: &'static str,
+}
+
+impl ActionAuthorizationReceipt {
+    pub fn receipt_id(&self) -> &str {
+        &self.receipt_id
+    }
+
+    pub fn nonce(&self) -> &str {
+        &self.nonce
+    }
+}
+
+/// Durable receipt adapter. Implementations must atomically reject duplicate
+/// receipt ids and return a non-empty, stable proof reference only after the
+/// authorization receipt is committed.
+pub trait ActionReceiptSink: Send {
+    fn commit_authorization(
+        &mut self,
+        receipt: &ActionAuthorizationReceipt,
+    ) -> Result<String, String>;
+}
+
+/// Fail-closed error returned by the last-responsible-moment action gate.
+#[derive(Debug, thiserror::Error)]
+pub enum ActionGateError {
+    #[error(transparent)]
+    Bridge(#[from] BridgeError),
+    #[error("action budget reservation failed: {0}")]
+    Budget(#[from] ReservationError),
+    #[error("authorization receipt commit failed: {0}")]
+    Receipt(String),
+    #[error("authorized effect failed: {0}")]
+    Effect(String),
+}
+
+/// Prepared authority whose receipt is already durable but whose effect has not
+/// run. Private fields prevent callers from bypassing the final revocation check
+/// or spending the reservation independently.
+pub struct PreparedAction {
+    grant: ActionGrant,
+    reservation: Reservation,
+    receipt_proof: String,
+}
+
+/// Successful effect plus the pre-effect receipt proof which authorized it.
+#[derive(Debug)]
+pub struct ActionExecution<T> {
+    pub value: T,
+    pub receipt_proof: String,
+    pub reserved_budget: GrantBudget,
+}
+
+impl PreparedAction {
+    /// Re-check current WSF authority, atomically consume the reserved budget,
+    /// then invoke the exact effect. Revocation or budget failure leaves the
+    /// effect untouched. Budget is conservatively charged before the effect so
+    /// an uncertain downstream result cannot become unmetered authority.
+    pub async fn execute<T, F, Fut>(
+        self,
+        request: &VerifiedSaddleRequest,
+        now: DateTime<Utc>,
+        revocation: &MonotonicRevocationStore,
+        effect: F,
+    ) -> Result<ActionExecution<T>, ActionGateError>
+    where
+        F: FnOnce(&ActionGrant) -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
+        ensure_current_authority(request, now, revocation)?;
+        if now >= parse_time(&self.grant.expires_at, "action expires_at")? {
+            return Err(BridgeError::ActionExpired.into());
+        }
+        if self.grant.tenant_id != request.tenant_id() {
+            return Err(BridgeError::TenantIsolation.into());
+        }
+        if self.grant.lineage != request.lineage {
+            return Err(BridgeError::LineageMismatch.into());
+        }
+        let budget = self.grant.budget;
+        self.reservation.commit()?;
+        let value = effect(&self.grant).await.map_err(ActionGateError::Effect)?;
+        Ok(ActionExecution {
+            value,
+            receipt_proof: self.receipt_proof,
+            reserved_budget: budget,
+        })
+    }
+}
+
+/// Reusable model/tool/control action gate. Grant issuance consumes the durable
+/// replay nonce, budget reservation is atomic across clones of the supplied
+/// ledger, and the authorization receipt commits before a [`PreparedAction`]
+/// can invoke its effect.
+pub struct ActionGate<P, R, S> {
+    issuer: GrantIssuer<P, R>,
+    reservations: ReservationLedger,
+    receipts: S,
+}
+
+impl<P, R, S> ActionGate<P, R, S>
+where
+    P: AogPolicy,
+    R: ReplayStore,
+    S: ActionReceiptSink,
+{
+    pub fn new(issuer: GrantIssuer<P, R>, reservations: ReservationLedger, receipts: S) -> Self {
+        Self {
+            issuer,
+            reservations,
+            receipts,
+        }
+    }
+
+    /// Reauthorize one immutable action, reserve its full requested spend, and
+    /// commit its metadata-only proof before returning effect authority.
+    pub fn prepare(
+        &mut self,
+        request: &VerifiedSaddleRequest,
+        runtime: &RuntimeGrant,
+        spec: ActionSpec,
+        now: DateTime<Utc>,
+        revocation: &MonotonicRevocationStore,
+    ) -> Result<PreparedAction, ActionGateError> {
+        let grant = self
+            .issuer
+            .issue_action(request, runtime, spec, now, revocation)?;
+        let cap = Budget {
+            token_cap: runtime.budget.tokens,
+            tokens_spent: 0,
+            usd_cap_cents: runtime.budget.usd_cents,
+            usd_spent_cents: 0,
+            tool_call_cap: runtime.budget.tool_calls,
+            tool_calls_spent: 0,
+        };
+        let usage = Spent {
+            tokens: grant.budget.tokens,
+            usd_cents: grant.budget.usd_cents,
+            tool_calls: grant.budget.tool_calls,
+        };
+        let reservation = self.reservations.reserve(
+            ReservationKey {
+                tenant_id: grant.tenant_id.clone(),
+                root_lineage: grant.lineage.clone(),
+                mission_id: Some("saddle-action".to_owned()),
+                // Runtime authority is one shared ceiling. Destination must not
+                // partition the counter or callers could multiply the budget by
+                // spreading actions across provider/tool targets.
+                system: None,
+            },
+            &cap,
+            usage,
+        )?;
+        let receipt = ActionAuthorizationReceipt {
+            contract_version: CONTRACT_VERSION,
+            receipt_id: grant.receipt.receipt_id.clone(),
+            tenant_id: grant.tenant_id.clone(),
+            lineage: grant.lineage.clone(),
+            kind: grant.kind,
+            action: grant.action.clone(),
+            arguments_digest: grant.arguments_digest.clone(),
+            request_digest: grant.request_digest.clone(),
+            destination: grant.destination.clone(),
+            budget: grant.budget,
+            nonce: grant.nonce.clone(),
+            revocation_sequence: grant.revocation_sequence,
+            expires_at: grant.expires_at.clone(),
+            authorized_at: now.to_rfc3339(),
+            phase: "authorized_before_effect",
+        };
+        let receipt_proof = self
+            .receipts
+            .commit_authorization(&receipt)
+            .map_err(ActionGateError::Receipt)?;
+        if receipt_proof.trim().is_empty() {
+            return Err(ActionGateError::Receipt(
+                "receipt sink returned an empty proof reference".to_owned(),
+            ));
+        }
+        Ok(PreparedAction {
+            grant,
+            reservation,
+            receipt_proof,
+        })
+    }
+}
+
 /// Fail-closed cross-plane error contract.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum BridgeError {
@@ -537,6 +745,10 @@ pub enum BridgeError {
     NodeNotEligible,
     #[error("action is outside the runtime AOG permission set")]
     ActionNotPermitted,
+    #[error("receipt intent does not bind the exact action request digest")]
+    ReceiptMismatch,
+    #[error("action grant is expired")]
+    ActionExpired,
     #[error("AOG policy denied the request")]
     PolicyDenied,
     #[error("AOG policy supplied no applied module; request fenced")]
@@ -799,6 +1011,12 @@ impl<P: AogPolicy, R: ReplayStore> GrantIssuer<P, R> {
         require_nonempty(&spec.destination, "destination")?;
         require_nonempty(&spec.nonce, "action nonce")?;
         validate_receipt(&spec.receipt)?;
+        if spec.receipt.request_digest != spec.request_digest {
+            return Err(BridgeError::ReceiptMismatch);
+        }
+        if now >= parse_time(&spec.expires_at, "action expires_at")? {
+            return Err(BridgeError::ActionExpired);
+        }
         ensure_expiry(&spec.expires_at, &runtime.expires_at)?;
         if !spec.budget.is_within(runtime.budget) {
             return Err(BridgeError::BudgetWidens);

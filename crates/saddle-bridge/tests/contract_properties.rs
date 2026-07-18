@@ -270,7 +270,10 @@ fn exact_grant_chain_is_serialize_only_and_preserves_lineage() {
         },
         nonce: "action-nonce".into(),
         expires_at: time(200).to_rfc3339(),
-        receipt: receipt("action"),
+        receipt: ReceiptIntentSpec {
+            receipt_id: "action".into(),
+            request_digest: "sha256:request".into(),
+        },
     };
     let action = issuer
         .issue_action(&request, &runtime, action_spec.clone(), time(0), &store)
@@ -282,6 +285,13 @@ fn exact_grant_chain_is_serialize_only_and_preserves_lineage() {
     let wire = serde_json::to_value(action).unwrap();
     assert_eq!(wire["contract_version"], CONTRACT_VERSION);
     assert_eq!(wire["action"], "model-a");
+    let mut mismatched_receipt = action_spec.clone();
+    mismatched_receipt.nonce = "mismatched-receipt".into();
+    mismatched_receipt.receipt.request_digest = "sha256:other-request".into();
+    assert_eq!(
+        issuer.issue_action(&request, &runtime, mismatched_receipt, time(0), &store),
+        Err(BridgeError::ReceiptMismatch)
+    );
     assert_eq!(
         issuer.issue_action(&request, &runtime, action_spec, time(0), &store),
         Err(BridgeError::Replay)
@@ -343,7 +353,10 @@ fn property_every_authority_axis_only_narrows() {
                 budget,
                 nonce: format!("budget-{budget:?}"),
                 expires_at: time(200).to_rfc3339(),
-                receipt: receipt("budget"),
+                receipt: ReceiptIntentSpec {
+                    receipt_id: "budget".into(),
+                    request_digest: "request".into(),
+                },
             },
             time(0),
             &store,

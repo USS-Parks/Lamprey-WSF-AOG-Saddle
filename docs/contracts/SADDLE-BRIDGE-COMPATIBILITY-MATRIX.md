@@ -17,7 +17,7 @@ deny-wins `AggregateDecision`, and `wsf-ledger` remains the receipt authority.
 | `AdmissionGrant` | `GrantIssuer::issue_admission` | Saddle mutation choke point | Serialize only; private fields; no `Deserialize` or `Default` | Current revocation at transition; exact verb, object UID/name/tenant, mutation digest, capability subset, TTL no later than verified request, AOG allow with at least one applied module |
 | `PlacementGrant` | `GrantIssuer::issue_placement` | Scheduler | Serialize only; private fields; no `Deserialize` or `Default` | Current revocation at transition; exact placement/workload UID and generation, non-empty eligible-node set, resource reservation, trust constraints, TTL no later than admission, AOG allow |
 | `RuntimeGrant` | `GrantIssuer::issue_runtime` | Node runtime | Serialize only; private fields; no `Deserialize` or `Default` | Current revocation at transition; exact placement, eligible node, immutable workload digest/runtime class, AOG permission allowlist, budget subset, lineage/tenant continuity, TTL intersection, AOG allow |
-| `ActionGrant` | `GrantIssuer::issue_action` | AOG model/tool/control sink | Serialize only; private fields; no `Deserialize` or `Default` | Current revocation at transition; one action and immutable argument/request digests, exact destination, budget subset, atomically consumed lineage-scoped nonce, TTL no later than runtime, AOG allow |
+| `ActionGrant` | `GrantIssuer::issue_action` | AOG model/tool/control sink | Serialize only; private fields; no `Deserialize` or `Default` | Current revocation at transition; one action and immutable argument/request digests, exact destination, budget subset, atomically consumed lineage-scoped nonce, TTL no later than runtime, receipt request-digest equality, AOG allow |
 | `ReceiptIntentSpec` | Grant request after metadata validation | `wsf-ledger` adapter | Deserialize is allowed because it is intent, not proof | Non-empty receipt ID and request digest; it never represents an appended ledger receipt |
 | `BridgeError` | `saddle-bridge` | API/controller/node adapters | Not a grant | Fail-closed stable variants distinguish replay, tenant/lineage isolation, scope/budget/expiry widening, ineligible node/action, policy deny, and no-module fence |
 
@@ -28,7 +28,7 @@ deny-wins `AggregateDecision`, and `wsf-ledger` remains the receipt authority.
 | Token signature, issuer key, tenant, bundle, time, caveats | `fabric-token` + `fabric-contracts::TrustToken` | Calls `verify_in_context`; derives a narrowing ceiling from verified fields | No signing, signature parsing, or ad-hoc token format |
 | Revocation freshness and rollback resistance | `fabric-revocation::MonotonicRevocationStore` | Requires a current sequenced snapshot and stamps its sequence into every grant | No snapshot verification algorithm or second revocation store |
 | Deny-wins policy | `mai-compliance::AggregateDecision` supplied through `AogPolicy` | Denies `allowed == false`; fences the vacuous/no-module case | No HIPAA, ITAR, OCAP, route, or policy composition logic |
-| Receipts | `fabric-contracts` receipt schema + `wsf-ledger` append/proof | Carries metadata-only `ReceiptIntentSpec` | No receipt signing, append, chain, or proof implementation |
+| Receipts | `fabric-contracts` receipt schema + `wsf-ledger` append/proof | Carries metadata-only `ReceiptIntentSpec`; SAD-34 accepts a durable `ActionReceiptSink` and refuses effect authority until it returns a non-empty committed proof | No receipt signing, append, chain, or proof implementation |
 | Request identity and canonical resource | `VerifiedRequestContext`, `WsfPrincipal`, `CanonicalResource` | Adds the `Saddle` audience and exact cross-plane operations | No request-body identity or public-field construction |
 | Replay persistence | `ReplayStore` adapter with `InMemoryReplayStore` only for tests/local use | Atomically consumes request and action nonces in separate namespaces; storage error fences | No second persistence protocol; production adapters use the Saddle durable store |
 
@@ -117,3 +117,30 @@ need equally narrow profiles. The typed serialize-only `PlacementGrant` and
 child capability is not represented as those proof types on the persisted
 handoff yet. That binding must close before the SAD-35 live bridge gate; SAD-34
 adds the action-grant/receipt layer above it.
+
+## SAD-34 per-action authorization and receipt binding
+
+`ActionGate` turns the frozen `ActionGrant` contract into a last-responsible-
+moment effect boundary for model, tool, and control actions. Preparation verifies
+current WSF authority and deny-wins AOG policy, consumes the lineage-scoped nonce,
+binds the receipt intent to the exact request digest, and atomically reserves the
+full requested budget against the runtime ceiling. It then commits a metadata-
+only `ActionAuthorizationReceipt` through the trusted receipt adapter. A failed,
+duplicate, or empty proof releases the reservation and cannot produce a
+`PreparedAction`.
+
+`PreparedAction::execute` rechecks current monotonic revocation and action expiry
+after the receipt commit and immediately before invoking the private effect closure. It
+conservatively commits the reserved budget before the effect so cancellation or
+an uncertain downstream result cannot become unmetered authority. The SAD-34
+gate uses the real `wsf-ledger` chain, real ML-DSA signatures, and signed
+monotonic revocation snapshots to prove model/tool/control receipt ordering,
+cross-tenant theft denial, replay denial, a receipt-to-effect revocation race,
+cross-destination concurrent budget denial, expiry denial, and receipt-backend
+failure.
+
+The bridge enforcement layer is complete, but the legacy AOG gateway and
+toolproxy entry points are not yet composed with the persisted typed
+`RuntimeGrant` handoff. SAD-35 must wire those real consumers through
+`ActionGate` and prove the two-tenant live path; their existing local token and
+post-effect receipt checks are not cited as SAD-34 proof.
