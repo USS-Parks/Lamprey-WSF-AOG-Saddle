@@ -706,3 +706,72 @@ remote checkpoint `3e2fef91581c786f96911b4bb607bf12ef72828a`.
 ### Next prompt
 
 `SAD-22 — Versioned legacy-state migration`.
+
+---
+
+## SAD-22 — Versioned legacy-state migration
+
+**Status:** PASS — implementation commit
+`edc5b5a8328ce3dd47dfc1fe5ce2d156b63dc1c5`.
+
+### Work completed
+
+- Added the offline `saddlectl migrate` inspect, dry-run, apply, verify, and
+  rollback modes over a strict ascending, full-version-metadata estate
+  snapshot.
+- Bound native `Store::range("")`/`Store::restore` adapters without changing
+  keys, stored version tuples, or the independent Raft snapshot format.
+- Limited automatic conversion to the retired estate API group, controller
+  finalizer namespace, and cordon label key. All other payload fields and
+  non-JSON entries remain opaque.
+- Added a journal containing the complete original versioned estate plus input,
+  migrated, protected-payload, receipt-reference, and version-metadata digests.
+  Apply refuses path aliases/existing outputs; verify and rollback fail closed
+  on replay mismatch, protected-field drift, receipt tampering, label conflict,
+  or incomplete legacy structural conversion.
+- Added native-store integration coverage and a real independent `wsf-ledger`
+  assertion: the chain head is unchanged across migration/rollback and the next
+  receipt extends it normally.
+- Added the operator runbook and a deterministic CLI gate exercising all five
+  modes, an opaque non-JSON entry, exact rollback, and tamper rejection.
+
+### Gate
+
+- `cargo fmt --check` — PASS;
+- `cargo check --workspace --all-targets --locked` — PASS;
+- `cargo clippy --workspace --all-targets --locked -- -D warnings -A clippy::pedantic`
+  — PASS;
+- `cargo test --locked -p saddlectl` — PASS, including five migration tests and
+  two existing authenticated CLI round trips;
+- `cargo test --workspace --locked` with Git-bundled OpenSSL and configured
+  live OpenBao coordinates — PASS, including real OpenBao paths, three-node
+  mTLS/consensus, native store snapshot/restore, independent receipt-chain
+  continuity, the SAD-22 tests, and all doctests; the existing five
+  aggressive/SLO conformance tests and weave SLO remain explicitly ignored in
+  the standard lane;
+- `cargo audit` and `cargo deny check` — PASS; existing non-fatal deny warnings
+  remain unchanged;
+- deterministic SAD-21 runtime identity and SAD-22 migration gates — PASS;
+- staged `git diff --check`, Gitleaks, explicit credential-pattern scan,
+  anti-truncation, and full no-slop gates — PASS. The anti-truncation hook
+  emitted its existing multi-value `integer expected` warnings but exited zero;
+  and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-22/legacy-state-migration-gate.json`, SHA-256
+  `8b9f84a811ce4db18a006565bd43246f77a757c49ab79b8a3d3efd41abce3c9f`;
+- `tools/verify_saddle_legacy_state_migration.py`, SHA-256
+  `b8c4dabb439bbd8da200790f51e2ddf0b82782a658e9ceef5db5c40fe9f9263d`;
+- `crates/saddlectl/src/migration.rs`, SHA-256
+  `c1e80d92ee2c3df0a436e8845129ae728ed48423a41ea00a0c177ad514cbd24e`;
+- refreshed SAD-21 count-based evidence SHA-256
+  `5afe59a476faaf4d1fce642131f95ab2a57faad0e143f9d3ac37f4b73982ecf4`;
+  and
+- implementation commit
+  `edc5b5a8328ce3dd47dfc1fe5ce2d156b63dc1c5`.
+
+### Next prompt
+
+`SAD-23 — Active-name eradication gate`.

@@ -2,7 +2,7 @@
 
 **Purpose:** Make the independent source import and the Loom-to-Saddle replacement mechanically executable.
 **Authority:** Supporting specification for `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
-**Status:** **SAD-21 PASS — active runtime identity cutover complete; SAD-22 versioned legacy-state migration next.**
+**Status:** **SAD-22 PASS — versioned legacy-state migration complete; SAD-23 active-name eradication next.**
 The machine-readable path, disposition, and SHA-256 ledger is
 `test-evidence/saddle/SAD-02/source-manifest.json`; `SAD-03` owns the
 no-secret staged-import proof before any source enters the target.
@@ -322,6 +322,28 @@ CI, deployment, and active operator documents, requires the exact Saddle
 markers and renamed paths, rejects old runtime identities, and binds the two
 negative authorization assertions. Its evidence is
 `test-evidence/saddle/SAD-21/runtime-identity-gate.json`.
+
+## 4.5 SAD-22 versioned legacy-state migration
+
+SAD-22 added a bounded offline migration surface to `saddlectl`. It provides
+inspect, dry-run, apply, verify, and rollback over strict ascending
+`saddle-versioned-estate/v1` snapshots adapted directly from
+`Store::range("")` and back to `Store::restore`. Apply writes a distinct
+migrated snapshot and a journal containing the complete original versioned
+estate; it never performs API CRUD or mutates its input.
+
+Only the retired estate API group, controller-finalizer namespace, and cordon
+label key are structural migration inputs. Keys, values outside those exact
+paths, UIDs, tenants, generations, resource versions, owners, token and receipt
+references, annotations, specs/statuses, OpenBao references, and non-JSON data
+remain opaque. Verification binds deterministic replay plus protected-payload,
+receipt-reference, and version-metadata digests. The integration gate also
+proves the physically separate `wsf-ledger` head remains unchanged through
+migration/rollback and continues with the next receipt.
+
+The operator procedure is
+`docs/operations/SADDLE-LEGACY-STATE-MIGRATION.md`; deterministic evidence is
+`test-evidence/saddle/SAD-22/legacy-state-migration-gate.json`.
 
 ## 5. Loom-to-Saddle active identity map
 
