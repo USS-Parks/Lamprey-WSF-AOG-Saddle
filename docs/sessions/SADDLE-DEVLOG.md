@@ -1190,3 +1190,82 @@ verified remote checkpoint `7a13d765ab0e07db14e698327fa7067ce120e346`.
 ### Next prompt
 
 `SAD-34 — Per-action reauthorization and receipts`.
+
+## SAD-34 — Per-action reauthorization and receipts
+
+**Status:** PASS — implementation commit
+`3d65900c870e10a812cc1468e3b005cfce96a931`; verification closeout and remote
+checkpoint pending publication of this ledger update.
+
+### Work completed
+
+- Added `ActionGate`, `PreparedAction`, and a metadata-only
+  `ActionAuthorizationReceipt` at the frozen `saddle.bridge/v1` boundary.
+- Bound receipt intent to the exact action request digest and rejected mismatches
+  before replay consumption can produce effect authority.
+- Reused `fabric-token`'s atomic reservation ledger to reserve the full requested
+  spend against the runtime ceiling. The key intentionally omits destination so
+  callers cannot multiply the budget across providers or tool targets.
+- Required a trusted `ActionReceiptSink` to atomically reject duplicate receipt
+  IDs and return a non-empty committed proof before a `PreparedAction` exists.
+  The bridge coordinates this ordering but does not reimplement WSF receipt
+  signing, chaining, or storage.
+- Rechecked current signed monotonic revocation state and action expiry after the
+  receipt commit and immediately before the private effect closure. The reserved
+  budget commits conservatively before the effect so cancellation or uncertain
+  downstream completion cannot become unmetered authority.
+- Added real ML-DSA, signed-revocation, and `wsf-ledger` tests for model, tool,
+  and control actions. They prove receipt-before-effect observation,
+  cross-tenant theft and replay denial, revocation and expiry races, shared
+  cross-destination budget denial, and failed/empty receipt proof denial.
+- Preserved the explicit SAD-35 boundary: the generic enforcement layer is
+  complete, while the persisted typed `PlacementGrant`/`RuntimeGrant` handoff
+  and real gateway/toolproxy/control consumer composition remain for the live
+  two-tenant gate. Legacy post-effect receipts are not cited as SAD-34 proof.
+
+### Gate
+
+- deterministic SAD-34 action-reauthorization verifier — PASS: five adversarial
+  tests cover all three action kinds and every named failure race;
+- saddle-bridge contract/property suite and compile-fail grant-construction
+  doctests — PASS, including exact receipt/request digest binding;
+- refreshed SAD-23 active-name gate — PASS: 38 classified files and 309
+  count-locked explained occurrences, with no unexplained active-name result;
+- `cargo fmt --all --check`, locked full-workspace all-target check, and strict
+  all-target clippy — PASS;
+- full elevated `cargo test --workspace --locked` with live OpenBao, official
+  OpenAI/Anthropic SDK clients, controller/node lifecycle regressions, and all
+  doctests — PASS; five documented aggressive/SLO conformance tests and the
+  weave-overhead p99 test remain explicitly ignored in the standard lane;
+- `cargo audit`, `cargo deny check`, and workspace documentation — PASS with the
+  repository's existing nonfatal unmatched-allowance, duplicate-dependency,
+  advisory-not-detected, and rustdoc warnings only;
+- staged diff, deterministic evidence verification, Gitleaks staged scan,
+  verify-tree, and staged no-slop gate — PASS; verify-tree retained its existing
+  nonfatal multi-value `integer expected` warning; and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-34/action-reauthorization-gate.json`, SHA-256
+  `f66a97ca7fe8644f72e66746d316e64d0737b4276215d8dc3703af92b3922e59`;
+- `tools/verify_action_reauthorization.py`, SHA-256
+  `0b778807115c4a4a062b00b393173a32e5f643bc5b45a7f41d69e49be3ef322e`;
+- `crates/saddle-bridge/src/lib.rs`, SHA-256
+  `a5b32008f0923568e82241f755a3558c0875fbecca153f9923ef20695e3b6eb2`;
+- `crates/saddle-bridge/tests/sad34_action_gate.rs`, SHA-256
+  `cf1910aed91306072f4994b53ac1ab95e68f1e13854ccae54116f68acd20d7ae`;
+- `crates/saddle-bridge/tests/contract_properties.rs`, SHA-256
+  `db63fddee3d9c2807db63ecf1db9a7cef06355b4c97ca8a33620ae4479355801`;
+- `docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md`, SHA-256
+  `da11f0a7a7084fd0fdee5b808a2acd9c374d1bb5cacef436b39c894989a4978d`;
+- `PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md`, SHA-256
+  `c4b0deb9e6c1e4d4479225bffd0f8565dbd10a1a44af24bdde42a12330bcfb87`;
+- refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
+  SHA-256 `e23e9aeb771516025cc35e5f06587657205287a2c6199db2f3a8298b05bd1a70`;
+  and
+- implementation commit `3d65900c870e10a812cc1468e3b005cfce96a931`.
+
+### Next prompt
+
+`SAD-35 — Live two-tenant bridge gate`.
