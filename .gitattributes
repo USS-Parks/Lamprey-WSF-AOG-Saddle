@@ -1,0 +1,2 @@
+# Preserve the approved seed blob's intentional mixed line endings.
+mai-core/src/power/demotion.rs whitespace=-trailing-space

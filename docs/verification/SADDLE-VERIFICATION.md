@@ -87,3 +87,18 @@ the corrected SAD-02 ledger, and the isolated 898-path staged-import simulation.
 | SAD-02 regeneration | PASS | Corrected manifest deterministically regenerated and verified at 1,491 tracked paths, 1,008 candidates, and 37 closure packages. |
 | Commit footer | PASS | `bbb19934c7b1866c44d8719c00fc575b09b43988` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `9ccc4ea5cbdae16274e2163b2cafc4992a474cc1` to `bbb19934c7b1866c44d8719c00fc575b09b43988`. |
+
+## SAD-10
+
+**State under test:** clean pinned seed `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`,
+the SAD-02 source ledger, and the initial Saddle native workspace cut.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Seed-tree provenance | PASS | Every selected raw path matched the ledger's Git object, mode, byte size, and SHA-256 at the pinned seed. |
+| Native closure materialization | PASS | 391 raw blobs plus the adapted root `Cargo.toml` and path-scoped preservation policy produced 393 workspace paths for the recorded 37-package closure. |
+| Root workspace adaptation | PASS | Only the workspace member list changed: 48 seed members narrowed to the 37 approved closure members; source and target hashes are retained in the proof. |
+| Source-preservation policy | PASS | `.gitattributes` suppresses trailing-space checks only for the imported seed-authentic mixed-line-ending block in `mai-core/src/power/demotion.rs`. |
+| Toolchain and license source fact | PASS | The pinned seed has no root toolchain or license file; no license was invented during SAD-10. |
+| Reproducibility | PASS | The materializer's verify-only pass accepted every materialized file and the deterministic evidence record. |
+| Cargo metadata | PASS | `cargo metadata --format-version=1 --no-deps --locked` resolved exactly 37 recorded packages with zero external local paths. |

@@ -1,0 +1,35 @@
+[package]
+name = "fabric-token"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The WSF trust-token primitive: issue, verify, attenuate, and meter budget-carrying capability tokens"
+
+[dependencies]
+fabric-contracts = { path = "../fabric-contracts" }
+fabric-crypto = { path = "../fabric-crypto" }
+fabric-proof = { path = "../fabric-proof" }
+fabric-revocation = { path = "../fabric-revocation" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+hex = "0.4"
+
+[dev-dependencies]
+tokio = { workspace = true }
+# Deterministic (seeded) randomized attenuation-monotonicity property suite.
+rand = "0.8"
+
+[features]
+# (Retired) The adversarial fixtures in tests/security_regression.rs
+# were quarantined behind this feature while they asserted the *vulnerable*
+# behavior. Phase T landed the fix, so they now assert the *repaired* behavior and
+# run in the default product suite; the feature is kept as an empty no-op so any
+# external `--features security-regression` invocation still resolves.
+security-regression = []
+
+[lints]
+workspace = true

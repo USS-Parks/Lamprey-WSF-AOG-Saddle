@@ -1,0 +1,46 @@
+# OCAP (Ownership, Control, Access, Possession) tribal data sovereignty
+# baseline policy module.
+#
+# Loaded into PolicyModuleRegistry as "ocap_baseline". Default posture:
+# tribal identifiers force local routing. Cloud cannot be used because
+# data leaving tribal-controlled infrastructure breaks OCAP principles.
+
+name = "ocap_baseline"
+enabled = true
+
+# Rule 1: Tribal entity forces local routing.
+[[rules]]
+name = "ocap_tribal_force_local"
+priority = 1500
+audit_level = "warn"
+
+[rules.condition]
+type = "match"
+field = "has_entity.tribal"
+op = "equals"
+value = true
+
+[rules.action]
+kind = "reroute"
+to = "local"
+reason = "OCAP: tribal data sovereignty requires local processing"
+
+# Rule 2: Tribal data at Sensitive or higher classification is an
+# explicit deny on cloud — combines the OCAP and the
+# data-classification policies.
+[[rules]]
+name = "ocap_tribal_sensitive_deny"
+priority = 1600
+audit_level = "critical"
+
+[rules.condition]
+type = "all"
+all = [
+    { type = "match", field = "has_entity.tribal", op = "equals", value = true },
+    { type = "match", field = "classification", op = "in", value = ["sensitive", "regulated", "critical"] },
+]
+
+[rules.action]
+kind = "deny"
+reason = "OCAP: sensitive tribal data cannot route to cloud"
+code = "OCAP-TRIBAL-DENY"

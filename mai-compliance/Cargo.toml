@@ -1,0 +1,46 @@
+[package]
+name = "mai-compliance"
+description = "MAI HIPAA compliance engine: PHI detection, BAA enforcement, de-identification, medical entity recognition"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+blake3 = { workspace = true }
+chrono = { workspace = true }
+regex = "1"
+
+# canonical ConnectivityState shared with mai-adapters and mai-api.
+mai-core = { path = "../mai-core" }
+
+# SOV-F1: shared audit-proof primitives. mai-compliance's subject_hash + canonical
+# encoding delegate here so the wire format is single-sourced with WSF.
+fabric-proof = { path = "../crates/fabric-proof" }
+
+# signed claim / policy-bundle verification. ml-dsa matches the vault
+# pqc-dev backend; we only verify here, so no liboqs/pqc-prod path is needed.
+ml-dsa = "0.0.4"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
+# AeadSealer for compliance audit at-rest encryption. AES-256-GCM
+# matches the vault crate's bulk cipher choice. Random nonces are drawn from
+# the OS CSPRNG via `rand`.
+aes-gcm = "0.10"
+rand = "0.8"
+
+[dev-dependencies]
+# Used in tests to sign sample bundles. Production code in this crate
+# never generates keys — it verifies only.
+rand = "0.8"
+
+[lints]
+workspace = true

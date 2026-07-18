@@ -1,0 +1,63 @@
+# HIPAA baseline policy module
+#
+# Loaded into PolicyModuleRegistry as "hipaa_baseline". Default posture:
+# PHI must stay local. Admins can override via separate admin_override
+# module (not enabled by default in HIPAA-regulated deployments).
+
+name = "hipaa_baseline"
+enabled = true
+
+# Rule 1: PHI markers force local routing regardless of cloud ceiling.
+[[rules]]
+name = "hipaa_phi_force_local"
+priority = 1000
+audit_level = "warn"
+
+[rules.condition]
+type = "match"
+field = "has_entity.medical"
+op = "equals"
+value = true
+
+[rules.action]
+kind = "reroute"
+to = "local"
+reason = "HIPAA: PHI must remain local"
+
+# Rule 2: Regulated classification + medical entity = explicit deny on cloud.
+# Higher priority than the bare reroute so admins see this in audit first.
+[[rules]]
+name = "hipaa_phi_explicit_deny_cloud"
+priority = 1100
+audit_level = "warn"
+
+[rules.condition]
+type = "all"
+all = [
+    { type = "match", field = "classification", op = "equals", value = "regulated" },
+    { type = "match", field = "has_entity.medical", op = "equals", value = true },
+]
+
+[rules.action]
+kind = "reroute"
+to = "local"
+reason = "HIPAA: PHI in a regulated classification cannot route to cloud"
+
+# Rule 3: Admin profile is exempt from the PHI block — flagged for audit.
+# This is informational; do not allow without the operator's explicit
+# enablement of admin_override module.
+[[rules]]
+name = "hipaa_admin_audit_flag"
+priority = 50
+audit_level = "info"
+
+[rules.condition]
+type = "all"
+all = [
+    { type = "match", field = "has_entity.medical", op = "equals", value = true },
+    { type = "match", field = "role", op = "equals", value = "admin" },
+]
+
+[rules.action]
+kind = "flag"
+reason = "HIPAA: PHI accessed under admin profile"

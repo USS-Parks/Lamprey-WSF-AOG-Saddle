@@ -1,0 +1,42 @@
+# ITAR / EAR baseline policy module
+#
+# Loaded into PolicyModuleRegistry as "itar_baseline". Default posture:
+# export-controlled technical data is denied from cloud routing AND from
+# any cross-jurisdiction routing target.
+
+name = "itar_baseline"
+enabled = true
+
+# Rule 1: Export-controlled entity forces local. Critical audit because an
+# ITAR violation is a federal export-control breach.
+[[rules]]
+name = "itar_export_controlled_deny_cloud"
+priority = 2000
+audit_level = "critical"
+
+[rules.condition]
+type = "match"
+field = "has_entity.export_controlled"
+op = "equals"
+value = true
+
+[rules.action]
+kind = "deny"
+reason = "ITAR/EAR: export-controlled technical data cannot leave the local boundary"
+code = "ITAR-EXPORT-DENY"
+
+# Rule 2: Even with role override the request must be flagged for audit.
+[[rules]]
+name = "itar_export_controlled_audit_flag"
+priority = 10
+audit_level = "warn"
+
+[rules.condition]
+type = "match"
+field = "has_entity.export_controlled"
+op = "equals"
+value = true
+
+[rules.action]
+kind = "flag"
+reason = "ITAR/EAR: export-controlled entity present"

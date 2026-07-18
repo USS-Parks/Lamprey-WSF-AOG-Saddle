@@ -271,3 +271,53 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ### Next prompt
 
 `SAD-10 — Establish the independent workspace`.
+
+---
+
+## SAD-10 — Establish the independent workspace
+
+**Status:** PASS — implementation checkpoint pending publication.
+
+### Work completed
+
+- Materialized the exact 37-package Cargo closure from immutable seed Git blobs:
+  all approved `crates/*` packages plus `mai-agent`, `mai-compliance`,
+  `mai-core`, and `mai-router`.
+- Verified each of the 391 raw source blobs against its manifest path, Git
+  object, mode, byte size, and SHA-256 before writing it to Saddle.
+- Imported `Cargo.lock`, `deny.toml`, and `.cargo/audit.toml` byte-for-byte.
+  The root `Cargo.toml` is traceably adapted only by narrowing its member list
+  from the 48-member seed workspace to the recorded 37-member closure; its
+  source and target hashes are recorded in the proof.
+- Added a `.gitattributes` rule scoped to the seed-authentic mixed-line-ending
+  block in `mai-core/src/power/demotion.rs`, preserving its blob bytes without
+  weakening whitespace checks for any other path.
+- Recorded that the pinned seed contains no root toolchain or license file;
+  Saddle did not invent a licensing decision during this source-cut prompt.
+- Added a deterministic materializer that rejects dirty or wrong-SHA seeds,
+  validates seed-tree provenance, refuses unsafe paths or modes, and verifies
+  the Cargo package-name set rather than only a count.
+
+### Gate
+
+- source seed `fedf005a30ad388ab156dc8bd693a3aa3f0702ea` clean and exact — PASS;
+- 391 raw blobs plus the adapted root manifest and path-scoped preservation
+  policy materialized deterministically — PASS, 393 workspace paths total;
+- idempotent verify-only provenance pass — PASS; and
+- `cargo metadata --format-version=1 --no-deps --locked` — PASS, exactly 37
+  recorded packages and zero external local paths.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-10/workspace-import-proof.json`, SHA-256
+  `0acad7b7d263f873192f4987db19a48d3a8f870905e07a0457712fb9ecaa53af`;
+- `tools/materialize_saddle_workspace.py`, SHA-256
+  `1af15f58ceebe22d5a268b017a95f8c04b5a3724b5ffaaff4e7582bd2bd59b39`;
+- `.gitattributes`, SHA-256
+  `b96765281171faef55eaf004fe0a11c641c1523733350a84966b2ed7f5f85635`; and
+- target `Cargo.toml` SHA-256
+  `08f778821b12355ec8de2fa672a8460290e0140161fd45ed62f1c26e536090e1`.
+
+### Next prompt
+
+`SAD-11 — Import contracts, console/client, deployments, CI, tools, docs, and evidence`.

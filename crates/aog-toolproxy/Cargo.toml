@@ -1,0 +1,29 @@
+[package]
+name = "aog-toolproxy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AOG tool-governance proxy: agents register tools, calls execute THROUGH AOG (validated, executed, receipted) — fulfilling the mai-agent execution seam"
+
+[dependencies]
+fabric-proof = { path = "../fabric-proof" }
+fabric-contracts = { path = "../fabric-contracts" }
+fabric-token = { path = "../fabric-token" }
+mai-agent = { path = "../../mai-agent" }
+mai-compliance = { path = "../../mai-compliance" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+hex = "0.4"
+base64 = "0.22"
+zeroize = "1"
+# D6: tokio::time::timeout bounds a hung tool executor (the proxy's invoke path is
+# already async and runs under tokio). Also serves the #[tokio::test] suite.
+tokio = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,124 @@
+[workspace]
+resolver = "2"
+members = [
+    "mai-core",
+    "mai-agent",
+    "mai-router",
+    "mai-compliance",
+    "crates/aog-apiserver",
+    "crates/aog-approvals",
+    "crates/aog-conformance",
+    "crates/aog-controller",
+    "crates/aog-estate",
+    "crates/aog-federation",
+    "crates/aog-gateway",
+    "crates/aog-node",
+    "crates/aog-noded",
+    "crates/aog-scheduler",
+    "crates/aog-store",
+    "crates/aog-toolproxy",
+    "crates/aog-tool-runtime",
+    "crates/aog-wire",
+    "crates/aogd",
+    "crates/aogctl",
+    "crates/fabric-cache",
+    "crates/fabric-contracts",
+    "crates/fabric-crypto",
+    "crates/fabric-envelope",
+    "crates/fabric-identity",
+    "crates/fabric-proof",
+    "crates/fabric-revocation",
+    "crates/fabric-token",
+    "crates/hipaa-pack",
+    "crates/wsf-api",
+    "crates/wsf-bridge",
+    "crates/wsf-broker",
+    "crates/wsf-cache",
+    "crates/wsf-hardening",
+    "crates/wsf-ledger",
+    "crates/wsf-seal",
+    "crates/wsf-tenants",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# MSRV: let-chains (used in mai-compliance) stabilised in 1.88.
+# Discovered during DOUGHERTY J-04 docker-build verification — the
+# prior "1.85" claim did not match the code. See J-04 fix-up commit.
+rust-version = "1.88"
+license = "LicenseRef-Proprietary"
+repository = "https://github.com/USS-Parks/Mighty-Eel-OS"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP/gRPC
+axum = { version = "0.8" }
+tonic = "0.12"
+prost = "0.13"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+thiserror = "2"
+
+# Async trait (dyn-compatible async methods)
+async-trait = "0.1"
+
+# Request validation (API layer)
+validator = { version = "0.20", features = ["derive"] }
+
+# FFI bridge (Rust ↔ Python, adapter framework)
+pyo3 = { version = "0.24", features = ["auto-initialize"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# GPU access (feature-gated at crate level, not here)
+nvml-wrapper = "0.10"
+
+# IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Time
+chrono = "0.4"
+
+# Hashing (cache keys)
+blake3 = "1.5"
+
+# Concurrent maps
+dashmap = "6"
+
+# Testing
+mockall = "0.13"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+print_stdout = "deny"
+print_stderr = "deny"
+# Pedantic-tier lints allowed as deliberate workspace style choices.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+doc_markdown = "allow"
+struct_excessive_bools = "allow"
+too_many_lines = "allow"
+cognitive_complexity = "allow"
+return_self_not_must_use = "allow"
+wildcard_imports = "allow"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"

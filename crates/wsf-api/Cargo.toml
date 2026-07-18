@@ -1,0 +1,33 @@
+[package]
+name = "wsf-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WSF unified REST API + Rust SDK over the trust-plane services (token, envelope, credential broker, receipt ledger)"
+
+[dependencies]
+fabric-contracts = { path = "../fabric-contracts" }
+fabric-crypto = { path = "../fabric-crypto" }
+fabric-token = { path = "../fabric-token" }
+fabric-revocation = { path = "../fabric-revocation" }
+wsf-bridge = { path = "../wsf-bridge" }
+wsf-broker = { path = "../wsf-broker" }
+wsf-seal = { path = "../wsf-seal" }
+wsf-ledger = { path = "../wsf-ledger" }
+wsf-hardening = { path = "../wsf-hardening" }
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+hex = "0.4"
+base64 = "0.22"
+sha2 = "0.10"
+uuid = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[lints]
+workspace = true
