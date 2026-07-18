@@ -148,6 +148,7 @@ jobs:
           cargo test -p aog-gateway --test metering -- --nocapture
           cargo test -p aog-gateway --test official_client_compat -- --nocapture
           cargo test -p saddle-controller --test sad33_aog_workloads -- --nocapture
+          cargo test -p saddle-controller --test sad35_two_tenant_bridge --locked -- --nocapture
 
   saddle-live:
     name: Saddle Phase-V Live Gates

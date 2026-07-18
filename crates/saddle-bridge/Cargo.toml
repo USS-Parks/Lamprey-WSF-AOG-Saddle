@@ -10,17 +10,19 @@ description = "Non-forgeable WSF-to-Saddle-to-AOG authority and grant contracts"
 [dependencies]
 fabric-contracts = { path = "../fabric-contracts" }
 fabric-crypto = { path = "../fabric-crypto" }
+fabric-proof = { path = "../fabric-proof" }
 fabric-revocation = { path = "../fabric-revocation" }
 fabric-token = { path = "../fabric-token" }
 mai-compliance = { path = "../../mai-compliance" }
+wsf-ledger = { path = "../wsf-ledger" }
 serde = { workspace = true }
+serde_json = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
+hex = "0.4"
 
 [dev-dependencies]
-serde_json = { workspace = true }
 tokio = { workspace = true }
-wsf-ledger = { path = "../wsf-ledger" }
 
 [lints]
 workspace = true

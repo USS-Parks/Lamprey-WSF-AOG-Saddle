@@ -14,6 +14,7 @@ fabric-token = { path = "../fabric-token" }
 fabric-proof = { path = "../fabric-proof" }
 fabric-envelope = { path = "../fabric-envelope" }
 fabric-revocation = { path = "../fabric-revocation" }
+saddle-bridge = { path = "../saddle-bridge" }
 wsf-bridge = { path = "../wsf-bridge" }
 mai-router = { path = "../../mai-router" }
 mai-compliance = { path = "../../mai-compliance" }
@@ -30,6 +31,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 sha2 = "0.10"
 hex = "0.4"
 base64 = "0.22"
+uuid = { workspace = true }
 
 [lints]
 workspace = true

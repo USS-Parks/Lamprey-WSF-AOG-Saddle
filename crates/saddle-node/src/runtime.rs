@@ -12,6 +12,7 @@ use std::sync::Mutex;
 use fabric_contracts::{Classification, TrustToken};
 use fabric_crypto::Verifier;
 use fabric_revocation::RevocationSnapshot;
+use saddle_bridge::VerifiedGrantHandoff;
 use saddle_estate::{Placement, Workload, WorkloadKind};
 use sha2::{Digest, Sha256};
 
@@ -150,8 +151,57 @@ pub enum RuntimeAuthorizationError {
     Revoked,
     #[error("runtime capability does not exactly bind the assignment")]
     Scope,
+    #[error("typed runtime grant does not exactly bind the assignment")]
+    Grant,
     #[error("driver: {0}")]
     Driver(#[from] DriverError),
+}
+
+/// Verify the persisted typed placement/runtime proof and the existing signed
+/// child capability before starting the real driver.
+///
+/// # Errors
+/// Fails closed when either independent proof does not bind every runtime axis.
+#[allow(clippy::too_many_arguments)]
+pub fn start_bridged_authorized(
+    driver: &dyn WorkloadDriver,
+    assignment: &RuntimeAssignment,
+    handoff: &VerifiedGrantHandoff,
+    token: &TrustToken,
+    revocation: &RevocationSnapshot,
+    now: DateTime<Utc>,
+    verifier: &dyn Verifier,
+    anchor_public_key: &[u8],
+) -> Result<WorkloadHandle, RuntimeAuthorizationError> {
+    let placement = handoff.placement();
+    let runtime = handoff.runtime();
+    let exact = placement.tenant_id() == assignment.tenant
+        && placement.placement_uid() == assignment.placement_uid
+        && placement.workload_uid() == assignment.workload_uid
+        && placement
+            .eligible_nodes()
+            .contains(&assignment.node_identity)
+        && runtime.tenant_id() == assignment.tenant
+        && runtime.placement_uid() == assignment.placement_uid
+        && runtime.node_identity() == assignment.node_identity
+        && runtime.workload_digest() == assignment.workload_digest
+        && runtime.runtime_class() == runtime_class(assignment.workload_kind)
+        && runtime
+            .aog_permissions()
+            .contains(workload_role(assignment.workload_kind))
+        && runtime.lineage() == fabric_token::lineage_key(token);
+    if !exact {
+        return Err(RuntimeAuthorizationError::Grant);
+    }
+    start_authorized(
+        driver,
+        assignment,
+        token,
+        revocation,
+        now,
+        verifier,
+        anchor_public_key,
+    )
 }
 
 /// Verify `token` against `assignment` and start only after every check passes.

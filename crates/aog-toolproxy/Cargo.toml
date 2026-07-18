@@ -11,6 +11,7 @@ description = "AOG tool-governance proxy: agents register tools, calls execute T
 fabric-proof = { path = "../fabric-proof" }
 fabric-contracts = { path = "../fabric-contracts" }
 fabric-token = { path = "../fabric-token" }
+saddle-bridge = { path = "../saddle-bridge" }
 mai-agent = { path = "../../mai-agent" }
 mai-compliance = { path = "../../mai-compliance" }
 serde = { workspace = true }

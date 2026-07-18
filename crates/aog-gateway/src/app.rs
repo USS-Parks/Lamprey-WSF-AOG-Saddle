@@ -21,6 +21,9 @@ use fabric_token::spend::{
 };
 use mai_compliance::PhiDetector;
 use mai_router::{DefaultRouter, Router};
+use saddle_bridge::{
+    ActionKind, ActionSessionRegistry, ActionSpec, GrantBudget, ReceiptIntentSpec,
+};
 use serde_json::json;
 
 use crate::meter::{PriceBook, ReceiptLedger};
@@ -116,6 +119,9 @@ pub struct AppState {
     pub detector: Arc<PhiDetector>,
     /// Atomic reserve/commit/release barrier shared by every inference surface.
     pub reservations: Arc<ReservationLedger>,
+    /// SAD-35 typed runtime/action authority. Managed production gateways attach
+    /// this registry so provider effects cannot bypass the WSF-Saddle bridge.
+    pub saddle_bridge: Option<Arc<ActionSessionRegistry>>,
 }
 
 impl AppState {
@@ -137,6 +143,7 @@ impl AppState {
             prices: Arc::new(PriceBook::baseline()),
             detector: Arc::new(PhiDetector::baseline()),
             reservations: Arc::new(ReservationLedger::new()),
+            saddle_bridge: None,
         }
     }
 
@@ -165,6 +172,13 @@ impl AppState {
     #[must_use]
     pub fn with_reservations(mut self, reservations: Arc<ReservationLedger>) -> Self {
         self.reservations = reservations;
+        self
+    }
+
+    /// Attach the mandatory typed runtime/action bridge for managed execution.
+    #[must_use]
+    pub fn with_saddle_bridge(mut self, bridge: Arc<ActionSessionRegistry>) -> Self {
+        self.saddle_bridge = Some(bridge);
         self
     }
 }
@@ -213,6 +227,8 @@ pub(crate) struct AuthorizedDispatch {
     policy: PolicyDecision,
     outcome: ModeOutcome,
     reservation: Option<DispatchReservation>,
+    bridge: Option<Arc<ActionSessionRegistry>>,
+    bridge_budget: GrantBudget,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -221,6 +237,8 @@ pub(crate) enum DispatchError {
     Revocation(#[from] GatewayError),
     #[error(transparent)]
     Provider(#[from] ProviderError),
+    #[error("Saddle action bridge: {0}")]
+    Bridge(String),
 }
 
 /// Authority reserved before a provider side effect. Streaming requests move
@@ -366,6 +384,7 @@ impl AuthorizedDispatch {
         route: GatewayRoute,
         policy: PolicyDecision,
         outcome: ModeOutcome,
+        bridge: Option<Arc<ActionSessionRegistry>>,
     ) -> Result<Self, DecisionError> {
         validate_final_decision(&ctx, &inbound_model, &target, &route)?;
         if provider.name() != target.provider {
@@ -383,6 +402,8 @@ impl AuthorizedDispatch {
             policy,
             outcome,
             reservation: None,
+            bridge,
+            bridge_budget: GrantBudget::default(),
         })
     }
 
@@ -402,6 +423,11 @@ impl AuthorizedDispatch {
             tokens: u64::from(input).saturating_add(u64::from(output)),
             usd_cents: prices.cost(&self.target.provider, &self.inbound_model, input, output),
             tool_calls: 1,
+        };
+        self.bridge_budget = GrantBudget {
+            tokens: usage.tokens,
+            usd_cents: usage.usd_cents,
+            tool_calls: 0,
         };
         let key = ReservationKey::for_token(&self.ctx.token, None, Some("aog-gateway".to_string()));
         self.reservation = Some(DispatchReservation {
@@ -479,7 +505,28 @@ impl AuthorizedDispatch {
             .await?;
         let mut frozen = request.clone();
         frozen.model.clone_from(&self.target.model);
-        Ok(self.provider.complete(&frozen).await?)
+        let Some(bridge) = &self.bridge else {
+            return Ok(self.provider.complete(&frozen).await?);
+        };
+        let now = Utc::now();
+        let spec = self.bridge_spec(&frozen, now)?;
+        let provider = Arc::clone(&self.provider);
+        let execution = bridge
+            .execute(
+                &self.ctx.tenant_id,
+                fabric_token::lineage_key(&self.ctx.token),
+                spec,
+                now,
+                move |_| async move {
+                    provider
+                        .complete(&frozen)
+                        .await
+                        .map_err(|error| error.to_string())
+                },
+            )
+            .await
+            .map_err(|error| DispatchError::Bridge(error.to_string()))?;
+        Ok(execution.value)
     }
 
     pub(crate) async fn stream(
@@ -491,7 +538,54 @@ impl AuthorizedDispatch {
             .await?;
         let mut frozen = request.clone();
         frozen.model.clone_from(&self.target.model);
-        Ok(self.provider.stream(&frozen).await?)
+        let Some(bridge) = &self.bridge else {
+            return Ok(self.provider.stream(&frozen).await?);
+        };
+        let now = Utc::now();
+        let spec = self.bridge_spec(&frozen, now)?;
+        let provider = Arc::clone(&self.provider);
+        let execution = bridge
+            .execute(
+                &self.ctx.tenant_id,
+                fabric_token::lineage_key(&self.ctx.token),
+                spec,
+                now,
+                move |_| async move {
+                    provider
+                        .stream(&frozen)
+                        .await
+                        .map_err(|error| error.to_string())
+                },
+            )
+            .await
+            .map_err(|error| DispatchError::Bridge(error.to_string()))?;
+        Ok(execution.value)
+    }
+
+    fn bridge_spec(
+        &self,
+        request: &CompletionRequest,
+        now: chrono::DateTime<Utc>,
+    ) -> Result<ActionSpec, DispatchError> {
+        let request_digest = hex::encode(
+            fabric_proof::canonical_hash(request)
+                .map_err(|error| DispatchError::Bridge(error.to_string()))?,
+        );
+        let nonce = format!("gateway-{}", uuid::Uuid::new_v4());
+        Ok(ActionSpec {
+            kind: ActionKind::Model,
+            action: self.target.model.clone(),
+            arguments_digest: request_digest.clone(),
+            request_digest: request_digest.clone(),
+            destination: format!("{}/{}", self.target.provider, self.target.model),
+            budget: self.bridge_budget,
+            nonce: nonce.clone(),
+            expires_at: (now + chrono::Duration::minutes(1)).to_rfc3339(),
+            receipt: ReceiptIntentSpec {
+                receipt_id: format!("saddle-{nonce}"),
+                request_digest,
+            },
+        })
     }
 }
 
@@ -547,6 +641,7 @@ pub(crate) async fn authorize_dispatch(
         route,
         policy,
         outcome,
+        state.saddle_bridge.clone(),
     )
     .map_err(DecisionError::into_response)?;
     if decision.outcome.block {
@@ -1005,6 +1100,7 @@ mod tests {
                         block: false,
                         report: false,
                     },
+                    None,
                 )
                 .unwrap();
 
@@ -1153,6 +1249,7 @@ mod tests {
                 block: false,
                 report: false,
             },
+            None,
         )
         .unwrap();
         dispatch.reserve_budget(reservations, prices, &"x".repeat(4000), Some(1000))?;
@@ -1307,6 +1404,7 @@ mod tests {
                 block: false,
                 report: false,
             },
+            None,
         )
         .expect("authorized final decision");
 

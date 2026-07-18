@@ -106,6 +106,7 @@ pub(crate) fn dispatch_http(e: &DispatchError) -> (StatusCode, String) {
     match e {
         DispatchError::Revocation(error) => crate::http::to_http(error),
         DispatchError::Provider(error) => provider_http(error),
+        DispatchError::Bridge(message) => (StatusCode::SERVICE_UNAVAILABLE, message.clone()),
     }
 }
 

@@ -1,0 +1,54 @@
+{
+  "artifacts": {
+    ".github/workflows/ci.yml": {
+      "sha256": "6cccc05625781e8fe7877439681e1cb9048cae6da3996ee9669c8dd7e85a17d8"
+    },
+    "crates/aog-gateway/src/app.rs": {
+      "sha256": "c118e11b8a23115a192154814fe4e18d25d2b899da937059a678cec40cc197ac"
+    },
+    "crates/aog-toolproxy/src/lib.rs": {
+      "sha256": "c82bca76d2fb6487e59149c77e7e99ca1c02c5f5efb082f6b32f543e00713a4e"
+    },
+    "crates/saddle-bridge/src/lib.rs": {
+      "sha256": "fcad3a5b92b96620ae9b629f89555ca0461e3e46327bb58d1e4b798378da3250"
+    },
+    "crates/saddle-controller/tests/sad35_two_tenant_bridge.rs": {
+      "sha256": "49dd520975e05d5809c74ce4b1371cd0cb06a69c695a83a0055d40230fd77de5"
+    },
+    "crates/saddle-node/src/runtime.rs": {
+      "sha256": "b98f038f98a6b299c1e663588cc86259561296aea86522312991f8a6f680e08e"
+    }
+  },
+  "fail_closed": {
+    "consumer_connectivity_loss": "isolated_and_denied",
+    "cross_tenant_lineage_theft": "denied",
+    "sibling_tenant_remains_live": "pass",
+    "signed_revocation_model_tool_control": "denied"
+  },
+  "live_consumers": {
+    "control_effect_via_action_gate": "pass",
+    "gateway_provider_effect_via_action_gate": "pass",
+    "openbao_virtual_key_resolution": "pass",
+    "toolproxy_executor_effect_via_action_gate": "pass"
+  },
+  "persisted_handoff": {
+    "node_requires_typed_handoff_and_child_capability": "pass",
+    "placement_and_runtime_signed": "pass",
+    "redb_restart_recovery": "pass",
+    "tamper_and_revocation_rejected": "pass"
+  },
+  "prompt": "SAD-35",
+  "receipts": {
+    "metadata_only_before_effect": "pass",
+    "serialized_evidence_pack_off_host_verification": "pass",
+    "shared_wsf_ledger": "pass"
+  },
+  "runtime_classes": [
+    "aog-gateway",
+    "aog-toolproxy",
+    "saddle-control"
+  ],
+  "schema_version": "saddle-sad35-two-tenant-bridge-gate/v1",
+  "status": "pass",
+  "tenants": 2
+}

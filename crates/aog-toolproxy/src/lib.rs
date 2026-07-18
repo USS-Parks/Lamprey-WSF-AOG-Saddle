@@ -28,6 +28,9 @@ use fabric_proof::canonical_hash;
 use fabric_token::spend::{Reservation, ReservationKey, ReservationLedger, Spent};
 use mai_agent::ToolRegistry;
 use mai_agent::types::{AgentError, ToolAccessRole, ToolCall, ToolDefinition, ToolResult};
+use saddle_bridge::{
+    ActionKind, ActionSessionRegistry, ActionSpec, GrantBudget, ReceiptIntentSpec,
+};
 use serde::Serialize;
 use zeroize::Zeroize;
 
@@ -46,6 +49,9 @@ pub enum ProxyError {
     /// The per-call credential could not be minted (T2) — the call never executes.
     #[error("credential minting failed: {0}")]
     Mint(String),
+    /// The mandatory Saddle runtime/action authority denied or was unavailable.
+    #[error("Saddle action bridge: {0}")]
+    Bridge(String),
 }
 
 /// Maximum lifetime the proxy will request for any per-call credential. The
@@ -363,6 +369,14 @@ impl InvokeContext {
             .map(|authority| authority.tenant_id.as_str())
     }
 
+    /// Verified token lineage bound to this invocation.
+    #[must_use]
+    pub fn lineage(&self) -> Option<&str> {
+        self.authority
+            .as_ref()
+            .map(|authority| authority.root_lineage.as_str())
+    }
+
     fn reservation_key(&self, mission_id: Option<String>) -> Option<ReservationKey> {
         self.authority.as_ref().map(|authority| ReservationKey {
             tenant_id: authority.tenant_id.clone(),
@@ -398,6 +412,8 @@ pub struct ToolProxy {
     /// LSH-T1 server-owned result lineage, keyed by session. Only completed proxy
     /// receipts populate this map; caller metadata can neither mint nor clear it.
     result_provenance: Mutex<BTreeMap<String, ResultProvenanceBinding>>,
+    /// SAD-35 typed runtime/action authority for managed tool execution.
+    saddle_bridge: Option<Arc<ActionSessionRegistry>>,
 }
 
 /// The governance outcome of a brokered call, recorded on its receipt. Bundled so
@@ -443,6 +459,7 @@ impl ToolProxy {
             guard_system_reservations: ReservationLedger::new(),
             guard_systems: Mutex::new(HashMap::new()),
             result_provenance: Mutex::new(BTreeMap::new()),
+            saddle_bridge: None,
         }
     }
 
@@ -496,6 +513,13 @@ impl ToolProxy {
     #[must_use]
     pub fn with_guardrails(mut self, guardrails: Guardrails) -> Self {
         self.guardrails = guardrails;
+        self
+    }
+
+    /// Attach the mandatory typed runtime/action bridge for managed execution.
+    #[must_use]
+    pub fn with_saddle_bridge(mut self, bridge: Arc<ActionSessionRegistry>) -> Self {
+        self.saddle_bridge = Some(bridge);
         self
     }
 
@@ -796,14 +820,64 @@ impl ToolProxy {
         // Bound a hung tool: honour `tool.timeout` so a stuck executor cannot hang
         // the agent loop; on elapse return a failed ToolResult rather than blocking
         // forever (audit D6). The lease revoke + receipt below still run.
-        let mut result = match tokio::time::timeout(
-            execution_timeout,
-            executor.execute(&tool, call, cred.as_ref().map(CredentialLease::credential)),
-        )
-        .await
-        {
-            Ok(r) => r,
-            Err(_) => timed_out_result(call, execution_timeout),
+        let mut result = if let Some(bridge) = &self.saddle_bridge {
+            let tenant = ctx
+                .tenant_id()
+                .ok_or_else(|| ProxyError::Bridge("verified tenant is missing".to_owned()))?;
+            let lineage = ctx
+                .lineage()
+                .ok_or_else(|| ProxyError::Bridge("verified lineage is missing".to_owned()))?;
+            let request_digest = hex::encode(
+                canonical_hash(&serde_json::json!({
+                    "call_id": call.call_id,
+                    "tool_id": call.tool_id,
+                    "arguments": call.arguments,
+                    "tenant_id": tenant,
+                    "lineage": lineage,
+                }))
+                .map_err(|error| ProxyError::Bridge(error.to_string()))?,
+            );
+            let spec = ActionSpec {
+                kind: ActionKind::Tool,
+                action: call.tool_id.clone(),
+                arguments_digest: approval_args_digest(call),
+                request_digest: request_digest.clone(),
+                destination: ctx.system().unwrap_or(&call.tool_id).to_owned(),
+                budget: GrantBudget {
+                    tokens: 0,
+                    usd_cents: ctx.estimated_cost_cents,
+                    tool_calls: 1,
+                },
+                nonce: format!("tool-{}", call.call_id),
+                expires_at: (chrono::Utc::now() + chrono::Duration::seconds(60)).to_rfc3339(),
+                receipt: ReceiptIntentSpec {
+                    receipt_id: format!("saddle-tool-{}", call.call_id),
+                    request_digest,
+                },
+            };
+            bridge
+                .execute(tenant, lineage, spec, chrono::Utc::now(), |_| async {
+                    Ok(execute_bounded(
+                        execution_timeout,
+                        executor,
+                        &tool,
+                        call,
+                        cred.as_ref().map(CredentialLease::credential),
+                    )
+                    .await)
+                })
+                .await
+                .map_err(|error| ProxyError::Bridge(error.to_string()))?
+                .value
+        } else {
+            execute_bounded(
+                execution_timeout,
+                executor,
+                &tool,
+                call,
+                cred.as_ref().map(CredentialLease::credential),
+            )
+            .await
         };
 
         // Normal completion initiates revocation here. Cancellation, panic, or
@@ -1160,6 +1234,19 @@ fn blocked_result(call: &ToolCall, reason: &str) -> ToolResult {
         output: serde_json::Value::Null,
         error: Some(format!("blocked by approval: {reason}")),
         duration_ms: 0,
+    }
+}
+
+async fn execute_bounded(
+    timeout: Duration,
+    executor: &dyn ToolExecutor,
+    tool: &ToolDefinition,
+    call: &ToolCall,
+    credential: Option<&MintedCredential>,
+) -> ToolResult {
+    match tokio::time::timeout(timeout, executor.execute(tool, call, credential)).await {
+        Ok(result) => result,
+        Err(_) => timed_out_result(call, timeout),
     }
 }
 

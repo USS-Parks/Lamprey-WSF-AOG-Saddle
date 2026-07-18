@@ -205,6 +205,14 @@ fn grant_chain(
     request: &VerifiedSaddleRequest,
     store: &MonotonicRevocationStore,
 ) -> RuntimeGrant {
+    grant_pair(issuer, request, store).1
+}
+
+fn grant_pair(
+    issuer: &mut GrantIssuer<TestPolicy>,
+    request: &VerifiedSaddleRequest,
+    store: &MonotonicRevocationStore,
+) -> (PlacementGrant, RuntimeGrant) {
     let admission = issuer
         .issue_admission(request, admission_spec(), time(0), store)
         .unwrap();
@@ -226,7 +234,7 @@ fn grant_chain(
             store,
         )
         .unwrap();
-    issuer
+    let runtime = issuer
         .issue_runtime(
             request,
             &placement,
@@ -246,7 +254,68 @@ fn grant_chain(
             time(0),
             store,
         )
-        .unwrap()
+        .unwrap();
+    (placement, runtime)
+}
+
+#[test]
+fn persisted_grant_handoff_requires_signature_binding_and_current_revocation() {
+    let signer = RustCryptoMlDsa87::generate("handoff-key").unwrap();
+    let token = token(&signer);
+    let mut issuer = GrantIssuer::new(TestPolicy(PolicyMode::Allow));
+    let request = verified(&mut issuer, &signer, &token, "handoff-request");
+    let current = revocation(&signer, 7);
+    let (placement, runtime) = grant_pair(&mut issuer, &request, &current);
+    let handoff = persist_grant_handoff(&placement, &runtime, &signer).unwrap();
+    let verified = verify_grant_handoff(
+        &handoff,
+        time(1),
+        &current,
+        &MlDsa87Verifier,
+        signer.public_key(),
+    )
+    .unwrap();
+    assert_eq!(
+        verified.runtime().placement_uid(),
+        placement.placement_uid()
+    );
+    assert_eq!(verified.runtime().token_id(), request.token_id());
+
+    let mut tampered = handoff.clone();
+    tampered.runtime.payload["tenant_id"] = serde_json::json!("tenant-b");
+    assert_eq!(
+        verify_grant_handoff(
+            &tampered,
+            time(1),
+            &current,
+            &MlDsa87Verifier,
+            signer.public_key()
+        ),
+        Err(GrantHandoffError::InvalidSignature)
+    );
+
+    let mut revoked_snapshot =
+        RevocationSnapshot::new("rev-8", time(-120).to_rfc3339(), time(600).to_rfc3339())
+            .with_sequence(8);
+    revoked_snapshot.revoked_tokens.push(token.token_id.clone());
+    let mut revoked = MonotonicRevocationStore::new();
+    revoked
+        .advance(
+            sign_revocation(revoked_snapshot, &signer).unwrap(),
+            &MlDsa87Verifier,
+            signer.public_key(),
+        )
+        .unwrap();
+    assert!(matches!(
+        verify_grant_handoff(
+            &handoff,
+            time(1),
+            &revoked,
+            &MlDsa87Verifier,
+            signer.public_key()
+        ),
+        Err(GrantHandoffError::Revocation(_))
+    ));
 }
 
 #[test]

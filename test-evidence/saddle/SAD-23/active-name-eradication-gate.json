@@ -1,7 +1,7 @@
 {
   "binary_files_skipped": 6,
   "cargo_metadata_surface": {
-    "identity_strings": 225,
+    "identity_strings": 226,
     "packages": 38,
     "retired_name_occurrences": 0
   },
@@ -386,8 +386,8 @@
   },
   "schema_version": 1,
   "status": "PASS",
-  "text_files_scanned": 933,
+  "text_files_scanned": 936,
   "total_retired_name_occurrences": 309,
-  "tracked_files_scanned": 939,
+  "tracked_files_scanned": 942,
   "unexplained_matches": []
 }

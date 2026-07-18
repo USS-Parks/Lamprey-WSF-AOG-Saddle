@@ -31,7 +31,8 @@ use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "aog-g7-test";
+const COST_ROLE: &str = "aog-g7-cost-test";
+const STREAM_ROLE: &str = "aog-g7-stream-test";
 const KV_PREFIX: &str = "kv/data/aog/virtual-keys";
 
 fn openbao_addr() -> Option<String> {
@@ -64,7 +65,7 @@ async fn bao(
         .unwrap_or_default()
 }
 
-async fn provision(c: &Client, addr: &str, tok: &str) -> (String, String) {
+async fn provision(c: &Client, addr: &str, tok: &str, role: &str) -> (String, String) {
     let _ = bao(
         c,
         addr,
@@ -98,7 +99,7 @@ async fn provision(c: &Client, addr: &str, tok: &str) -> (String, String) {
         addr,
         tok,
         Method::POST,
-        &format!("auth/approle/role/{ROLE}"),
+        &format!("auth/approle/role/{role}"),
         Some(json!({"token_policies":"default,aog-g7-test","token_ttl":"15m"})),
     )
     .await;
@@ -108,7 +109,7 @@ async fn provision(c: &Client, addr: &str, tok: &str) -> (String, String) {
             addr,
             tok,
             Method::GET,
-            &format!("auth/approle/role/{ROLE}/role-id"),
+            &format!("auth/approle/role/{role}/role-id"),
             None,
         )
         .await,
@@ -124,7 +125,7 @@ async fn provision(c: &Client, addr: &str, tok: &str) -> (String, String) {
             addr,
             tok,
             Method::POST,
-            &format!("auth/approle/role/{ROLE}/secret-id"),
+            &format!("auth/approle/role/{role}/secret-id"),
             Some(json!({})),
         )
         .await,
@@ -223,7 +224,7 @@ async fn cost_per_task_aggregates_and_chain_verifies() {
     };
 
     let c = Client::new();
-    let (role_id, secret_id) = provision(&c, &addr, &root_token()).await;
+    let (role_id, secret_id) = provision(&c, &addr, &root_token(), COST_ROLE).await;
 
     let anchor = RustCryptoMlDsa87::generate("aog-g7-anchor").unwrap();
     let openbao = OpenBaoAuth::new(OpenBaoConfig::new(&addr, role_id, secret_id)).unwrap();
@@ -335,7 +336,7 @@ async fn streamed_call_accrues_spend_and_cap_refuses_next_call() {
     };
 
     let c = Client::new();
-    let (role_id, secret_id) = provision(&c, &addr, &root_token()).await;
+    let (role_id, secret_id) = provision(&c, &addr, &root_token(), STREAM_ROLE).await;
 
     let anchor = RustCryptoMlDsa87::generate("aog-r8-anchor").unwrap();
     let openbao = OpenBaoAuth::new(OpenBaoConfig::new(&addr, role_id, secret_id)).unwrap();

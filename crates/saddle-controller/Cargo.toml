@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 saddle-apiserver = { path = "../saddle-apiserver" }
+saddle-bridge = { path = "../saddle-bridge" }
 saddle-estate = { path = "../saddle-estate" }
 saddle-node = { path = "../saddle-node" }
 saddle-scheduler = { path = "../saddle-scheduler" }
@@ -34,8 +35,11 @@ aog-toolproxy = { path = "../aog-toolproxy" }
 async-trait = { workspace = true }
 axum = { workspace = true }
 base64 = "0.22"
+futures = "0.3"
 mai-agent = { path = "../../mai-agent" }
+mai-compliance = { path = "../../mai-compliance" }
 wsf-seal = { path = "../wsf-seal" }
+wsf-ledger = { path = "../wsf-ledger" }
 
 [lints]
 workspace = true

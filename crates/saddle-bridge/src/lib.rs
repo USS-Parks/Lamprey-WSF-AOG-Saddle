@@ -18,11 +18,14 @@
 //! assert_deserializable::<VerifiedSaddleRequest>();
 //! ```
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 
 use chrono::{DateTime, Utc};
-use fabric_contracts::{Budget, RequestOperation, TrustToken, VerifiedRequestContext};
-use fabric_crypto::Verifier;
+use fabric_contracts::{Budget, RequestOperation, Signature, TrustToken, VerifiedRequestContext};
+use fabric_crypto::{Signer, Verifier};
+use fabric_proof::canonical_hash;
 use fabric_revocation::MonotonicRevocationStore;
 use fabric_token::spend::{
     Reservation, ReservationError, ReservationKey, ReservationLedger, Spent,
@@ -322,6 +325,7 @@ pub struct PlacementSpec {
 pub struct PlacementGrant {
     contract_version: &'static str,
     tenant_id: String,
+    token_id: String,
     placement_uid: String,
     workload_uid: String,
     generation: u64,
@@ -337,6 +341,9 @@ pub struct PlacementGrant {
 impl PlacementGrant {
     pub fn tenant_id(&self) -> &str {
         &self.tenant_id
+    }
+    pub fn token_id(&self) -> &str {
+        &self.token_id
     }
     pub fn placement_uid(&self) -> &str {
         &self.placement_uid
@@ -388,6 +395,7 @@ pub struct RuntimeSpec {
 pub struct RuntimeGrant {
     contract_version: &'static str,
     tenant_id: String,
+    token_id: String,
     placement_uid: String,
     node_identity: String,
     workload_digest: String,
@@ -403,6 +411,9 @@ pub struct RuntimeGrant {
 impl RuntimeGrant {
     pub fn tenant_id(&self) -> &str {
         &self.tenant_id
+    }
+    pub fn token_id(&self) -> &str {
+        &self.token_id
     }
     pub fn placement_uid(&self) -> &str {
         &self.placement_uid
@@ -434,6 +445,277 @@ impl RuntimeGrant {
     pub fn receipt(&self) -> &ReceiptIntentSpec {
         &self.receipt
     }
+}
+
+/// A detached, domain-separated signature over one serialize-only grant.
+///
+/// The payload is deliberately wire-safe; it becomes authority only after
+/// [`verify_grant_handoff`] validates both signatures and reconstructs the
+/// private proof types.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignedGrantRecord {
+    pub kind: String,
+    pub payload: serde_json::Value,
+    pub signature: Signature,
+}
+
+/// Persistable controller-to-node handoff for the exact placement/runtime pair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PersistedGrantHandoff {
+    pub placement: SignedGrantRecord,
+    pub runtime: SignedGrantRecord,
+}
+
+/// Verified, non-forgeable placement/runtime proof recovered from persistence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedGrantHandoff {
+    placement: PlacementGrant,
+    runtime: RuntimeGrant,
+}
+
+impl VerifiedGrantHandoff {
+    pub fn placement(&self) -> &PlacementGrant {
+        &self.placement
+    }
+
+    pub fn runtime(&self) -> &RuntimeGrant {
+        &self.runtime
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PlacementGrantPayload {
+    contract_version: String,
+    tenant_id: String,
+    token_id: String,
+    placement_uid: String,
+    workload_uid: String,
+    generation: u64,
+    eligible_nodes: BTreeSet<String>,
+    resource_reservation: BTreeSet<String>,
+    trust_constraints: BTreeSet<String>,
+    expires_at: String,
+    lineage: String,
+    revocation_sequence: u64,
+    receipt: ReceiptIntentSpec,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RuntimeGrantPayload {
+    contract_version: String,
+    tenant_id: String,
+    token_id: String,
+    placement_uid: String,
+    node_identity: String,
+    workload_digest: String,
+    runtime_class: String,
+    aog_permissions: BTreeSet<String>,
+    budget: GrantBudget,
+    expires_at: String,
+    lineage: String,
+    revocation_sequence: u64,
+    receipt: ReceiptIntentSpec,
+}
+
+/// Failure to persist or re-establish the typed grant handoff.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum GrantHandoffError {
+    #[error("grant handoff serialization failed: {0}")]
+    Serialize(String),
+    #[error("grant handoff signature failed: {0}")]
+    Sign(String),
+    #[error("grant handoff signature is malformed")]
+    MalformedSignature,
+    #[error("grant handoff signature is invalid")]
+    InvalidSignature,
+    #[error("grant handoff kind or contract version is invalid")]
+    Contract,
+    #[error("grant handoff binding is incomplete or inconsistent")]
+    Binding,
+    #[error("grant handoff is expired")]
+    Expired,
+    #[error("grant handoff revocation state denied authority: {0}")]
+    Revocation(String),
+}
+
+fn grant_record_hash(
+    kind: &str,
+    payload: &serde_json::Value,
+) -> Result<[u8; 32], GrantHandoffError> {
+    canonical_hash(&serde_json::json!({
+        "domain": "saddle.bridge/v1/grant-handoff",
+        "kind": kind,
+        "payload": payload,
+    }))
+    .map_err(|error| GrantHandoffError::Serialize(error.to_string()))
+}
+
+fn sign_grant_record<T: Serialize>(
+    kind: &str,
+    grant: &T,
+    signer: &dyn Signer,
+) -> Result<SignedGrantRecord, GrantHandoffError> {
+    let payload = serde_json::to_value(grant)
+        .map_err(|error| GrantHandoffError::Serialize(error.to_string()))?;
+    let hash = grant_record_hash(kind, &payload)?;
+    let signature = signer
+        .sign(&hash)
+        .map_err(|error| GrantHandoffError::Sign(error.to_string()))?;
+    Ok(SignedGrantRecord {
+        kind: kind.to_owned(),
+        payload,
+        signature: Signature {
+            alg: signer.algorithm().to_owned(),
+            key_id: signer.key_id().to_owned(),
+            value: hex::encode(signature),
+        },
+    })
+}
+
+fn verify_grant_record(
+    record: &SignedGrantRecord,
+    expected_kind: &str,
+    verifier: &dyn Verifier,
+    public_key: &[u8],
+) -> Result<(), GrantHandoffError> {
+    if record.kind != expected_kind || record.signature.alg != verifier.algorithm() {
+        return Err(GrantHandoffError::Contract);
+    }
+    let signature =
+        hex::decode(&record.signature.value).map_err(|_| GrantHandoffError::MalformedSignature)?;
+    let hash = grant_record_hash(expected_kind, &record.payload)?;
+    if !verifier
+        .verify(&hash, &signature, public_key)
+        .map_err(|error| GrantHandoffError::Sign(error.to_string()))?
+    {
+        return Err(GrantHandoffError::InvalidSignature);
+    }
+    Ok(())
+}
+
+/// Sign the exact placement/runtime pair for durable controller-to-node storage.
+///
+/// # Errors
+/// Returns [`GrantHandoffError::Binding`] when the two private grants are not one
+/// narrowing chain, or a signing/serialization error.
+pub fn persist_grant_handoff(
+    placement: &PlacementGrant,
+    runtime: &RuntimeGrant,
+    signer: &dyn Signer,
+) -> Result<PersistedGrantHandoff, GrantHandoffError> {
+    if placement.tenant_id != runtime.tenant_id
+        || placement.token_id != runtime.token_id
+        || placement.lineage != runtime.lineage
+        || placement.placement_uid != runtime.placement_uid
+        || !placement.eligible_nodes.contains(&runtime.node_identity)
+    {
+        return Err(GrantHandoffError::Binding);
+    }
+    Ok(PersistedGrantHandoff {
+        placement: sign_grant_record("placement", placement, signer)?,
+        runtime: sign_grant_record("runtime", runtime, signer)?,
+    })
+}
+
+/// Verify a persisted handoff and recover the private proof types.
+///
+/// # Errors
+/// Fails closed on malformed/tampered records, stale or unavailable revocation
+/// state, expiry, revocation, or any widened/cross-tenant binding.
+pub fn verify_grant_handoff(
+    handoff: &PersistedGrantHandoff,
+    now: DateTime<Utc>,
+    revocation: &MonotonicRevocationStore,
+    verifier: &dyn Verifier,
+    public_key: &[u8],
+) -> Result<VerifiedGrantHandoff, GrantHandoffError> {
+    verify_grant_record(&handoff.placement, "placement", verifier, public_key)?;
+    verify_grant_record(&handoff.runtime, "runtime", verifier, public_key)?;
+    let placement: PlacementGrantPayload =
+        serde_json::from_value(handoff.placement.payload.clone())
+            .map_err(|error| GrantHandoffError::Serialize(error.to_string()))?;
+    let runtime: RuntimeGrantPayload = serde_json::from_value(handoff.runtime.payload.clone())
+        .map_err(|error| GrantHandoffError::Serialize(error.to_string()))?;
+    if placement.contract_version != CONTRACT_VERSION
+        || runtime.contract_version != CONTRACT_VERSION
+        || placement.tenant_id.trim().is_empty()
+        || placement.token_id.trim().is_empty()
+        || placement.placement_uid.trim().is_empty()
+        || placement.workload_uid.trim().is_empty()
+        || placement.lineage.trim().is_empty()
+        || runtime.node_identity.trim().is_empty()
+        || runtime.workload_digest.trim().is_empty()
+        || runtime.runtime_class.trim().is_empty()
+        || placement.tenant_id != runtime.tenant_id
+        || placement.token_id != runtime.token_id
+        || placement.lineage != runtime.lineage
+        || placement.placement_uid != runtime.placement_uid
+        || !placement.eligible_nodes.contains(&runtime.node_identity)
+    {
+        return Err(GrantHandoffError::Binding);
+    }
+    let placement_expiry = parse_time(&placement.expires_at, "placement expires_at")
+        .map_err(|_| GrantHandoffError::Expired)?;
+    let runtime_expiry = parse_time(&runtime.expires_at, "runtime expires_at")
+        .map_err(|_| GrantHandoffError::Expired)?;
+    if now >= placement_expiry || now >= runtime_expiry || runtime_expiry > placement_expiry {
+        return Err(GrantHandoffError::Expired);
+    }
+    let sequence = revocation
+        .ensure_current(now)
+        .map_err(|error| GrantHandoffError::Revocation(error.to_string()))?;
+    if sequence < placement.revocation_sequence || sequence < runtime.revocation_sequence {
+        return Err(GrantHandoffError::Revocation(
+            "revocation view predates grant issuance".to_owned(),
+        ));
+    }
+    let snapshot = revocation
+        .current()
+        .ok_or_else(|| GrantHandoffError::Revocation("revocation state unavailable".to_owned()))?;
+    if snapshot.is_tenant_revoked(&runtime.tenant_id)
+        || snapshot.is_token_revoked(&runtime.token_id)
+        || snapshot.is_token_revoked(&runtime.lineage)
+    {
+        return Err(GrantHandoffError::Revocation(
+            "tenant or grant lineage revoked".to_owned(),
+        ));
+    }
+    Ok(VerifiedGrantHandoff {
+        placement: PlacementGrant {
+            contract_version: CONTRACT_VERSION,
+            tenant_id: placement.tenant_id,
+            token_id: placement.token_id,
+            placement_uid: placement.placement_uid,
+            workload_uid: placement.workload_uid,
+            generation: placement.generation,
+            eligible_nodes: placement.eligible_nodes,
+            resource_reservation: placement.resource_reservation,
+            trust_constraints: placement.trust_constraints,
+            expires_at: placement.expires_at,
+            lineage: placement.lineage,
+            revocation_sequence: placement.revocation_sequence,
+            receipt: placement.receipt,
+        },
+        runtime: RuntimeGrant {
+            contract_version: CONTRACT_VERSION,
+            tenant_id: runtime.tenant_id,
+            token_id: runtime.token_id,
+            placement_uid: runtime.placement_uid,
+            node_identity: runtime.node_identity,
+            workload_digest: runtime.workload_digest,
+            runtime_class: runtime.runtime_class,
+            aog_permissions: runtime.aog_permissions,
+            budget: runtime.budget,
+            expires_at: runtime.expires_at,
+            lineage: runtime.lineage,
+            revocation_sequence: runtime.revocation_sequence,
+            receipt: runtime.receipt,
+        },
+    })
 }
 
 /// Wire-safe requested narrowing into a single-action grant.
@@ -579,7 +861,57 @@ pub struct ActionExecution<T> {
     pub reserved_budget: GrantBudget,
 }
 
+/// Final, single-use authority to invoke the effect after the current
+/// revocation and budget checks have passed.
+pub struct AuthorizedAction {
+    grant: ActionGrant,
+    receipt_proof: String,
+    reserved_budget: GrantBudget,
+}
+
+impl AuthorizedAction {
+    pub async fn execute<T, F, Fut>(self, effect: F) -> Result<ActionExecution<T>, ActionGateError>
+    where
+        F: FnOnce(&ActionGrant) -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
+        let value = effect(&self.grant).await.map_err(ActionGateError::Effect)?;
+        Ok(ActionExecution {
+            value,
+            receipt_proof: self.receipt_proof,
+            reserved_budget: self.reserved_budget,
+        })
+    }
+}
+
 impl PreparedAction {
+    /// Perform the last synchronous WSF/revocation check and atomically consume
+    /// the reservation. The returned authority is private and single-use.
+    pub fn authorize(
+        self,
+        request: &VerifiedSaddleRequest,
+        now: DateTime<Utc>,
+        revocation: &MonotonicRevocationStore,
+    ) -> Result<AuthorizedAction, ActionGateError> {
+        ensure_current_authority(request, now, revocation)?;
+        if now >= parse_time(&self.grant.expires_at, "action expires_at")? {
+            return Err(BridgeError::ActionExpired.into());
+        }
+        if self.grant.tenant_id != request.tenant_id() {
+            return Err(BridgeError::TenantIsolation.into());
+        }
+        if self.grant.lineage != request.lineage {
+            return Err(BridgeError::LineageMismatch.into());
+        }
+        let budget = self.grant.budget;
+        self.reservation.commit()?;
+        Ok(AuthorizedAction {
+            grant: self.grant,
+            receipt_proof: self.receipt_proof,
+            reserved_budget: budget,
+        })
+    }
+
     /// Re-check current WSF authority, atomically consume the reserved budget,
     /// then invoke the exact effect. Revocation or budget failure leaves the
     /// effect untouched. Budget is conservatively charged before the effect so
@@ -595,24 +927,9 @@ impl PreparedAction {
         F: FnOnce(&ActionGrant) -> Fut,
         Fut: std::future::Future<Output = Result<T, String>>,
     {
-        ensure_current_authority(request, now, revocation)?;
-        if now >= parse_time(&self.grant.expires_at, "action expires_at")? {
-            return Err(BridgeError::ActionExpired.into());
-        }
-        if self.grant.tenant_id != request.tenant_id() {
-            return Err(BridgeError::TenantIsolation.into());
-        }
-        if self.grant.lineage != request.lineage {
-            return Err(BridgeError::LineageMismatch.into());
-        }
-        let budget = self.grant.budget;
-        self.reservation.commit()?;
-        let value = effect(&self.grant).await.map_err(ActionGateError::Effect)?;
-        Ok(ActionExecution {
-            value,
-            receipt_proof: self.receipt_proof,
-            reserved_budget: budget,
-        })
+        self.authorize(request, now, revocation)?
+            .execute(effect)
+            .await
     }
 }
 
@@ -713,6 +1030,250 @@ where
     }
 }
 
+impl<T: AogPolicy + ?Sized> AogPolicy for Box<T> {
+    fn evaluate(&self, input: &PolicyInput<'_>) -> AggregateDecision {
+        (**self).evaluate(input)
+    }
+}
+
+impl<T: ReplayStore + ?Sized> ReplayStore for Box<T> {
+    fn consume(
+        &mut self,
+        class: ReplayClass,
+        tenant_id: &str,
+        lineage: &str,
+        nonce: &str,
+    ) -> Result<bool, String> {
+        (**self).consume(class, tenant_id, lineage, nonce)
+    }
+}
+
+impl<T: ActionReceiptSink + ?Sized> ActionReceiptSink for Box<T> {
+    fn commit_authorization(
+        &mut self,
+        receipt: &ActionAuthorizationReceipt,
+    ) -> Result<String, String> {
+        (**self).commit_authorization(receipt)
+    }
+}
+
+/// Production adapter that commits bridge authorization receipts into the WSF
+/// evidence ledger shared by all tenants and action consumers.
+pub struct WsfLedgerActionSink {
+    ledger: Arc<Mutex<wsf_ledger::Ledger>>,
+}
+
+impl WsfLedgerActionSink {
+    #[must_use]
+    pub fn new(ledger: Arc<Mutex<wsf_ledger::Ledger>>) -> Self {
+        Self { ledger }
+    }
+}
+
+impl ActionReceiptSink for WsfLedgerActionSink {
+    fn commit_authorization(
+        &mut self,
+        receipt: &ActionAuthorizationReceipt,
+    ) -> Result<String, String> {
+        let value = serde_json::to_value(receipt).map_err(|error| error.to_string())?;
+        let mut ledger = self
+            .ledger
+            .lock()
+            .map_err(|_| "WSF ledger lock poisoned".to_owned())?;
+        if !ledger.query("receipt_id", &receipt.receipt_id).is_empty() {
+            return Err("duplicate authorization receipt id".to_owned());
+        }
+        ledger
+            .ingest("saddle-bridge", value)
+            .map_err(|error| error.to_string())
+    }
+}
+
+type ErasedActionGate =
+    ActionGate<Box<dyn AogPolicy>, Box<dyn ReplayStore>, Box<dyn ActionReceiptSink>>;
+
+/// One restarted runtime's verified request, persisted grant handoff, current
+/// revocation view, and shared action gate.
+pub struct RuntimeActionSession {
+    request: VerifiedSaddleRequest,
+    handoff: VerifiedGrantHandoff,
+    gate: Mutex<ErasedActionGate>,
+    revocation: Mutex<MonotonicRevocationStore>,
+    available: AtomicBool,
+}
+
+impl RuntimeActionSession {
+    #[must_use]
+    pub fn new(
+        request: VerifiedSaddleRequest,
+        handoff: VerifiedGrantHandoff,
+        policy: Box<dyn AogPolicy>,
+        replay: Box<dyn ReplayStore>,
+        receipts: Box<dyn ActionReceiptSink>,
+        revocation: MonotonicRevocationStore,
+    ) -> Self {
+        Self {
+            request,
+            handoff,
+            gate: Mutex::new(ActionGate::new(
+                GrantIssuer::with_replay_store(policy, replay),
+                ReservationLedger::new(),
+                receipts,
+            )),
+            revocation: Mutex::new(revocation),
+            available: AtomicBool::new(true),
+        }
+    }
+
+    #[must_use]
+    pub fn tenant_id(&self) -> &str {
+        self.handoff.runtime().tenant_id()
+    }
+
+    #[must_use]
+    pub fn lineage(&self) -> &str {
+        self.handoff.runtime().lineage()
+    }
+
+    #[must_use]
+    pub fn request(&self) -> &VerifiedSaddleRequest {
+        &self.request
+    }
+
+    #[must_use]
+    pub fn handoff(&self) -> &VerifiedGrantHandoff {
+        &self.handoff
+    }
+
+    pub fn set_available(&self, available: bool) {
+        self.available.store(available, Ordering::SeqCst);
+    }
+
+    /// Advance this consumer's signed monotonic revocation view.
+    ///
+    /// # Errors
+    /// Returns the underlying signature or anti-rollback error.
+    pub fn advance_revocation(
+        &self,
+        snapshot: fabric_revocation::RevocationSnapshot,
+        verifier: &dyn Verifier,
+        public_key: &[u8],
+    ) -> Result<u64, fabric_revocation::RevocationError> {
+        self.revocation
+            .lock()
+            .expect("runtime revocation lock")
+            .advance(snapshot, verifier, public_key)
+    }
+
+    async fn execute<T, F, Fut>(
+        &self,
+        caller_tenant: &str,
+        caller_lineage: &str,
+        spec: ActionSpec,
+        now: DateTime<Utc>,
+        effect: F,
+    ) -> Result<ActionExecution<T>, ActionGateError>
+    where
+        F: FnOnce(&ActionGrant) -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
+        if !self.available.load(Ordering::SeqCst) {
+            return Err(ActionGateError::Bridge(BridgeError::AuthorityUnavailable));
+        }
+        if caller_tenant != self.tenant_id() {
+            return Err(ActionGateError::Bridge(BridgeError::TenantIsolation));
+        }
+        if caller_lineage != self.lineage() {
+            return Err(ActionGateError::Bridge(BridgeError::LineageMismatch));
+        }
+        let authorized = {
+            let revocation = self
+                .revocation
+                .lock()
+                .map_err(|_| ActionGateError::Bridge(BridgeError::AuthorityUnavailable))?;
+            let mut gate = self
+                .gate
+                .lock()
+                .map_err(|_| ActionGateError::Bridge(BridgeError::AuthorityUnavailable))?;
+            gate.prepare(
+                &self.request,
+                self.handoff.runtime(),
+                spec,
+                now,
+                &revocation,
+            )?
+            .authorize(&self.request, now, &revocation)?
+        };
+        authorized.execute(effect).await
+    }
+}
+
+/// Tenant-indexed runtime action sessions shared by the real gateway,
+/// toolproxy, and control consumers.
+#[derive(Default)]
+pub struct ActionSessionRegistry {
+    sessions: RwLock<HashMap<(String, String), Arc<RuntimeActionSession>>>,
+}
+
+impl ActionSessionRegistry {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Install or replace one tenant's fully verified runtime session.
+    pub fn install(&self, session: Arc<RuntimeActionSession>) {
+        let key = (
+            session.tenant_id().to_owned(),
+            session.handoff.runtime().runtime_class().to_owned(),
+        );
+        self.sessions
+            .write()
+            .expect("action session registry lock")
+            .insert(key, session);
+    }
+
+    #[must_use]
+    pub fn session(
+        &self,
+        tenant_id: &str,
+        runtime_class: &str,
+    ) -> Option<Arc<RuntimeActionSession>> {
+        self.sessions
+            .read()
+            .expect("action session registry lock")
+            .get(&(tenant_id.to_owned(), runtime_class.to_owned()))
+            .cloned()
+    }
+
+    /// Execute one model/tool/control effect only through the tenant's current
+    /// typed runtime authority.
+    pub async fn execute<T, F, Fut>(
+        &self,
+        caller_tenant: &str,
+        caller_lineage: &str,
+        spec: ActionSpec,
+        now: DateTime<Utc>,
+        effect: F,
+    ) -> Result<ActionExecution<T>, ActionGateError>
+    where
+        F: FnOnce(&ActionGrant) -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
+        let runtime_class = match spec.kind {
+            ActionKind::Model => "aog-gateway",
+            ActionKind::Tool => "aog-toolproxy",
+            ActionKind::Control => "saddle-control",
+        };
+        let session = self
+            .session(caller_tenant, runtime_class)
+            .ok_or(ActionGateError::Bridge(BridgeError::AuthorityUnavailable))?;
+        session
+            .execute(caller_tenant, caller_lineage, spec, now, effect)
+            .await
+    }
+}
+
 /// Fail-closed cross-plane error contract.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum BridgeError {
@@ -753,6 +1314,8 @@ pub enum BridgeError {
     PolicyDenied,
     #[error("AOG policy supplied no applied module; request fenced")]
     PolicyFenced,
+    #[error("runtime action authority is unavailable")]
+    AuthorityUnavailable,
 }
 
 /// Stateful issuer. Replay memory is held here; revocation freshness remains
@@ -928,6 +1491,7 @@ impl<P: AogPolicy, R: ReplayStore> GrantIssuer<P, R> {
         Ok(PlacementGrant {
             contract_version: CONTRACT_VERSION,
             tenant_id: admission.tenant_id.clone(),
+            token_id: request.token_id.clone(),
             placement_uid: spec.placement_uid,
             workload_uid: spec.workload_uid,
             generation: spec.generation,
@@ -977,6 +1541,7 @@ impl<P: AogPolicy, R: ReplayStore> GrantIssuer<P, R> {
         Ok(RuntimeGrant {
             contract_version: CONTRACT_VERSION,
             tenant_id: request.tenant_id().to_owned(),
+            token_id: request.token_id.clone(),
             placement_uid: placement.placement_uid.clone(),
             node_identity: spec.node_identity,
             workload_digest: spec.workload_digest,
