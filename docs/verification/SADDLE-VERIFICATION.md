@@ -45,3 +45,24 @@ select the exact source object `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`.
 | Staged no-slop gate | PASS | Configured target pre-commit hook reports `no-slop: clean (staged)`. |
 | Commit footer | PASS | `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `578d3ab8ae7425d3cd1b3f69bd25f934e7c3485a` to `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f`. |
+
+## SAD-02
+
+**State under test:** target `c5e6fc7cc4f1a9a82456e36914e4cb146df26b37` plus
+the deterministic source-manifest generator and its generated evidence.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Generator syntax | PASS | Python compiled `tools/generate_saddle_source_manifest.py` without writing bytecode. |
+| Seed object binding | PASS | Generator refused any dirty or non-pinned seed checkout and used `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`. |
+| Cargo dependency closure | PASS | 33 direct WSF/AOG/fabric/orchestration roots resolve to 37 internal packages. |
+| Tracked-object scan | PASS | 1,491 tracked paths and 1,323 source-like paths were examined from Git objects. |
+| Per-file hashes and path lists | PASS | JSON ledger records Git object ID, mode, byte count, SHA-256, relevance, disposition, and reason for every path. |
+| Candidate disposition | PASS | 1,008 candidates: 636 import, 13 extract, 256 historical evidence, 103 exclude; zero undispositioned. |
+| `mai-scheduler` review | PASS | 13 explicit extraction candidates and 38 explicit exclusions across all 51 tracked paths. |
+| Submodules and symlinks | PASS | Zero submodules and zero symlinks at the seed pin. |
+| Deterministic regeneration | PASS | `--verify` regenerated a byte-for-byte equal manifest. |
+| Source import absence | PASS | Target adds only its generator, planning records, and hash ledger; no seed product file is materialized. |
+| `git diff --check` | PASS | Final staged SAD-02 tree has no whitespace errors. |
+| Secret scans | PASS | Gitleaks 8.30.1 and explicit private-key/token/credential-URL checks report zero matches. |
+| Staged no-slop gate | PASS | Configured target pre-commit hook reports `no-slop: clean (staged)`. |

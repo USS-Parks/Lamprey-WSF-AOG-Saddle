@@ -143,3 +143,60 @@ exact canonical footer. The configured target full-tree no-slop pre-push gate
 passed, and remote `main` advanced from
 `578d3ab8ae7425d3cd1b3f69bd25f934e7c3485a` to
 `7f30ea691f91b3ea8774b7fd121fbc8580b1d69f` on 2026-07-17.
+
+---
+
+## SAD-02 — Generate the full source-coverage manifest
+
+**Status:** PASS — implementation checkpoint pending publication.
+
+### Work completed
+
+- Added `tools/generate_saddle_source_manifest.py`, a deterministic generator
+  that refuses a dirty seed worktree or a `HEAD` other than the approved full
+  SHA and reads tracked blobs only through Git.
+- Ran the generator against
+  `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`; it recorded all 1,491 tracked
+  paths, 1,323 source-like paths, and 1,008 WSF/AOG/Saddle/closure candidates.
+- Calculated the complete 37-package internal closure rooted in the 33 direct
+  WSF/AOG/fabric/orchestration packages, including `aog-tool-runtime` and the
+  four required `mai-*` support packages.
+- Recorded Git object IDs, modes, byte sizes, SHA-256 values, relevance
+  reasons, and exact `import`, `extract`, `historical-evidence`, or
+  `exclude-with-reason` disposition for every candidate path.
+- Explicitly dispositioned all 51 `mai-scheduler` paths: 13 topology/power
+  extraction candidates for `SAD-43` and 38 inference/KV/batching paths that
+  remain in AOG's workload domain.
+- Followed CI/workflow path references into deployment, configuration, scripts,
+  tests, and relevant support tools rather than relying on text search alone.
+- Added explicit source-path handling for four `.env.example` placeholders and
+  six deliberately unsafe deployment fixtures. The placeholders remain blocked
+  on `SAD-03`; unsafe fixtures are excluded and must use ephemeral values if
+  recreated for negative testing.
+
+### Gate
+
+- Cargo metadata closure — PASS, 37 packages;
+- full tracked-object inventory — PASS, 1,491 paths;
+- per-file SHA-256 and disposition ledger — PASS;
+- candidate path dispositions — PASS, 1,008 candidates and zero
+  undispositioned paths;
+- submodule and symlink inventory — PASS, zero of each;
+- deterministic regeneration comparison — PASS, byte-for-byte equal; and
+- no seed product source materialized in the target — PASS;
+- local Markdown links and final staged whitespace check — PASS;
+- Gitleaks plus explicit private-key/token/credential-URL scans — PASS, zero
+  findings; and
+- staged target no-slop gate — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-02/source-manifest.json`;
+- SHA-256:
+  `a2598787f8e69791d4a49b52cae7047c4a91683e15c9d4ec3703ea4767d27d6f`; and
+- generator SHA-256:
+  `b8d92466f8366506edf010515b0935b7db27fdbad24175f73b3595c4a91cfeb1`.
+
+### Next prompt
+
+`SAD-03 — Prove the no-secret import path`.

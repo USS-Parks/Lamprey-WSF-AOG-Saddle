@@ -16,7 +16,10 @@ The baseline contains a serious, reusable distributed control-plane foundation. 
 
 At the target scope, **0 of 20 Saddle conformance bars are complete**. This is not a finding that the baseline has no value. It means that existing evidence was produced for a different repository identity, narrower resource model, smaller conformance profile, incomplete authorization bridge, and simpler scheduling lifecycle. Evidence may be reused, but it must be reproduced after the source import and Saddle rename and must satisfy the stronger acceptance bars.
 
-No source has been imported into the target repository as of this assessment. The target remains a planning-only repository with uncommitted governance documents.
+No seed product source has been imported into the target repository as of the
+SAD-02 assessment. The target now contains committed governance, a pinned
+source decision, and a deterministic tracked-path/hash ledger; it remains a
+planning-and-evidence repository until the SAD-03 no-secret import gate passes.
 
 ## 2. Status Vocabulary
 
@@ -113,8 +116,8 @@ The acceptance bar is the target Saddle contract, not merely the presence of a r
 
 ## 7. Critical Path
 
-1. **Reconcile the seed truth.** Transplant verified T5 onto the current published baseline, preserve both DEVLOG histories, and complete or explicitly transfer T6 plus every remaining hardening prompt. Approve one resulting published Git object as the import source.
-2. **Perform the safe tracked-source import.** Reproduce the source manifest counts, run both secret scanners, and prove no submodule, ignored file, local working-tree file, or credential entered the target.
+1. **Reconcile the seed truth.** Complete: `SAD-01` selected published signed seed `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`, and maps every open source hardening prompt into Saddle.
+2. **Perform the safe tracked-source import.** `SAD-02` generated the 1,491-path source/hash/disposition ledger. `SAD-03` must run two independent secret scanners and prove no submodule, ignored file, local working-tree file, or credential enters the target.
 3. **Complete the Saddle rename.** Apply the 12-package map and all protocol, environment, deployment, API-group, finalizer, label, SPIFFE, and documentation identity changes. Leave Loom only in explicit historical migration notes.
 4. **Create the authority bridge.** Add `saddle-bridge`, typed grants, controller workload identities, durable grant/audit linkage, and remove production system bypasses.
 5. **Expand the resource and scheduler model.** Add the six scheduling resources and implement the complete queue-to-post-bind lifecycle, DRF, quota, topology, disruption-aware preemption, gangs, reservations, and atomic bind.

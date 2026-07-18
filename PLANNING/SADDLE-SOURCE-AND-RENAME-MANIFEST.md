@@ -2,8 +2,10 @@
 
 **Purpose:** Make the independent source import and the Loom-to-Saddle replacement mechanically executable.
 **Authority:** Supporting specification for `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
-**Status:** SAD-01 approved immutable seed pin; SAD-02 must regenerate all
-counts, hashes, and dispositions at that pin before import.
+**Status:** **SAD-02 PASS — generated from the approved immutable seed pin.**
+The machine-readable path, disposition, and SHA-256 ledger is
+`test-evidence/saddle/SAD-02/source-manifest.json`; `SAD-03` owns the
+no-secret staged-import proof before any source enters the target.
 
 ## 1. Current repository evidence
 
@@ -23,22 +25,50 @@ Observed on 2026-07-16:
 `fedf005a30ad388ab156dc8bd693a3aa3f0702ea` as the sole import source. It is a
 signed Git commit whose parent source implementation checkpoint is
 `5e541e5324269a051d3304e94ae868080d876a25`, which closes the T6 production
-tool-governance gate. The counts in this section remain historical inventory
-evidence only. `SAD-02` must regenerate every count, dependency closure, path
-disposition, and content hash from the approved object; no local filesystem
-state may supplement it. See `SADDLE-SEED-CHECKPOINT-2026-07-17.md` for the
-open-finding carry-forward register.
+tool-governance gate. The counts in the 2026-07-16 baseline remain historical
+inventory evidence only. `SAD-02` regenerated every count, dependency closure,
+path disposition, and content hash from the approved object; no local
+filesystem state supplemented it. See `SADDLE-SEED-CHECKPOINT-2026-07-17.md`
+for the open-finding carry-forward register.
 
-## 2. Baseline package closure
+### 1.2 SAD-02 generated ledger
 
-At `df119fb…`, Cargo metadata reports:
+The generator ran against clean seed checkout
+`fedf005a30ad388ab156dc8bd693a3aa3f0702ea`, verified that its `HEAD` exactly
+matches the requested object, and read tracked blobs only through Git. The
+result contains every one of the 1,491 tracked paths, not a filesystem walk.
 
-- 47 workspace packages total;
-- 32 product packages under `crates/`;
-- four additional internal packages in the complete dependency closure; and
-- 36 packages in the independent import closure.
+| Evidence | Value |
+|---|---|
+| Generator | `tools/generate_saddle_source_manifest.py` |
+| Generator SHA-256 | `b8d92466f8366506edf010515b0935b7db27fdbad24175f73b3595c4a91cfeb1` |
+| Evidence ledger | `test-evidence/saddle/SAD-02/source-manifest.json` |
+| Evidence SHA-256 | `a2598787f8e69791d4a49b52cae7047c4a91683e15c9d4ec3703ea4767d27d6f` |
+| Tracked paths | 1,491 |
+| Source-like paths | 1,323 |
+| Candidate paths | 1,008 |
+| Cargo closure packages | 37 |
+| Undispositioned matching paths | 0 |
+| Submodules / symlinks | 0 / 0 |
 
-The 32 product packages contain 282 tracked files. The four support packages contain 103 tracked files. The minimum native package import therefore covers 385 tracked files before root manifests, contracts, console, deployment, CI, integrity tooling, docs, and evidence.
+Every ledger entry records Git object ID, mode, byte count, SHA-256,
+source-like status, relevance reasons, disposition, and disposition reason.
+The ledger is deterministic: regeneration from the same clean checkout and
+seed object must compare byte-for-byte equal.
+
+## 2. Approved package closure
+
+At `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`, Cargo metadata reports:
+
+- 33 direct WSF/AOG/fabric/orchestration root packages;
+- 37 packages in the complete internal dependency closure; and
+- four additional internal closure packages: `mai-agent`, `mai-compliance`,
+  `mai-core`, and `mai-router`.
+
+The 33 roots contain 285 tracked files and the four internal closure packages
+contain 103 tracked files. The minimum native package import therefore covers
+388 tracked files before root manifests, contracts, console, deployment, CI,
+integrity tooling, docs, and evidence.
 
 ### 2.1 Saddle orchestration packages — import complete, then rename
 
@@ -66,6 +96,7 @@ These are identity migrations, not rewrites. Characterization tests must pass be
 | `aog-gateway` / `crates/aog-gateway` | 29 | Retain; model/data-path governance |
 | `aog-toolproxy` / `crates/aog-toolproxy` | 7 | Retain; governed tool execution |
 | `aog-approvals` / `crates/aog-approvals` | 2 | Retain; human approval decisions |
+| `aog-tool-runtime` / `crates/aog-tool-runtime` | 3 | Retain; live production tool-governance composition |
 
 AOG remains the agentic-governance plane. Only the scheduler/orchestrator formerly branded Loom moves to Saddle identity.
 
@@ -98,15 +129,30 @@ The first import preserves these packages byte-for-byte at the seed pin. Later e
 
 ### 2.5 Scheduler reuse candidate outside the dependency closure
 
-`mai-scheduler` is not a Cargo dependency of the product closure. It contains 46 Rust files and approximately 15,467 Rust lines focused on inference-request routing, GPU topology, batching, KV-cache locality, and power-aware placement. The existing orchestration scheduler contains nine Rust files and approximately 2,105 Rust lines focused on estate placement and fail-closed attestation.
+`mai-scheduler` is not a Cargo dependency of the product closure. At the pin it
+contains 51 tracked paths focused on inference-request routing, GPU topology,
+batching, KV-cache locality, and power-aware placement. The existing
+orchestration scheduler contains nine Rust files and approximately 2,105 Rust
+lines focused on estate placement and fail-closed attestation.
 
-Do not import `mai-scheduler` blindly and do not discard it without review. `SAD-02` must disposition its modules:
+Do not import `mai-scheduler` blindly and do not discard it without review.
+`SAD-02` dispositioned its modules as follows:
 
 - extract GPU topology, extended-resource, locality, and power-scoring techniques when they strengthen Saddle workload placement;
 - keep inference batching, KV-cache, and request-level routing in the AOG runtime domain unless a declared Saddle plugin needs them; and
 - reject absence-as-optimism or any signal that cannot be traced to a current node/resource observation.
 
-This is reuse analysis, not permission to weaken the full professional scheduler target.
+The generated ledger explicitly marks 13 `mai-scheduler` paths `extract`:
+
+- `src/topology/{analysis,collector,graph,mod,refresh}.rs`;
+- `src/scoring/topology_score.rs`, `src/power.rs`, and `src/types.rs`;
+- four GPU-topology fixtures; and
+- `tests/topology_integration.rs`.
+
+The other 38 `mai-scheduler` paths are `exclude-with-reason`: their
+inference-request routing, batching, KV-cache, or model-serving behavior stays
+in the AOG workload domain. This is reuse analysis, not permission to weaken
+the full professional scheduler target.
 
 ## 3. Required non-package import surface
 
@@ -117,33 +163,39 @@ This is reuse analysis, not permission to weaken the full professional scheduler
 - all four contract specifications in `contracts/`;
 - the complete 39-file `console/` tree;
 - `.githooks/`, `.integrity/`, and applicable `.github/` policy/workflows, rewritten for the target repository and renamed packages;
-- product deployment roots: `appliance`, `live-integration`, `loom-harness` (renamed), `openbao-staging` tracked templates, `policy-packs`, `shadow`, `supply-chain`, and `wsf-ha`;
+- tracked deployment, configuration, script, test, and CI support surfaces;
+  `deployment/loom-harness` is imported for later rename to
+  `deployment/saddle-harness`;
+- the WSF/AOG-related simulator, trace, smoke, burn-in, packaging, GPU-release,
+  and ship-validation tool surfaces; and
 - WSF/AOG/Saddle architecture, operations, runbooks, security findings, session DEVLOGs, and claim evidence selected by the coverage ledger; and
 - license, notice, provenance, and release-policy material needed to redistribute every imported file.
 
-### 3.2 Coverage baseline outside packages
+### 3.2 Generated full path disposition
 
-The planning scan found 116 tracked source-like files outside the package closure that directly mention WSF, AOG, Loom, Saddle, or `fabric-*`:
+The generated ledger applies both content/path relevance scanning and explicit
+build/CI/deployment closure rules. It records the complete path lists and
+per-file SHA-256 values in JSON rather than presenting a lossy hand-maintained
+subset here.
 
-| Area | Matching files |
-|---|---:|
-| Root | 4 |
-| `.cargo` | 1 |
-| `.github` | 3 |
-| `.integrity` | 3 |
-| `console` | 21 |
-| `contracts` | 4 |
-| `deployment` | 24 |
-| `docs` | 29 |
-| `mai-vault` | 1 |
-| `test-evidence` | 25 |
-| `tools` | 1 |
+| Disposition | Paths | Meaning |
+|---|---:|---|
+| `import` | 636 | Native closure or required independent build, deployment, CI, tool, policy, and placeholder surface; still subject to SAD-03. |
+| `extract` | 13 | `mai-scheduler` topology/power primitives preserved for Saddle SAD-43. |
+| `historical-evidence` | 256 | Relevant history and evidence preserved without turning seed claims into Saddle completion claims. |
+| `exclude-with-reason` | 103 | Unrelated MAI surfaces, unsafe negative fixtures, or source that remains deliberately in AOG/runtime scope. |
+| `out-of-scope-no-match` | 483 | Tracked paths with no relevant content/path match and no closure/build dependency. |
 
-This search is only a lower bound. `SAD-02` must also follow build references, links, workflow inputs, Docker copy paths, schema imports, and claim-to-evidence links. Every match receives `import`, `extract`, `historical-evidence`, or `exclude-with-reason`; zero entries may remain undispositioned.
+The six tracked `deployment/appliance/fixtures/unsafe-*` files are explicitly
+excluded. They are negative-test profiles and may be recreated only with
+ephemeral values under SAD-03. The four tracked `.env.example` files are
+explicitly marked `import` only as placeholders; a single secret finding blocks
+their inclusion.
 
 ### 3.3 Explicit initial exclusions
 
-The following seed areas are outside the verified package dependency closure and are not copied merely because they share the monorepo:
+The following seed areas remain outside the verified package dependency closure
+unless a specific ledger row says otherwise:
 
 - `mai-adapters`, `mai-api`, `mai-hil`, `mai-vault`, `mai-sdk-rs`, and `mai-sdk-python`;
 - legacy app, adapter, dashboard, packaging, simulator, and test surfaces unrelated to the imported stack; and
@@ -165,6 +217,24 @@ The import source is a Git object at the approved seed SHA—not a local filesys
 8. scan the staged target tree again before any commit.
 
 If a real credential appears, the import stops. Suppression alone is not closure: the credential must be assessed for rotation and history remediation under explicit authority.
+
+### 4.1 Deterministic regeneration
+
+Run the generator from a clean checkout whose `HEAD` is exactly the approved
+seed SHA. The second command must report PASS before a manifest is accepted.
+
+```text
+python tools/generate_saddle_source_manifest.py \
+  --seed-repo <clean-mighty-eel-os-checkout> \
+  --seed-sha fedf005a30ad388ab156dc8bd693a3aa3f0702ea \
+  --output test-evidence/saddle/SAD-02/source-manifest.json
+
+python tools/generate_saddle_source_manifest.py \
+  --seed-repo <clean-mighty-eel-os-checkout> \
+  --seed-sha fedf005a30ad388ab156dc8bd693a3aa3f0702ea \
+  --output test-evidence/saddle/SAD-02/source-manifest.json \
+  --verify
+```
 
 ## 5. Loom-to-Saddle active identity map
 
