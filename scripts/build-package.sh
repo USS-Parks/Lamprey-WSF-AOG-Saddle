@@ -1,24 +1,5 @@
 #!/usr/bin/env bash
-# scripts/build-package.sh - Assemble the MAI install staging tree and
-# (optionally) drive dpkg-buildpackage to produce a .deb.
-#
-# This script is the single source of truth for the production install
-# layout. It runs from a clean repo checkout and produces a tree under
-# build/package-staging/ that mirrors what ends up on the target host.
-# The Debian rules file (packaging/debian/rules) consumes this tree.
-#
-# Usage:
-#   scripts/build-package.sh                      # stage only, no .deb
-#   scripts/build-package.sh --deb                # also run dpkg-buildpackage
-#   scripts/build-package.sh --validate-only      # skip cargo build, just stage docs/configs
-#   scripts/build-package.sh --staging <PATH>     # override staging dir
-#   scripts/build-package.sh --skip-dashboard     # don't bundle dashboard wheels
-#
-# Exit codes:
-#   0   staging tree built, validator passed
-#   1   build or staging failed
-#   2   validator failed (package not ship-ready)
-#   3   environment missing required tool
+# Build or validate the standalone Saddle package staging tree.
 
 set -euo pipefail
 
@@ -29,173 +10,87 @@ cd "${REPO_ROOT}"
 STAGING_DIR="${REPO_ROOT}/build/package-staging"
 BUILD_DEB=0
 VALIDATE_ONLY=0
-SKIP_DASHBOARD=0
-PKG_VERSION="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)"/\1/')"
-GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+PACKAGE_VERSION="$(awk '/^\[workspace.package\]/{in_package=1;next} /^\[/{in_package=0} in_package && /^version[[:space:]]*=/{gsub(/.*"|".*/, ""); print; exit}' Cargo.toml)"
+GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || printf unknown)"
 BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+BINARIES=(saddled saddle-noded saddlectl wsf-api wsf-seed aog-gateway)
 
-log() { printf "[build-package] %s\n" "$*" >&2; }
+log() { printf '[build-package] %s\n' "$*" >&2; }
 die() { log "ERROR: $*"; exit "${2:-1}"; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --deb)             BUILD_DEB=1; shift ;;
-        --validate-only)   VALIDATE_ONLY=1; shift ;;
-        --skip-dashboard)  SKIP_DASHBOARD=1; shift ;;
-        --staging)         STAGING_DIR="$2"; shift 2 ;;
+        --deb) BUILD_DEB=1; shift ;;
+        --validate-only) VALIDATE_ONLY=1; shift ;;
+        --staging)
+            [[ $# -ge 2 ]] || die "--staging requires a path"
+            STAGING_DIR="$2"
+            shift 2
+            ;;
         -h|--help)
-            sed -n '2,18p' "$0"
-            exit 0 ;;
+            sed -n '2,14p' "$0"
+            exit 0
+            ;;
         *) die "unknown argument: $1" ;;
     esac
 done
 
-require() {
-    command -v "$1" >/dev/null 2>&1 || die "missing required tool: $1" 3
-}
+command -v git >/dev/null 2>&1 || die "missing required tool: git" 3
+if [[ "${VALIDATE_ONLY}" -eq 0 ]]; then
+    command -v cargo >/dev/null 2>&1 || die "missing required tool: cargo" 3
+fi
 
-require git
-[[ "${VALIDATE_ONLY}" -eq 1 ]] || require cargo
-[[ "${SKIP_DASHBOARD}" -eq 1 ]] || require python3
-
-log "version=${PKG_VERSION} commit=${GIT_COMMIT} staging=${STAGING_DIR}"
-
-# ---------------------------------------------------------------------------
-# 1. Clean staging tree.
-# ---------------------------------------------------------------------------
 rm -rf "${STAGING_DIR}"
 mkdir -p \
     "${STAGING_DIR}/usr/bin" \
-    "${STAGING_DIR}/usr/lib/mai/adapters" \
-    "${STAGING_DIR}/usr/lib/mai/compliance-dashboard" \
-    "${STAGING_DIR}/usr/lib/mai/scripts" \
-    "${STAGING_DIR}/usr/share/doc/mai" \
-    "${STAGING_DIR}/lib/systemd/system" \
-    "${STAGING_DIR}/etc/mai/policies" \
-    "${STAGING_DIR}/etc/mai/trust-anchors" \
-    "${STAGING_DIR}/DEBIAN"
+    "${STAGING_DIR}/usr/share/doc/saddle" \
+    "${STAGING_DIR}/etc/saddle/config"
 
-# ---------------------------------------------------------------------------
-# 2. Rust binaries (mai-api today; mai-admin will land at SHIP-09).
-# ---------------------------------------------------------------------------
 if [[ "${VALIDATE_ONLY}" -eq 0 ]]; then
     log "building release binaries"
-    cargo build --release --workspace --locked
-    # BRAND-01 renamed the cargo bin (mai-api -> lamprey-mai-api);
-    # we still INSTALL at /usr/bin/mai-api so systemd units,
-    # packaging tests, and the mai-ship-validate.sh wrapper keep
-    # working unchanged.
-    install -m 0755 target/release/lamprey-mai-api "${STAGING_DIR}/usr/bin/mai-api"
+    cargo build --release --locked \
+        -p saddled \
+        -p saddle-noded \
+        -p saddlectl \
+        -p wsf-api --bins \
+        -p aog-gateway
 fi
 
-install -m 0755 packaging/scripts/mai-ship-validate.sh \
-    "${STAGING_DIR}/usr/bin/mai-ship-validate"
-install -m 0755 packaging/scripts/mai-healthcheck.sh \
-    "${STAGING_DIR}/usr/lib/mai/scripts/mai-healthcheck.sh"
-
-# ---------------------------------------------------------------------------
-# 3. Compliance dashboard (Python).
-# ---------------------------------------------------------------------------
-if [[ "${SKIP_DASHBOARD}" -eq 0 ]]; then
-    log "staging compliance dashboard"
-    rsync -a --delete \
-        --exclude '__pycache__' --exclude '.venv' --exclude 'tests' \
-        compliance-dashboard/ \
-        "${STAGING_DIR}/usr/lib/mai/compliance-dashboard/"
-
-    if [[ -f compliance-dashboard/requirements.txt ]]; then
-        log "vendoring dashboard wheels"
-        python3 -m pip download --quiet --disable-pip-version-check \
-            -r compliance-dashboard/requirements.txt \
-            -d "${STAGING_DIR}/usr/lib/mai/compliance-dashboard/wheels"
-    fi
-fi
-
-# ---------------------------------------------------------------------------
-# 4. systemd units.
-# ---------------------------------------------------------------------------
-install -m 0644 packaging/systemd/mai-api.service \
-    "${STAGING_DIR}/lib/systemd/system/mai-api.service"
-install -m 0644 packaging/systemd/mai-dashboard.service \
-    "${STAGING_DIR}/lib/systemd/system/mai-dashboard.service"
-install -m 0644 packaging/systemd/mai-adapter-manager.service \
-    "${STAGING_DIR}/lib/systemd/system/mai-adapter-manager.service"
-install -m 0644 packaging/systemd/mai-healthcheck.service \
-    "${STAGING_DIR}/lib/systemd/system/mai-healthcheck.service"
-install -m 0644 packaging/systemd/mai-healthcheck.timer \
-    "${STAGING_DIR}/lib/systemd/system/mai-healthcheck.timer"
-
-# ---------------------------------------------------------------------------
-# 5. Config templates.
-# ---------------------------------------------------------------------------
-install -m 0640 config/production.example.toml \
-    "${STAGING_DIR}/etc/mai/profile.toml"
-install -m 0640 config/auth_keys.toml \
-    "${STAGING_DIR}/etc/mai/auth_keys.toml"
-cat > "${STAGING_DIR}/etc/mai/dashboard-logging.json" <<'EOF'
-{
-  "version": 1,
-  "disable_existing_loggers": false,
-  "formatters": {
-    "json": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}
-  },
-  "handlers": {
-    "stdout": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout", "formatter": "json"}
-  },
-  "root": {"level": "INFO", "handlers": ["stdout"]}
-}
-EOF
-
-# ---------------------------------------------------------------------------
-# 6. Docs + package metadata.
-# ---------------------------------------------------------------------------
-for doc in README.md docs/SHIP-PROFILE.md docs/SHIP-HARDENING-PLAN.md packaging/README.md; do
-    if [[ -f "${doc}" ]]; then
-        install -m 0644 "${doc}" \
-            "${STAGING_DIR}/usr/share/doc/mai/$(basename "${doc}")"
+for binary in "${BINARIES[@]}"; do
+    destination="${STAGING_DIR}/usr/bin/${binary}"
+    if [[ "${VALIDATE_ONLY}" -eq 1 ]]; then
+        install -m 0755 /dev/null "${destination}"
+    else
+        install -m 0755 "target/release/${binary}" "${destination}"
     fi
 done
 
-cat > "${STAGING_DIR}/usr/share/doc/mai/PACKAGE_BUILD_INFO" <<EOF
-name=mai
-version=${PKG_VERSION}
+cp -R config/. "${STAGING_DIR}/etc/saddle/config/"
+install -m 0644 deployment/saddle-harness/k3s/saddle.yaml \
+    "${STAGING_DIR}/etc/saddle/saddle.yaml"
+
+for document in \
+    README.md \
+    PLANNING/SADDLE-ARCHITECTURE-AND-CONFORMANCE-CONTRACT.md \
+    packaging/README.md; do
+    install -m 0644 "${document}" \
+        "${STAGING_DIR}/usr/share/doc/saddle/$(basename "${document}")"
+done
+
+cat > "${STAGING_DIR}/usr/share/doc/saddle/PACKAGE_BUILD_INFO" <<EOF
+name=saddle
+version=${PACKAGE_VERSION}
 git_commit=${GIT_COMMIT}
 build_time=${BUILD_TIME}
-profile=ship
-host=$(hostname)
+validation_only=$([[ "${VALIDATE_ONLY}" -eq 1 ]] && printf true || printf false)
 EOF
 
-# ---------------------------------------------------------------------------
-# 7. Maintainer scripts (copied for both Debian and tarball use).
-# ---------------------------------------------------------------------------
-install -m 0755 packaging/scripts/preinstall.sh  "${STAGING_DIR}/DEBIAN/preinst"
-install -m 0755 packaging/scripts/postinstall.sh "${STAGING_DIR}/DEBIAN/postinst"
-install -m 0755 packaging/scripts/preremove.sh   "${STAGING_DIR}/DEBIAN/prerm"
-install -m 0755 packaging/scripts/postremove.sh  "${STAGING_DIR}/DEBIAN/postrm"
-
-# ---------------------------------------------------------------------------
-# 8. Validate the staged profile parses against the production guard.
-#    `mai-api validate` is the SHIP-07 readiness gate; until a separate
-#    `mai-ship-validate --offline --package-root` mode lands we run the
-#    profile check directly here.
-# ---------------------------------------------------------------------------
-if [[ "${VALIDATE_ONLY}" -eq 0 ]]; then
-    log "validating staged profile"
-    if ! "${STAGING_DIR}/usr/bin/mai-api" validate \
-            --profile "${STAGING_DIR}/etc/mai/profile.toml"; then
-        die "production guard rejected staged profile" 2
-    fi
-fi
-
-# ---------------------------------------------------------------------------
-# 9. Optionally drive dpkg-buildpackage.
-# ---------------------------------------------------------------------------
 if [[ "${BUILD_DEB}" -eq 1 ]]; then
-    require dpkg-buildpackage
-    log "running dpkg-buildpackage -us -uc -b"
-    cp -r packaging/debian debian
+    [[ "${VALIDATE_ONLY}" -eq 0 ]] || die "--deb cannot be combined with --validate-only"
+    command -v dpkg-buildpackage >/dev/null 2>&1 || die "missing required tool: dpkg-buildpackage" 3
+    rm -rf "${REPO_ROOT}/debian"
+    cp -R packaging/debian "${REPO_ROOT}/debian"
     STAGING_DIR="${STAGING_DIR}" dpkg-buildpackage -us -uc -b
 fi
 
 log "staging tree ready at ${STAGING_DIR}"
-log "done"

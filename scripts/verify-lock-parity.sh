@@ -1,82 +1,47 @@
 #!/usr/bin/env bash
-# SCAN-1 (Configuration tighten): lock-file parity verifier.
-#
-# Asserts that:
-#   1. Every direct Rust dependency declared in Cargo.toml has a
-#      pinned entry in Cargo.lock.
-#   2. Every Python requirement in requirements.txt has a matching
-#      pinned entry in requirements-lock.txt with at least one
-#      --hash= line.
-#
-# Exit codes:
-#   0 — parity intact
-#   1 — drift detected (one or more deps missing from a lock)
-#   2 — usage / file-not-found error
-#
-# Designed to run from the repo root.
+# Verify that the committed lock files describe the repository's active graphs.
 
 set -euo pipefail
 
 ROOT="${1:-.}"
-cd "$ROOT"
+cd "${ROOT}"
 
-FAIL=0
-
-# ─── Rust parity ──────────────────────────────────────────────────
-if [[ ! -f Cargo.toml ]]; then
-    echo "error: Cargo.toml not found in $ROOT" >&2
-    exit 2
-fi
-if [[ ! -f Cargo.lock ]]; then
-    echo "error: Cargo.lock not found in $ROOT" >&2
-    exit 2
-fi
-
-# Crates declared as direct workspace members or dependencies.
-# Pull from the [workspace.dependencies] table (most reliable surface
-# in this repo) and verify each appears in Cargo.lock.
-RUST_DEPS=$(awk '
-    /^\[workspace\.dependencies\]/ { in_block = 1; next }
-    /^\[/ { in_block = 0 }
-    in_block && /^[a-zA-Z0-9_-]+\s*=/ {
-        gsub(/[[:space:]]*=.*/, "")
-        print
-    }
-' Cargo.toml | sort -u)
-
-for dep in $RUST_DEPS; do
-    if ! grep -q "^name = \"$dep\"" Cargo.lock; then
-        echo "MISS-RUST: $dep declared in Cargo.toml but not in Cargo.lock"
-        FAIL=1
+for required in Cargo.toml Cargo.lock; do
+    if [[ ! -f "${required}" ]]; then
+        echo "error: ${required} not found in ${ROOT}" >&2
+        exit 2
     fi
 done
 
-# ─── Python parity ────────────────────────────────────────────────
-if [[ -f requirements.txt && -f requirements-lock.txt ]]; then
-    PY_DEPS=$(awk '
-        /^[a-zA-Z0-9_.-]+/ {
-            split($1, a, /[<>=!~]/)
-            print a[1]
-        }
-    ' requirements.txt | sort -u)
+command -v cargo >/dev/null 2>&1 || {
+    echo "error: cargo is required" >&2
+    exit 2
+}
 
-    for dep in $PY_DEPS; do
-        # Names normalize: pip lowercases + replaces _ with -.
-        norm=$(echo "$dep" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-        if ! grep -qi "^${norm}==" requirements-lock.txt; then
-            echo "MISS-PY: $dep declared in requirements.txt but not in requirements-lock.txt"
-            FAIL=1
-        else
-            # Every pinned line must have --hash= for supply-chain integrity.
-            if ! grep -A1 -i "^${norm}==" requirements-lock.txt | grep -q -- '--hash='; then
-                echo "MISS-HASH: $dep is pinned in requirements-lock.txt but has no --hash= line"
-                FAIL=1
-            fi
+# Cargo.lock describes the resolved active graph, not every optional entry in
+# [workspace.dependencies]. Cargo's locked metadata command is authoritative
+# and refuses to rewrite a stale lock file.
+cargo metadata --locked --format-version 1 --no-deps >/dev/null
+
+if [[ -f requirements.txt || -f requirements-lock.txt ]]; then
+    if [[ ! -f requirements.txt || ! -f requirements-lock.txt ]]; then
+        echo "error: requirements.txt and requirements-lock.txt must be committed together" >&2
+        exit 1
+    fi
+
+    while IFS= read -r dependency; do
+        normalized="$(printf '%s' "${dependency}" | tr '[:upper:]_' '[:lower:]-')"
+        if ! grep -qi "^${normalized}==" requirements-lock.txt; then
+            echo "MISS-PY: ${dependency} is not pinned in requirements-lock.txt" >&2
+            exit 1
         fi
-    done
+        if ! grep -A1 -i "^${normalized}==" requirements-lock.txt | grep -q -- '--hash='; then
+            echo "MISS-HASH: ${dependency} has no locked hash" >&2
+            exit 1
+        fi
+    done < <(
+        sed -E '/^[[:space:]]*(#|$)/d; s/[<>=!~].*$//; s/[[:space:]]+$//' requirements.txt | sort -u
+    )
 fi
 
-if [[ $FAIL -eq 0 ]]; then
-    echo "OK: lock-file parity verified"
-fi
-exit $FAIL
+echo "OK: active dependency graphs match committed lock files"

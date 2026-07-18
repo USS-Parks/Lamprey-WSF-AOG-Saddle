@@ -1,0 +1,4 @@
+# Debian package repositories do not provide immutable version URLs. The base
+# image is digest-pinned; package indexes are refreshed in the same layer.
+ignored:
+  - DL3008

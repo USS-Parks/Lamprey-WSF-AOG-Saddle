@@ -359,7 +359,7 @@
   "explicit_surface_counts": {
     "cargo_manifests": 39,
     "console_ui_files": 39,
-    "deployment_artifact_files": 46,
+    "deployment_artifact_files": 44,
     "generated_schemas": [
       {
         "path": "crates/wsf-api/src/openapi.json",
@@ -370,8 +370,8 @@
         "retired_name_occurrences": 0
       }
     ],
-    "packaging_artifact_files": 20,
-    "script_files": 18
+    "packaging_artifact_files": 9,
+    "script_files": 15
   },
   "generated_console_artifact": {
     "binary_files": 0,
@@ -386,8 +386,8 @@
   },
   "schema_version": 1,
   "status": "PASS",
-  "text_files_scanned": 965,
+  "text_files_scanned": 933,
   "total_retired_name_occurrences": 309,
-  "tracked_files_scanned": 971,
+  "tracked_files_scanned": 939,
   "unexplained_matches": []
 }

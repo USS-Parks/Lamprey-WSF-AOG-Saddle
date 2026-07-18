@@ -55,10 +55,8 @@ repository = "https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle"
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# HTTP/gRPC
+# HTTP
 axum = { version = "0.8" }
-tonic = "0.12"
-prost = "0.13"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -71,18 +69,12 @@ thiserror = "2"
 # Async trait (dyn-compatible async methods)
 async-trait = "0.1"
 
-# Request validation (API layer)
-validator = { version = "0.20", features = ["derive"] }
 
-# FFI bridge (Rust ↔ Python, adapter framework)
-pyo3 = { version = "0.24", features = ["auto-initialize"] }
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
-# GPU access (feature-gated at crate level, not here)
-nvml-wrapper = "0.10"
 
 # IDs
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -93,8 +85,6 @@ chrono = "0.4"
 # Hashing (cache keys)
 blake3 = "1.5"
 
-# Concurrent maps
-dashmap = "6"
 
 # Testing
 mockall = "0.13"

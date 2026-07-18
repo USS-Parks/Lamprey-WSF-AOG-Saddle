@@ -1,32 +1,4 @@
-name: SHIP Validation
-
-# SHIP-12 CI enforcement workflow.
-#
-# Gates added by this workflow (each must remain green for main to ship):
-#   - forbidden-term-scan: refuse any new use of StubVault, MemoryAuditWriter,
-#     AcceptAllBundleVerifier, NullSealer, dashboard-dev, allow_demo_defaults
-#     outside the explicit allowlist in config/forbidden-terms.toml.
-#   - ship-validator: build mai-ship-validate and assert exit-code semantics
-#     against deployment/ship/profile.toml, config/production.example.toml,
-#     and the documented error paths (config unreadable, state dir missing).
-#   - mai-admin-backup: build mai-admin and round-trip a real backup create
-#     + verify against a synthetic state-dir fixture.
-#   - package-build-validate: run scripts/build-package.sh --validate-only
-#     so the systemd / debian / install layout stays consistent with the
-#     SHIP-08 plan.
-#   - compose-trust-validation: run deployment/appliance/validate_profile.py
-#     against the shipped compositions (wsf-ha as production, appliance +
-#     shadow as demo) so a dev-token or host-published trust core cannot be
-#     reintroduced.
-#   - mypy-strict-sdk: enforce mypy --strict on mai-sdk-python/src/ with
-#     no continue-on-error. Adapter strict-cleanup is grandfathered via
-#     pyproject overrides (SHIP-16 closes them).
-#
-# Schedule:
-#   - On every push to main and every PR.
-#   - Nightly at 03:30 UTC for the long-running integration matrix
-#     (job: nightly-integration). The 72-hour burn-in is SHIP-14 and
-#     lives in a separate workflow.
+name: Saddle Validation
 
 on:
   push:
@@ -45,87 +17,20 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  forbidden-term-scan:
-    name: Forbidden Term Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Scan production crates for forbidden symbols
-        run: python3 scripts/ci_forbidden_terms.py
-
-  ship-validator:
-    name: Ship Profile Validator
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install protobuf compiler
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Build lamprey-mai-ship-validate
-        # BRAND-01 renamed the bin from `mai-ship-validate` to
-        # `lamprey-mai-ship-validate`; HF-1 follow-up syncs this CI
-        # workflow with the rename so the workspace ship-validator
-        # gate stays green on main.
-        run: cargo build -p mai-api --bin lamprey-mai-ship-validate --locked
-      - name: Validate deployment/ship/profile.toml (config-only, expect exit 0)
-        run: ./target/debug/lamprey-mai-ship-validate --profile deployment/ship/profile.toml
-      - name: Validate config/production.example.toml (config-only, expect exit 0)
-        run: ./target/debug/lamprey-mai-ship-validate --profile config/production.example.toml
-      - name: JSON output mode is well-formed
-        run: ./target/debug/lamprey-mai-ship-validate --profile deployment/ship/profile.toml --json | python3 -m json.tool > /dev/null
-      - name: Missing profile must exit 2
-        run: |
-          set +e
-          ./target/debug/lamprey-mai-ship-validate --profile /nonexistent/profile.toml
-          rc=$?
-          set -e
-          if [[ "$rc" -ne 2 ]]; then
-            echo "expected exit 2 for missing profile, got $rc" >&2
-            exit 1
-          fi
-      - name: Missing state dir must exit 3
-        run: |
-          set +e
-          ./target/debug/lamprey-mai-ship-validate \
-            --profile deployment/ship/profile.toml \
-            --state-dir /nonexistent/state
-          rc=$?
-          set -e
-          if [[ "$rc" -ne 3 ]]; then
-            echo "expected exit 3 for missing state dir, got $rc" >&2
-            exit 1
-          fi
-
-  mai-admin-backup:
-    name: mai-admin Backup Round-trip
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install protobuf compiler
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Run mai-admin integration tests
-        run: cargo test -p mai-admin --locked
-
   package-build-validate:
-    name: Package Layout Validation
+    name: Saddle Package Layout
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Stage package layout (no cargo build, no .deb)
-        run: scripts/build-package.sh --validate-only --skip-dashboard
-      - name: Run packaging static tests
-        run: pip install pytest && pytest tools/packaging_tests/ -v
-      - name: Run SHIP-12 static tests
-        run: pytest tools/ship12_tests/ -v
+      - name: Stage the package layout without compiling release binaries
+        run: ./scripts/build-package.sh --validate-only
+      - name: Run package contract tests
+        run: |
+          pip install pytest pytest-asyncio
+          pytest tools/packaging_tests -v
 
   compose-trust-validation:
     name: Compose Trust-Plane Validation
@@ -136,44 +41,40 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install validator dependencies
-        run: pip install pyyaml pytest
-      # The production topology must satisfy the production rules; the two
-      # demo artifacts must satisfy the demo rules (gated, injected secrets,
-      # loopback-only). deployment/saddle-harness is the multi-node TEST
-      # estate — never shipped, never claimed production; its posture is
-      # exercised by its own live gate, not this job.
+        run: pip install pyyaml pytest pytest-asyncio
       - name: Validate wsf-ha as production
         run: python deployment/appliance/validate_profile.py --profile production deployment/wsf-ha/docker-compose.yml
-      - name: Validate appliance demo as demo
+      - name: Validate appliance as demo
         run: python deployment/appliance/validate_profile.py --profile demo deployment/appliance/docker-compose.yml
-      - name: Validate shadow lead artifact as demo
+      - name: Validate shadow as demo
         run: python deployment/appliance/validate_profile.py --profile demo deployment/shadow/docker-compose.yml
       - name: Run validator regression tests
-        run: pytest deployment/appliance/tests/ -v
+        run: pytest deployment/appliance/tests -v
 
-  mypy-strict-sdk:
-    name: mypy --strict (SDK)
+  repository-boundary:
+    name: Saddle Repository Boundary
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify independent source boundary
+        run: python tools/verify_saddle_independence.py --root . --evidence-output test-evidence/saddle/SAD-12/independence-gate.json --verify
+      - name: Verify active identity boundary
+        run: python tools/verify_saddle_active_name_eradication.py --root . --evidence-output test-evidence/saddle/SAD-23/active-name-eradication-gate.json --verify
+      - name: Run workflow contract tests
         run: |
-          pip install ruff mypy pytest pytest-asyncio
-          pip install -e "mai-sdk-python[dev]"
-      - name: mypy --strict on SDK (hard gate)
-        run: mypy --strict mai-sdk-python/src/
-      - name: mypy on adapters (project config, hard gate)
-        run: mypy adapters/
+          pip install pytest pytest-asyncio pyyaml
+          pytest tools/ci_surface_tests -v
 
   nightly-integration:
     name: Nightly Integration Matrix
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    needs: [forbidden-term-scan, ship-validator, mai-admin-backup, package-build-validate, compose-trust-validation, mypy-strict-sdk]
+    needs: [package-build-validate, compose-trust-validation, repository-boundary]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -183,26 +84,9 @@ jobs:
           python-version: "3.12"
       - name: Install protobuf compiler
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Install Python deps
-        run: |
-          pip install ruff mypy pytest pytest-asyncio
-          pip install -e "mai-sdk-python[dev]"
+      - name: Install Python test dependencies
+        run: pip install pytest pytest-asyncio pyyaml
       - name: Full Rust workspace test
         run: cargo test --workspace --locked -- --nocapture
-      - name: SHIP-08 packaging tests
-        run: pytest tools/packaging_tests/ -v
-      - name: SHIP-12 gate tests
-        run: pytest tools/ship12_tests/ -v
-      - name: SHIP-13 release tests
-        run: pytest tools/gpu_release_tests/ -v
-      - name: SDK + adapter Python tests
-        run: pytest adapters/ mai-sdk-python/ -v --ignore=**/test_integration*
-      - name: Upload nightly artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-${{ github.run_number }}
-          path: |
-            target/debug/deps/*.json
-            results/
-          if-no-files-found: ignore
+      - name: Full active repository tooling test
+        run: pytest deployment/appliance/tests tools/packaging_tests tools/ci_surface_tests -v

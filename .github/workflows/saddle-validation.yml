@@ -1,4 +1,4 @@
-name: Lamprey MAI Validation
+name: Saddle Workspace Validation
 
 on:
   push:
@@ -15,18 +15,10 @@ on:
         options:
           - all
           - quality-gates
-          - router
-          - compliance
+          - core-policy
           - rust-workspace
-          - policy-stress
-          - audit-stress
-          - release-policy
-          - release-audit
-          - python-adapters
-          - python-ipc
-          - python-trace-sim
+          - integration
           - config-parse
-          - burn-in
 
 permissions:
   contents: read
@@ -38,44 +30,37 @@ env:
   VALIDATION_SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'all' }}
 
 jobs:
-  github-hosted:
-    name: GitHub-hosted validation
+  windows-validation:
+    name: Windows validation
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-
       - uses: Swatinem/rust-cache@v2
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install protobuf compiler
         run: choco install protoc --yes
-
-      - name: Install Python validation dependencies
-        run: python -m pip install --upgrade pip pytest pytest-asyncio
-
-      - name: Run Lamprey validation
+      - name: Add Git Unix tools to PATH
         shell: pwsh
-        run: scripts\lamprey-validation.ps1 -Suite "$env:VALIDATION_SUITE" -Output results\lamprey-validation
-
+        run: '"C:\Program Files\Git\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append'
+      - name: Run Saddle validation
+        shell: pwsh
+        run: scripts\saddle-validation.ps1 -Suite "$env:VALIDATION_SUITE" -Output results\saddle-validation
       - name: Publish summary
         if: always()
         shell: pwsh
         run: |
-          if (Test-Path results\lamprey-validation\summary.md) {
-            Get-Content results\lamprey-validation\summary.md | Add-Content $env:GITHUB_STEP_SUMMARY
+          if (Test-Path results\saddle-validation\summary.md) {
+            Get-Content results\saddle-validation\summary.md | Add-Content $env:GITHUB_STEP_SUMMARY
           }
-
       - name: Upload validation artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lamprey-validation-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
-          path: results/lamprey-validation/
+          name: saddle-validation-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
+          path: results/saddle-validation/
