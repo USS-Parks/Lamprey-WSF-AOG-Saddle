@@ -1099,8 +1099,8 @@ verified remote checkpoint `3da29ab4fffa6499584fce128a77c4451cf1fd84`.
 ## SAD-33 — AOG workload integration
 
 **Status:** PASS — implementation commit
-`57616b479b66ea582369d85cd9d2a74fe684b09f`; verification closeout and
-remote checkpoint pending publication of this ledger update.
+`57616b479b66ea582369d85cd9d2a74fe684b09f`; verification closeout and first
+verified remote checkpoint `7a13d765ab0e07db14e698327fa7067ce120e346`.
 
 ### Work completed
 
@@ -1182,7 +1182,10 @@ remote checkpoint pending publication of this ledger update.
 - refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
   SHA-256 `3e8ef5fdf517fb8e6a848bc3f55da774c8f72f1fdab94bd472022a031dd14aca`;
   and
-- implementation commit `57616b479b66ea582369d85cd9d2a74fe684b09f`.
+- implementation commit `57616b479b66ea582369d85cd9d2a74fe684b09f`;
+  and
+- verification closeout and first verified remote checkpoint
+  `7a13d765ab0e07db14e698327fa7067ce120e346`.
 
 ### Next prompt
 
