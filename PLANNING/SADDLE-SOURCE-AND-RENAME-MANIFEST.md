@@ -265,6 +265,24 @@ conditions are recreated in memory with ephemeral values, not imported as
 credential-shaped fixture files. The legacy package names remain pending the
 Phase 2 Saddle identity rename.
 
+## 4.2 SAD-15 M1 source reconciliation
+
+The fresh-checkout M1 comparison identified eleven source-ledger paths absent
+from the initial cut. `tests/benchmarks/results/.gitkeep` is restored as the
+verified empty source blob. The remaining ten are not portable independent
+source: eight are stale OpenBao staging anchors, key-hash/AppRole configuration,
+or legacy bootstrap/response automation, and two are historical logs carrying
+parent-local environment paths. They remain absent by explicit M1 policy, with
+their original SHA-256 values and reasons recorded in the M1 completeness
+proof. `deployment/openbao-staging/README.md` is a Saddle-owned boundary
+record, not an imported runtime configuration.
+
+The M1 verifier binds all 885 original selected paths: 870 byte-for-byte raw
+matches, five approved transformations, and ten explicit non-portable-source
+exclusions. It additionally binds the 20-path SAD-14 package closure. This is
+an additive reconciliation; the immutable SAD-02 manifest and its original
+dispositions remain preserved as historical provenance.
+
 ## 5. Loom-to-Saddle active identity map
 
 The baseline broad scan finds 120 tracked files with Loom identity patterns. That includes immutable history and active code. Active source/deployment/workflow residues are concentrated in the 12 orchestration packages, `wsf-hardening`, `deployment/loom-harness`, three workflow files, and active operator documents.
