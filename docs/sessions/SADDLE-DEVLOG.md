@@ -849,8 +849,8 @@ first verified remote checkpoint `4de1ec3671d630845fb0b4856130506509801023`.
 ## SAD-30 — Establish saddle-bridge and freeze cross-plane contracts
 
 **Status:** PASS — implementation commit
-`9d173b2242720eb21e5f3ea5206022c3c77d05e8`; first remote checkpoint pending
-publication of this verification closeout.
+`9d173b2242720eb21e5f3ea5206022c3c77d05e8`; verification closeout and first
+verified remote checkpoint `163beaeb0d842ff950ce9684ed2fb02d3af08ea5`.
 
 ### Work completed
 
@@ -923,8 +923,10 @@ publication of this verification closeout.
   `f9517d44e8f3b7768dd113be2e689eba5e718e8c62a6f54eca49ffc3d64fdb41`;
 - refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
   SHA-256 `67e36cf69f64e0abc7b7a5aefb9a6a61bc8b5f8823e7aad34c35d7f4cf92fa30`;
+- implementation commit `9d173b2242720eb21e5f3ea5206022c3c77d05e8`;
   and
-- implementation commit `9d173b2242720eb21e5f3ea5206022c3c77d05e8`.
+- verification closeout and first verified remote checkpoint
+  `163beaeb0d842ff950ce9684ed2fb02d3af08ea5`.
 
 ### Next prompt
 
