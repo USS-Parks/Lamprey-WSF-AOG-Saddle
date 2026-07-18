@@ -85,3 +85,5 @@ the corrected SAD-02 ledger, and the isolated 898-path staged-import simulation.
 | Reviewed synthetic fixtures | PASS | Exact path/rule/line/fingerprint exception files contain reasons; the sole path omission is separately validated detector-baseline metadata. |
 | Runtime material generator | PASS | Disposable CA/server/client material generated; `openssl verify` accepted both leaf certificates; private output removed after test. |
 | SAD-02 regeneration | PASS | Corrected manifest deterministically regenerated and verified at 1,491 tracked paths, 1,008 candidates, and 37 closure packages. |
+| Commit footer | PASS | `bbb19934c7b1866c44d8719c00fc575b09b43988` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `9ccc4ea5cbdae16274e2163b2cafc4992a474cc1` to `bbb19934c7b1866c44d8719c00fc575b09b43988`. |

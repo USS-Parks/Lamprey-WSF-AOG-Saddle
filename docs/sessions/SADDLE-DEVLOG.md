@@ -215,7 +215,7 @@ gate also passed in Git for Windows Bash, and remote `main` advanced from
 
 ## SAD-03 — Prove the no-secret import path
 
-**Status:** PASS — implementation checkpoint pending publication.
+**Status:** PASS — remote checkpoint `bbb19934c7b1866c44d8719c00fc575b09b43988`.
 
 ### Work completed
 
@@ -258,6 +258,15 @@ gate also passed in Git for Windows Bash, and remote `main` advanced from
   `a00a15cbe9ddd3de48e7ac97f55bda77a8613478f102cb9c5e102ebdd78a9f1c`;
 - `test-evidence/saddle/SAD-03/gitleaks-reviewed-exceptions.json`; and
 - `test-evidence/saddle/SAD-03/secondary-reviewed-exceptions.json`.
+
+### Commit state
+
+SAD-03 was committed as `bbb19934c7b1866c44d8719c00fc575b09b43988` with the
+exact canonical footer. The final manifest regeneration, staged import proof,
+repository-local Gitleaks scan, explicit staged private-key/token/credential
+scan, and full target no-slop hook all passed. Target `main` advanced from
+`9ccc4ea5cbdae16274e2163b2cafc4992a474cc1` to
+`bbb19934c7b1866c44d8719c00fc575b09b43988` on 2026-07-17.
 
 ### Next prompt
 
