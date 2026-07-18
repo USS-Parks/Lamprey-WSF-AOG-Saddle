@@ -1376,3 +1376,89 @@ the prior Node 20 deprecation annotation:
 ### Next prompt
 
 `SAD-35 - Live two-tenant bridge gate`.
+
+## SAD-35 — Live two-tenant bridge gate
+
+**Status:** PASS — implementation commit
+`ef8b27236e1e4f24b27fbad9b249703299291bfc`; every applicable implementation-
+checkpoint push workflow passed before this closeout was recorded.
+
+### Work completed
+
+- Added a signed, canonical, persisted `PlacementGrant`/`RuntimeGrant` handoff
+  with binding, expiry, lineage, and current-revocation verification across
+  redb close/reopen recovery.
+- Required the verified typed handoff plus the existing signed child capability
+  immediately before the actual Saddle process driver starts.
+- Added tenant/runtime-class action sessions that narrow to single-use
+  model/tool/control actions, share the runtime budget across destinations,
+  commit WSF-ledger proof before effect, and recheck revocation at execution.
+- Routed configured AOG gateway provider effects and toolproxy executor effects
+  through the action registry. Authority failure returns fail-closed service
+  errors; standalone compatibility constructors remain available for isolated
+  package use.
+- Added the live two-tenant test across OpenBao, six runtime sessions, redb
+  restart, the process driver, gateway provider, tool executor, signed
+  revocation, authority loss/recovery, shared budgets, and serialized off-host
+  WSF receipt verification.
+- Repaired an existing live metering-test race by giving concurrent tests
+  distinct OpenBao AppRoles. The full workspace suite exposed and verifies the
+  correction.
+- Added the SAD-35 deterministic verifier and included the live gate in Saddle
+  CI. The executable verifier is tracked with mode `100755`.
+- The focused anti-slop review removed an unused public-trait derive; the
+  remaining new types and adapters are exercised trust-boundary requirements.
+
+### Local gate
+
+- Node `v24.15.0` console `npm.cmd ci` and production build — PASS: exact lock,
+  198 packages, zero reported vulnerabilities.
+- `cargo fmt --all --check`, locked all-target workspace check, strict clippy,
+  full live `cargo test --workspace --locked`, and all doctests — PASS.
+- Canonical `scripts\saddle-validation.ps1 -Suite all` — PASS after the live
+  metering AppRole isolation repair.
+- `cargo audit`, `cargo deny check`, and locked workspace docs — PASS with only
+  the repository's existing nonfatal duplicate/unmatched-allowance and rustdoc
+  warnings.
+- Python repository suite — PASS, 36 tests; official OpenAI and Anthropic SDK
+  compatibility tests — PASS.
+- SAD-12 independence, SAD-23 active names, SAD-35 deterministic evidence,
+  lock parity, route policy, profile validation, executable modes, workflow
+  contracts, Gitleaks, integrity verification, no-slop, and manual pre-push
+  checks — PASS. Route policy retained only its declared stale-route warnings.
+
+### Remote gate
+
+On implementation checkpoint `ef8b27236e1e4f24b27fbad9b249703299291bfc`:
+
+- `commit-msg-check` run `29664654505` — PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29664654505
+- `Saddle Validation` run `29664654490` — PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29664654490
+- `Saddle CI` run `29664654509` — PASS, including the live SAD-35 trust gate:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29664654509
+- `Saddle Workspace Validation` run `29664654488` — PASS in 31m36s:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29664654488
+
+### Evidence
+
+- `test-evidence/saddle/SAD-35/two-tenant-bridge-gate.json`, SHA-256
+  `667c32f8152e05d5ce7053ccc17378abdaeb17fa50a899f3410dd29d1f502125`;
+- `tools/verify_two_tenant_bridge.py`, SHA-256
+  `c08d3c1e86fdcf2871a2ef564260cbcf33384a009560567091af3e8ebf1f7fc0`;
+- `crates/saddle-controller/tests/sad35_two_tenant_bridge.rs`, SHA-256
+  `49dd520975e05d5809c74ce4b1371cd0cb06a69c695a83a0055d40230fd77de5`;
+- `crates/saddle-bridge/src/lib.rs`, SHA-256
+  `fcad3a5b92b96620ae9b629f89555ca0461e3e46327bb58d1e4b798378da3250`;
+- `crates/aog-gateway/src/lib.rs`, SHA-256
+  `7e8e252eae5e1388b59b576a7f00cb02b578b98e9ccba14161468ee0a13309e5`;
+- `crates/aog-toolproxy/src/lib.rs`, SHA-256
+  `c82bca76d2fb6487e59149c77e7e99ca1c02c5f5efb082f6b32f543e00713a4e`;
+- `crates/saddle-node/src/runtime.rs`, SHA-256
+  `b98f038f98a6b299c1e663588cc86259561296aea86522312991f8a6f680e08e`;
+  and
+- implementation commit `ef8b27236e1e4f24b27fbad9b249703299291bfc`.
+
+### Next prompt
+
+`SAD-40 — Declarative estate and conversion`.

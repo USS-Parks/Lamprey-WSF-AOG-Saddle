@@ -144,3 +144,27 @@ toolproxy entry points are not yet composed with the persisted typed
 `RuntimeGrant` handoff. SAD-35 must wire those real consumers through
 `ActionGate` and prove the two-tenant live path; their existing local token and
 post-effect receipt checks are not cited as SAD-34 proof.
+
+## SAD-35 live two-tenant bridge composition
+
+SAD-35 closes that composition boundary. `saddle-bridge` now signs, persists,
+reloads, and verifies a binding between the private `PlacementGrant` and
+`RuntimeGrant` proof values. `NodeRuntime::start_bridged_authorized` requires
+that verified handoff and the existing signed child capability at the actual
+process-driver start seam; tenant, lineage, workload, placement, node, role,
+expiry, and current revocation must still agree.
+
+`ActionSessionRegistry` owns one runtime action session per tenant and runtime
+class. Configured AOG gateway provider calls, toolproxy executor calls, and
+Saddle control effects enter that registry, narrow to a single-use action,
+commit a metadata-only WSF-ledger authorization receipt, recheck current
+revocation, and only then invoke the private effect. Authority unavailability
+is isolated to the affected tenant and fails closed. Compatibility constructors
+remain for standalone package tests; managed Saddle composition supplies the
+registry and is the SAD-35 enforcement path.
+
+The live gate covers two tenants and six runtime sessions with live OpenBao,
+redb close/reopen recovery, the real process driver, gateway provider, tool
+executor, signed revocation, shared budgets, and serialized off-host receipt
+verification. It proves that cross-tenant handoff/action theft, authority loss,
+and revocation cannot reach an effect while the unaffected tenant continues.
