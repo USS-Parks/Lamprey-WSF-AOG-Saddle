@@ -931,3 +931,82 @@ verified remote checkpoint `163beaeb0d842ff950ce9684ed2fb02d3af08ea5`.
 ### Next prompt
 
 `SAD-31 — WSF-authenticated Saddle admission`.
+
+## SAD-31 — WSF-authenticated Saddle admission
+
+**Status:** PASS — implementation commit
+`0b3d7a648c5807d58b4575ff15d2fad9840c837c`.
+
+### Work completed
+
+- Routed every external Saddle create, update, and delete through a server-derived
+  `SaddleAdmission` request context bound to the authenticated WSF principal,
+  current signed monotonic revocation sequence, current policy bundle, one-use
+  nonce, remaining budget, exact tenant, and final resource identity.
+- Reused the SAD-30 `VerifiedSaddleRequest` and `AdmissionGrant` narrowing seam.
+  The exact deny-wins AOG aggregate decision now produces an object- and
+  mutation-bound grant which is durably committed in the Raft-backed audit
+  intent before the desired-state write and retained in the finalized outbox.
+- Added four adversarial Router-level tests proving missing/replayed, stale,
+  spoofed/out-of-scope, and cross-tenant authority fails closed through the real
+  API.
+- Made the live revocation publisher advance a signed snapshot sequence instead
+  of republishing sequence zero. Updated bounded live fixtures to declare the
+  already-enforced gateway route/model authority and to leave a safe margin over
+  the STS token-TTL minimum.
+- Preserved `admit_system` as an explicit internal-controller seam for SAD-33;
+  production removal or strict test confinement is not claimed by this prompt.
+
+### Gate
+
+- deterministic SAD-31 admission verifier — PASS: four real-API adversarial
+  tests and source-bound evidence prove current bundle/revocation, exact final
+  resource/tenant, nonce replay, deny-wins policy, and audit-before-mutation;
+- missing nonce and replayed authority — 401 fail-closed before mutation;
+- stale bundle and stale revocation — fail-closed through the real mutation API;
+- spoofed signing anchor and out-of-scope final resource — fail-closed;
+- cross-tenant authority — cannot mutate the other tenant's final resource;
+- refreshed SAD-30 bridge contract gate — PASS after resource-scope narrowing;
+- refreshed SAD-23 active-name gate — PASS: 38 packages, 222 Cargo identity
+  strings, 309 count-locked explained occurrences, and zero unexplained or
+  generated-metadata matches;
+- `cargo fmt --check`, locked full-workspace all-target check, strict all-target
+  clippy, and workspace documentation — PASS; documentation retained the
+  pre-existing nonfatal rustdoc warnings;
+- full sequential `cargo test --workspace --locked` with live OpenBao, Moto AWS
+  STS, Git-bundled OpenSSL, mTLS, consensus, revocation, restore/receipt-chain,
+  official OpenAI/Anthropic SDK clients, and all doctests — PASS; five existing
+  aggressive/SLO conformance tests and the existing weave-overhead SLO remain
+  explicitly ignored in the standard lane;
+- `cargo audit` and `cargo deny check` — PASS with existing nonfatal unmatched
+  allowance, duplicate-dependency, and advisory-not-detected warnings only;
+- staged diff, deterministic evidence verify, Gitleaks staged scan,
+  anti-truncation, and staged/full no-slop gates — PASS. The integrity script
+  emitted its existing multi-value `integer expected` warnings but exited zero;
+  and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-31/admission-gate.json`, SHA-256
+  `5f278a9e65e30ee04a5af87139934c9580840c7afa182df27795f4cd1b65f0e5`;
+- `tools/verify_saddle_admission.py`, SHA-256
+  `b0dd50c99809aa4857a20c2eab2243c7d97efad1f31af26037b25e2e9c2efe4a`;
+- `crates/saddle-apiserver/src/auth.rs`, SHA-256
+  `e3f3adce442bef0c259b2ac359a2a59944d5d1e4771dd41c9a3377ab0b29cc1e`;
+- `crates/saddle-apiserver/src/admission.rs`, SHA-256
+  `3442106f3680bef81eb60edd151e20ca3521870f62902a20ec90042a0f8ce195`;
+- `crates/saddle-apiserver/tests/saddle_admission.rs`, SHA-256
+  `365f77689f243cc1de2020977563d8e43e285f9b00f6044e23cf26ccf90c3f67`;
+- `crates/saddle-controller/src/revocation.rs`, SHA-256
+  `f191610d21dcdf512e799aecb48825e9c60f7d10f1b86b979a43809a1b053000`;
+- refreshed `test-evidence/saddle/SAD-30/bridge-contract-gate.json`,
+  SHA-256 `d3d700af8ad6eec2247fc30729323f950535ae1324e7644e572417d3a00c0d3d`;
+- refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
+  SHA-256 `f9ad6d116cf304c8dc38ef301c306d3ed8a9619346110dc21dfa7c60796cb6c2`;
+  and
+- implementation commit `0b3d7a648c5807d58b4575ff15d2fad9840c837c`.
+
+### Next prompt
+
+`SAD-32 — WSF-attested scheduling`.
