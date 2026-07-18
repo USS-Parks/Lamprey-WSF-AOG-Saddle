@@ -125,3 +125,24 @@ Saddle support/documentation/evidence cut.
 | Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |
 | Commit footer | PASS | `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `0b83c81ef3a7d92973d2fdb35be74d31b2558ee2` to `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da`. |
+
+## SAD-12
+
+**State under test:** the staged independent workspace after parent-coupling
+removal, including the closure-specific offline lockfile regeneration.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Parent-reference scan | PASS | Deterministic verifier examined 913 tracked paths and 609 active executable/configuration paths; zero forbidden parent references. |
+| Cargo path dependencies | PASS | All tracked Cargo `path` dependencies resolve within Saddle; zero external local paths. |
+| Git topology | PASS | Zero submodule tree entries, zero `git submodule status` entries, and zero tracked symlinks. |
+| Lockfile closure | PASS | Offline regeneration produced the 37-package closure lockfile; the clean archive accepts `--locked`. |
+| Clean archive topology | PASS | Exact staged tree `2b84b274fa9435db46bd6bb96984c20e8ad9a1c0` extracted outside parent workspaces had no `.git` entry, reparse point, or active forbidden reference. |
+| Clean Cargo metadata | PASS | `cargo metadata --format-version=1 --no-deps --locked` reported 37 packages, 37 workspace members, and zero external local paths. |
+| Clean Cargo check | PASS | `cargo check --workspace --locked` completed from the clean archive. |
+| Supply-chain script syntax | PASS | Git for Windows Bash accepted `deployment/supply-chain/sign.sh` with `bash -n`. |
+| `git diff --cached --check` | PASS | Final staged SAD-12 tree reported no whitespace violations. |
+| Staged no-slop gate | PASS | Explicit Git for Windows Bash pre-commit hook reported `no-slop: clean (staged)`. |
+| Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |
+| Commit footer | PASS | `0f2dfdf87539736984d59b15dd038982e46d9c06` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `40fc7ce9328d56c335a1e9fe09d1def37fec0593` to `0f2dfdf87539736984d59b15dd038982e46d9c06`. |

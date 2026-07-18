@@ -31,4 +31,4 @@ authoritative for this repository. Do not require or inspect an external parent
 working copy to build, test, package, or operate Saddle.
 
 ## Current state
-The independence decision and canonical PSPR are under authorized full STS execution as of 2026-07-17. SAD-00 through SAD-11 established the safe source boundary; SAD-12 removes parent coupling before the remaining build gates. Saddle orchestration remains ahead of governed-seat bootstrap in priority. Execution truth is recorded in `docs/sessions/SADDLE-DEVLOG.md` and `docs/verification/SADDLE-VERIFICATION.md`.
+The independence decision and canonical PSPR are under authorized full STS execution as of 2026-07-17. SAD-00 through SAD-12 established the safe source boundary and removed parent coupling; SAD-13 restores the complete Rust gate. Saddle orchestration remains ahead of governed-seat bootstrap in priority. Execution truth is recorded in `docs/sessions/SADDLE-DEVLOG.md` and `docs/verification/SADDLE-VERIFICATION.md`.

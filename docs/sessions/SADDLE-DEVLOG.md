@@ -370,3 +370,51 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ### Next prompt
 
 `SAD-12 — Remove parent-repository coupling`.
+
+---
+
+## SAD-12 — Remove parent-repository coupling
+
+**Status:** PASS — implementation published at remote checkpoint `0f2dfdf87539736984d59b15dd038982e46d9c06`.
+
+### Work completed
+
+- Changed the workspace repository identity and the supply-chain keyless
+  verification identity to `USS-Parks/Lamprey-WSF-AOG-Saddle`.
+- Removed external parent-working-copy paths and release/source lookups from
+  active project guidance. Historical provenance remains confined to the
+  preserved planning, documentation, and evidence records.
+- Added a deterministic independence verifier for tracked executable and
+  configuration surfaces. It resolves Cargo path dependencies and rejects
+  parent repository references, external local paths, submodules, and symlinks.
+- Regenerated `Cargo.lock` offline for the independent 37-package closure.
+  The previous seed lockfile required an update before `cargo check --locked`
+  could succeed from a clean tree.
+
+### Gate
+
+- verifier write and verify-only passes — PASS: 913 tracked paths, 609 active
+  paths, zero parent references, external Cargo paths, submodules, or symlinks;
+- exact staged index tree `2b84b274fa9435db46bd6bb96984c20e8ad9a1c0`
+  archived outside both parent workspaces — PASS: no `.git` entry, no reparse
+  points, and zero active forbidden references;
+- clean archive `cargo metadata --no-deps --locked` — PASS: 37 packages,
+  37 workspace members, and zero external local paths;
+- clean archive `cargo check --workspace --locked` — PASS; and
+- signing-script syntax, staged `git diff --check`, staged pre-commit, and
+  full pre-push no-slop gates — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-12/independence-gate.json`, SHA-256
+  `462ed6a6bde03b0d1750a032953a206e1c76c6dbf94eea3d2205687c096486a6`;
+- `test-evidence/saddle/SAD-12/clean-checkout-build-proof.json`, SHA-256
+  `0e58dc99b904106f321bfe5f71ac0409ae04c79cb248a58a15a79ed54202c0ec`;
+- `tools/verify_saddle_independence.py`, SHA-256
+  `be8d4606cced4fcd4d7369c6578a7188c0dde6c80e80f40ced60814ef442d356`; and
+- regenerated `Cargo.lock`, SHA-256
+  `39ffb3dce2112c287be0f7d7d2f020d1d6a3d10c3d3eddf231c548c767d48701`.
+
+### Next prompt
+
+`SAD-13 — Restore the complete Rust gate`.
