@@ -1,0 +1,57 @@
+{
+  "artifacts": {
+    "bridge_source": {
+      "path": "crates/saddle-bridge/src/lib.rs",
+      "sha256": "1127e465fc0a1c3431b5a2efb7cd3f82100661d16a975ed8578e94d42a2f6533"
+    },
+    "compatibility_matrix": {
+      "path": "docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md",
+      "sha256": "f9517d44e8f3b7768dd113be2e689eba5e718e8c62a6f54eca49ffc3d64fdb41"
+    },
+    "property_tests": {
+      "path": "crates/saddle-bridge/tests/contract_properties.rs",
+      "sha256": "6258990f629d2442a718e1222fc11e5ab9a289e6c0b9bc4baef2cbd5f081a692"
+    }
+  },
+  "contract": {
+    "contract_version": "saddle.bridge/v1",
+    "deserialize_authority_types": [],
+    "frozen_types": [
+      "VerifiedSaddleRequest",
+      "AdmissionGrant",
+      "PlacementGrant",
+      "RuntimeGrant",
+      "ActionGrant",
+      "BridgeError"
+    ],
+    "reused_seams": [
+      "verify_in_context",
+      "MonotonicRevocationStore",
+      "AggregateDecision"
+    ]
+  },
+  "prompt": "SAD-30",
+  "properties": {
+    "authority_narrowing": "pass",
+    "compile_fail_doctest_count": 2,
+    "deny_wins_and_no_module_fence": "pass",
+    "non_constructibility_from_wire_json": "pass",
+    "property_test_count": 5,
+    "request_and_action_replay_resistance": "pass",
+    "revocation_fail_closed": "pass",
+    "tenant_isolation": "pass",
+    "test_names": [
+      "exact_grant_chain_is_serialize_only_and_preserves_lineage",
+      "property_every_authority_axis_only_narrows",
+      "tenant_and_nonce_properties_isolate_authority_and_resist_replay",
+      "deny_wins_and_missing_policy_modules_fence_every_grant_stage",
+      "absent_expired_and_revoked_state_fail_closed"
+    ]
+  },
+  "schema_version": "saddle-sad30-bridge-gate/v1",
+  "status": "pass",
+  "workspace": {
+    "package_count": 38,
+    "saddle_bridge_manifest": "crates/saddle-bridge/Cargo.toml"
+  }
+}

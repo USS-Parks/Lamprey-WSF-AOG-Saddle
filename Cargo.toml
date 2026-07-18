@@ -5,6 +5,7 @@ members = [
     "mai-agent",
     "mai-router",
     "mai-compliance",
+    "crates/saddle-bridge",
     "crates/saddle-apiserver",
     "crates/aog-approvals",
     "crates/saddle-conformance",

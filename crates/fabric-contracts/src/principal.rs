@@ -73,6 +73,8 @@ pub enum Audience {
     Aog,
     /// The MAI inference API.
     Mai,
+    /// The Saddle orchestration control plane.
+    Saddle,
 }
 
 /// The authenticated principal behind a privileged call.
@@ -190,6 +192,14 @@ pub enum RequestOperation {
     AogToolInvoke,
     /// Decide one pending governed tool invocation.
     AogToolApprove,
+    /// Admit one Saddle desired-state mutation.
+    SaddleAdmission,
+    /// Grant placement for one admitted workload generation.
+    SaddlePlacement,
+    /// Grant one node permission to launch an exact placement.
+    SaddleRuntime,
+    /// Grant one AOG model, tool, or control action.
+    SaddleAction,
 }
 
 impl RequestOperation {
@@ -211,6 +221,10 @@ impl RequestOperation {
             | Self::AogDelete
             | Self::AogToolInvoke
             | Self::AogToolApprove => Audience::Aog,
+            Self::SaddleAdmission
+            | Self::SaddlePlacement
+            | Self::SaddleRuntime
+            | Self::SaddleAction => Audience::Saddle,
         }
     }
 }

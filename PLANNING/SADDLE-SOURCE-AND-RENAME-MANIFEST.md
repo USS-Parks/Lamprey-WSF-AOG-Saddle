@@ -348,7 +348,7 @@ The operator procedure is
 ## 4.6 SAD-23 active-name eradication
 
 SAD-23 added a tracked-file-wide, fail-closed eradication verifier. At the
-accepted checkpoint it scans 952 tracked files and count-locks all 309 retired
+current SAD-30 checkpoint it scans 958 tracked files and count-locks all 309 retired
 orchestrator-name occurrences across 38 reviewed files. Every occurrence must
 resolve to exactly one historical-provenance, named migration-fixture, or
 verification-input rule; new, removed, relocated, ambiguous, or unclassified
@@ -356,7 +356,8 @@ matches fail until the reviewed registry and deterministic evidence are
 updated together.
 
 The gate also proves zero retired-name occurrences in generated Cargo metadata
-for all 37 packages, compiled `saddlectl` help, both generated OpenAPI schemas,
+for all 38 current packages (the 37-package imported closure plus
+`saddle-bridge`), compiled `saddlectl` help, both generated OpenAPI schemas,
 the production console build, and the tracked console, deployment, packaging,
 and script surfaces. The existing SAD-21 negative-authorization assertion and
 SAD-22 migration seam remain bounded, named fixtures rather than runtime aliases.
@@ -364,6 +365,27 @@ SAD-22 migration seam remain bounded, named fixtures rather than runtime aliases
 The reviewed registry is `tools/saddle_active_name_classifications.json`; the
 verifier and evidence are `tools/verify_saddle_active_name_eradication.py` and
 `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`.
+
+## 4.7 SAD-30 cross-plane authority contracts
+
+SAD-30 adds `saddle-bridge` as the first post-import native package, bringing
+the current workspace to 38 packages while preserving the immutable 37-package
+seed-import accounting above. The crate owns only the non-forgeable
+cross-plane request and grant progression. It reuses WSF token verification
+and monotonic revocation, consumes AOG's existing deny-wins aggregate, and
+hands metadata-only receipt intent to the existing ledger boundary.
+
+The frozen `saddle.bridge/v1` types are `VerifiedSaddleRequest`,
+`AdmissionGrant`, `PlacementGrant`, `RuntimeGrant`, and `ActionGrant`. They are
+serialize-only with private fields and have no wire or default construction.
+Every grant transition rechecks current, non-rollback revocation state;
+authority only narrows across tenant, lineage, scope, expiry, node, action, and
+budget axes. Request and action nonces are atomically consumed through a
+replaceable durable `ReplayStore` seam; replay-store failure fences authority.
+
+The compatibility/reuse ledger is
+`docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md`; deterministic evidence
+is `test-evidence/saddle/SAD-30/bridge-contract-gate.json`.
 
 ## 5. Loom-to-Saddle active identity map
 

@@ -2292,6 +2292,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "saddle-bridge"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fabric-contracts",
+ "fabric-crypto",
+ "fabric-revocation",
+ "fabric-token",
+ "mai-compliance",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "saddle-conformance"
 version = "0.1.0"
 dependencies = [

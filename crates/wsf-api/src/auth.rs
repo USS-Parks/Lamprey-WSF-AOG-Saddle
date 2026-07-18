@@ -71,6 +71,7 @@ impl WorkloadCredential {
             Audience::Wsf => "wsf",
             Audience::Aog => "aog",
             Audience::Mai => "mai",
+            Audience::Saddle => "saddle",
         };
         // The principal `kind` is inside the preimage: it decides issuance-mode
         // gating downstream, so a flipped kind on an otherwise-valid credential

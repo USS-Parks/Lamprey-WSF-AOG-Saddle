@@ -183,6 +183,8 @@ pub enum Operation {
     Seal,
     Unseal,
     Broker,
+    /// Verify authority entering the Saddle cross-plane grant chain.
+    Saddle,
 }
 
 /// Everything required to authenticate a token *in context* (plan T1).

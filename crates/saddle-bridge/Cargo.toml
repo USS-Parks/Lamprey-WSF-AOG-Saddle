@@ -1,0 +1,24 @@
+[package]
+name = "saddle-bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Non-forgeable WSF-to-Saddle-to-AOG authority and grant contracts"
+
+[dependencies]
+fabric-contracts = { path = "../fabric-contracts" }
+fabric-crypto = { path = "../fabric-crypto" }
+fabric-revocation = { path = "../fabric-revocation" }
+fabric-token = { path = "../fabric-token" }
+mai-compliance = { path = "../../mai-compliance" }
+serde = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

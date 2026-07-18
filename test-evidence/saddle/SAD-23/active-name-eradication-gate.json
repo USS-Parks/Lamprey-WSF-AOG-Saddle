@@ -1,8 +1,8 @@
 {
   "binary_files_skipped": 6,
   "cargo_metadata_surface": {
-    "identity_strings": 217,
-    "packages": 37,
+    "identity_strings": 221,
+    "packages": 38,
     "retired_name_occurrences": 0
   },
   "classification_count_mismatches": [],
@@ -357,7 +357,7 @@
     "verification_input": 17
   },
   "explicit_surface_counts": {
-    "cargo_manifests": 38,
+    "cargo_manifests": 39,
     "console_ui_files": 39,
     "deployment_artifact_files": 46,
     "generated_schemas": [
@@ -386,8 +386,8 @@
   },
   "schema_version": 1,
   "status": "PASS",
-  "text_files_scanned": 946,
+  "text_files_scanned": 952,
   "total_retired_name_occurrences": 309,
-  "tracked_files_scanned": 952,
+  "tracked_files_scanned": 958,
   "unexplained_matches": []
 }
