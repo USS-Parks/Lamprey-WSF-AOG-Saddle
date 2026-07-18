@@ -13,11 +13,11 @@
 # live SLO is padded for harness overhead — this proves the fan-out end-to-end on
 # the containerized estate, the in-process gate proves the number.
 #
-# Prereq: estate up (docker compose -f deployment/loom-harness/docker-compose.yml
+# Prereq: estate up (docker compose -f deployment/saddle-harness/docker-compose.yml
 # up -d --wait). Exits 0 on PASS, 1 on FAIL.
 set -eu
 
-PROJECT="${LOOM_PROJECT:-loom-harness}"
+PROJECT="${SADDLE_PROJECT:-saddle-harness}"
 ITERS="${V10_ITERS:-5}"
 SLO_SECS="${V10_SLO_SECS:-10}"
 CPS="cp1 cp2 cp3 cp4 cp5"

@@ -76,7 +76,7 @@ async fn crud_roundtrip() {
 #[tokio::test]
 async fn create_binds_object_to_the_principal_tenant() {
     // A create body cannot smuggle a foreign metadata.tenant: the server stamps
-    // the authenticated principal's tenant (tenant-loom), overwriting the spoof.
+    // the authenticated principal's tenant (tenant-saddle), overwriting the spoof.
     let (app, tok) = authed_app("saddle-apiserver-tenant-bind").await;
     let mut body = bundle("spoof", 1);
     body["metadata"]["tenant"] = serde_json::json!("attacker-tenant");
@@ -90,7 +90,7 @@ async fn create_binds_object_to_the_principal_tenant() {
     .await;
     assert_eq!(status, StatusCode::CREATED, "create body: {created}");
     assert_eq!(
-        created["metadata"]["tenant"], "tenant-loom",
+        created["metadata"]["tenant"], "tenant-saddle",
         "object tenant must be the principal's, not the spoofed value: {created}"
     );
 }
@@ -173,7 +173,7 @@ async fn reads_are_tenant_scoped_and_estate_pagination_is_explicit() {
 async fn cross_tenant_delete_is_denied() {
     // A tenant-scoped principal may not delete another tenant's object. The
     // sharpest instance is a RevocationIntent: deleting someone else's intent
-    // would reverse a live kill. tenant-loom creates the intent;
+    // would reverse a live kill. tenant-saddle creates the intent;
     // tenant-mallory's delete is refused and changes nothing; the owner's own
     // delete is also refused: kill/revocation records are append-only from the
     // tenant plane and can only be retired by the estate/system workflow.
@@ -181,7 +181,7 @@ async fn cross_tenant_delete_is_denied() {
     let app = app_anchored("saddle-apiserver-xtenant-delete", &signer, None).await;
     let owner = header_for(&mint_with(&signer, |token| {
         token.roles = vec!["tenant:revocation".into()];
-    })); // tenant-loom
+    })); // tenant-saddle
     let intruder = header_for(&mint_with(&signer, |t| {
         t.token_id = "tok-mallory".to_owned();
         t.tenant_id = "tenant-mallory".to_owned();
@@ -189,7 +189,7 @@ async fn cross_tenant_delete_is_denied() {
     }));
 
     let intent = serde_json::json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "RevocationIntent",
         "metadata": { "name": "kill-tok-x" },
         "spec": {
@@ -255,7 +255,7 @@ async fn revocation_targets_require_exact_tenant_or_estate_capability() {
     }));
     let intent = |name: &str, target: serde_json::Value| {
         serde_json::json!({
-            "api_version": "aog.islandmountain.io/v1",
+            "api_version": "saddle.islandmountain.io/v1",
             "kind": "RevocationIntent",
             "metadata": { "name": name },
             "spec": { "target": target, "reason": "scope-test" }
@@ -282,7 +282,7 @@ async fn revocation_targets_require_exact_tenant_or_estate_capability() {
         Some(&tenant_revoker),
         Some(intent(
             "self-tenant",
-            serde_json::json!({"target":"tenant","id":"tenant-loom"}),
+            serde_json::json!({"target":"tenant","id":"tenant-saddle"}),
         )),
     )
     .await;
@@ -334,14 +334,14 @@ async fn cross_tenant_update_is_denied_and_tenant_is_frozen() {
     // update body cannot reassign an object to a foreign tenant.
     let signer = anchor();
     let app = app_anchored("saddle-apiserver-xtenant-update", &signer, None).await;
-    let owner = header_for(&mint(&signer)); // tenant-loom
+    let owner = header_for(&mint(&signer)); // tenant-saddle
     let intruder = header_for(&mint_with(&signer, |t| {
         t.token_id = "tok-mallory".to_owned();
         t.tenant_id = "tenant-mallory".to_owned();
         t.subject_hash = "hmac:mallory".to_owned();
     }));
 
-    // tenant-loom owns the bundle.
+    // tenant-saddle owns the bundle.
     let (status, created) = send(
         &app,
         "POST",
@@ -378,7 +378,7 @@ async fn cross_tenant_update_is_denied_and_tenant_is_frozen() {
     );
 
     // The owner's own update proceeds, but a body smuggling a foreign tenant is
-    // neutralized: the object keeps tenant-loom.
+    // neutralized: the object keeps tenant-saddle.
     let mut spoof = bundle("xtenant", 2);
     spoof["metadata"]["tenant"] = serde_json::json!("tenant-mallory");
     let (status, updated) = send(&app, "PUT", &url, Some(owner.as_str()), Some(spoof)).await;
@@ -389,7 +389,7 @@ async fn cross_tenant_update_is_denied_and_tenant_is_frozen() {
     );
     assert_eq!(updated["spec"]["version"], 2);
     assert_eq!(
-        updated["metadata"]["tenant"], "tenant-loom",
+        updated["metadata"]["tenant"], "tenant-saddle",
         "an update body must not reassign the object's tenant: {updated}"
     );
 }
@@ -430,7 +430,7 @@ async fn unknown_kind_is_bad_request() {
 async fn kind_mismatch_is_bad_request() {
     let (app, tok) = authed_app("saddle-apiserver-k5-kindmismatch").await;
     let body = serde_json::json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "ToolGrant",
         "metadata": { "name": "x" },
         "spec": { "tool": "github" },

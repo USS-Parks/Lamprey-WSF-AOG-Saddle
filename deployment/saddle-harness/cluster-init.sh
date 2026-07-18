@@ -1,5 +1,5 @@
 #!/bin/sh
-# Form the 5-voter Loom control-plane cluster over the wire, from cp 1:
+# Form the 5-voter Saddle control-plane cluster over the wire, from cp 1:
 # initialize it as the sole voter, add the other four as learners at their peer
 # URLs, then promote all five to voters. The edges self-register once this
 # completes.
@@ -11,7 +11,7 @@ set -eu
 # the daemons and their configuration surface never fork. (The default is
 # assigned outside the ${...:-...} expansion: a literal } inside the default
 # would terminate the expansion in POSIX sh.)
-ADDR_TEMPLATE="${LOOM_CP_ADDR_TEMPLATE:-}"
+ADDR_TEMPLATE="${SADDLE_CP_ADDR_TEMPLATE:-}"
 [ -n "$ADDR_TEMPLATE" ] || ADDR_TEMPLATE='http://cp{id}:4600'
 addr_of() {
   echo "$ADDR_TEMPLATE" | sed "s/{id}/$1/g; s/{ordinal}/$(($1 - 1))/g"

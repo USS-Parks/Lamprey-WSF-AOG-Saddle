@@ -14,11 +14,11 @@ use serde_json::json;
 async fn stored_v1_is_served_at_the_v2_hub() {
     // The estate validates + stores v1; the server's hub is v2 with a v1->v2
     // converter, so a stored v1 object is upgraded on read.
-    let registry = ConversionRegistry::new("aog.islandmountain.io/v2").with_converter(
+    let registry = ConversionRegistry::new("saddle.islandmountain.io/v2").with_converter(
         Kind::PolicyBundle,
-        "aog.islandmountain.io/v1",
+        "saddle.islandmountain.io/v1",
         |mut v| {
-            v["api_version"] = json!("aog.islandmountain.io/v2");
+            v["api_version"] = json!("saddle.islandmountain.io/v2");
             v["spec"]["tier"] = json!("standard");
             v
         },
@@ -40,7 +40,7 @@ async fn stored_v1_is_served_at_the_v2_hub() {
     // Read it back: served as v2 (converted on read), original field preserved.
     let (s, got) = send(&app, "GET", &format!("{BASE}/PolicyBundle/cfg"), t, None).await;
     assert_eq!(s, StatusCode::OK);
-    assert_eq!(got["api_version"], "aog.islandmountain.io/v2");
+    assert_eq!(got["api_version"], "saddle.islandmountain.io/v2");
     assert_eq!(got["spec"]["tier"], "standard");
     assert_eq!(got["spec"]["version"], 1, "the original field is preserved");
 
@@ -49,7 +49,7 @@ async fn stored_v1_is_served_at_the_v2_hub() {
     assert_eq!(s, StatusCode::OK);
     assert_eq!(
         listed["items"][0]["api_version"],
-        "aog.islandmountain.io/v2"
+        "saddle.islandmountain.io/v2"
     );
 }
 
@@ -69,7 +69,7 @@ async fn default_registry_serves_stored_version_unchanged() {
     let (s, got) = send(&app, "GET", &format!("{BASE}/PolicyBundle/cfg"), t, None).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(
-        got["api_version"], "aog.islandmountain.io/v1",
+        got["api_version"], "saddle.islandmountain.io/v1",
         "identity registry performs no conversion"
     );
 }

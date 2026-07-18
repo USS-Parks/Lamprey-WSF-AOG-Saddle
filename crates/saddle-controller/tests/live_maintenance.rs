@@ -27,8 +27,8 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-o7-maint";
-const PREFIX: &str = "kv/data/loom-maint";
+const ROLE: &str = "saddle-o7-maint";
+const PREFIX: &str = "kv/data/saddle-maint";
 
 fn openbao_addr() -> Option<String> {
     std::env::var("WSF_OPENBAO_ADDR").ok()
@@ -74,15 +74,15 @@ async fn bootstrap(c: &Client, addr: &str, tok: &str) -> (String, String) {
     )
     .await;
     let policy = r#"
-path "kv/data/loom-maint/*"     { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-maint/*" { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-maint/*"     { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-maint/*" { capabilities = ["read", "delete", "list"] }
 "#;
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-o7-maint",
+        "sys/policies/acl/saddle-o7-maint",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -92,7 +92,7 @@ path "kv/metadata/loom-maint/*" { capabilities = ["read", "delete", "list"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-o7-maint","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-o7-maint","token_ttl":"15m"})),
     )
     .await;
     let rid: serde_json::Value = bao(
@@ -167,10 +167,10 @@ async fn draining_a_cordoned_node_revokes_the_replicas_token() {
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
 
-    let anchor = RustCryptoMlDsa87::generate("loom-o7-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-o7-anchor").unwrap();
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-o7-live"),
+        fresh_dir("saddle-o7-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

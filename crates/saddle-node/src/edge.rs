@@ -175,7 +175,7 @@ mod tests {
             issued_at: now.to_rfc3339(),
             expires_at: (now + expires_in).to_rfc3339(),
             issuer: "test".to_owned(),
-            trust_bundle_version: "loom".to_owned(),
+            trust_bundle_version: "saddle".to_owned(),
             tenant_id: "acme".to_owned(),
             subject_id: None,
             subject_hash: "sub:test".to_owned(),

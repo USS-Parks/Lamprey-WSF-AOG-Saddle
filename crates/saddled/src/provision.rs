@@ -215,7 +215,7 @@ mod tests {
         let key_der = dir.join("node.key.der");
         std::fs::write(
             &ext,
-            "[ v3 ]\nsubjectAltName = DNS:cp1, URI:spiffe://loom/node/1\nextendedKeyUsage = serverAuth,clientAuth\nbasicConstraints = CA:FALSE\n",
+            "[ v3 ]\nsubjectAltName = DNS:cp1, URI:spiffe://saddle/node/1\nextendedKeyUsage = serverAuth,clientAuth\nbasicConstraints = CA:FALSE\n",
         )
         .unwrap();
         openssl(&[
@@ -316,10 +316,10 @@ mod tests {
             issued_at: now.to_rfc3339(),
             expires_at: (now + ChronoDuration::hours(1)).to_rfc3339(),
             issuer: "wsf-bridge".to_owned(),
-            trust_bundle_version: "2026.07.loom".to_owned(),
-            tenant_id: "tenant-loom".to_owned(),
+            trust_bundle_version: "2026.07.saddle".to_owned(),
+            tenant_id: "tenant-saddle".to_owned(),
             subject_id: None,
-            subject_hash: "hmac:loom".to_owned(),
+            subject_hash: "hmac:saddle".to_owned(),
             service_identity: Some("saddlectl".to_owned()),
             identity_id: None,
             roles: vec![],

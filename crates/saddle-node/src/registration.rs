@@ -30,7 +30,7 @@ pub fn mint_node_identity(
         subject_id: node_name.to_owned(),
         subject_hash: format!("node:{node_name}"),
         service_identity: Some(format!("saddle-node/{node_name}")),
-        spiffe_id: format!("spiffe://loom/node/{node_name}"),
+        spiffe_id: format!("spiffe://saddle/node/{node_name}"),
         pki_cert_fingerprint: issuer.key_id().to_owned(),
         parent_id: None,
         issued_at: now.to_rfc3339(),

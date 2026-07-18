@@ -53,7 +53,7 @@ async fn confirms(node: &RaftNode, want: bool, timeout: Duration) -> bool {
 
 #[tokio::test]
 async fn a_partitioned_minority_fences_and_the_kill_switch_holds() {
-    let dir = base("loom-h2-splitbrain");
+    let dir = base("saddle-h2-splitbrain");
     let cluster = Cluster::new();
     let n1 = RaftNode::join(1, dir.join("n1"), &cluster).await.unwrap();
     let n2 = RaftNode::join(2, dir.join("n2"), &cluster).await.unwrap();

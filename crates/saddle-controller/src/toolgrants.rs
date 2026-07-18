@@ -337,7 +337,7 @@ mod tests {
     use fabric_crypto::providers::RustCryptoMlDsa87;
 
     fn signer() -> Arc<dyn Signer> {
-        Arc::new(RustCryptoMlDsa87::generate("loom-o6-test").unwrap())
+        Arc::new(RustCryptoMlDsa87::generate("saddle-o6-test").unwrap())
     }
 
     fn entry(tool: &str, systems: &[&str]) -> GrantEntry {

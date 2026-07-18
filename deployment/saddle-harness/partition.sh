@@ -1,5 +1,5 @@
 #!/bin/sh
-# VH6 — real network partitions over the Loom estate.
+# VH6 — real network partitions over the Saddle estate.
 #
 # Cut a set of services off the compose network (they lose ALL peer connectivity —
 # a real partition, not a simulated one) and heal them back. The heal restores the
@@ -10,16 +10,16 @@
 # its now-unreachable published port.
 #
 # Args are compose SERVICE names (cp1, cp5, edge3); the container is
-# ${LOOM_PROJECT}-<svc>-1 and the restored alias is <svc>.
+# ${SADDLE_PROJECT}-<svc>-1 and the restored alias is <svc>.
 #
 # Usage:
 #   ./partition.sh partition <service>...   # isolate each service
 #   ./partition.sh heal      <service>...   # rejoin each (alias restored)
-#   LOOM_NET / LOOM_PROJECT override the network / compose project.
+#   SADDLE_NET / SADDLE_PROJECT override the network / compose project.
 set -eu
 
-NET="${LOOM_NET:-loom-harness_default}"
-PROJECT="${LOOM_PROJECT:-loom-harness}"
+NET="${SADDLE_NET:-saddle-harness_default}"
+PROJECT="${SADDLE_PROJECT:-saddle-harness}"
 cmd="${1:-}"
 [ "$#" -ge 1 ] && shift
 [ "$#" -ge 1 ] || {

@@ -40,7 +40,7 @@ use crate::reader::StoreReader;
 use crate::seal::Sealer;
 
 /// The API group + version every route is served under.
-pub const API_GROUP_VERSION: &str = "aog.islandmountain.io/v1";
+pub const API_GROUP_VERSION: &str = "saddle.islandmountain.io/v1";
 
 /// Shared server state: the front-door authenticator, the admission writer, and
 /// the read-only view. Cheap to clone (all `Arc`-backed). A handler is handed
@@ -182,11 +182,11 @@ impl AppState {
 pub fn api_router(state: AppState) -> Router {
     Router::new()
         .route(
-            "/apis/aog.islandmountain.io/v1/{kind}",
+            "/apis/saddle.islandmountain.io/v1/{kind}",
             get(handlers::list).post(handlers::create),
         )
         .route(
-            "/apis/aog.islandmountain.io/v1/{kind}/{name}",
+            "/apis/saddle.islandmountain.io/v1/{kind}/{name}",
             get(handlers::get_one)
                 .put(handlers::update)
                 .delete(handlers::delete),

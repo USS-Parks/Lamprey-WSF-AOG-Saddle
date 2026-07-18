@@ -91,7 +91,7 @@ fn gen_node(dir: &Path, node_id: u64, ca: &Ca) -> NodeMaterial {
     std::fs::write(
         &ext,
         format!(
-            "[ v3 ]\nsubjectAltName = IP:127.0.0.1, URI:spiffe://loom/node/{node_id}\nextendedKeyUsage = serverAuth,clientAuth\nbasicConstraints = CA:FALSE\n"
+            "[ v3 ]\nsubjectAltName = IP:127.0.0.1, URI:spiffe://saddle/node/{node_id}\nextendedKeyUsage = serverAuth,clientAuth\nbasicConstraints = CA:FALSE\n"
         ),
     )
     .unwrap();

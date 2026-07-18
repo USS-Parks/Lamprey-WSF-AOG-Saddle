@@ -23,9 +23,9 @@ use saddled::{Config, Daemon, OpenBaoTrust};
 use serde_json::json;
 use tokio::net::TcpListener;
 
-const ROLE: &str = "loom-saddled-test";
+const ROLE: &str = "saddle-saddled-test";
 /// KV-v2 API path of the trust record the daemon reads.
-const TRUST_PATH: &str = "kv/data/loom/trust";
+const TRUST_PATH: &str = "kv/data/saddle/trust";
 
 fn openbao_addr() -> Option<String> {
     std::env::var("WSF_OPENBAO_ADDR").ok()
@@ -65,10 +65,10 @@ fn token_header(signer: &RustCryptoMlDsa87) -> String {
         issued_at: now.to_rfc3339(),
         expires_at: (now + ChronoDuration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
-        tenant_id: "tenant-loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
+        tenant_id: "tenant-saddle".to_owned(),
         subject_id: None,
-        subject_hash: "hmac:loom".to_owned(),
+        subject_hash: "hmac:saddle".to_owned(),
         service_identity: Some("saddlectl".to_owned()),
         identity_id: None,
         roles: vec![],
@@ -136,13 +136,13 @@ async fn provision(
     .await;
 
     // Policy granting read on the Saddle trust records.
-    let policy = "path \"kv/data/loom/*\" { capabilities = [\"read\"] }";
+    let policy = "path \"kv/data/saddle/*\" { capabilities = [\"read\"] }";
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-saddled-test",
+        "sys/policies/acl/saddle-saddled-test",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -154,7 +154,7 @@ async fn provision(
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-saddled-test","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-saddled-test","token_ttl":"15m"})),
     )
     .await;
 
@@ -221,7 +221,7 @@ async fn saddled_trust_from_live_openbao() {
     // The trust material the estate would custody: the WSF anchor (public only in
     // OpenBao; the test holds the secret to mint a client token) plus the
     // field-seal data key and child-mint signer.
-    let anchor = RustCryptoMlDsa87::generate("loom-live-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-live-anchor").unwrap();
     let (seal_pk, seal_sk) = RustCryptoMlDsa87::keypair().unwrap();
     let blob = json!({
         "anchor_pubkey": BASE64.encode(anchor.public_key()),
@@ -236,7 +236,7 @@ async fn saddled_trust_from_live_openbao() {
     let sockaddr = listener.local_addr().unwrap();
     let config = Config {
         node_id: 1,
-        data_dir: scratch("loom-vh5bc-saddled"),
+        data_dir: scratch("saddle-vh5bc-saddled"),
         listen: sockaddr,
         advertise: format!("http://{sockaddr}"),
         anchor_pubkey: None,
@@ -262,7 +262,7 @@ async fn saddled_trust_from_live_openbao() {
         "daemon health never came up"
     );
 
-    let url = format!("{base}/apis/aog.islandmountain.io/v1/PolicyBundle");
+    let url = format!("{base}/apis/saddle.islandmountain.io/v1/PolicyBundle");
 
     // No token -> 401: the CRUD surface is authenticated by the OpenBao anchor.
     let r = http.get(&url).send().await.unwrap();

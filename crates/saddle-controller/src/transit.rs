@@ -13,7 +13,7 @@ use crate::runtime::ReconcileError;
 /// The Transit key name for a trust ring.
 #[must_use]
 pub fn ring_key_name(ring: u8) -> String {
-    format!("loom-ring-{ring}")
+    format!("saddle-ring-{ring}")
 }
 
 /// Transit key administration over an AppRole-authenticated OpenBao.

@@ -158,7 +158,7 @@ impl SchedulerController {
             issued_at: now.to_rfc3339(),
             expires_at: (now + ttl).to_rfc3339(),
             issuer: "saddle-scheduler".to_owned(),
-            trust_bundle_version: "loom".to_owned(),
+            trust_bundle_version: "saddle".to_owned(),
             tenant_id: workload.metadata.tenant.clone().unwrap_or_default(),
             subject_id: None,
             subject_hash: id.to_owned(),

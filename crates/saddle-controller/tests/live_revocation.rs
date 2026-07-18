@@ -35,9 +35,9 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-r9-rev";
-const VK_PREFIX: &str = "kv/data/loom-r9-vk";
-const REV_PATH: &str = "kv/data/loom-r9-rev/estate";
+const ROLE: &str = "saddle-r9-rev";
+const VK_PREFIX: &str = "kv/data/saddle-r9-vk";
+const REV_PATH: &str = "kv/data/saddle-r9-rev/estate";
 const KEY: &str = "kill-key";
 const TENANT: &str = "acme";
 const TOKEN_ID: &str = "vk:acme:kill-key";
@@ -87,17 +87,17 @@ async fn bootstrap(c: &Client, addr: &str, tok: &str) -> (String, String) {
     .await;
 
     let policy = r#"
-path "kv/data/loom-r9-vk/*"       { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-r9-vk/*"   { capabilities = ["read", "delete", "list"] }
-path "kv/data/loom-r9-rev/*"      { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-r9-rev/*"  { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-r9-vk/*"       { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-r9-vk/*"   { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-r9-rev/*"      { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-r9-rev/*"  { capabilities = ["read", "delete", "list"] }
 "#;
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-r9-rev",
+        "sys/policies/acl/saddle-r9-rev",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -107,7 +107,7 @@ path "kv/metadata/loom-r9-rev/*"  { capabilities = ["read", "delete", "list"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-r9-rev","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-r9-rev","token_ttl":"15m"})),
     )
     .await;
 
@@ -189,12 +189,12 @@ async fn an_intent_denies_a_token_on_every_replica_and_over_media() {
         &addr,
         &root_token(),
         Method::DELETE,
-        "kv/metadata/loom-r9-rev/estate",
+        "kv/metadata/saddle-r9-rev/estate",
         None,
     )
     .await;
 
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-r9-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-r9-anchor").unwrap());
     let signer: Arc<dyn Signer> = anchor.clone();
     // Provision the kill switch the way a real estate does: a signed,
     // nothing-revoked baseline snapshot under this run's anchor. The gateway
@@ -222,7 +222,7 @@ async fn an_intent_denies_a_token_on_every_replica_and_over_media() {
 
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-r9-live"),
+        fresh_dir("saddle-r9-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )
@@ -311,7 +311,7 @@ async fn an_intent_denies_a_token_on_every_replica_and_over_media() {
         .await
         .unwrap();
 
-    let media = fresh_dir("loom-r9-media");
+    let media = fresh_dir("saddle-r9-media");
     let mut revs = Controller::new(
         "revocation",
         state.informer("RevocationIntent/"),

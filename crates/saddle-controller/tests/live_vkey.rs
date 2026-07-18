@@ -28,8 +28,8 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-r8-vk";
-const PREFIX: &str = "kv/data/loom-vk";
+const ROLE: &str = "saddle-r8-vk";
+const PREFIX: &str = "kv/data/saddle-vk";
 const KEY: &str = "team-alpha-key";
 const TENANT: &str = "acme";
 
@@ -78,15 +78,15 @@ async fn bootstrap(c: &Client, addr: &str, tok: &str) -> (String, String) {
     .await;
 
     let policy = r#"
-path "kv/data/loom-vk/*"     { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-vk/*" { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-vk/*"     { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-vk/*" { capabilities = ["read", "delete", "list"] }
 "#;
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-r8-vk",
+        "sys/policies/acl/saddle-r8-vk",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -96,7 +96,7 @@ path "kv/metadata/loom-vk/*" { capabilities = ["read", "delete", "list"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-r8-vk","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-r8-vk","token_ttl":"15m"})),
     )
     .await;
 
@@ -194,11 +194,11 @@ async fn a_virtual_key_change_is_reflected_at_the_gateway_without_restart() {
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
 
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-r8-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-r8-anchor").unwrap());
     let signer: Arc<dyn Signer> = anchor.clone();
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-r8-live"),
+        fresh_dir("saddle-r8-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

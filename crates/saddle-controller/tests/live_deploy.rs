@@ -33,8 +33,8 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-o1-deploy";
-const PREFIX: &str = "kv/data/loom-deploy";
+const ROLE: &str = "saddle-o1-deploy";
+const PREFIX: &str = "kv/data/saddle-deploy";
 const CAP: &str = "cap-deploy";
 const TENANT: &str = "acme";
 
@@ -84,15 +84,15 @@ async fn bootstrap(c: &Client, addr: &str, tok: &str) -> (String, String) {
     )
     .await;
     let policy = r#"
-path "kv/data/loom-deploy/*"     { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-deploy/*" { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-deploy/*"     { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-deploy/*" { capabilities = ["read", "delete", "list"] }
 "#;
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-o1-deploy",
+        "sys/policies/acl/saddle-o1-deploy",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -102,7 +102,7 @@ path "kv/metadata/loom-deploy/*" { capabilities = ["read", "delete", "list"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-o1-deploy","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-o1-deploy","token_ttl":"15m"})),
     )
     .await;
     let rid: serde_json::Value = bao(
@@ -219,7 +219,7 @@ async fn harness(
     Arc<OpenBaoAuth>,
     Arc<RustCryptoMlDsa87>,
 ) {
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-o1-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-o1-anchor").unwrap());
     let state = AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -279,7 +279,8 @@ async fn packs_replicas_beyond_node_count() {
         .build()
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
-    let (state, client, openbao, anchor) = harness(&addr, role_id, secret_id, "loom-o1-pack").await;
+    let (state, client, openbao, anchor) =
+        harness(&addr, role_id, secret_id, "saddle-o1-pack").await;
     let signer: Arc<dyn Signer> = anchor.clone();
 
     seed_capability(&client).await;
@@ -346,7 +347,7 @@ async fn scale_down_removes_the_dropped_replicas_token() {
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
     let (state, client, openbao, anchor) =
-        harness(&addr, role_id, secret_id, "loom-o1-scaledown").await;
+        harness(&addr, role_id, secret_id, "saddle-o1-scaledown").await;
     let signer: Arc<dyn Signer> = anchor.clone();
 
     seed_capability(&client).await;

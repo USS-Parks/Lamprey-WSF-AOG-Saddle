@@ -31,7 +31,7 @@ use crate::runtime::{Action, ReconcileError, Reconciler};
 
 /// The label that cordons a node: `Node.metadata.labels[CORDON_LABEL] == "true"`
 /// takes it out of scheduling and marks it for maintenance drain.
-pub const CORDON_LABEL: &str = "loom.io/unschedulable";
+pub const CORDON_LABEL: &str = "saddle.islandmountain.io/unschedulable";
 
 /// Cadence between drain passes — long enough that the scheduler re-places an
 /// evicted batch on another node before the next batch is taken down.

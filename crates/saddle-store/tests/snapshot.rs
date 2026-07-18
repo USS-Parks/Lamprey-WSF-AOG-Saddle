@@ -17,7 +17,7 @@ fn base(name: &str) -> std::path::PathBuf {
 
 #[tokio::test]
 async fn snapshot_then_restart_reproduces_the_exact_estate() {
-    let dir = base("loom-h3-snapshot");
+    let dir = base("saddle-h3-snapshot");
 
     // Write an estate, snapshot it, and capture the exact committed state.
     let (expected, revision) = {

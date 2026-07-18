@@ -35,7 +35,7 @@ async fn applied(node: &RaftNode, key: &str, value: &[u8], timeout: Duration) ->
 
 #[tokio::test]
 async fn a_three_node_cluster_forms_consensus_over_the_wire() {
-    let base = scratch("loom-vh1-wire");
+    let base = scratch("saddle-vh1-wire");
 
     // Bind loopback listeners first, so peer URLs are known before membership.
     let mut listeners = Vec::new();

@@ -37,7 +37,7 @@ fn fresh_dir(name: &str) -> PathBuf {
 }
 
 async fn app_state(dir: &str) -> AppState {
-    let anchor = RustCryptoMlDsa87::generate("loom-o4-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-o4-anchor").unwrap();
     AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -83,7 +83,7 @@ fn signals(utilization: f64, budget_headroom: f64, roi: f64) -> AutoscaleSignals
 
 #[tokio::test]
 async fn a_saturated_workload_scales_up_one_replica_per_pass() {
-    let state = app_state("loom-o4-up").await;
+    let state = app_state("saddle-o4-up").await;
     let client = EstateClient::new(state.admission(), state.reader());
     workload(&client, "gw", 2).await;
 
@@ -108,7 +108,7 @@ async fn a_saturated_workload_scales_up_one_replica_per_pass() {
 
 #[tokio::test]
 async fn an_idle_workload_consolidates_down_one_replica_per_pass() {
-    let state = app_state("loom-o4-down").await;
+    let state = app_state("saddle-o4-down").await;
     let client = EstateClient::new(state.admission(), state.reader());
     workload(&client, "gw", 3).await;
 

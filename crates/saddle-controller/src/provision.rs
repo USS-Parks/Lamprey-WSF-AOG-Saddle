@@ -35,7 +35,7 @@ use crate::runtime::{Action, ReconcileError, Reconciler};
 /// The finalizer this controller owns on every `Tenant`: the estate object may
 /// not vanish until its OpenBao record is deprovisioned and the revocation
 /// snapshot is persisted.
-pub const OPENBAO_FINALIZER: &str = "loom.aog/tenant-openbao";
+pub const OPENBAO_FINALIZER: &str = "saddle.islandmountain.io/tenant-openbao";
 
 /// Default subject-HMAC rotation window when the spec leaves it 0.
 const DEFAULT_ROTATION_DAYS: i64 = 90;

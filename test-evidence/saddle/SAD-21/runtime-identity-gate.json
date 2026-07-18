@@ -1,0 +1,21 @@
+{
+  "active_old_runtime_identity_findings": [],
+  "forbidden_paths_retained": [],
+  "missing_negative_authorization_assertions": [],
+  "missing_required_markers": [],
+  "missing_required_paths": [],
+  "negative_authorization_fixture": "crates/saddled/tests/admin_auth.rs",
+  "required_marker_counts": {
+    "api_group": 23,
+    "cordon_label": 1,
+    "daemon_env": 11,
+    "deployment": 28,
+    "forwarded_header": 1,
+    "node_env": 8,
+    "openbao_default": 4,
+    "spiffe_prefix": 8,
+    "trust_role": 6
+  },
+  "schema_version": 1,
+  "status": "PASS"
+}

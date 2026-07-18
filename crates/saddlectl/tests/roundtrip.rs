@@ -32,7 +32,7 @@ fn mint(signer: &RustCryptoMlDsa87, budget: Option<Budget>) -> TrustToken {
         issued_at: now.to_rfc3339(),
         expires_at: (now + Duration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
         tenant_id: "tenant-cli".to_owned(),
         subject_id: None,
         subject_hash: "hmac:cli".to_owned(),
@@ -74,7 +74,7 @@ async fn spawn(dir: &str, budget: Option<Budget>) -> (SocketAddr, String) {
 
 fn bundle(name: &str, version: u32) -> Value {
     json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": name },
         "spec": { "version": version },

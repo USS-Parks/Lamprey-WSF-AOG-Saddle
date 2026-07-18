@@ -10,7 +10,7 @@
 //! modest-scale proof each `run()`. The bars whose true test is the containerized
 //! multi-node estate (3 split-brain, 4/5 self-heal + rollout, 6 scale, 7
 //! kill-under-scale) carry an aggressive live companion under
-//! `deployment/loom-harness/gates/` that ran green against the real 5-CP estate +
+//! `deployment/saddle-harness/gates/` that ran green against the real 5-CP estate +
 //! live OpenBao; `run()`'s assertion is the in-process leg of that same proof, at
 //! in-suite scale (CANON §11: honest, tracked — no bar reported green without an
 //! executed check, and the live companion named on the bar it backs).
@@ -264,7 +264,7 @@ mod tests {
                 election-timing-sensitive under parallel `cargo test --workspace` on a \
                 shared CI runner. Run opt-in with `-- --ignored`. Bar 7 is asserted \
                 non-flakily at modest 3-node scale by the suite test, and end-to-end on \
-                the real 5+5 estate by the loom-live CI job (v5-kill-switch-under-scale.sh)."]
+                the real 5+5 estate by the saddle-live CI job (v5-kill-switch-under-scale.sh)."]
     async fn v5_kill_switch_under_scale() {
         // V5 gate (bar 7): under a 100-object estate, a signed revocation halts
         // the next call on every one of the 5 control-plane replicas, a live
@@ -282,7 +282,7 @@ mod tests {
                 election-timing-sensitive under parallel `cargo test --workspace` on a \
                 shared CI runner. Run opt-in with `-- --ignored`. Bar 6 is asserted \
                 non-flakily at modest 3-node scale by the suite test, and end-to-end on \
-                the real 5+5 estate by the loom-live CI job (v8-scale.sh)."]
+                the real 5+5 estate by the saddle-live CI job (v8-scale.sh)."]
     async fn v8_scale_target() {
         // V8 gate (bar 6): 5 control-plane replicas ingest + reconcile 100
         // workloads to convergence within SLO, and every object replicates to
@@ -297,7 +297,7 @@ mod tests {
                 runner testing the whole workspace in parallel. Run opt-in with \
                 `-- --ignored`; the revocation kill-switch CORRECTNESS is asserted \
                 non-flakily at modest 3-node scale by the suite test, and end-to-end by \
-                the live loom-live job (v10-revocation-slo.sh)."]
+                the live saddle-live job (v10-revocation-slo.sh)."]
     #[allow(clippy::print_stdout)] // an SLO gate surfaces its measured p50/p99
     async fn v10_revocation_to_denial_slo() {
         // V10 gate ("the kill number"): revocation-to-denial across all 5
@@ -317,7 +317,7 @@ mod tests {
     #[ignore = "aggressive-profile soak gate: 12 kill/heal cycles over a real 5-node \
                 openraft cluster; election-timing-sensitive under parallel `cargo test \
                 --workspace` on a shared CI runner. Run opt-in with `-- --ignored`; the \
-                live 5+5 estate is exercised by the loom-live CI job (v7-chaos-soak.sh)."]
+                live 5+5 estate is exercised by the saddle-live CI job (v7-chaos-soak.sh)."]
     #[allow(clippy::print_stdout)] // a soak gate surfaces its result summary
     async fn v7_chaos_soak() {
         // V7 gate (control-plane leg of bars 4/5): a 5-node estate survives a

@@ -1,26 +1,26 @@
-# Loom estate — k3s packaging. The SAME artifact set as the compose packaging
-# (`../docker-compose.yml`): one `loom-harness` image, two binaries (`saddled`,
+# Saddle estate — k3s packaging. The SAME artifact set as the compose packaging
+# (`../docker-compose.yml`): one `saddle-harness` image, two binaries (`saddled`,
 # `saddle-noded`), the same environment contract, the same cluster-init script
 # (mounted from a ConfigMap created from `../cluster-init.sh` — see
 # `../gates/parity-compose-k3s.sh`). Only the orchestrator differs; nothing
 # about the daemons or their configuration forks.
 #
 # k3s/k0s is an optional packaging of the estate for cluster customers — the
-# Loom control plane is the trust plane regardless of the substrate beneath it.
+# Saddle control plane is the trust plane regardless of the substrate beneath it.
 #
 # Dev-harness posture (dev-mode OpenBao, unauthenticated admin API, explicit
-# AOGD_ALLOW_INSECURE_BIND opt-in on the pod network) — NOT production.
+# SADDLED_ALLOW_INSECURE_BIND opt-in on the pod network) — NOT production.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: loom
+  name: saddle
 ---
 # Dev-mode OpenBao, mirroring the compose service.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: openbao
-  namespace: loom
+  namespace: saddle
 spec:
   replicas: 1
   selector:
@@ -50,7 +50,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: openbao
-  namespace: loom
+  namespace: saddle
 spec:
   selector: { app: openbao }
   ports:
@@ -63,7 +63,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cp
-  namespace: loom
+  namespace: saddle
 spec:
   clusterIP: None
   selector: { app: saddled }
@@ -75,7 +75,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: cp
-  namespace: loom
+  namespace: saddle
 spec:
   serviceName: cp
   replicas: 5
@@ -88,9 +88,9 @@ spec:
     spec:
       containers:
         - name: saddled
-          image: loom-harness:vh4
+          image: saddle-harness:vh4
           imagePullPolicy: Never # imported into the k3s containerd from the one artifact set
-          # The compose packaging assigns AOGD_NODE_ID / AOGD_ADVERTISE per
+          # The compose packaging assigns SADDLED_NODE_ID / SADDLED_ADVERTISE per
           # service; here the identical values derive from the pod's stable
           # ordinal + DNS name. Packaging glue only — the env contract the
           # daemon reads is byte-for-byte the compose one.
@@ -98,17 +98,17 @@ spec:
           args:
             - |
               H="${HOSTNAME:-$(cat /proc/sys/kernel/hostname)}"
-              export AOGD_NODE_ID="$(( ${H##*-} + 1 ))"
-              export AOGD_ADVERTISE="http://${H}.cp:4600"
+              export SADDLED_NODE_ID="$(( ${H##*-} + 1 ))"
+              export SADDLED_ADVERTISE="http://${H}.cp:4600"
               exec /usr/local/bin/saddled
           env:
-            - name: AOGD_DATA_DIR
+            - name: SADDLED_DATA_DIR
               value: /tmp/saddled
-            - name: AOGD_LISTEN
+            - name: SADDLED_LISTEN
               value: 0.0.0.0:4600
-            - name: AOGD_PROFILE
+            - name: SADDLED_PROFILE
               value: development
-            - name: AOGD_ALLOW_INSECURE_BIND
+            - name: SADDLED_ALLOW_INSECURE_BIND
               value: "1"
           ports:
             - containerPort: 4600
@@ -124,7 +124,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: cluster-init
-  namespace: loom
+  namespace: saddle
 spec:
   backoffLimit: 4
   template:
@@ -132,11 +132,11 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: cluster-init
-          image: loom-harness:vh4
+          image: saddle-harness:vh4
           imagePullPolicy: Never
           command: ["sh", "-c", "tr -d '\\r' < /init/cluster-init.sh | sh"]
           env:
-            - name: LOOM_CP_ADDR_TEMPLATE
+            - name: SADDLE_CP_ADDR_TEMPLATE
               value: http://cp-{ordinal}.cp:4600
           volumeMounts:
             - name: init
@@ -150,7 +150,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: edge
-  namespace: loom
+  namespace: saddle
 spec:
   clusterIP: None
   selector: { app: saddle-noded }
@@ -162,7 +162,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: edge
-  namespace: loom
+  namespace: saddle
 spec:
   serviceName: edge
   replicas: 5
@@ -175,20 +175,20 @@ spec:
     spec:
       containers:
         - name: saddle-noded
-          image: loom-harness:vh4
+          image: saddle-harness:vh4
           imagePullPolicy: Never
           command: ["/usr/local/bin/saddle-noded"]
           env:
             # The compose packaging names edges edge1..edge5; here the stable
             # pod name (edge-0..edge-4) is the node name. Same env contract.
-            - name: AOG_NODE_NAME
+            - name: SADDLE_NODE_NAME
               valueFrom:
                 fieldRef: { fieldPath: metadata.name }
-            - name: AOG_NODE_CONTROL_PLANE
+            - name: SADDLE_NODE_CONTROL_PLANE
               value: http://cp-0.cp:4600
-            - name: AOG_NODE_LISTEN
+            - name: SADDLE_NODE_LISTEN
               value: 0.0.0.0:5600
-            - name: AOG_NODE_HEARTBEAT_SECS
+            - name: SADDLE_NODE_HEARTBEAT_SECS
               value: "2"
           ports:
             - containerPort: 5600

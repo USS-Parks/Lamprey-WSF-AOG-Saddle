@@ -29,8 +29,8 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-s7-sched";
-const PREFIX: &str = "kv/data/loom-sched";
+const ROLE: &str = "saddle-s7-sched";
+const PREFIX: &str = "kv/data/saddle-sched";
 const WORKLOAD: &str = "gw";
 const CAP: &str = "cap-sched";
 const TENANT: &str = "acme";
@@ -80,15 +80,15 @@ async fn bootstrap(c: &Client, addr: &str, tok: &str) -> (String, String) {
     .await;
 
     let policy = r#"
-path "kv/data/loom-sched/*"     { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-sched/*" { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-sched/*"     { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-sched/*" { capabilities = ["read", "delete", "list"] }
 "#;
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-s7-sched",
+        "sys/policies/acl/saddle-s7-sched",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -98,7 +98,7 @@ path "kv/metadata/loom-sched/*" { capabilities = ["read", "delete", "list"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-s7-sched","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-s7-sched","token_ttl":"15m"})),
     )
     .await;
 
@@ -219,11 +219,11 @@ async fn scheduler_binds_replicas_with_scoped_tokens() {
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
 
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-s7-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-s7-anchor").unwrap());
     let signer: Arc<dyn Signer> = anchor.clone();
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-s7-live"),
+        fresh_dir("saddle-s7-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

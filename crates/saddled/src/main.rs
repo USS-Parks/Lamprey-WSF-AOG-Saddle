@@ -25,7 +25,7 @@ impl Profile {
             None | Some("") | Some("production") | Some("prod") => Ok(Self::Production),
             Some("development") | Some("dev") => Ok(Self::Development),
             Some(other) => Err(DaemonError::Config(format!(
-                "unrecognized AOGD_PROFILE '{other}' (expected production | development)"
+                "unrecognized SADDLED_PROFILE '{other}' (expected production | development)"
             ))),
         }
     }
@@ -46,20 +46,20 @@ fn check_startup_posture(
     if profile == Profile::Production {
         if allow_insecure_admin {
             return Err(DaemonError::Config(
-                "AOGD_ALLOW_INSECURE_ADMIN is forbidden in production".to_owned(),
+                "SADDLED_ALLOW_INSECURE_ADMIN is forbidden in production".to_owned(),
             ));
         }
         if !has_trust {
             return Err(DaemonError::Config(
-                "production requires AOGD_ANCHOR_PUBKEY or AOGD_OPENBAO_ADDR; refusing the \
+                "production requires SADDLED_ANCHOR_PUBKEY or SADDLED_OPENBAO_ADDR; refusing the \
                  fail-open admin posture before socket bind"
                     .to_string(),
             ));
         }
         if !has_node_tls_source {
             return Err(DaemonError::Config(
-                "production requires node TLS from AOGD_RAFT_TLS_OPENBAO_PATH or the complete \
-                 AOGD_RAFT_{CA,CERT,KEY}_DER_PATH set"
+                "production requires node TLS from SADDLED_RAFT_TLS_OPENBAO_PATH or the complete \
+                 SADDLED_RAFT_{CA,CERT,KEY}_DER_PATH set"
                     .to_string(),
             ));
         }
@@ -70,8 +70,8 @@ fn check_startup_posture(
         return Ok(());
     }
     Err(DaemonError::Config(format!(
-        "development AOGD_LISTEN={listen} is non-loopback while /admin and /raft are not yet \
-         production-hardened; bind loopback or explicitly set AOGD_ALLOW_INSECURE_BIND=1"
+        "development SADDLED_LISTEN={listen} is non-loopback while /admin and /raft are not yet \
+         production-hardened; bind loopback or explicitly set SADDLED_ALLOW_INSECURE_BIND=1"
     )))
 }
 
@@ -83,9 +83,9 @@ async fn main() -> Result<(), DaemonError> {
         )
         .init();
 
-    let profile = Profile::parse(std::env::var("AOGD_PROFILE").ok().as_deref())?;
+    let profile = Profile::parse(std::env::var("SADDLED_PROFILE").ok().as_deref())?;
     let config = Config::from_env()?;
-    let allow_insecure = std::env::var("AOGD_ALLOW_INSECURE_BIND").ok().as_deref() == Some("1");
+    let allow_insecure = std::env::var("SADDLED_ALLOW_INSECURE_BIND").ok().as_deref() == Some("1");
     let has_trust = config.anchor_pubkey.is_some() || config.openbao.is_some();
     let has_node_tls_source = config.node_tls.is_some();
     let allow_insecure_admin = config.allow_insecure_admin;
@@ -159,7 +159,7 @@ mod tests {
             false,
         )
         .unwrap_err();
-        assert!(err.to_string().contains("requires AOGD_ANCHOR_PUBKEY"));
+        assert!(err.to_string().contains("requires SADDLED_ANCHOR_PUBKEY"));
     }
 
     #[test]

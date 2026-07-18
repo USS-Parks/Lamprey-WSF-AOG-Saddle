@@ -25,7 +25,7 @@ pub use kinds::*;
 
 /// The API group + version every Saddle resource is served under. Schema
 /// evolution is handled by conversion; this is the current stored form.
-pub const API_VERSION: &str = "aog.islandmountain.io/v1";
+pub const API_VERSION: &str = "saddle.islandmountain.io/v1";
 
 /// The resource kinds Saddle orchestrates (addendum A1.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

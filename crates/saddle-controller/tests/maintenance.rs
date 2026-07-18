@@ -30,7 +30,7 @@ fn fresh_dir(name: &str) -> PathBuf {
 }
 
 async fn app_state(dir: &str) -> AppState {
-    let anchor = RustCryptoMlDsa87::generate("loom-o7-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-o7-anchor").unwrap();
     AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -109,7 +109,7 @@ async fn placements_on(client: &EstateClient, node: &str) -> usize {
 
 #[tokio::test]
 async fn a_cordoned_node_drains_within_the_disruption_budget() {
-    let state = app_state("loom-o7-drain").await;
+    let state = app_state("saddle-o7-drain").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     node(&client, "node-a", true).await; // cordoned
@@ -145,7 +145,7 @@ async fn a_cordoned_node_drains_within_the_disruption_budget() {
 
 #[tokio::test]
 async fn an_uncordoned_node_is_not_drained() {
-    let state = app_state("loom-o7-nodrain").await;
+    let state = app_state("saddle-o7-nodrain").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     node(&client, "node-b", false).await; // not cordoned

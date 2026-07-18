@@ -32,7 +32,7 @@ use crate::runtime::{Action, ReconcileError, Reconciler};
 
 /// The finalizer this controller owns on every `VirtualKey`: the estate object
 /// may not vanish until its gateway resolution entry is retracted.
-pub const VIRTUALKEY_FINALIZER: &str = "loom.aog/virtualkey-kv";
+pub const VIRTUALKEY_FINALIZER: &str = "saddle.islandmountain.io/virtualkey-kv";
 
 /// The stable token id a virtual key resolves to (also its revocation subject).
 fn token_id(tenant: &str, name: &str) -> String {
@@ -118,7 +118,7 @@ impl VirtualKeyController {
             issued_at: now.to_rfc3339(),
             expires_at: (now + ttl).to_rfc3339(),
             issuer: "saddle-controller".to_owned(),
-            trust_bundle_version: "loom".to_owned(),
+            trust_bundle_version: "saddle".to_owned(),
             tenant_id: tenant.to_owned(),
             subject_id: None,
             subject_hash: id,

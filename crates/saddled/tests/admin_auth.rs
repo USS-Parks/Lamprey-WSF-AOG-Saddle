@@ -4,9 +4,9 @@
 //! anchor is provisioned. Three postures against `POST /admin/write`:
 //!
 //! * no token — 401 (authentication, fail-closed),
-//! * a VALID token without the `aog-admin` role — 403 (authorization: the
+//! * a VALID token without the `saddle-admin` role — 403 (authorization: the
 //!   denial this test exists to assert),
-//! * a valid `aog-admin` token — past the trust gate; on this unformed
+//! * a valid `saddle-admin` token — past the trust gate; on this unformed
 //!   single node the write then fails 503 ("no leader"), proving the 403
 //!   above was the role check and not a blanket refusal.
 //!
@@ -22,7 +22,7 @@ use chrono::{Duration as ChronoDuration, Utc};
 use fabric_contracts::{Attenuation, Classification, RevocationStatus, Signature, TrustToken};
 use fabric_crypto::Signer;
 use fabric_crypto::providers::RustCryptoMlDsa87;
-use saddled::admin::AOG_ADMIN_ROLE;
+use saddled::admin::SADDLE_ADMIN_ROLE;
 use saddled::{Config, Daemon, Op, Precondition};
 use tokio::net::TcpListener;
 
@@ -41,10 +41,10 @@ fn token_header(signer: &RustCryptoMlDsa87, roles: &[&str]) -> String {
         issued_at: now.to_rfc3339(),
         expires_at: (now + ChronoDuration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
-        tenant_id: "tenant-loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
+        tenant_id: "tenant-saddle".to_owned(),
         subject_id: None,
-        subject_hash: "hmac:loom".to_owned(),
+        subject_hash: "hmac:saddle".to_owned(),
         service_identity: Some("saddlectl".to_owned()),
         identity_id: None,
         roles: roles.iter().map(ToString::to_string).collect(),
@@ -99,7 +99,7 @@ async fn admin_mutation_without_admin_role_is_403() {
     let addr = listener.local_addr().unwrap();
     let config = Config {
         node_id: 1,
-        data_dir: scratch("loom-admin-auth-saddled"),
+        data_dir: scratch("saddle-admin-auth-saddled"),
         listen: addr,
         advertise: format!("http://{addr}"),
         anchor_pubkey: Some(anchor.public_key().to_vec()),
@@ -128,6 +128,21 @@ async fn admin_mutation_without_admin_role_is_403() {
         "an unauthenticated admin mutation must be refused"
     );
 
+    // The retired forwarding header is ordinary caller input. It cannot select
+    // the mutually-authenticated internal-forwarding path or skip trust-token auth.
+    let r = http
+        .post(&url)
+        .header("x-loom-forwarded", "1")
+        .json(&write_op())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status().as_u16(),
+        401,
+        "the retired forwarding header must not bypass authentication"
+    );
+
     // An authenticated NON-admin token -> 403: the role gate holds.
     let r = http
         .post(&url)
@@ -143,16 +158,31 @@ async fn admin_mutation_without_admin_role_is_403() {
     );
     let body = r.text().await.unwrap();
     assert!(
-        body.contains(AOG_ADMIN_ROLE),
+        body.contains(SADDLE_ADMIN_ROLE),
         "the denial names the required role, got: {body}"
     );
 
-    // The aog-admin role passes the trust gate; on this unformed single node
+    // The retired role is not an alias. Compatibility is handled by an
+    // operator-controlled migration, never by accepting old authority at runtime.
+    let r = http
+        .post(&url)
+        .header("x-wsf-token", token_header(&anchor, &["aog-admin"]))
+        .json(&write_op())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status().as_u16(),
+        403,
+        "the retired admin role must not bypass Saddle authorization"
+    );
+
+    // The saddle-admin role passes the trust gate; on this unformed single node
     // the write then fails 503 (no leader) — availability, not auth. This
     // pins that the 403 above was the role check, not a blanket refusal.
     let r = http
         .post(&url)
-        .header("x-wsf-token", token_header(&anchor, &[AOG_ADMIN_ROLE]))
+        .header("x-wsf-token", token_header(&anchor, &[SADDLE_ADMIN_ROLE]))
         .json(&write_op())
         .send()
         .await

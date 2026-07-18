@@ -5,7 +5,7 @@
 //! Reconciles two kinds through one reconciler (run it on a `"TrustRing/"`
 //! informer and a `"RevocationIntent/"` informer):
 //!
-//! * a live `TrustRing` gets its Transit key ensured (`loom-ring-<n>`) and a
+//! * a live `TrustRing` gets its Transit key ensured (`saddle-ring-<n>`) and a
 //!   `Ready` status carrying the key version;
 //! * a `RevocationIntent` targeting `Ring(n)` darkens every `TrustRing`
 //!   declaring ring `n`: the Transit key is disabled (envelopes under it are

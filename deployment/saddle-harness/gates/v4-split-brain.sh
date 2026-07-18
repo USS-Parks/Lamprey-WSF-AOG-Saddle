@@ -6,13 +6,13 @@
 # minority node has NO leader and CANNOT commit (it serves no authoritative allow —
 # it fences). Then heal and let the cluster reconverge to one leader.
 #
-# Prereq: the estate is up (docker compose -f deployment/loom-harness/docker-compose.yml
+# Prereq: the estate is up (docker compose -f deployment/saddle-harness/docker-compose.yml
 # up -d --wait). Exits 0 on PASS, 1 on FAIL.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 HARNESS="$(dirname "$HERE")"
-PROJECT="${LOOM_PROJECT:-loom-harness}"
+PROJECT="${SADDLE_PROJECT:-saddle-harness}"
 
 part() { sh "$HARNESS/partition.sh" "$@"; }
 leader_of() { docker exec "${PROJECT}-$1-1" curl -s --max-time 4 http://127.0.0.1:4600/admin/leader; }

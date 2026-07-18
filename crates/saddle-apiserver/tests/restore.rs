@@ -23,7 +23,8 @@ fn base(name: &str) -> std::path::PathBuf {
 #[tokio::test]
 async fn a_restore_reproduces_the_estate_and_keeps_the_receipt_chain_intact() {
     // A hash-chained receipt ledger with a verifiable head + signed pack.
-    let signer: Arc<dyn Signer> = Arc::new(RustCryptoMlDsa87::generate("loom-h3-ledger").unwrap());
+    let signer: Arc<dyn Signer> =
+        Arc::new(RustCryptoMlDsa87::generate("saddle-h3-ledger").unwrap());
     let mut ledger = Ledger::new(Arc::clone(&signer));
     for i in 0..5 {
         ledger
@@ -41,7 +42,7 @@ async fn a_restore_reproduces_the_estate_and_keeps_the_receipt_chain_intact() {
     );
 
     // An estate: write, snapshot, and capture the exact committed state.
-    let dir = base("loom-h3-restore");
+    let dir = base("saddle-h3-restore");
     let expected = {
         let node = RaftNode::bootstrap(1, &dir).await.unwrap();
         for i in 0..10 {

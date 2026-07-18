@@ -11,11 +11,11 @@
 # is reported as the estate's commit throughput (the per-object docker-exec
 # round-trip dominates the harness side, so it is a report, not the bound).
 #
-# Prereq: estate up (docker compose -f deployment/loom-harness/docker-compose.yml
+# Prereq: estate up (docker compose -f deployment/saddle-harness/docker-compose.yml
 # up -d --wait). Exits 0 on PASS, 1 on FAIL.
 set -eu
 
-PROJECT="${LOOM_PROJECT:-loom-harness}"
+PROJECT="${SADDLE_PROJECT:-saddle-harness}"
 SCALE="${V8_SCALE:-100}"
 CPS="cp1 cp2 cp3 cp4 cp5"
 

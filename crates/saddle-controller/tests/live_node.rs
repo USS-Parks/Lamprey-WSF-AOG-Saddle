@@ -28,8 +28,8 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-n2-node";
-const PREFIX: &str = "kv/data/loom-n2";
+const ROLE: &str = "saddle-n2-node";
+const PREFIX: &str = "kv/data/saddle-n2";
 const WORKLOAD: &str = "gw";
 const CAP: &str = "cap-n2";
 const TENANT: &str = "acme";
@@ -78,15 +78,15 @@ async fn bootstrap(c: &Client, addr: &str, tok: &str) -> (String, String) {
     )
     .await;
     let policy = r#"
-path "kv/data/loom-n2/*"     { capabilities = ["create", "read", "update", "delete"] }
-path "kv/metadata/loom-n2/*" { capabilities = ["read", "delete", "list"] }
+path "kv/data/saddle-n2/*"     { capabilities = ["create", "read", "update", "delete"] }
+path "kv/metadata/saddle-n2/*" { capabilities = ["read", "delete", "list"] }
 "#;
     bao(
         c,
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-n2-node",
+        "sys/policies/acl/saddle-n2-node",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -96,7 +96,7 @@ path "kv/metadata/loom-n2/*" { capabilities = ["read", "delete", "list"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-n2-node","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-n2-node","token_ttl":"15m"})),
     )
     .await;
     let rid: serde_json::Value = bao(
@@ -254,11 +254,11 @@ async fn a_killed_node_reschedules_its_workload() {
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
 
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-n2-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-n2-anchor").unwrap());
     let signer: Arc<dyn Signer> = anchor.clone();
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-n2-live"),
+        fresh_dir("saddle-n2-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

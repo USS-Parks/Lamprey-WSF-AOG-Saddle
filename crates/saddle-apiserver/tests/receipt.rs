@@ -83,7 +83,7 @@ async fn rejected_mutation_emits_no_receipt() {
 
     // Structurally invalid (version 0) — rejected before commit.
     let bad = serde_json::json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": "x" },
         "spec": { "version": 0 },
@@ -108,8 +108,8 @@ async fn pending_intent_survives_crash_and_recovers_as_verifiable_evidence() {
         "schema": "aog.audit-intent/v1",
         "intent_id": intent_id,
         "correlation_id": "corr-crash",
-        "tenant_id": "tenant-loom",
-        "subject_hash": "hmac:loom",
+        "tenant_id": "tenant-saddle",
+        "subject_hash": "hmac:saddle",
         "operation": "aog-create",
         "resource": "PolicyBundle/crash-window",
         "verb": "create",

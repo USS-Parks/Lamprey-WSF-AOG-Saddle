@@ -35,10 +35,10 @@ use crate::api::{ChangeMembershipRequest, GetRequest, InitializeRequest, LeaderS
 type AdminResult<T> = Result<T, (StatusCode, String)>;
 
 /// Marks a write already forwarded once, so the leader hop cannot loop.
-const FORWARDED_HEADER: &str = "x-loom-forwarded";
+const FORWARDED_HEADER: &str = "x-saddle-forwarded";
 
 /// The trust role a WSF token must carry to use the mutating admin API (A1).
-pub const AOG_ADMIN_ROLE: &str = "aog-admin";
+pub const SADDLE_ADMIN_ROLE: &str = "saddle-admin";
 
 /// Shared admin state: the Raft node plus an HTTP client for forwarding writes to
 /// the current leader.
@@ -106,7 +106,7 @@ pub fn router(
 }
 
 /// A1 middleware: authenticate an admin request against the front-door authenticator
-/// (when provisioned) and require the `aog-admin` role. No authenticator means the
+/// (when provisioned) and require the `saddle-admin` role. No authenticator means the
 /// pre-anchor bootstrap posture, which the 0.2 loopback containment gates.
 async fn require_admin(
     State(state): State<AdminState>,
@@ -160,7 +160,7 @@ async fn require_admin(
         if !is_admin {
             return Err((
                 StatusCode::FORBIDDEN,
-                format!("admin role '{AOG_ADMIN_ROLE}' required"),
+                format!("admin role '{SADDLE_ADMIN_ROLE}' required"),
             ));
         }
     } else if !state.allow_insecure_admin {
@@ -202,7 +202,7 @@ fn bounded_bootstrap_allows(path: &str, peer: SocketAddr, bootstrap_open: bool) 
 
 /// Whether a token's roles include the admin role.
 fn roles_include_admin(roles: &[String]) -> bool {
-    roles.iter().any(|r| r == AOG_ADMIN_ROLE)
+    roles.iter().any(|r| r == SADDLE_ADMIN_ROLE)
 }
 
 /// Map any node/raft failure to a 500 carrying its reason (fail-closed: the harness
@@ -428,7 +428,7 @@ mod admin_auth_tests {
     use saddle_store::{Op, Precondition};
 
     use super::{
-        AOG_ADMIN_ROLE, FORWARDED_HEADER, bounded_bootstrap_allows, forwarded_write_request,
+        FORWARDED_HEADER, SADDLE_ADMIN_ROLE, bounded_bootstrap_allows, forwarded_write_request,
         roles_include_admin,
     };
 
@@ -436,7 +436,7 @@ mod admin_auth_tests {
     fn admin_role_gate() {
         assert!(roles_include_admin(&[
             "x".to_owned(),
-            AOG_ADMIN_ROLE.to_owned()
+            SADDLE_ADMIN_ROLE.to_owned()
         ]));
         assert!(!roles_include_admin(&["adult".to_owned()]));
         assert!(!roles_include_admin(&[]));

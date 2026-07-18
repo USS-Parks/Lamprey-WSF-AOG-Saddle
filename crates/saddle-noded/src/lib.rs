@@ -58,10 +58,10 @@ pub struct NodeConfig {
 }
 
 impl NodeConfig {
-    /// Read the configuration from the environment: `AOG_NODE_NAME`,
-    /// `AOG_NODE_CONTROL_PLANE`, and `AOG_NODE_LISTEN` (a `SocketAddr`) are
-    /// required; `AOG_NODE_TENANT` (default `default`), `AOG_NODE_RING` (default
-    /// `1`), and `AOG_NODE_HEARTBEAT_SECS` (default `5`) are optional. Attestation
+    /// Read the configuration from the environment: `SADDLE_NODE_NAME`,
+    /// `SADDLE_NODE_CONTROL_PLANE`, and `SADDLE_NODE_LISTEN` (a `SocketAddr`) are
+    /// required; `SADDLE_NODE_TENANT` (default `default`), `SADDLE_NODE_RING` (default
+    /// `1`), and `SADDLE_NODE_HEARTBEAT_SECS` (default `5`) are optional. Attestation
     /// floor and capacity take conservative defaults (attested for real).
     ///
     /// # Errors
@@ -73,18 +73,18 @@ impl NodeConfig {
         fn optional(key: &str, default: &str) -> String {
             std::env::var(key).unwrap_or_else(|_| default.to_owned())
         }
-        let name = required("AOG_NODE_NAME")?;
-        let control_plane = required("AOG_NODE_CONTROL_PLANE")?;
-        let listen = required("AOG_NODE_LISTEN")?
+        let name = required("SADDLE_NODE_NAME")?;
+        let control_plane = required("SADDLE_NODE_CONTROL_PLANE")?;
+        let listen = required("SADDLE_NODE_LISTEN")?
             .parse::<SocketAddr>()
-            .map_err(|e| NodedError::Config(format!("AOG_NODE_LISTEN: {e}")))?;
-        let tenant = optional("AOG_NODE_TENANT", "default");
-        let ring = optional("AOG_NODE_RING", "1")
+            .map_err(|e| NodedError::Config(format!("SADDLE_NODE_LISTEN: {e}")))?;
+        let tenant = optional("SADDLE_NODE_TENANT", "default");
+        let ring = optional("SADDLE_NODE_RING", "1")
             .parse::<u8>()
-            .map_err(|e| NodedError::Config(format!("AOG_NODE_RING: {e}")))?;
-        let heartbeat_secs = optional("AOG_NODE_HEARTBEAT_SECS", "5")
+            .map_err(|e| NodedError::Config(format!("SADDLE_NODE_RING: {e}")))?;
+        let heartbeat_secs = optional("SADDLE_NODE_HEARTBEAT_SECS", "5")
             .parse::<u64>()
-            .map_err(|e| NodedError::Config(format!("AOG_NODE_HEARTBEAT_SECS: {e}")))?;
+            .map_err(|e| NodedError::Config(format!("SADDLE_NODE_HEARTBEAT_SECS: {e}")))?;
         Ok(Self {
             name,
             tenant,

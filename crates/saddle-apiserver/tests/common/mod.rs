@@ -26,7 +26,7 @@ use saddle_apiserver::{AppState, router};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-pub const BASE: &str = "/apis/aog.islandmountain.io/v1";
+pub const BASE: &str = "/apis/saddle.islandmountain.io/v1";
 
 pub fn fresh_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(name);
@@ -36,21 +36,21 @@ pub fn fresh_dir(name: &str) -> PathBuf {
 
 /// A fresh trust-anchor signer.
 pub fn anchor() -> RustCryptoMlDsa87 {
-    RustCryptoMlDsa87::generate("loom-test-anchor").unwrap()
+    RustCryptoMlDsa87::generate("saddle-test-anchor").unwrap()
 }
 
 /// Mint a signed token under `signer`, customised by `f` before signing.
 pub fn mint_with(signer: &RustCryptoMlDsa87, f: impl FnOnce(&mut TrustToken)) -> TrustToken {
     let now = Utc::now();
     let mut token = TrustToken {
-        token_id: "tok-loom".to_owned(),
+        token_id: "tok-saddle".to_owned(),
         issued_at: now.to_rfc3339(),
         expires_at: (now + Duration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
-        tenant_id: "tenant-loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
+        tenant_id: "tenant-saddle".to_owned(),
         subject_id: None,
-        subject_hash: "hmac:loom".to_owned(),
+        subject_hash: "hmac:saddle".to_owned(),
         service_identity: Some("saddlectl".to_owned()),
         identity_id: None,
         roles: vec![],
@@ -167,7 +167,7 @@ pub async fn send(
 /// A minimal valid `PolicyBundle` body.
 pub fn bundle(name: &str, version: u32) -> Value {
     json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": name },
         "spec": { "version": version },

@@ -22,7 +22,7 @@ async fn admission_reject_persists_nothing() {
 
     // Structurally invalid: a PolicyBundle version 0 fails estate validation.
     let bad_spec = serde_json::json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": "reject-me" },
         "spec": { "version": 0 },
@@ -39,7 +39,7 @@ async fn admission_reject_persists_nothing() {
 
     // Invalid name: illegal characters fail metadata validation.
     let bad_name = serde_json::json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": "Reject_Me" },
         "spec": { "version": 1 },
@@ -67,7 +67,7 @@ async fn admitted_object_bears_admission_stamps() {
     let (app, tok) = authed_app("saddle-apiserver-k5-stamps").await;
     let t = Some(tok.as_str());
     let good = serde_json::json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": "stamped" },
         "spec": { "version": 1 },

@@ -32,10 +32,10 @@ fn token_header(signer: &RustCryptoMlDsa87) -> String {
         issued_at: now.to_rfc3339(),
         expires_at: (now + ChronoDuration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
-        tenant_id: "tenant-loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
+        tenant_id: "tenant-saddle".to_owned(),
         subject_id: None,
-        subject_hash: "hmac:loom".to_owned(),
+        subject_hash: "hmac:saddle".to_owned(),
         service_identity: Some("saddlectl".to_owned()),
         identity_id: None,
         roles: vec![],
@@ -76,13 +76,13 @@ async fn await_health(http: &reqwest::Client, base: &str) -> bool {
 
 #[tokio::test]
 async fn saddled_authenticated_crud_via_from_raft() {
-    let anchor = RustCryptoMlDsa87::generate("loom-vh5b-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-vh5b-anchor").unwrap();
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let config = Config {
         node_id: 1,
-        data_dir: scratch("loom-vh5b-saddled"),
+        data_dir: scratch("saddle-vh5b-saddled"),
         listen: addr,
         advertise: format!("http://{addr}"),
         anchor_pubkey: Some(anchor.public_key().to_vec()),
@@ -101,7 +101,7 @@ async fn saddled_authenticated_crud_via_from_raft() {
         "daemon health never came up"
     );
 
-    let url = format!("{base}/apis/aog.islandmountain.io/v1/PolicyBundle");
+    let url = format!("{base}/apis/saddle.islandmountain.io/v1/PolicyBundle");
 
     // No token -> 401: the CRUD surface is authenticated (fail-closed).
     let r = http.get(&url).send().await.unwrap();

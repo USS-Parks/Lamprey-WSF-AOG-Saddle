@@ -18,7 +18,7 @@ use crate::admission::{AdmissionRequest, Principal, Verb};
 use crate::codec::parse_kind;
 use crate::error::ApiError;
 
-/// `POST /apis/aog.islandmountain.io/v1/{kind}` — create a resource. The name
+/// `POST /apis/saddle.islandmountain.io/v1/{kind}` — create a resource. The name
 /// comes from the body's `metadata.name`.
 ///
 /// # Errors

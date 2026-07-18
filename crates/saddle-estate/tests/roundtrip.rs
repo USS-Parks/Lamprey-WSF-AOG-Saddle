@@ -254,7 +254,7 @@ fn rejects_kind_mismatch() {
 #[test]
 fn rejects_unknown_api_version() {
     let mut t = tenant();
-    t.type_meta.api_version = "aog.islandmountain.io/v0".to_owned();
+    t.type_meta.api_version = "saddle.islandmountain.io/v0".to_owned();
     assert!(matches!(t.validate(), Err(EstateError::ApiVersion(_))));
 }
 

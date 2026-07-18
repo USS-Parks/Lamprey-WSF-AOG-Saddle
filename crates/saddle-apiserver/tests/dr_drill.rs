@@ -1,5 +1,5 @@
 //! A full DR drill from a cold, encrypted backup succeeds by the runbook
-//! (`docs/LOOM-DR-RUNBOOK.md`) alone: back up a live estate envelope-sealed, lose
+//! (`docs/SADDLE-DR-RUNBOOK.md`) alone: back up a live estate envelope-sealed, lose
 //! the control plane entirely, then cold-restore its content into a fresh estate
 //! from the sealed blob on media plus the escrowed data key — no primary state.
 
@@ -20,13 +20,13 @@ const DR_KEY: [u8; 32] = [0x5c; 32];
 #[tokio::test]
 async fn a_full_dr_drill_from_cold_backup_succeeds() {
     // Removable media / off-site store — outlives the control-plane hosts.
-    let media = base("loom-h4-media");
+    let media = base("saddle-h4-media");
     std::fs::create_dir_all(&media).unwrap();
     let backup_file = media.join("estate.sealed");
 
     // ── Take a backup of a live estate, then lose the control plane entirely.
     let manifest: Vec<(String, Vec<u8>)> = {
-        let dir = base("loom-h4-primary");
+        let dir = base("saddle-h4-primary");
         let node = RaftNode::bootstrap(1, &dir).await.unwrap();
         for i in 0..12 {
             node.write(Op::Put {
@@ -54,7 +54,7 @@ async fn a_full_dr_drill_from_cold_backup_succeeds() {
     let restored = restore_estate(&sealed, &DR_KEY).unwrap();
     assert_eq!(restored.len(), 12, "every backed-up entry is recovered");
     // (4) Bootstrap a fresh single-node control plane on the clean host.
-    let dr_dir = base("loom-h4-dr");
+    let dr_dir = base("saddle-h4-dr");
     let node = RaftNode::bootstrap(2, &dr_dir).await.unwrap();
     // (5) Re-apply every entry.
     for entry in &restored {

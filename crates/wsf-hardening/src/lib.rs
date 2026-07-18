@@ -168,11 +168,11 @@ pub fn assert_production_ready(cfg: &DeploymentConfig) -> Result<(), Vec<GuardVi
     }
 }
 
-/// The Loom control-plane facts the prod guard checks beyond the base
+/// The Saddle control-plane facts the prod guard checks beyond the base
 /// [`DeploymentConfig`]: the Raft voter count (a single-node quorum is not HA)
 /// and whether the policy bundles it would serve are signed.
 #[derive(Debug, Clone)]
-pub struct LoomDeployment<'a> {
+pub struct SaddleDeployment<'a> {
     /// The base WSF deployment config (OpenBao transport/token, HMAC key).
     pub config: &'a DeploymentConfig,
     /// Number of Raft voters in the control plane — must be `>= 3` in production.
@@ -181,12 +181,12 @@ pub struct LoomDeployment<'a> {
     pub bundles_signed: bool,
 }
 
-/// The Loom production guard: the base WSF dev-fixture guard
-/// ([`production_guard`]) **plus** Loom's HA and signed-bundle requirements —
+/// The Saddle production guard: the base WSF dev-fixture guard
+/// ([`production_guard`]) **plus** Saddle's HA and signed-bundle requirements —
 /// reject a single-node quorum and an unsigned bundle in production. Empty =
 /// production-ready. A no-op in [`DeployMode::Dev`].
 #[must_use]
-pub fn loom_production_guard(deployment: &LoomDeployment) -> Vec<GuardViolation> {
+pub fn saddle_production_guard(deployment: &SaddleDeployment) -> Vec<GuardViolation> {
     let mut violations = production_guard(deployment.config);
     if deployment.config.mode != DeployMode::Production {
         return violations;
@@ -209,16 +209,16 @@ pub fn loom_production_guard(deployment: &LoomDeployment) -> Vec<GuardViolation>
     violations
 }
 
-/// Guard the Loom deployment, returning `Err` with the violations if it is not
+/// Guard the Saddle deployment, returning `Err` with the violations if it is not
 /// production-ready.
 ///
 /// # Errors
 /// The list of [`GuardViolation`]s when any dev fixture, a single-node quorum, or
 /// an unsigned bundle is present.
-pub fn assert_loom_production_ready(
-    deployment: &LoomDeployment,
+pub fn assert_saddle_production_ready(
+    deployment: &SaddleDeployment,
 ) -> Result<(), Vec<GuardViolation>> {
-    let violations = loom_production_guard(deployment);
+    let violations = saddle_production_guard(deployment);
     if violations.is_empty() {
         Ok(())
     } else {

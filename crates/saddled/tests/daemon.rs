@@ -45,7 +45,7 @@ async fn await_value(client: &Client, key: &str, value: &[u8], timeout: Duration
 
 #[tokio::test]
 async fn three_saddled_daemons_form_consensus_through_the_admin_api() {
-    let base = scratch("loom-vh2-saddled");
+    let base = scratch("saddle-vh2-saddled");
 
     // Bind loopback listeners first, so peer URLs are known before membership.
     let mut listeners = Vec::new();

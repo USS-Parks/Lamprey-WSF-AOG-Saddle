@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Loom Phase-V conformance harness image (VH4) — builds the saddled control-plane
+# Saddle Phase-V conformance harness image (VH4) — builds the saddled control-plane
 # daemon and the saddle-noded edge daemon from the Cargo workspace and ships them on
 # a slim runtime. Build context = the mai workspace root (so Cargo.lock resolves);
 # target/ is .dockerignore'd. One image, one binary per compose service (VH5).
@@ -25,8 +25,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /out/saddled      /usr/local/bin/saddled
 COPY --from=builder /out/saddle-noded /usr/local/bin/saddle-noded
-RUN useradd -r -u 10001 loom
-USER loom
+RUN useradd -r -u 10001 saddle
+USER saddle
 # No ENTRYPOINT: the harness compose sets the command per service (saddled for the
 # control plane, saddle-noded for the edges). Default to the control-plane daemon.
 CMD ["/usr/local/bin/saddled"]

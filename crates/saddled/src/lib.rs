@@ -12,8 +12,8 @@
 //! also serves the **authenticated** `saddle-apiserver` CRUD over its own node via
 //! [`saddle_apiserver::AppState::from_raft`] — every `/apis/**` request must carry a
 //! valid trust token, fail-closed. The anchor arrives one of two ways: a raw
-//! env public key (`AOGD_ANCHOR_PUBKEY`), or — taking precedence —
-//! OpenBao-custodied trust material read at startup (`AOGD_OPENBAO_*`; see
+//! env public key (`SADDLED_ANCHOR_PUBKEY`), or — taking precedence —
+//! OpenBao-custodied trust material read at startup (`SADDLED_OPENBAO_*`; see
 //! [`provision`]), which also custodies the field-seal data key + child-mint signer
 //! so sealed state is stable and shared across the estate. Per-node wire mTLS lives
 //! in [`saddle_wire::tls`]. The wire + admin surface still runs when no
@@ -102,7 +102,7 @@ pub enum NodeTlsProvisioning {
     },
     /// A per-node OpenBao KV-v2 record containing base64 DER fields.
     OpenBao {
-        /// KV-v2 API path, e.g. `kv/data/loom/nodes/1/raft-tls`.
+        /// KV-v2 API path, e.g. `kv/data/saddle/nodes/1/raft-tls`.
         path: String,
         /// Refuse startup once the leaf enters this rotation window.
         minimum_remaining: Duration,
@@ -120,14 +120,14 @@ pub struct OpenBaoTrust {
     pub role_id: String,
     /// AppRole secret_id (pre-provisioned).
     pub secret_id: String,
-    /// KV-v2 API path of the trust record, e.g. `kv/data/loom/trust`.
+    /// KV-v2 API path of the trust record, e.g. `kv/data/saddle/trust`.
     pub trust_path: String,
 }
 
 impl Config {
-    /// Read the configuration from the environment: `AOGD_NODE_ID`,
-    /// `AOGD_DATA_DIR`, `AOGD_LISTEN` (a `SocketAddr`), and optional
-    /// `AOGD_ADVERTISE` (defaults to `http://<listen>`).
+    /// Read the configuration from the environment: `SADDLED_NODE_ID`,
+    /// `SADDLED_DATA_DIR`, `SADDLED_LISTEN` (a `SocketAddr`), and optional
+    /// `SADDLED_ADVERTISE` (defaults to `http://<listen>`).
     ///
     /// # Errors
     /// [`DaemonError::Config`] if a required variable is absent or unparseable.
@@ -135,52 +135,52 @@ impl Config {
         fn required(key: &str) -> Result<String, DaemonError> {
             std::env::var(key).map_err(|_| DaemonError::Config(format!("{key} is required")))
         }
-        let node_id = required("AOGD_NODE_ID")?
+        let node_id = required("SADDLED_NODE_ID")?
             .parse::<NodeId>()
-            .map_err(|e| DaemonError::Config(format!("AOGD_NODE_ID: {e}")))?;
-        let data_dir = PathBuf::from(required("AOGD_DATA_DIR")?);
-        let listen = required("AOGD_LISTEN")?
+            .map_err(|e| DaemonError::Config(format!("SADDLED_NODE_ID: {e}")))?;
+        let data_dir = PathBuf::from(required("SADDLED_DATA_DIR")?);
+        let listen = required("SADDLED_LISTEN")?
             .parse::<SocketAddr>()
-            .map_err(|e| DaemonError::Config(format!("AOGD_LISTEN: {e}")))?;
+            .map_err(|e| DaemonError::Config(format!("SADDLED_LISTEN: {e}")))?;
         let advertise =
-            std::env::var("AOGD_ADVERTISE").unwrap_or_else(|_| format!("http://{listen}"));
+            std::env::var("SADDLED_ADVERTISE").unwrap_or_else(|_| format!("http://{listen}"));
         // Optional trust anchor: hex-encoded ML-DSA-87 public key.
-        let anchor_pubkey = match std::env::var("AOGD_ANCHOR_PUBKEY") {
+        let anchor_pubkey = match std::env::var("SADDLED_ANCHOR_PUBKEY") {
             Ok(hex_str) => Some(
                 hex::decode(hex_str.trim())
-                    .map_err(|e| DaemonError::Config(format!("AOGD_ANCHOR_PUBKEY: {e}")))?,
+                    .map_err(|e| DaemonError::Config(format!("SADDLED_ANCHOR_PUBKEY: {e}")))?,
             ),
             Err(_) => None,
         };
         // Optional OpenBao trust source. When the address is set the
         // AppRole credential is required; the trust path defaults to the estate
-        // convention. Takes precedence over AOGD_ANCHOR_PUBKEY at start.
-        let openbao = match std::env::var("AOGD_OPENBAO_ADDR") {
+        // convention. Takes precedence over SADDLED_ANCHOR_PUBKEY at start.
+        let openbao = match std::env::var("SADDLED_OPENBAO_ADDR") {
             Ok(address) => Some(OpenBaoTrust {
                 address,
-                role_id: required("AOGD_OPENBAO_ROLE_ID")?,
-                secret_id: required("AOGD_OPENBAO_SECRET_ID")?,
-                trust_path: std::env::var("AOGD_OPENBAO_TRUST_PATH")
-                    .unwrap_or_else(|_| "kv/data/loom/trust".to_owned()),
+                role_id: required("SADDLED_OPENBAO_ROLE_ID")?,
+                secret_id: required("SADDLED_OPENBAO_SECRET_ID")?,
+                trust_path: std::env::var("SADDLED_OPENBAO_TRUST_PATH")
+                    .unwrap_or_else(|_| "kv/data/saddle/trust".to_owned()),
             }),
             Err(_) => None,
         };
-        let minimum_remaining = std::env::var("AOGD_RAFT_TLS_ROTATION_MIN_SECS")
+        let minimum_remaining = std::env::var("SADDLED_RAFT_TLS_ROTATION_MIN_SECS")
             .unwrap_or_else(|_| "3600".to_owned())
             .parse::<u64>()
             .map(Duration::from_secs)
-            .map_err(|e| DaemonError::Config(format!("AOGD_RAFT_TLS_ROTATION_MIN_SECS: {e}")))?;
-        let openbao_tls_path = std::env::var("AOGD_RAFT_TLS_OPENBAO_PATH").ok();
-        let ca_path = std::env::var("AOGD_RAFT_CA_DER_PATH").ok();
-        let cert_path = std::env::var("AOGD_RAFT_CERT_DER_PATH").ok();
-        let key_path = std::env::var("AOGD_RAFT_KEY_DER_PATH").ok();
+            .map_err(|e| DaemonError::Config(format!("SADDLED_RAFT_TLS_ROTATION_MIN_SECS: {e}")))?;
+        let openbao_tls_path = std::env::var("SADDLED_RAFT_TLS_OPENBAO_PATH").ok();
+        let ca_path = std::env::var("SADDLED_RAFT_CA_DER_PATH").ok();
+        let cert_path = std::env::var("SADDLED_RAFT_CERT_DER_PATH").ok();
+        let key_path = std::env::var("SADDLED_RAFT_KEY_DER_PATH").ok();
         let file_count = usize::from(ca_path.is_some())
             + usize::from(cert_path.is_some())
             + usize::from(key_path.is_some());
         let node_tls = match (openbao_tls_path, file_count) {
             (Some(_), 1..=3) => {
                 return Err(DaemonError::Config(
-                    "choose either AOGD_RAFT_TLS_OPENBAO_PATH or the three DER file paths"
+                    "choose either SADDLED_RAFT_TLS_OPENBAO_PATH or the three DER file paths"
                         .to_owned(),
                 ));
             }
@@ -197,15 +197,17 @@ impl Config {
             (None, 0) => None,
             (None, _) => {
                 return Err(DaemonError::Config(
-                    "AOGD_RAFT_CA_DER_PATH, AOGD_RAFT_CERT_DER_PATH, and \
-                     AOGD_RAFT_KEY_DER_PATH must be configured together"
+                    "SADDLED_RAFT_CA_DER_PATH, SADDLED_RAFT_CERT_DER_PATH, and \
+                     SADDLED_RAFT_KEY_DER_PATH must be configured together"
                         .to_owned(),
                 ));
             }
             _ => unreachable!("file count is bounded to three"),
         };
-        let allow_insecure_admin =
-            std::env::var("AOGD_ALLOW_INSECURE_ADMIN").ok().as_deref() == Some("1");
+        let allow_insecure_admin = std::env::var("SADDLED_ALLOW_INSECURE_ADMIN")
+            .ok()
+            .as_deref()
+            == Some("1");
         Ok(Self {
             node_id,
             data_dir,
@@ -266,7 +268,7 @@ impl Daemon {
             }) => {
                 let bao = config.openbao.as_ref().ok_or_else(|| {
                     DaemonError::Config(
-                        "AOGD_RAFT_TLS_OPENBAO_PATH requires AOGD_OPENBAO_ADDR and AppRole"
+                        "SADDLED_RAFT_TLS_OPENBAO_PATH requires SADDLED_OPENBAO_ADDR and AppRole"
                             .to_owned(),
                     )
                 })?;

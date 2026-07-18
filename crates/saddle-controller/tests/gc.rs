@@ -43,7 +43,7 @@ fn mint(signer: &RustCryptoMlDsa87, tenant: &str) -> TrustToken {
         issued_at: now.to_rfc3339(),
         expires_at: (now + chrono::Duration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
         tenant_id: tenant.to_owned(),
         subject_id: None,
         subject_hash: format!("hmac:{tenant}"),
@@ -77,7 +77,7 @@ fn headers_for(token: &TrustToken) -> HeaderMap {
 }
 
 async fn estate(dir: &str) -> (AppState, RustCryptoMlDsa87) {
-    let signer = RustCryptoMlDsa87::generate("loom-r2-anchor").unwrap();
+    let signer = RustCryptoMlDsa87::generate("saddle-r2-anchor").unwrap();
     let auth = Authenticator::new(signer.public_key().to_vec());
     let state = AppState::bootstrap(1, fresh_dir(dir), auth, Sealer::generate().unwrap())
         .await
@@ -127,7 +127,7 @@ async fn settle1<R: Reconciler>(controller: &mut Controller<R>) {
 
 #[tokio::test]
 async fn deleting_a_tenant_revokes_its_tokens_and_gcs_children() {
-    let (state, signer) = estate("loom-r2-tenant-teardown").await;
+    let (state, signer) = estate("saddle-r2-tenant-teardown").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     // The tenant and its scoped children.
@@ -269,7 +269,7 @@ async fn deleting_a_tenant_revokes_its_tokens_and_gcs_children() {
 
 #[tokio::test]
 async fn orphans_are_collected_by_owner_reference() {
-    let (state, _signer) = estate("loom-r2-orphan-gc").await;
+    let (state, _signer) = estate("saddle-r2-orphan-gc").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     let workload = Resource::new(

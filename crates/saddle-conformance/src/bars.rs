@@ -265,7 +265,7 @@ async fn settle<R: Reconciler>(controller: &mut Controller<R>) -> Result<(), Str
 pub async fn linearizable_writes() -> Result<String, String> {
     const KEY: &str = "Workload/conformance-cas";
 
-    let dir = scratch("loom-conformance-linearizable");
+    let dir = scratch("saddle-conformance-linearizable");
     let node = RaftNode::bootstrap(1, &dir)
         .await
         .map_err(|e| format!("bootstrap failed: {e:?}"))?;
@@ -390,7 +390,7 @@ pub async fn idempotent_reconcile(histories: usize, seed: u64) -> Result<String,
     .into_iter()
     .collect();
 
-    let dir = scratch("loom-conformance-idempotency");
+    let dir = scratch("saddle-conformance-idempotency");
     let node = Arc::new(
         RaftNode::bootstrap(1, &dir)
             .await
@@ -490,7 +490,7 @@ pub async fn linearizable_under_faults(
     const KEY: &str = "Counter/linearizability";
 
     let _estate_guard = raft_estate_guard().await;
-    let (cluster, nodes) = spawn_cluster(3, "loom-conformance-linearizability").await?;
+    let (cluster, nodes) = spawn_cluster(3, "saddle-conformance-linearizability").await?;
     let result: Result<String, String> = async {
 
     // Seed the counter at 0, leader-transparently: on a contended runner the
@@ -669,7 +669,7 @@ async fn publish_revocation(
     expires: DateTime<Utc>,
 ) -> Result<(), String> {
     let mut snapshot = RevocationSnapshot::new(
-        "loom-estate-revocation",
+        "saddle-estate-revocation",
         issued.to_rfc3339(),
         expires.to_rfc3339(),
     );
@@ -760,9 +760,9 @@ pub async fn kill_switch_under_scale(replicas: u64, workloads: usize) -> Result<
     const LIVE: &str = "tok-healthy";
 
     let _estate_guard = raft_estate_guard().await;
-    let (_cluster, nodes) = spawn_cluster(replicas, "loom-conformance-killswitch").await?;
+    let (_cluster, nodes) = spawn_cluster(replicas, "saddle-conformance-killswitch").await?;
     let result: Result<String, String> = async {
-    let anchor = RustCryptoMlDsa87::generate("loom-estate-anchor")
+    let anchor = RustCryptoMlDsa87::generate("saddle-estate-anchor")
         .map_err(|e| format!("anchor keygen failed: {e}"))?;
     let anchor_pk = anchor.public_key().to_vec();
 
@@ -845,7 +845,7 @@ pub async fn scale_target(replicas: u64, workloads: usize) -> Result<String, Str
     let slo = Duration::from_secs(120);
 
     let _estate_guard = raft_estate_guard().await;
-    let (_cluster, nodes) = spawn_cluster(replicas, "loom-conformance-scale").await?;
+    let (_cluster, nodes) = spawn_cluster(replicas, "saddle-conformance-scale").await?;
     let result: Result<String, String> = async {
     let li = confirmed_leader_within(&nodes, Duration::from_secs(10))
         .await
@@ -940,9 +940,9 @@ pub async fn revocation_to_denial_slo(replicas: u64, iterations: usize) -> Resul
     let slo = Duration::from_secs(3);
 
     let _estate_guard = raft_estate_guard().await;
-    let (_cluster, nodes) = spawn_cluster(replicas, "loom-conformance-revslo").await?;
+    let (_cluster, nodes) = spawn_cluster(replicas, "saddle-conformance-revslo").await?;
     let result: Result<String, String> = async {
-    let anchor = RustCryptoMlDsa87::generate("loom-estate-anchor")
+    let anchor = RustCryptoMlDsa87::generate("saddle-estate-anchor")
         .map_err(|e| format!("anchor keygen failed: {e}"))?;
     let anchor_pk = anchor.public_key().to_vec();
 
@@ -1034,7 +1034,7 @@ pub async fn revocation_to_denial_slo(replicas: u64, iterations: usize) -> Resul
 /// The control-plane leg of bars 4/5 on real openraft. The data-plane leg (the
 /// scheduler evicting a dead node's `Placement`s and re-placing them,
 /// minting/revoking runtime tokens in OpenBao) is the live estate's —
-/// `deployment/loom-harness/gates/v7-chaos-soak.sh` plus the `live_node` /
+/// `deployment/saddle-harness/gates/v7-chaos-soak.sh` plus the `live_node` /
 /// `live_scheduler` controller tests. Both legs run green (the live companions
 /// against live OpenBao + the containerized estate), so `run()` asserts bars 4/5
 /// here at a modest in-suite scale exactly as bars 6/7 do — the modest in-process
@@ -1042,7 +1042,7 @@ pub async fn revocation_to_denial_slo(replicas: u64, iterations: usize) -> Resul
 pub async fn chaos_soak(replicas: u64, rounds: usize, seed: u64) -> Result<String, String> {
     let heal_slo = Duration::from_secs(10);
     let _estate_guard = raft_estate_guard().await;
-    let (cluster, nodes) = spawn_cluster(replicas, "loom-conformance-chaossoak").await?;
+    let (cluster, nodes) = spawn_cluster(replicas, "saddle-conformance-chaossoak").await?;
     let result: Result<String, String> = async {
     let mut prng = SplitMix64::new(seed);
     // The deterministic rollout: step r sets its key to v{r}. The end state is a
@@ -1155,7 +1155,7 @@ pub async fn chaos_soak(replicas: u64, rounds: usize, seed: u64) -> Result<Strin
 /// write intact on every replica.
 ///
 /// This is the in-process leg of bar 3 on real openraft; its aggressive companion
-/// is the live `deployment/loom-harness/gates/v4-split-brain.sh` (real network
+/// is the live `deployment/saddle-harness/gates/v4-split-brain.sh` (real network
 /// partitions on the containerized 5-CP estate).
 pub async fn split_brain_safety(replicas: u64) -> Result<String, String> {
     if replicas < 3 {
@@ -1165,7 +1165,7 @@ pub async fn split_brain_safety(replicas: u64) -> Result<String, String> {
     }
     let slo = Duration::from_secs(10);
     let _estate_guard = raft_estate_guard().await;
-    let (cluster, nodes) = spawn_cluster(replicas, "loom-conformance-splitbrain").await?;
+    let (cluster, nodes) = spawn_cluster(replicas, "saddle-conformance-splitbrain").await?;
     let result: Result<String, String> = async {
 
     // Isolate a minority: the largest set that still leaves a quorum majority.

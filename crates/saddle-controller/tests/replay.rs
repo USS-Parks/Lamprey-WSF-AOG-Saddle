@@ -163,9 +163,9 @@ async fn scenario(dir: &str, mode: Mode) -> BTreeMap<String, Option<String>> {
 
 #[tokio::test]
 async fn duplicate_and_dropped_events_converge_identically() {
-    let clean = scenario("loom-r1-clean", Mode::Clean).await;
-    let duplicated = scenario("loom-r1-dup", Mode::Duplicated).await;
-    let dropped = scenario("loom-r1-drop", Mode::Dropped).await;
+    let clean = scenario("saddle-r1-clean", Mode::Clean).await;
+    let duplicated = scenario("saddle-r1-dup", Mode::Duplicated).await;
+    let dropped = scenario("saddle-r1-drop", Mode::Dropped).await;
 
     // The invariant: three delivery histories, one end state.
     assert_eq!(clean, duplicated, "duplicated events diverged");
@@ -206,7 +206,7 @@ impl Reconciler for FailOnce {
 
 #[tokio::test]
 async fn failed_reconciles_retry_with_backoff_and_converge() {
-    let node = estate("loom-r1-flaky").await;
+    let node = estate("saddle-r1-flaky").await;
     put(&node, "Tenant/a", "v1").await;
     put(&node, "Tenant/b", "v1").await;
 
@@ -247,7 +247,7 @@ async fn failed_reconciles_retry_with_backoff_and_converge() {
 
 #[tokio::test]
 async fn non_leader_observes_but_never_acts() {
-    let node = estate("loom-r1-leader").await;
+    let node = estate("saddle-r1-leader").await;
     put(&node, "Tenant/a", "v1").await;
     put(&node, "Tenant/b", "v1").await;
 
@@ -308,7 +308,7 @@ impl Reconciler for RunTwice {
 
 #[tokio::test]
 async fn requeue_actions_run_the_key_again() {
-    let node = estate("loom-r1-requeue").await;
+    let node = estate("saddle-r1-requeue").await;
     put(&node, "Tenant/immediate", "v1").await;
     put(&node, "Tenant/delayed", "v1").await;
 
@@ -334,7 +334,7 @@ async fn requeue_actions_run_the_key_again() {
 
 #[tokio::test]
 async fn resync_heartbeat_reconciles_without_a_change() {
-    let node = estate("loom-r1-resync").await;
+    let node = estate("saddle-r1-resync").await;
     put(&node, "Tenant/a", "v1").await;
 
     let recorder = Recorder::new(Arc::clone(&node));

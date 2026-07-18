@@ -30,7 +30,7 @@ fn fresh_dir(name: &str) -> PathBuf {
 }
 
 async fn app_state(dir: &str) -> AppState {
-    let anchor = RustCryptoMlDsa87::generate("loom-o5-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-o5-anchor").unwrap();
     AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -125,7 +125,7 @@ fn controller(state: &AppState, client: &EstateClient) -> Controller<MissionCont
 
 #[tokio::test]
 async fn a_mission_materializes_grants_for_exactly_its_allowed_tools() {
-    let state = app_state("loom-o5-materialize").await;
+    let state = app_state("saddle-o5-materialize").await;
     let client = EstateClient::new(state.admission(), state.reader());
     mission(&client, "m1", &["search", "calc"], &["crm"], 25).await;
 
@@ -153,7 +153,7 @@ async fn a_mission_materializes_grants_for_exactly_its_allowed_tools() {
 
 #[tokio::test]
 async fn shrinking_a_mission_prunes_the_withdrawn_tools_grant() {
-    let state = app_state("loom-o5-prune").await;
+    let state = app_state("saddle-o5-prune").await;
     let client = EstateClient::new(state.admission(), state.reader());
     mission(&client, "m1", &["search", "calc"], &[], 25).await;
 

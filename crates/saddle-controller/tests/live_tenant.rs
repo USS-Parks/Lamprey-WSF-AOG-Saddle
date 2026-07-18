@@ -37,8 +37,8 @@ use serde_json::json;
 use wsf_bridge::{BridgeConfig, IssueTokenRequest, OpenBaoAuth, OpenBaoConfig, TrustBridge};
 use wsf_tenants::{TenantAdmin, TenantAdminConfig, TenantRecord};
 
-const ROLE: &str = "loom-r3-admin";
-const TENANT: &str = "loom-acme";
+const ROLE: &str = "saddle-r3-admin";
+const TENANT: &str = "saddle-acme";
 
 fn openbao_addr() -> Option<String> {
     std::env::var("WSF_OPENBAO_ADDR").ok()
@@ -96,7 +96,7 @@ path "kv/data/revocations/*" { capabilities = ["create", "read", "update"] }
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-r3-admin",
+        "sys/policies/acl/saddle-r3-admin",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -106,7 +106,7 @@ path "kv/data/revocations/*" { capabilities = ["create", "read", "update"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-r3-admin","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-r3-admin","token_ttl":"15m"})),
     )
     .await;
 
@@ -155,7 +155,7 @@ fn mint(signer: &RustCryptoMlDsa87, tenant: &str, id: &str) -> TrustToken {
         issued_at: now.to_rfc3339(),
         expires_at: (now + chrono::Duration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
         tenant_id: tenant.to_owned(),
         subject_id: None,
         subject_hash: format!("hmac:{tenant}:{id}"),
@@ -242,7 +242,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
     let (role_id, secret_id) = bootstrap(&http, &addr, &root).await;
 
     // One trust anchor signs everything: tokens, and the deprovision snapshot.
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-r3-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-r3-anchor").unwrap());
     let admin = Arc::new(TenantAdmin::new(
         OpenBaoAuth::new(OpenBaoConfig::new(
             &addr,
@@ -257,7 +257,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
     // The estate, front-doored on the same anchor.
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-r3-live"),
+        fresh_dir("saddle-r3-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )
@@ -292,7 +292,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
         .await
         .unwrap();
     let mut cap = Resource::new(
-        "loom-acme-cap",
+        "saddle-acme-cap",
         CapabilitySpec {
             budget: Budget::default(),
             caveats: vec![],
@@ -309,7 +309,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
             AdmissionRequest {
                 verb: Verb::Create,
                 kind: Kind::Capability,
-                name: "loom-acme-cap".to_owned(),
+                name: "saddle-acme-cap".to_owned(),
                 object: Some(ResourceObject::Capability(cap)),
             },
             &operator,
@@ -358,7 +358,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
     let status = estate_tenant.status.clone().expect("status written");
     assert_eq!(
         status.openbao_path.as_deref(),
-        Some("kv/data/tenants/loom-acme")
+        Some("kv/data/tenants/saddle-acme")
     );
     assert!(
         estate_tenant
@@ -376,7 +376,7 @@ async fn provision_issue_deprovision_revoked_everywhere_live() {
     let bridge = TrustBridge::new(
         OpenBaoAuth::new(OpenBaoConfig::new(&addr, role_id, secret_id)).unwrap(),
         Arc::clone(&anchor) as Arc<dyn Signer>,
-        BridgeConfig::new("2026.07.loom", vec![9u8; 32]).with_locale("US", "us_person"),
+        BridgeConfig::new("2026.07.saddle", vec![9u8; 32]).with_locale("US", "us_person"),
     );
     let issued = bridge
         .issue_token(&IssueTokenRequest::new(

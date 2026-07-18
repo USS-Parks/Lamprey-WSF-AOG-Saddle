@@ -6,7 +6,7 @@
 //!
 //! The data key is the DR key an operator escrows (wrapped via OpenBao Transit in
 //! production; the `data_key_wrapped` field carries that opaque reference). The
-//! runbook (`docs/LOOM-DR-RUNBOOK.md`) is the human procedure; this module is the
+//! runbook (`docs/SADDLE-DR-RUNBOOK.md`) is the human procedure; this module is the
 //! machinery it drives, and the DR drill (`tests/dr_drill.rs`) proves a cold
 //! restore reproduces the estate content by the runbook alone.
 
@@ -18,10 +18,10 @@ use saddle_store::Versioned;
 
 /// Additional authenticated data binding a backup to its purpose — a seal made
 /// for something else will not unseal as an estate backup.
-const BACKUP_AAD: &[u8] = b"loom-dr-estate-backup-v1";
+const BACKUP_AAD: &[u8] = b"saddle-dr-estate-backup-v1";
 /// The opaque wrapped-data-key reference recorded in the seal (in production the
 /// OpenBao Transit ciphertext; here the escrow reference the runbook resolves).
-const DATA_KEY_REF: &str = "openbao:transit/loom-dr-backup";
+const DATA_KEY_REF: &str = "openbao:transit/saddle-dr-backup";
 
 /// A backup failure — sealing, unsealing, or (de)serialization.
 #[derive(Debug, thiserror::Error)]

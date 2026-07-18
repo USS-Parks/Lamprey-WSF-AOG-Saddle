@@ -43,7 +43,7 @@ use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-x2";
+const ROLE: &str = "saddle-x2";
 const KV_PREFIX: &str = "kv/data/aog/virtual-keys";
 const VK: &str = "vk_x2";
 const WL: &str = "aog-gateway";
@@ -103,7 +103,7 @@ async fn provision(c: &Client, addr: &str, tok: &str) -> (String, String) {
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-x2",
+        "sys/policies/acl/saddle-x2",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -113,7 +113,7 @@ async fn provision(c: &Client, addr: &str, tok: &str) -> (String, String) {
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-x2","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-x2","token_ttl":"15m"})),
     )
     .await;
     let rid: Value = serde_json::from_str(
@@ -158,7 +158,7 @@ fn in_budget_token(signer: &RustCryptoMlDsa87) -> TrustToken {
         issued_at: now.to_rfc3339(),
         expires_at: (now + chrono::Duration::minutes(15)).to_rfc3339(),
         issuer: "wsf-trust-bridge".to_string(),
-        trust_bundle_version: "2026.07.loom".to_string(),
+        trust_bundle_version: "2026.07.saddle".to_string(),
         tenant_id: "tenant-a".to_string(),
         subject_id: None,
         subject_hash: "hmac-sha256:demo".to_string(),
@@ -267,7 +267,7 @@ async fn an_openai_client_is_unaffected_across_the_cutover_to_management() {
     let (role_id, secret_id) = provision(&c, &addr, &root_token()).await;
 
     // Seed an in-budget virtual key the gateway resolves.
-    let anchor = RustCryptoMlDsa87::generate("loom-x2-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-x2-anchor").unwrap();
     let openbao = OpenBaoAuth::new(OpenBaoConfig::new(&addr, role_id, secret_id)).unwrap();
     let vault = openbao.login().await.expect("login");
     openbao
@@ -312,7 +312,7 @@ async fn an_openai_client_is_unaffected_across_the_cutover_to_management() {
     // ── Bring the gateway under Saddle management.
     let estate = AppState::bootstrap(
         1,
-        fresh_dir("loom-x2-estate"),
+        fresh_dir("saddle-x2-estate"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

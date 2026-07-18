@@ -91,7 +91,7 @@ async fn revoked_token_is_unauthorized() {
         now.to_rfc3339(),
         (now + Duration::hours(1)).to_rfc3339(),
     );
-    snap.revoked_tokens.push("tok-loom".to_owned());
+    snap.revoked_tokens.push("tok-saddle".to_owned());
     let signed_snap = fabric_revocation::sign(snap, &signer).unwrap();
     let app = app_anchored("saddle-apiserver-k6-revoked", &signer, Some(signed_snap)).await;
     let (status, _) = send(

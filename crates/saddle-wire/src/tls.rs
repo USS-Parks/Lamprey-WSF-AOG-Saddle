@@ -20,7 +20,7 @@ use rustls::{ClientConfig, RootCertStore, ServerConfig};
 use x509_parser::extensions::GeneralName;
 use x509_parser::prelude::{FromDer, X509Certificate};
 
-const NODE_SPIFFE_PREFIX: &str = "spiffe://loom/node/";
+const NODE_SPIFFE_PREFIX: &str = "spiffe://saddle/node/";
 
 /// The immutable identity a node certificate must prove before `saddled` may use
 /// it. The SPIFFE URI is derived from the numeric Raft node id rather than from
@@ -273,7 +273,7 @@ impl NodeTls {
     /// Validation happens before a listener is bound: roots and leaf must parse,
     /// the leaf must chain to an estate root for both server and client EKUs, its
     /// DNS/IP SAN must match the advertised membership host, its URI SAN must be
-    /// the node-id-derived `spiffe://loom/node/<id>`, the certificate/key pair
+    /// the node-id-derived `spiffe://saddle/node/<id>`, the certificate/key pair
     /// must build both rustls legs, and expiry must remain outside the configured
     /// rotation safety window.
     ///

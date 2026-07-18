@@ -32,7 +32,7 @@ fn fresh_dir(name: &str) -> PathBuf {
 }
 
 async fn app_state(dir: &str) -> AppState {
-    let anchor = RustCryptoMlDsa87::generate("loom-o2-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-o2-anchor").unwrap();
     AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -94,7 +94,7 @@ async fn get_plan(client: &EstateClient, name: &str) -> RolloutPlan {
 
 #[tokio::test]
 async fn progressive_rollout_advances_to_ready_receipting_each_step() {
-    let state = app_state("loom-o2-progressive").await;
+    let state = app_state("saddle-o2-progressive").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     // A 4-replica workload and a progressive rollout over it: window = surge1 +
@@ -143,7 +143,7 @@ async fn progressive_rollout_advances_to_ready_receipting_each_step() {
 
 #[tokio::test]
 async fn a_rollout_with_a_missing_target_is_degraded() {
-    let state = app_state("loom-o2-degraded").await;
+    let state = app_state("saddle-o2-degraded").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     // No such workload "ghost": the rollout must not pretend to progress.
@@ -189,7 +189,7 @@ impl ErrorBudgetProbe for CountProbe {
 
 #[tokio::test]
 async fn error_budget_breach_auto_rolls_back_to_prior_state() {
-    let state = app_state("loom-o3-rollback").await;
+    let state = app_state("saddle-o3-rollback").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     // A 6-replica workload; progressive (window 2 → 3 steps); error budget 2.

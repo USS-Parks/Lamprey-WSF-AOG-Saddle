@@ -33,7 +33,7 @@ use saddle_estate::{
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-r6-bundle";
+const ROLE: &str = "saddle-r6-bundle";
 const BUNDLE: &str = "estate-baseline";
 
 fn openbao_addr() -> Option<String> {
@@ -91,7 +91,7 @@ path "kv/metadata/policy-bundles/*" { capabilities = ["read", "delete", "list"] 
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-r6-bundle",
+        "sys/policies/acl/saddle-r6-bundle",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -101,7 +101,7 @@ path "kv/metadata/policy-bundles/*" { capabilities = ["read", "delete", "list"] 
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-r6-bundle","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-r6-bundle","token_ttl":"15m"})),
     )
     .await;
 
@@ -206,13 +206,13 @@ async fn a_policy_bundle_is_signed_distributed_and_verified_at_the_edge() {
     .await;
 
     // Control plane: the estate store (redb) + the bundle-signing key.
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-r6-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-r6-anchor").unwrap());
     let signer: Arc<dyn Signer> =
-        Arc::new(RustCryptoMlDsa87::generate("loom-r6-bundle-signer").unwrap());
+        Arc::new(RustCryptoMlDsa87::generate("saddle-r6-bundle-signer").unwrap());
     let public_key = signer.public_key().to_vec();
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-r6-live"),
+        fresh_dir("saddle-r6-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

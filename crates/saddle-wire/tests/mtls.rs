@@ -162,7 +162,7 @@ const CLIENT_EXT: &str = "[ v3 ]\nextendedKeyUsage = clientAuth\nbasicConstraint
 
 fn node_ext(node_id: u64, host: &str) -> String {
     format!(
-        "[ v3 ]\nsubjectAltName = DNS:{host}, URI:spiffe://loom/node/{node_id}\nextendedKeyUsage = serverAuth,clientAuth\nbasicConstraints = CA:FALSE\n"
+        "[ v3 ]\nsubjectAltName = DNS:{host}, URI:spiffe://saddle/node/{node_id}\nextendedKeyUsage = serverAuth,clientAuth\nbasicConstraints = CA:FALSE\n"
     )
 }
 
@@ -323,7 +323,7 @@ fn node_identity_contract_binds_ca_node_id_san_and_advertise_host() {
     )
     .err()
     .expect("a node-1 certificate must not authorize node 2");
-    assert!(err.to_string().contains("spiffe://loom/node/2"));
+    assert!(err.to_string().contains("spiffe://saddle/node/2"));
 
     let wrong_host =
         NodeIdentityContract::new(1, "https://cp2:4600", Duration::from_secs(3600)).unwrap();

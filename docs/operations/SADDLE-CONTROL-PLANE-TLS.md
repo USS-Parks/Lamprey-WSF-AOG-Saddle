@@ -9,7 +9,7 @@ Every AOG Raft node uses one estate-CA-signed leaf certificate for both server a
 - the advertised membership address is a credential-free HTTPS origin;
 - the leaf chains to a configured estate CA and is currently valid for both `serverAuth` and `clientAuth`;
 - the DNS/IP SAN matches the advertised membership host;
-- the URI SAN is exactly `spiffe://loom/node/<AOGD_NODE_ID>`;
+- the URI SAN is exactly `spiffe://saddle/node/<SADDLED_NODE_ID>`;
 - the PKCS#8 private key matches the leaf; and
 - the leaf remains valid beyond the configured rotation safety window.
 
@@ -24,22 +24,22 @@ Choose exactly one source.
 Set all three variables:
 
 ```text
-AOGD_RAFT_CA_DER_PATH=/run/mai/raft/estate-ca.der
-AOGD_RAFT_CERT_DER_PATH=/run/mai/raft/node.der
-AOGD_RAFT_KEY_DER_PATH=/run/mai/raft/node.key.der
+SADDLED_RAFT_CA_DER_PATH=/run/mai/raft/estate-ca.der
+SADDLED_RAFT_CERT_DER_PATH=/run/mai/raft/node.der
+SADDLED_RAFT_KEY_DER_PATH=/run/mai/raft/node.key.der
 ```
 
 The key must be unencrypted PKCS#8 DER and readable only by the `aogd` service account. Partial file configuration is rejected.
 
 ### OpenBao KV-v2
 
-Configure the existing `AOGD_OPENBAO_*` AppRole coordinates and set:
+Configure the existing `SADDLED_OPENBAO_*` AppRole coordinates and set:
 
 ```text
-AOGD_RAFT_TLS_OPENBAO_PATH=kv/data/loom/nodes/<node-id>/raft-tls
+SADDLED_RAFT_TLS_OPENBAO_PATH=kv/data/saddle/nodes/<node-id>/raft-tls
 ```
 
-The per-node record is separate from `kv/data/loom/trust` and contains these base64-encoded DER fields:
+The per-node record is separate from `kv/data/saddle/trust` and contains these base64-encoded DER fields:
 
 ```json
 {
@@ -53,7 +53,7 @@ The node AppRole needs `read` only on its own node record plus the shared applic
 
 ## Rotation contract
 
-`AOGD_RAFT_TLS_ROTATION_MIN_SECS` defaults to `3600`. Startup refuses a leaf whose remaining lifetime is less than this safety window.
+`SADDLED_RAFT_TLS_ROTATION_MIN_SECS` defaults to `3600`. Startup refuses a leaf whose remaining lifetime is less than this safety window.
 
 Rotation is a coordinated rolling restart until the C5 live gate proves any stronger reload behavior:
 

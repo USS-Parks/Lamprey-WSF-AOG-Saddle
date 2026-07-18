@@ -18,7 +18,7 @@ async fn flagged_field_is_sealed_at_rest() {
     let tok = header_for(&mint(&signer));
     let secret = "super-secret-transit-key-material";
     let ring = json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "TrustRing",
         "metadata": { "name": "ring1" },
         "spec": { "ring": 1, "transit_key": secret },

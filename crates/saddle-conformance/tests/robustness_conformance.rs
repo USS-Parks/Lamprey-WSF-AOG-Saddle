@@ -9,7 +9,7 @@
 //! primitives. The estate-scale legs — kill-switch propagation to every replica
 //! (V5), the revocation-to-denial SLO across a partitioned node (V10), split-brain
 //! fencing under a real partition (V4) — are the containerized live gates under
-//! `deployment/loom-harness/gates/`; RC-KILL below asserts the same I-9 predicate
+//! `deployment/saddle-harness/gates/`; RC-KILL below asserts the same I-9 predicate
 //! at the single-edge level (deny + fail-closed-on-staleness) that V5/V10 fan out.
 #![allow(clippy::print_stderr)]
 
@@ -46,7 +46,7 @@ fn token(anchor: &RustCryptoMlDsa87, id: &str, mins: i64, routes: Vec<Route>) ->
         issued_at: now.to_rfc3339(),
         expires_at: (now + Duration::minutes(mins)).to_rfc3339(),
         issuer: "wsf-trust-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
         tenant_id: "tenant-a".to_owned(),
         subject_id: None,
         subject_hash: "hmac-sha256:demo".to_owned(),

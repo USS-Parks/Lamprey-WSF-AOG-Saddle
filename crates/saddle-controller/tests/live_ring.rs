@@ -32,7 +32,7 @@ use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 use wsf_seal::{LabelSpec, SealRequest, SealService, SealServiceConfig, UnsealRequest};
 
-const ROLE: &str = "loom-r4-ring";
+const ROLE: &str = "saddle-r4-ring";
 
 fn openbao_addr() -> Option<String> {
     std::env::var("WSF_OPENBAO_ADDR").ok()
@@ -91,7 +91,7 @@ path "transit/decrypt/*" { capabilities = ["create", "update"] }
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-r4-ring",
+        "sys/policies/acl/saddle-r4-ring",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -101,7 +101,7 @@ path "transit/decrypt/*" { capabilities = ["create", "update"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-r4-ring","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-r4-ring","token_ttl":"15m"})),
     )
     .await;
 
@@ -150,7 +150,7 @@ fn mint(signer: &RustCryptoMlDsa87, tenant: &str, id: &str) -> TrustToken {
         issued_at: now.to_rfc3339(),
         expires_at: (now + chrono::Duration::hours(1)).to_rfc3339(),
         issuer: "wsf-bridge".to_owned(),
-        trust_bundle_version: "2026.07.loom".to_owned(),
+        trust_bundle_version: "2026.07.saddle".to_owned(),
         tenant_id: tenant.to_owned(),
         subject_id: None,
         subject_hash: format!("hmac:{tenant}:{id}"),
@@ -210,10 +210,10 @@ async fn darkening_a_ring_kills_its_envelopes_and_halts_its_workloads() {
         .unwrap();
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
 
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-r4-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-r4-anchor").unwrap());
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-r4-live"),
+        fresh_dir("saddle-r4-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )
@@ -311,7 +311,7 @@ async fn darkening_a_ring_kills_its_envelopes_and_halts_its_workloads() {
                 label: LabelSpec {
                     classification: Classification::Restricted,
                     compliance_scopes: vec![],
-                    origin: "loom-r4-live".to_owned(),
+                    origin: "saddle-r4-live".to_owned(),
                     permitted_ops: vec![],
                     permitted_destinations: vec![],
                     detected_entities: vec![],

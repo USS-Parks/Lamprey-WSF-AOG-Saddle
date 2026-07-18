@@ -11,7 +11,7 @@ use serde_json::Value;
 /// Header carrying the base64-encoded JSON trust token (matches the apiserver).
 const TOKEN_HEADER: &str = "x-wsf-token";
 /// The estate's API group + version path segment.
-const API_BASE: &str = "apis/aog.islandmountain.io/v1";
+const API_BASE: &str = "apis/saddle.islandmountain.io/v1";
 
 /// A failure talking to the control-plane API.
 #[derive(Debug, thiserror::Error)]

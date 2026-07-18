@@ -54,7 +54,7 @@ async fn applied(node: &RaftNode, key: &str, value: &[u8], timeout: Duration) ->
 
 #[tokio::test]
 async fn a_three_node_cluster_survives_leader_loss_with_no_committed_state_loss() {
-    let dir = base("loom-h1-cluster");
+    let dir = base("saddle-h1-cluster");
     let cluster = Cluster::new();
     let n1 = RaftNode::join(1, dir.join("n1"), &cluster).await.unwrap();
     let n2 = RaftNode::join(2, dir.join("n2"), &cluster).await.unwrap();

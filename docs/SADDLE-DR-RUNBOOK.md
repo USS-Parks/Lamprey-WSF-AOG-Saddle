@@ -1,6 +1,6 @@
-# Loom Control-Plane — Disaster-Recovery Runbook (H4)
+# Saddle Control-Plane — Disaster-Recovery Runbook (H4)
 
-Cold-restore the Loom control-plane **estate** (desired state) from an encrypted
+Cold-restore the Saddle control-plane **estate** (desired state) from an encrypted
 backup after a total loss of the control-plane hosts. The estate is `aog-store`;
 the tamper-evident **receipt** ledger (`wsf-ledger`) is a physically separate
 store and is recovered from its own append-only segments (H3) — this runbook
@@ -22,7 +22,7 @@ other purpose will not unseal as an estate backup; a wrong data key fails closed
 The **DR data key** is escrowed, never stored beside the backup:
 
 - **Production:** the data key is wrapped by an OpenBao **Transit** key
-  (`transit/loom-dr-backup`); the wrapped reference travels in the seal's
+  (`transit/saddle-dr-backup`); the wrapped reference travels in the seal's
   `data_key_wrapped` field. Recovering it requires an authenticated Transit
   `decrypt` — i.e. an operator with the DR role, not the backup media alone.
 - **Air-gapped estates:** the data key is held in operator escrow (split-knowledge

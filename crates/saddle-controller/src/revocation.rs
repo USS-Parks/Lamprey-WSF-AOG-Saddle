@@ -30,7 +30,7 @@ use crate::objects::EstateClient;
 use crate::runtime::{Action, ReconcileError, Reconciler};
 
 /// A stable id for the estate-wide revocation snapshot.
-const SNAPSHOT_ID: &str = "loom-estate-revocation";
+const SNAPSHOT_ID: &str = "saddle-estate-revocation";
 /// The filename an air-gapped node imports the signed snapshot from.
 const MEDIA_FILE: &str = "estate-revocation.json";
 

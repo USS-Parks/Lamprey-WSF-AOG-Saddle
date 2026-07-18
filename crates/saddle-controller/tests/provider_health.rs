@@ -63,7 +63,7 @@ fn endpoint(model: &str, declared: bool) -> ModelEndpoint {
 }
 
 async fn app_state(dir: &str) -> AppState {
-    let anchor = RustCryptoMlDsa87::generate("loom-r7-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-r7-anchor").unwrap();
     AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -106,7 +106,7 @@ async fn get_pool(client: &EstateClient, name: &str) -> ProviderPool {
 #[tokio::test]
 async fn an_unhealthy_provider_drops_from_the_schedulable_set() {
     let (base, code) = spawn_provider().await;
-    let state = app_state("loom-r7-http").await;
+    let state = app_state("saddle-r7-http").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     // A provider pool with two cloud endpoints — declared `healthy: false` so
@@ -178,7 +178,7 @@ async fn an_unhealthy_provider_drops_from_the_schedulable_set() {
 
 #[tokio::test]
 async fn a_provider_without_a_probe_url_uses_declared_health() {
-    let state = app_state("loom-r7-declared").await;
+    let state = app_state("saddle-r7-declared").await;
     let client = EstateClient::new(state.admission(), state.reader());
 
     // A local (air-gapped) provider: no probe URL, so the declared flag governs.

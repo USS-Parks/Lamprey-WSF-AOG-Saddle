@@ -29,7 +29,7 @@ use saddle_estate::{CapabilitySpec, Kind, Phase, Resource, ResourceObject};
 use serde_json::json;
 use wsf_bridge::{OpenBaoAuth, OpenBaoConfig};
 
-const ROLE: &str = "loom-r5-spend";
+const ROLE: &str = "saddle-r5-spend";
 const SPEND_PREFIX: &str = "kv/data/spend";
 
 fn openbao_addr() -> Option<String> {
@@ -84,7 +84,7 @@ path "kv/data/spend/*" { capabilities = ["create", "read", "update"] }
         addr,
         tok,
         Method::PUT,
-        "sys/policies/acl/loom-r5-spend",
+        "sys/policies/acl/saddle-r5-spend",
         Some(json!({ "policy": policy })),
     )
     .await;
@@ -94,7 +94,7 @@ path "kv/data/spend/*" { capabilities = ["create", "read", "update"] }
         tok,
         Method::POST,
         &format!("auth/approle/role/{ROLE}"),
-        Some(json!({"token_policies":"default,loom-r5-spend","token_ttl":"15m"})),
+        Some(json!({"token_policies":"default,saddle-r5-spend","token_ttl":"15m"})),
     )
     .await;
 
@@ -203,10 +203,10 @@ async fn three_replicas_never_over_spend_a_capability_cap_live() {
     let (role_id, secret_id) = bootstrap(&http, &addr, &root_token()).await;
 
     // The estate: one Capability with a $100.00 budget, reconciled Ready.
-    let anchor = RustCryptoMlDsa87::generate("loom-r5-anchor").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-r5-anchor").unwrap();
     let state = AppState::bootstrap(
         1,
-        fresh_dir("loom-r5-live"),
+        fresh_dir("saddle-r5-live"),
         Authenticator::new(anchor.public_key().to_vec()),
         Sealer::generate().unwrap(),
     )

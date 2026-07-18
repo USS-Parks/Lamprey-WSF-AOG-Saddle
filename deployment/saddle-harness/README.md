@@ -1,16 +1,16 @@
-# Loom estate — packagings + Phase-V conformance harness
+# Saddle estate — packagings + Phase-V conformance harness
 
-A containerized multi-node Loom estate: **5 `saddled` control-plane nodes** (a
+A containerized multi-node Saddle estate: **5 `saddled` control-plane nodes** (a
 Raft cluster over the `saddle-wire` transport) + **5 `saddle-noded` edge nodes**
-(register + heartbeat) + **OpenBao** (dev), from the one `loom-harness` image
-(`deployment/loom-harness/Dockerfile`). The Phase-V live gates
+(register + heartbeat) + **OpenBao** (dev), from the one `saddle-harness` image
+(`deployment/saddle-harness/Dockerfile`). The Phase-V live gates
 (V4/V5/V7/V8/V10) run on the compose packaging of this estate.
 
 **One artifact set, two packagings.** The same image, the same two binaries,
 the same environment contract, and the same `cluster-init.sh` stand the estate
 up under **docker compose** (`docker-compose.yml`) or under **k3s**
-(`k3s/loom.yaml`) — k3s/k0s is an optional packaging of the estate for cluster
-customers; the Loom control plane is the trust plane regardless of the
+(`k3s/saddle.yaml`) — k3s/k0s is an optional packaging of the estate for cluster
+customers; the Saddle control plane is the trust plane regardless of the
 substrate beneath it. Nothing about the daemons or their configuration forks;
 `gates/parity-compose-k3s.sh` is the executable proof.
 
@@ -24,8 +24,8 @@ and lifecycle are the packaging's job — not an operator's shell history.
 
 ```sh
 # from the workspace root
-docker build -f deployment/loom-harness/Dockerfile -t loom-harness:vh4 .
-docker compose -f deployment/loom-harness/docker-compose.yml up -d --wait
+docker build -f deployment/saddle-harness/Dockerfile -t saddle-harness:vh4 .
+docker compose -f deployment/saddle-harness/docker-compose.yml up -d --wait
 ```
 
 `cluster-init` forms the 5-voter cluster from `cp1` (initialize → add-learner ×4 →
@@ -38,29 +38,29 @@ curl -s -XPOST localhost:4601/admin/get -H content-type:application/json \
   -d '{"key":"Node/edge1"}'
 ```
 
-Teardown: `docker compose -f deployment/loom-harness/docker-compose.yml down -v`.
+Teardown: `docker compose -f deployment/saddle-harness/docker-compose.yml down -v`.
 
 ## Run (k3s)
 
 ```sh
 # from the workspace root, against any k3s/k0s cluster whose containerd holds
-# the loom-harness:vh4 image (rancher/k3s in Docker works: see the parity gate)
-kubectl create namespace loom
-kubectl -n loom create configmap cluster-init \
-  --from-file=cluster-init.sh=deployment/loom-harness/cluster-init.sh
-kubectl -n loom apply -f deployment/loom-harness/k3s/loom.yaml
-kubectl -n loom wait --for=condition=complete job/cluster-init --timeout=300s
+# the saddle-harness:vh4 image (rancher/k3s in Docker works: see the parity gate)
+kubectl create namespace saddle
+kubectl -n saddle create configmap cluster-init \
+  --from-file=cluster-init.sh=deployment/saddle-harness/cluster-init.sh
+kubectl -n saddle apply -f deployment/saddle-harness/k3s/saddle.yaml
+kubectl -n saddle wait --for=condition=complete job/cluster-init --timeout=300s
 ```
 
 The `cp` StatefulSet's stable DNS names (`cp-0.cp` … `cp-4.cp`) replace the
 compose service names; `cluster-init` receives them through
-`LOOM_CP_ADDR_TEMPLATE` — the same script, parameterized, not forked. Edges
+`SADDLE_CP_ADDR_TEMPLATE` — the same script, parameterized, not forked. Edges
 take their node name from their pod name (`edge-0` … `edge-4`).
 
 Parity proof (both packagings from the one artifact set, end to end):
 
 ```sh
-sh deployment/loom-harness/gates/parity-compose-k3s.sh
+sh deployment/saddle-harness/gates/parity-compose-k3s.sh
 ```
 
 ## Scope

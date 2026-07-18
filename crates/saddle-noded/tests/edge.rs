@@ -23,7 +23,7 @@ fn scratch(name: &str) -> std::path::PathBuf {
 
 #[tokio::test]
 async fn edge_daemons_register_and_heartbeat_into_the_control_plane() {
-    let base = scratch("loom-vh3-edge");
+    let base = scratch("saddle-vh3-edge");
 
     // Control plane: one bootstrapped saddled node.
     let cp_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

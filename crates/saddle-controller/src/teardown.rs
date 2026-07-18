@@ -25,7 +25,7 @@ use crate::objects::{EstateClient, parse_key};
 use crate::runtime::{Action, ReconcileError, Reconciler};
 
 /// The finalizer this reconciler owns on every `Tenant`.
-pub const TENANT_FINALIZER: &str = "loom.aog/tenant-teardown";
+pub const TENANT_FINALIZER: &str = "saddle.islandmountain.io/tenant-teardown";
 
 /// Tenant lifecycle reconciler. Run it on a `"Tenant/"` informer.
 #[derive(Clone)]

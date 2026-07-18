@@ -27,7 +27,7 @@ fn fresh_dir(name: &str) -> PathBuf {
 }
 
 async fn app_state(dir: &str) -> AppState {
-    let anchor = RustCryptoMlDsa87::generate("loom-o6-state").unwrap();
+    let anchor = RustCryptoMlDsa87::generate("saddle-o6-state").unwrap();
     AppState::bootstrap(
         1,
         fresh_dir(dir),
@@ -75,9 +75,9 @@ async fn tool_grant(client: &EstateClient, name: &str, tool: &str, systems: &[&s
 
 #[tokio::test]
 async fn revoking_a_grant_halts_the_tool_on_every_proxy() {
-    let state = app_state("loom-o6-revoke").await;
+    let state = app_state("saddle-o6-revoke").await;
     let client = EstateClient::new(state.admission(), state.reader());
-    let anchor = Arc::new(RustCryptoMlDsa87::generate("loom-o6-anchor").unwrap());
+    let anchor = Arc::new(RustCryptoMlDsa87::generate("saddle-o6-anchor").unwrap());
     let signer: Arc<dyn Signer> = anchor.clone();
     let store = Arc::new(MemGrantStore::new());
 

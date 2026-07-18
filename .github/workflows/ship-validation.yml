@@ -139,7 +139,7 @@ jobs:
         run: pip install pyyaml pytest
       # The production topology must satisfy the production rules; the two
       # demo artifacts must satisfy the demo rules (gated, injected secrets,
-      # loopback-only). deployment/loom-harness is the multi-node TEST
+      # loopback-only). deployment/saddle-harness is the multi-node TEST
       # estate — never shipped, never claimed production; its posture is
       # exercised by its own live gate, not this job.
       - name: Validate wsf-ha as production

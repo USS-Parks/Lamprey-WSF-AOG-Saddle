@@ -14,11 +14,11 @@
 # `saddle-conformance` bar `kill_switch_under_scale` (real ML-DSA-87 anchor +
 # fabric-revocation), which the aggressive profile runs at 5 replicas x 100.
 #
-# Prereq: estate up (docker compose -f deployment/loom-harness/docker-compose.yml
+# Prereq: estate up (docker compose -f deployment/saddle-harness/docker-compose.yml
 # up -d --wait). Exits 0 on PASS, 1 on FAIL.
 set -eu
 
-PROJECT="${LOOM_PROJECT:-loom-harness}"
+PROJECT="${SADDLE_PROJECT:-saddle-harness}"
 SCALE="${V5_SCALE:-100}"
 SLO_SECS="${V5_SLO_SECS:-3}"
 REV_KEY="wsf/revocation/estate"

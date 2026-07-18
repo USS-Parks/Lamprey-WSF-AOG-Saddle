@@ -13,13 +13,13 @@
 # companion of the in-process `saddle-conformance` gate `chaos_soak`, which proves the
 # same self-healing + determinism on real openraft.
 #
-# Prereq: estate up (docker compose -f deployment/loom-harness/docker-compose.yml
+# Prereq: estate up (docker compose -f deployment/saddle-harness/docker-compose.yml
 # up -d --wait). Exits 0 on PASS, 1 on FAIL.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 HARNESS="$(dirname "$HERE")"
-PROJECT="${LOOM_PROJECT:-loom-harness}"
+PROJECT="${SADDLE_PROJECT:-saddle-harness}"
 ROUNDS="${V7_ROUNDS:-5}"
 CPS="cp1 cp2 cp3 cp4 cp5"
 

@@ -237,7 +237,7 @@ mod tests {
     use saddle_estate::RevocationTarget;
 
     fn signer() -> Arc<dyn Signer> {
-        Arc::new(RustCryptoMlDsa87::generate("loom-h5-source").unwrap())
+        Arc::new(RustCryptoMlDsa87::generate("saddle-h5-source").unwrap())
     }
 
     fn policy() -> FederatedPolicy {

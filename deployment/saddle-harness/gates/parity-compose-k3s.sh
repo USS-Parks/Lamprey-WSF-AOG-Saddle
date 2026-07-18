@@ -3,25 +3,25 @@
 # config fork."
 #
 # Leg 1 stands the estate up under docker compose; leg 2 stands it up under a
-# real k3s (rancher/k3s in Docker), from the SAME loom-harness image imported
+# real k3s (rancher/k3s in Docker), from the SAME saddle-harness image imported
 # into the k3s containerd and the SAME cluster-init script (shipped to the Job
 # via a ConfigMap created from the file). Each leg asserts the same two facts:
 # a leader is elected across the 5-voter control plane, and every edge has
 # self-registered its Node record into the replicated estate.
 #
-# Requires: docker (with compose), kubectl, the loom-harness:vh4 image built
+# Requires: docker (with compose), kubectl, the saddle-harness:vh4 image built
 # from this tree. Run from the workspace root:
-#   sh deployment/loom-harness/gates/parity-compose-k3s.sh
+#   sh deployment/saddle-harness/gates/parity-compose-k3s.sh
 set -eu
 
-HARNESS="deployment/loom-harness"
+HARNESS="deployment/saddle-harness"
 COMPOSE="$HARNESS/docker-compose.yml"
-K3S_NAME="loom-k3s-parity"
+K3S_NAME="saddle-k3s-parity"
 # Third-party substrate pinned by tag; the estate's own images are digest-pinned
 # in the manifests they ship in.
 K3S_IMAGE="rancher/k3s:v1.31.5-k3s1"
 KCFG="$(mktemp)"
-KUBECTL="kubectl --kubeconfig=$KCFG -n loom"
+KUBECTL="kubectl --kubeconfig=$KCFG -n saddle"
 
 fail() {
   echo "PARITY GATE FAIL: $1" >&2
@@ -57,7 +57,7 @@ edge_registered() { # $1 = curl-command prefix, $2 = node name — the replicate
 cleanup() {
   docker compose -f "$COMPOSE" down -v >/dev/null 2>&1 || true
   docker rm -f "$K3S_NAME" >/dev/null 2>&1 || true
-  rm -f "$KCFG" /tmp/loom-harness-vh4.tar
+  rm -f "$KCFG" /tmp/saddle-harness-vh4.tar
 }
 trap cleanup EXIT
 
@@ -99,15 +99,15 @@ done
 echo "[k3s] apiserver ready"
 
 echo "[k3s] importing the one artifact set into the k3s containerd"
-docker save loom-harness:vh4 -o /tmp/loom-harness-vh4.tar
-docker cp /tmp/loom-harness-vh4.tar "$K3S_NAME":/tmp/img.tar
+docker save saddle-harness:vh4 -o /tmp/saddle-harness-vh4.tar
+docker cp /tmp/saddle-harness-vh4.tar "$K3S_NAME":/tmp/img.tar
 docker exec "$K3S_NAME" ctr images import /tmp/img.tar >/dev/null
 
 echo "[k3s] applying the estate"
-kubectl --kubeconfig="$KCFG" create namespace loom >/dev/null 2>&1 || true
+kubectl --kubeconfig="$KCFG" create namespace saddle >/dev/null 2>&1 || true
 $KUBECTL create configmap cluster-init \
   --from-file=cluster-init.sh="$HARNESS/cluster-init.sh" >/dev/null
-$KUBECTL apply -f "$HARNESS/k3s/loom.yaml" >/dev/null
+$KUBECTL apply -f "$HARNESS/k3s/saddle.yaml" >/dev/null
 
 echo "[k3s] waiting for the control plane"
 $KUBECTL rollout status statefulset/cp --timeout=300s >/dev/null

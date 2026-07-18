@@ -15,7 +15,7 @@ use common::{BASE, authed_app, authed_app_state, bundle, send};
 /// A PolicyBundle body carrying finalizers.
 fn bundle_with_finalizers(name: &str, version: u32, finalizers: &[&str]) -> Value {
     json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "PolicyBundle",
         "metadata": { "name": name, "finalizers": finalizers },
         "spec": { "version": version },
@@ -24,7 +24,7 @@ fn bundle_with_finalizers(name: &str, version: u32, finalizers: &[&str]) -> Valu
 
 #[tokio::test]
 async fn delete_without_finalizers_removes_immediately() {
-    let (app, token) = authed_app("loom-r2-hard-delete").await;
+    let (app, token) = authed_app("saddle-r2-hard-delete").await;
     let uri = format!("{BASE}/PolicyBundle");
     send(&app, "POST", &uri, Some(&token), Some(bundle("plain", 1))).await;
 
@@ -37,14 +37,18 @@ async fn delete_without_finalizers_removes_immediately() {
 
 #[tokio::test]
 async fn delete_with_finalizers_soft_deletes_and_repeat_is_receiptless() {
-    let (app, state, token) = authed_app_state("loom-r2-soft-delete").await;
+    let (app, state, token) = authed_app_state("saddle-r2-soft-delete").await;
     let uri = format!("{BASE}/PolicyBundle");
     send(
         &app,
         "POST",
         &uri,
         Some(&token),
-        Some(bundle_with_finalizers("guarded", 1, &["loom.aog/teardown"])),
+        Some(bundle_with_finalizers(
+            "guarded",
+            1,
+            &["saddle.islandmountain.io/teardown"],
+        )),
     )
     .await;
 
@@ -74,14 +78,18 @@ async fn delete_with_finalizers_soft_deletes_and_repeat_is_receiptless() {
 
 #[tokio::test]
 async fn terminating_object_spec_frozen_and_timestamp_sticky() {
-    let (app, token) = authed_app("loom-r2-frozen").await;
+    let (app, token) = authed_app("saddle-r2-frozen").await;
     let uri = format!("{BASE}/PolicyBundle");
     send(
         &app,
         "POST",
         &uri,
         Some(&token),
-        Some(bundle_with_finalizers("frozen", 1, &["loom.aog/teardown"])),
+        Some(bundle_with_finalizers(
+            "frozen",
+            1,
+            &["saddle.islandmountain.io/teardown"],
+        )),
     )
     .await;
     let one = format!("{BASE}/PolicyBundle/frozen");
@@ -97,7 +105,10 @@ async fn terminating_object_spec_frozen_and_timestamp_sticky() {
 
     // Growing the finalizer set while terminating → refused.
     let mut grow = current.clone();
-    grow["metadata"]["finalizers"] = json!(["loom.aog/teardown", "loom.aog/extra"]);
+    grow["metadata"]["finalizers"] = json!([
+        "saddle.islandmountain.io/teardown",
+        "saddle.islandmountain.io/extra"
+    ]);
     let (status, _) = send(&app, "PUT", &one, Some(&token), Some(grow)).await;
     assert_eq!(status, 409, "finalizers may only shrink while terminating");
 
@@ -117,14 +128,18 @@ async fn terminating_object_spec_frozen_and_timestamp_sticky() {
 
 #[tokio::test]
 async fn removing_last_finalizer_completes_the_delete() {
-    let (app, state, token) = authed_app_state("loom-r2-finalize").await;
+    let (app, state, token) = authed_app_state("saddle-r2-finalize").await;
     let uri = format!("{BASE}/PolicyBundle");
     send(
         &app,
         "POST",
         &uri,
         Some(&token),
-        Some(bundle_with_finalizers("held", 1, &["loom.aog/teardown"])),
+        Some(bundle_with_finalizers(
+            "held",
+            1,
+            &["saddle.islandmountain.io/teardown"],
+        )),
     )
     .await;
     let one = format!("{BASE}/PolicyBundle/held");
@@ -150,7 +165,7 @@ async fn removing_last_finalizer_completes_the_delete() {
 
 #[tokio::test]
 async fn stale_resource_version_is_refused() {
-    let (app, token) = authed_app("loom-r2-stale").await;
+    let (app, token) = authed_app("saddle-r2-stale").await;
     let uri = format!("{BASE}/PolicyBundle");
     let (_, created) = send(&app, "POST", &uri, Some(&token), Some(bundle("cas", 1))).await;
     let first_rv = created["metadata"]["resource_version"].clone();

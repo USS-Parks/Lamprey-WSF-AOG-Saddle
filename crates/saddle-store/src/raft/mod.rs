@@ -97,7 +97,7 @@ impl RaftNode {
         let sm = RedbStateMachine::open(dir).map_err(|e| NodeError::Storage(e.to_string()))?;
 
         let config = Config {
-            cluster_name: "loom".to_owned(),
+            cluster_name: "saddle".to_owned(),
             ..Config::default()
         };
         let config = Arc::new(

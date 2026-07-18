@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 fn tenant(name: &str, ceiling: &str, scopes: &[&str]) -> Value {
     json!({
-        "api_version": "aog.islandmountain.io/v1",
+        "api_version": "saddle.islandmountain.io/v1",
         "kind": "Tenant",
         "metadata": { "name": name },
         "spec": {

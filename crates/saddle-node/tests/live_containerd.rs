@@ -1,5 +1,5 @@
 //! A containerized workload lifecycle via the containerd driver, with
-//! parity to the process driver. Env-gated on `LOOM_CONTAINER_CLI` (e.g.
+//! parity to the process driver. Env-gated on `SADDLE_CONTAINER_CLI` (e.g.
 //! `docker` or `nerdctl`); skips when no container CLI is configured, so it is
 //! inert on the air-gap appliance path where the process driver is the default.
 #![allow(clippy::print_stderr)]
@@ -9,14 +9,16 @@ use saddle_node::driver::{WorkloadDriver, WorkloadHandle, WorkloadRun, WorkloadS
 
 #[test]
 fn a_containerized_workload_has_a_lifecycle() {
-    let Ok(cli) = std::env::var("LOOM_CONTAINER_CLI") else {
-        eprintln!("SKIP a_containerized_workload_has_a_lifecycle: LOOM_CONTAINER_CLI unset (gate)");
+    let Ok(cli) = std::env::var("SADDLE_CONTAINER_CLI") else {
+        eprintln!(
+            "SKIP a_containerized_workload_has_a_lifecycle: SADDLE_CONTAINER_CLI unset (gate)"
+        );
         return;
     };
-    let image = std::env::var("LOOM_CONTAINER_IMAGE").unwrap_or_else(|_| "alpine".to_owned());
+    let image = std::env::var("SADDLE_CONTAINER_IMAGE").unwrap_or_else(|_| "alpine".to_owned());
     let driver = ContainerdDriver::new(cli);
     let run = WorkloadRun {
-        name: "loom-n5-gw".to_owned(),
+        name: "saddle-n5-gw".to_owned(),
         image: Some(image),
         command: vec!["sleep".to_owned(), "60".to_owned()],
     };
