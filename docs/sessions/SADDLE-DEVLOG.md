@@ -712,7 +712,8 @@ remote checkpoint `3e2fef91581c786f96911b4bb607bf12ef72828a`.
 ## SAD-22 — Versioned legacy-state migration
 
 **Status:** PASS — implementation commit
-`edc5b5a8328ce3dd47dfc1fe5ce2d156b63dc1c5`.
+`edc5b5a8328ce3dd47dfc1fe5ce2d156b63dc1c5`; verification closeout and first
+verified remote checkpoint `f7f50efd77813e4f8b76057d38f76a99a610df60`.
 
 ### Work completed
 
@@ -770,7 +771,9 @@ remote checkpoint `3e2fef91581c786f96911b4bb607bf12ef72828a`.
   `5afe59a476faaf4d1fce642131f95ab2a57faad0e143f9d3ac37f4b73982ecf4`;
   and
 - implementation commit
-  `edc5b5a8328ce3dd47dfc1fe5ce2d156b63dc1c5`.
+  `edc5b5a8328ce3dd47dfc1fe5ce2d156b63dc1c5`; and
+- verification closeout and first verified remote checkpoint
+  `f7f50efd77813e4f8b76057d38f76a99a610df60`.
 
 ### Next prompt
 
