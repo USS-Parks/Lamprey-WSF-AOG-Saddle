@@ -2,7 +2,7 @@
 
 **Purpose:** Make the independent source import and the Loom-to-Saddle replacement mechanically executable.
 **Authority:** Supporting specification for `SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
-**Status:** **SAD-20 PASS — package and binary identity cutover complete; SAD-21 protocol, trust, persistence, and deployment identity next.**
+**Status:** **SAD-21 PASS — active runtime identity cutover complete; SAD-22 versioned legacy-state migration next.**
 The machine-readable path, disposition, and SHA-256 ledger is
 `test-evidence/saddle/SAD-02/source-manifest.json`; `SAD-03` owns the
 no-secret staged-import proof before any source enters the target.
@@ -300,9 +300,32 @@ original package names; that provenance vocabulary is not an active package
 alias. Protocol, environment, API-group, persistence, and deployment-directory
 identity remain explicitly assigned to SAD-21.
 
+## 4.4 SAD-21 active runtime identity cutover
+
+SAD-21 moved normal runtime and operator-facing identity to Saddle across the
+estate API group, resource finalizers and labels, SPIFFE node identities,
+OpenBao defaults, daemon and node environment variables, forwarding header,
+admin role, trust and backup identifiers, fixtures, conformance text, CI jobs,
+deployment paths, image/service names, and active runbooks. The deployment
+estate is now rooted at `deployment/saddle-harness`, with its cluster manifest
+at `k3s/saddle.yaml`.
+
+Normal runtime has no fallback reader for `AOGD_*`, `AOG_NODE_*`, `LOOM_*`, the
+retired API group, header, SPIFFE prefix, OpenBao prefix, or `aog-admin` role.
+The retired forwarding header and admin role are carried only as negative
+authorization inputs proving that neither can bypass Saddle authentication or
+authorization. SAD-22 owns bounded inspection and conversion of persisted
+legacy identities; it may not reintroduce those values as runtime authority.
+
+`tools/verify_saddle_runtime_identity.py` deterministically scans active code,
+CI, deployment, and active operator documents, requires the exact Saddle
+markers and renamed paths, rejects old runtime identities, and binds the two
+negative authorization assertions. Its evidence is
+`test-evidence/saddle/SAD-21/runtime-identity-gate.json`.
+
 ## 5. Loom-to-Saddle active identity map
 
-The baseline broad scan finds 120 tracked files with Loom identity patterns. That includes immutable history and active code. Active source/deployment/workflow residues are concentrated in the 12 orchestration packages, `wsf-hardening`, `deployment/loom-harness`, three workflow files, and active operator documents.
+The pre-SAD-21 baseline broad scan found 120 tracked files with Loom identity patterns. That included immutable history and active code. Active source/deployment/workflow residues were concentrated in the 12 orchestration packages, `wsf-hardening`, `deployment/loom-harness`, three workflow files, and active operator documents.
 
 | Seed identity | Saddle identity/rule |
 |---|---|
@@ -311,9 +334,9 @@ The baseline broad scan finds 120 tracked files with Loom identity patterns. Tha
 | `aogd` / `aog-noded` / `aogctl` | `saddled` / `saddle-noded` / `saddlectl` |
 | `deployment/loom-harness` | `deployment/saddle-harness` |
 | `loom-harness` images/services/jobs | `saddle-harness` |
-| `LOOM_*` runtime variables | `SADDLE_*`; old variables accepted only by the explicit migration shim |
+| `LOOM_*` runtime variables | `SADDLE_*`; normal runtime rejects old variables and only the bounded migration tool may recognize legacy state |
 | `x-loom-forwarded` | `x-saddle-forwarded`; still never treated as caller authority |
-| `spiffe://loom/...` | `spiffe://<configured-trust-domain>/saddle/...` |
+| `spiffe://loom/node/...` | `spiffe://saddle/node/...`; exact node identity remains certificate-bound |
 | `kv/data/loom/...` | configurable Saddle OpenBao prefix, default `kv/data/saddle/...` |
 | `loom.aog/<finalizer>` | `saddle.islandmountain.io/<finalizer>` |
 | `loom.io/unschedulable` | `saddle.islandmountain.io/unschedulable` |
@@ -322,7 +345,7 @@ The baseline broad scan finds 120 tracked files with Loom identity patterns. Tha
 | `loom-*` test IDs and temporary prefixes | `saddle-*`, except named legacy-conversion fixtures |
 | Metrics/log fields | `saddle_*` metrics and `saddle.*` structured namespaces |
 
-The SPIFFE trust domain and OpenBao prefix are deployment configuration, not hard-coded global authority. The migration supports inspect/dry-run/apply/verify/rollback and emits Saddle identities only.
+The OpenBao prefix is deployment configuration. The current node SPIFFE namespace is the exact Saddle trust domain enforced by code and certificate provisioning; any future trust-domain parameter must preserve that exact identity binding. The migration supports inspect/dry-run/apply/verify/rollback and emits Saddle identities only.
 
 ## 6. Rename acceptance gate
 

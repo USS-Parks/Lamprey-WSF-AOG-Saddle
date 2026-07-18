@@ -625,3 +625,73 @@ resolution failure; no repository gate was waived.
 ### Next prompt
 
 `SAD-21 — Rename protocol, trust, persistence, and deployment identities`.
+
+---
+
+## SAD-21 — Rename protocol, trust, persistence, and deployment identities
+
+**Status:** PASS — implementation commit
+`a9e46f013120e9afc6a4afcb6ed21cebbecfa597`.
+
+### Work completed
+
+- Renamed active estate API routes and schemas to
+  `saddle.islandmountain.io/v1`; controller finalizers and the cordon label now
+  use the `saddle.islandmountain.io` namespace.
+- Renamed node SPIFFE identities to `spiffe://saddle/node/<id>`, the default
+  OpenBao trust prefix to `kv/data/saddle`, the internal forwarding header to
+  `x-saddle-forwarded`, and the mutating admin role to `saddle-admin`.
+- Cut daemon and edge configuration to `SADDLED_*`, `SADDLE_NODE_*`, and
+  `SADDLE_*` only. No normal-runtime fallback reads retired environment names.
+- Renamed active trust, persistence, backup, fixture, test, conformance, CI,
+  image/service, deployment, and operator-document identifiers. The live estate
+  is now `deployment/saddle-harness`, its cluster manifest is
+  `k3s/saddle.yaml`, and its active disaster-recovery and transport runbooks are
+  Saddle-named.
+- Added negative authorization assertions proving `x-loom-forwarded` remains
+  ordinary unauthenticated caller input and `aog-admin` does not satisfy the
+  Saddle admin role.
+- Added deterministic runtime identity verification and evidence while leaving
+  historical DEVLOG/audit vocabulary intact and leaving persisted-state
+  conversion to SAD-22.
+
+### Gate
+
+- pre-cutover characterization across `saddled`, `saddle-noded`, estate/API,
+  controller, wire, and hardening packages — PASS;
+- `cargo fmt --check` — PASS;
+- `cargo check --workspace --all-targets --locked` — PASS;
+- `cargo clippy --workspace --all-targets --locked -- -D warnings -A clippy::pedantic`
+  — PASS;
+- `cargo test --workspace --locked` with Git-bundled OpenSSL and configured
+  OpenBao coordinates — PASS, including real three-node mTLS, consensus,
+  API/admin authorization, controller, scheduler, node, and renamed hardening
+  paths; the existing aggressive/SLO tests remain explicitly ignored;
+- `cargo audit` and `cargo deny check` — PASS; existing non-fatal deny warnings
+  remain unchanged;
+- deterministic SAD-20 and SAD-21 identity verify-only gates — PASS; SAD-21
+  proves nine required markers, five renamed paths, zero unexplained old active
+  identities, and two negative authorization assertions;
+- all Saddle harness shell scripts parse under Git for Windows Bash and
+  `docker-compose.exe -f deployment/saddle-harness/docker-compose.yml config -q`
+  — PASS. A local `kubectl` schema dry-run could not discover an API server; no
+  live cluster claim is made by this prompt;
+- staged `git diff --check`, Gitleaks, explicit credential-pattern scan,
+  anti-truncation, and full no-slop gates — PASS. The anti-truncation hook
+  emitted its existing renamed-path `integer expected` warning but exited zero;
+  independent staged tail/line-count verification covered 79 text files; and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-21/runtime-identity-gate.json`, SHA-256
+  `c3732746da01c3514e9b9b1c71240f9226df84d932b1b83e7f2ff63aed8aa32a`;
+- `tools/verify_saddle_runtime_identity.py`, SHA-256
+  `f9c6979aa4574927f423856c18af1600ca5928f4feeef466112a64a0a3321c59`;
+  and
+- implementation commit
+  `a9e46f013120e9afc6a4afcb6ed21cebbecfa597`.
+
+### Next prompt
+
+`SAD-22 — Versioned legacy-state migration`.
