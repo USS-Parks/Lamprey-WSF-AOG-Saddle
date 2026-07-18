@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "evidence_output": "test-evidence/saddle/SAD-23/active-name-eradication-gate.json",
+  "expected_occurrences_by_rule": {
+    "active-name-classifications": 0,
+    "active-name-verifier": 0,
+    "audit-history": 3,
+    "canonical-pspr": 5,
+    "current-gap-ledger": 1,
+    "founding-direction": 3,
+    "hardening-evidence-history": 7,
+    "import-allowlist-evidence": 17,
+    "independence-decision": 5,
+    "legacy-state-cli-gate": 9,
+    "legacy-state-evidence": 1,
+    "legacy-state-module": 3,
+    "legacy-state-tests": 9,
+    "negative-authorization-fixture": 1,
+    "package-cutover-evidence": 1,
+    "package-identity-verifier": 5,
+    "project-agent-rule": 2,
+    "project-handoff-rule": 2,
+    "readme-transition-note": 3,
+    "remediation-evidence-history": 17,
+    "rename-manifest": 19,
+    "runtime-identity-verifier": 11,
+    "scan-history": 1,
+    "seed-checkpoint": 1,
+    "session-history": 149,
+    "source-manifest-evidence": 17,
+    "source-manifest-generator": 1,
+    "support-import-evidence": 16,
+    "workspace-import-evidence": 1
+  },
+  "classifications": [
+    {
+      "id": "project-agent-rule",
+      "kind": "exact",
+      "path": "AGENTS.md",
+      "category": "historical_provenance",
+      "reason": "Current rule states the settled replacement and the narrow historical exception."
+    },
+    {
+      "id": "project-handoff-rule",
+      "kind": "exact",
+      "path": "CLAUDE.md",
+      "category": "historical_provenance",
+      "reason": "Current handoff records the superseded project direction."
+    },
+    {
+      "id": "readme-transition-note",
+      "kind": "exact",
+      "path": "README.md",
+      "category": "historical_provenance",
+      "reason": "Repository front door identifies the retired codename and settled product name."
+    },
+    {
+      "id": "current-gap-ledger",
+      "kind": "exact",
+      "path": "PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md",
+      "category": "historical_provenance",
+      "reason": "Execution ledger describes the completed rename and the eradication rule."
+    },
+    {
+      "id": "founding-direction",
+      "kind": "exact",
+      "path": "PLANNING/SADDLE-FOUNDING-DIRECTION.md",
+      "category": "historical_provenance",
+      "reason": "Superseded founding decision is retained as plan history."
+    },
+    {
+      "id": "independence-decision",
+      "kind": "exact",
+      "path": "PLANNING/SADDLE-INDEPENDENCE-DECISION-2026-07-16.md",
+      "category": "historical_provenance",
+      "reason": "Settled independence decision records the rename from its prior codename."
+    },
+    {
+      "id": "seed-checkpoint",
+      "kind": "exact",
+      "path": "PLANNING/SADDLE-SEED-CHECKPOINT-2026-07-17.md",
+      "category": "historical_provenance",
+      "reason": "Seed checkpoint is immutable source and execution provenance."
+    },
+    {
+      "id": "rename-manifest",
+      "kind": "exact",
+      "path": "PLANNING/SADDLE-SOURCE-AND-RENAME-MANIFEST.md",
+      "category": "historical_provenance",
+      "reason": "Canonical rename map must name retired inputs and settled outputs."
+    },
+    {
+      "id": "canonical-pspr",
+      "kind": "exact",
+      "path": "PLANNING/SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md",
+      "category": "historical_provenance",
+      "reason": "Canonical plan records the rename objective and acceptance gate."
+    },
+    {
+      "id": "audit-history",
+      "kind": "prefix",
+      "path": "docs/audits/",
+      "category": "historical_provenance",
+      "reason": "Executed audit records are immutable historical evidence."
+    },
+    {
+      "id": "scan-history",
+      "kind": "prefix",
+      "path": "docs/scans/",
+      "category": "historical_provenance",
+      "reason": "Executed scan plans are immutable historical evidence."
+    },
+    {
+      "id": "session-history",
+      "kind": "prefix",
+      "path": "docs/sessions/",
+      "category": "historical_provenance",
+      "reason": "Append-only development logs preserve the vocabulary used when work executed."
+    },
+    {
+      "id": "remediation-evidence-history",
+      "kind": "prefix",
+      "path": "test-evidence/full-repo-remediation/",
+      "category": "historical_provenance",
+      "reason": "Executed remediation evidence is immutable provenance."
+    },
+    {
+      "id": "hardening-evidence-history",
+      "kind": "prefix",
+      "path": "test-evidence/lamprey-saddle-hardening/",
+      "category": "historical_provenance",
+      "reason": "Pre-import hardening evidence is immutable source provenance."
+    },
+    {
+      "id": "source-manifest-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-02/source-manifest.json",
+      "category": "historical_provenance",
+      "reason": "Content-addressed seed manifest records original tracked paths and hashes."
+    },
+    {
+      "id": "import-allowlist-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-03/import-allowlist.json",
+      "category": "historical_provenance",
+      "reason": "Reviewed import allowlist records original seed paths."
+    },
+    {
+      "id": "workspace-import-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-10/workspace-import-proof.json",
+      "category": "historical_provenance",
+      "reason": "Immutable import proof records the pre-rename workspace closure."
+    },
+    {
+      "id": "support-import-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-11/support-surface-import-proof.json",
+      "category": "historical_provenance",
+      "reason": "Immutable import proof records pre-rename support paths."
+    },
+    {
+      "id": "package-cutover-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-20/package-identity-gate.json",
+      "category": "historical_provenance",
+      "reason": "Deterministic package cutover evidence records retired path absence checks."
+    },
+    {
+      "id": "legacy-state-module",
+      "kind": "exact",
+      "path": "crates/saddlectl/src/migration.rs",
+      "category": "migration_fixture",
+      "reason": "Bounded migration implementation recognizes only retired structural state inputs."
+    },
+    {
+      "id": "legacy-state-tests",
+      "kind": "exact",
+      "path": "crates/saddlectl/tests/migration.rs",
+      "category": "migration_fixture",
+      "reason": "Named migration fixtures prove structural conversion and opaque-field preservation."
+    },
+    {
+      "id": "negative-authorization-fixture",
+      "kind": "exact",
+      "path": "crates/saddled/tests/admin_auth.rs",
+      "category": "migration_fixture",
+      "reason": "Named negative fixture proves a retired forwarding input cannot become authority."
+    },
+    {
+      "id": "legacy-state-cli-gate",
+      "kind": "exact",
+      "path": "tools/verify_saddle_legacy_state_migration.py",
+      "category": "migration_fixture",
+      "reason": "Named deterministic migration fixture drives all five legacy-state modes."
+    },
+    {
+      "id": "legacy-state-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-22/legacy-state-migration-gate.json",
+      "category": "migration_fixture",
+      "reason": "Migration evidence records the exact retired structural paths exercised."
+    },
+    {
+      "id": "source-manifest-generator",
+      "kind": "exact",
+      "path": "tools/generate_saddle_source_manifest.py",
+      "category": "verification_input",
+      "reason": "Provenance scanner recognizes historical component-family names."
+    },
+    {
+      "id": "package-identity-verifier",
+      "kind": "exact",
+      "path": "tools/verify_saddle_package_identity.py",
+      "category": "verification_input",
+      "reason": "Cutover verifier names the retired package-identity finding class."
+    },
+    {
+      "id": "runtime-identity-verifier",
+      "kind": "exact",
+      "path": "tools/verify_saddle_runtime_identity.py",
+      "category": "verification_input",
+      "reason": "Runtime verifier must recognize and reject retired runtime identities."
+    },
+    {
+      "id": "active-name-classifications",
+      "kind": "exact",
+      "path": "tools/saddle_active_name_classifications.json",
+      "category": "verification_input",
+      "reason": "Reviewed classification registry governs this eradication gate."
+    },
+    {
+      "id": "active-name-verifier",
+      "kind": "exact",
+      "path": "tools/verify_saddle_active_name_eradication.py",
+      "category": "verification_input",
+      "reason": "The eradication verifier defines the retired-name detection pattern."
+    }
+  ]
+}

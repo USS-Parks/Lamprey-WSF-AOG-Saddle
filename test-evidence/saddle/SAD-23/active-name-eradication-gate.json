@@ -1,0 +1,402 @@
+{
+  "binary_files_skipped": 6,
+  "cargo_metadata_surface": {
+    "identity_strings": 217,
+    "packages": 37,
+    "retired_name_occurrences": 0
+  },
+  "classification_count_mismatches": [],
+  "classifications": [
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 2,
+      "path": "AGENTS.md",
+      "path_occurrences": 0,
+      "reason": "Current rule states the settled replacement and the narrow historical exception.",
+      "rule_id": "project-agent-rule",
+      "total_occurrences": 2
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 2,
+      "path": "CLAUDE.md",
+      "path_occurrences": 0,
+      "reason": "Current handoff records the superseded project direction.",
+      "rule_id": "project-handoff-rule",
+      "total_occurrences": 2
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md",
+      "path_occurrences": 0,
+      "reason": "Execution ledger describes the completed rename and the eradication rule.",
+      "rule_id": "current-gap-ledger",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 3,
+      "path": "PLANNING/SADDLE-FOUNDING-DIRECTION.md",
+      "path_occurrences": 0,
+      "reason": "Superseded founding decision is retained as plan history.",
+      "rule_id": "founding-direction",
+      "total_occurrences": 3
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 5,
+      "path": "PLANNING/SADDLE-INDEPENDENCE-DECISION-2026-07-16.md",
+      "path_occurrences": 0,
+      "reason": "Settled independence decision records the rename from its prior codename.",
+      "rule_id": "independence-decision",
+      "total_occurrences": 5
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "PLANNING/SADDLE-SEED-CHECKPOINT-2026-07-17.md",
+      "path_occurrences": 0,
+      "reason": "Seed checkpoint is immutable source and execution provenance.",
+      "rule_id": "seed-checkpoint",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 19,
+      "path": "PLANNING/SADDLE-SOURCE-AND-RENAME-MANIFEST.md",
+      "path_occurrences": 0,
+      "reason": "Canonical rename map must name retired inputs and settled outputs.",
+      "rule_id": "rename-manifest",
+      "total_occurrences": 19
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 5,
+      "path": "PLANNING/SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md",
+      "path_occurrences": 0,
+      "reason": "Canonical plan records the rename objective and acceptance gate.",
+      "rule_id": "canonical-pspr",
+      "total_occurrences": 5
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 3,
+      "path": "README.md",
+      "path_occurrences": 0,
+      "reason": "Repository front door identifies the retired codename and settled product name.",
+      "rule_id": "readme-transition-note",
+      "total_occurrences": 3
+    },
+    {
+      "category": "migration_fixture",
+      "content_occurrences": 3,
+      "path": "crates/saddlectl/src/migration.rs",
+      "path_occurrences": 0,
+      "reason": "Bounded migration implementation recognizes only retired structural state inputs.",
+      "rule_id": "legacy-state-module",
+      "total_occurrences": 3
+    },
+    {
+      "category": "migration_fixture",
+      "content_occurrences": 9,
+      "path": "crates/saddlectl/tests/migration.rs",
+      "path_occurrences": 0,
+      "reason": "Named migration fixtures prove structural conversion and opaque-field preservation.",
+      "rule_id": "legacy-state-tests",
+      "total_occurrences": 9
+    },
+    {
+      "category": "migration_fixture",
+      "content_occurrences": 1,
+      "path": "crates/saddled/tests/admin_auth.rs",
+      "path_occurrences": 0,
+      "reason": "Named negative fixture proves a retired forwarding input cannot become authority.",
+      "rule_id": "negative-authorization-fixture",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 2,
+      "path": "docs/audits/2026-07-08-full-repo/FULL-REPO-SECURITY-AUDIT.md",
+      "path_occurrences": 0,
+      "reason": "Executed audit records are immutable historical evidence.",
+      "rule_id": "audit-history",
+      "total_occurrences": 2
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "docs/audits/2026-07-08-full-repo/REMEDIATION-PSPR.md",
+      "path_occurrences": 0,
+      "reason": "Executed audit records are immutable historical evidence.",
+      "rule_id": "audit-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "docs/scans/REPOSITORY-STEM-TO-STERN-PSPR-2026-07-07.md",
+      "path_occurrences": 0,
+      "reason": "Executed scan plans are immutable historical evidence.",
+      "rule_id": "scan-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 3,
+      "path": "docs/sessions/DESLOP-DEVLOG.md",
+      "path_occurrences": 0,
+      "reason": "Append-only development logs preserve the vocabulary used when work executed.",
+      "rule_id": "session-history",
+      "total_occurrences": 3
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 12,
+      "path": "docs/sessions/FULL-REPO-REMEDIATION-DEVLOG.md",
+      "path_occurrences": 0,
+      "reason": "Append-only development logs preserve the vocabulary used when work executed.",
+      "rule_id": "session-history",
+      "total_occurrences": 12
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 129,
+      "path": "docs/sessions/LOOM-DEVLOG.md",
+      "path_occurrences": 1,
+      "reason": "Append-only development logs preserve the vocabulary used when work executed.",
+      "rule_id": "session-history",
+      "total_occurrences": 130
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 3,
+      "path": "docs/sessions/SADDLE-DEVLOG.md",
+      "path_occurrences": 0,
+      "reason": "Append-only development logs preserve the vocabulary used when work executed.",
+      "rule_id": "session-history",
+      "total_occurrences": 3
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "docs/sessions/SOVEREIGNTY-DEVLOG.md",
+      "path_occurrences": 0,
+      "reason": "Append-only development logs preserve the vocabulary used when work executed.",
+      "rule_id": "session-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/full-repo-remediation/M6/X4-X5-revalidation/REPORT.md",
+      "path_occurrences": 0,
+      "reason": "Executed remediation evidence is immutable provenance.",
+      "rule_id": "remediation-evidence-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 10,
+      "path": "test-evidence/full-repo-remediation/M6/live-gates/LOOM-SUMMARY.md",
+      "path_occurrences": 1,
+      "reason": "Executed remediation evidence is immutable provenance.",
+      "rule_id": "remediation-evidence-history",
+      "total_occurrences": 11
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 3,
+      "path": "test-evidence/full-repo-remediation/M6/live-gates/SUMMARY.md",
+      "path_occurrences": 0,
+      "reason": "Executed remediation evidence is immutable provenance.",
+      "rule_id": "remediation-evidence-history",
+      "total_occurrences": 3
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/full-repo-remediation/M7/PHASE-C/EVIDENCE.md",
+      "path_occurrences": 0,
+      "reason": "Executed remediation evidence is immutable provenance.",
+      "rule_id": "remediation-evidence-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/full-repo-remediation/M7/PHASE-T/EVIDENCE.md",
+      "path_occurrences": 0,
+      "reason": "Executed remediation evidence is immutable provenance.",
+      "rule_id": "remediation-evidence-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/lamprey-saddle-hardening/M0/source-scan/candidate-ledgers/AOD-001/candidate_ledger.jsonl",
+      "path_occurrences": 0,
+      "reason": "Pre-import hardening evidence is immutable source provenance.",
+      "rule_id": "hardening-evidence-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/lamprey-saddle-hardening/M0/source-scan/candidate-ledgers/AWF-001/candidate_ledger.jsonl",
+      "path_occurrences": 0,
+      "reason": "Pre-import hardening evidence is immutable source provenance.",
+      "rule_id": "hardening-evidence-history",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 2,
+      "path": "test-evidence/lamprey-saddle-hardening/M0/source-scan/file-reviews/review_aog_wire_approval_root/raw_candidates.jsonl",
+      "path_occurrences": 0,
+      "reason": "Pre-import hardening evidence is immutable source provenance.",
+      "rule_id": "hardening-evidence-history",
+      "total_occurrences": 2
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 3,
+      "path": "test-evidence/lamprey-saddle-hardening/M0/source-scan/file-reviews/review_aogd_root/raw_candidates.jsonl",
+      "path_occurrences": 0,
+      "reason": "Pre-import hardening evidence is immutable source provenance.",
+      "rule_id": "hardening-evidence-history",
+      "total_occurrences": 3
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 17,
+      "path": "test-evidence/saddle/SAD-02/source-manifest.json",
+      "path_occurrences": 0,
+      "reason": "Content-addressed seed manifest records original tracked paths and hashes.",
+      "rule_id": "source-manifest-evidence",
+      "total_occurrences": 17
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 17,
+      "path": "test-evidence/saddle/SAD-03/import-allowlist.json",
+      "path_occurrences": 0,
+      "reason": "Reviewed import allowlist records original seed paths.",
+      "rule_id": "import-allowlist-evidence",
+      "total_occurrences": 17
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/saddle/SAD-10/workspace-import-proof.json",
+      "path_occurrences": 0,
+      "reason": "Immutable import proof records the pre-rename workspace closure.",
+      "rule_id": "workspace-import-evidence",
+      "total_occurrences": 1
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 16,
+      "path": "test-evidence/saddle/SAD-11/support-surface-import-proof.json",
+      "path_occurrences": 0,
+      "reason": "Immutable import proof records pre-rename support paths.",
+      "rule_id": "support-import-evidence",
+      "total_occurrences": 16
+    },
+    {
+      "category": "historical_provenance",
+      "content_occurrences": 1,
+      "path": "test-evidence/saddle/SAD-20/package-identity-gate.json",
+      "path_occurrences": 0,
+      "reason": "Deterministic package cutover evidence records retired path absence checks.",
+      "rule_id": "package-cutover-evidence",
+      "total_occurrences": 1
+    },
+    {
+      "category": "migration_fixture",
+      "content_occurrences": 1,
+      "path": "test-evidence/saddle/SAD-22/legacy-state-migration-gate.json",
+      "path_occurrences": 0,
+      "reason": "Migration evidence records the exact retired structural paths exercised.",
+      "rule_id": "legacy-state-evidence",
+      "total_occurrences": 1
+    },
+    {
+      "category": "verification_input",
+      "content_occurrences": 1,
+      "path": "tools/generate_saddle_source_manifest.py",
+      "path_occurrences": 0,
+      "reason": "Provenance scanner recognizes historical component-family names.",
+      "rule_id": "source-manifest-generator",
+      "total_occurrences": 1
+    },
+    {
+      "category": "migration_fixture",
+      "content_occurrences": 9,
+      "path": "tools/verify_saddle_legacy_state_migration.py",
+      "path_occurrences": 0,
+      "reason": "Named deterministic migration fixture drives all five legacy-state modes.",
+      "rule_id": "legacy-state-cli-gate",
+      "total_occurrences": 9
+    },
+    {
+      "category": "verification_input",
+      "content_occurrences": 5,
+      "path": "tools/verify_saddle_package_identity.py",
+      "path_occurrences": 0,
+      "reason": "Cutover verifier names the retired package-identity finding class.",
+      "rule_id": "package-identity-verifier",
+      "total_occurrences": 5
+    },
+    {
+      "category": "verification_input",
+      "content_occurrences": 11,
+      "path": "tools/verify_saddle_runtime_identity.py",
+      "path_occurrences": 0,
+      "reason": "Runtime verifier must recognize and reject retired runtime identities.",
+      "rule_id": "runtime-identity-verifier",
+      "total_occurrences": 11
+    }
+  ],
+  "classified_files": 39,
+  "classified_occurrences_by_category": {
+    "historical_provenance": 270,
+    "migration_fixture": 23,
+    "verification_input": 17
+  },
+  "explicit_surface_counts": {
+    "cargo_manifests": 38,
+    "console_ui_files": 39,
+    "deployment_artifact_files": 46,
+    "generated_schemas": [
+      {
+        "path": "crates/wsf-api/src/openapi.json",
+        "retired_name_occurrences": 0
+      },
+      {
+        "path": "docs/api/openapi.yaml",
+        "retired_name_occurrences": 0
+      }
+    ],
+    "packaging_artifact_files": 20,
+    "script_files": 18
+  },
+  "generated_console_artifact": {
+    "binary_files": 0,
+    "files": 4,
+    "retired_name_occurrences": 0,
+    "text_files": 4
+  },
+  "help_surface": {
+    "artifact": "target/debug/saddlectl.exe",
+    "exit_code": 2,
+    "retired_name_occurrences": 0
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "text_files_scanned": 946,
+  "total_retired_name_occurrences": 310,
+  "tracked_files_scanned": 952,
+  "unexplained_matches": []
+}
