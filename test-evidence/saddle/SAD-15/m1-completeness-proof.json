@@ -1,0 +1,105 @@
+{
+  "m1_policy": {
+    "approved_exclusion_count": 10,
+    "approved_transformation_count": 5,
+    "raw_source_match_count": 870,
+    "selected_source_path_count": 885
+  },
+  "openbao_staging_boundary": {
+    "path": "deployment/openbao-staging/README.md",
+    "sha256": "853cff0d595e8d507d9eed21907c40ad33a073c2c48ec4fa87894460eb4dcc2d"
+  },
+  "package_addendum": {
+    "path_count": 20,
+    "proof_sha256": "92c289a8d9521ca0bf660ac692e5115df846b5a70324476695e88f5ac1701cfa"
+  },
+  "schema_version": 1,
+  "source_manifest_sha256": "eb7e97e405b4eb28e94b469e094e74e3fbd6451657ea69fc5f470b1472130ac4",
+  "source_reconciliation": {
+    "approved_exclusions": [
+      {
+        "path": "deployment/openbao-staging/anchors/bundle-signer-staging.pub",
+        "reason": "Seed-specific static staging anchor; fresh trust material is generated at runtime.",
+        "source_sha256": "25c1d9bd10b0563a7db3dde72f4f1542fc1c300fe3ccb7abfb0575e4e8e30363"
+      },
+      {
+        "path": "deployment/openbao-staging/auth_keys.toml",
+        "reason": "Seed staging key-hash configuration is not portable Saddle runtime source.",
+        "source_sha256": "93c728a86a02b9c61fb003f7efebb4db6976c423fe8602f8bbcd07380e58b436"
+      },
+      {
+        "path": "deployment/openbao-staging/ir-respond.ps1",
+        "reason": "Legacy staging automation is not an independent Saddle deployment interface.",
+        "source_sha256": "57cea2d1ff96e956ae1bedb06c860ad3b301a89cf88a33542fc62bf8d8949e74"
+      },
+      {
+        "path": "deployment/openbao-staging/openbao-connection.toml",
+        "reason": "Seed-specific static AppRole configuration is replaced by ephemeral runtime material.",
+        "source_sha256": "f5f6ff40415dc3d6b38ae89b90e1ca84d9eb6ab0dc03e4f4ce5f48da177b651a"
+      },
+      {
+        "path": "deployment/openbao-staging/profile-production.toml",
+        "reason": "Legacy MAI staging profile is outside Saddle's declared deployment surface.",
+        "source_sha256": "f5f119f5c63928d6e437148a6a53e1f6cbc8c6ffe44aa0fab96bafbc40b4ac1f"
+      },
+      {
+        "path": "deployment/openbao-staging/profile.toml",
+        "reason": "Legacy MAI staging profile is outside Saddle's declared deployment surface.",
+        "source_sha256": "e94d2dbc98b58708d2dae50214389547f74642aaf198231e615fddeb3d8acf99"
+      },
+      {
+        "path": "deployment/openbao-staging/start-openbao.ps1",
+        "reason": "Legacy staging bootstrap is replaced by the disposable Saddle material generator.",
+        "source_sha256": "44fe15d05c5170264ec18d0e4219d0368a2eec64ec918c1be140ab0dc32980c9"
+      },
+      {
+        "path": "deployment/openbao-staging/trust-anchors.toml",
+        "reason": "Seed-specific static trust anchors must not become Saddle runtime authority.",
+        "source_sha256": "de55e18a901c1b8a41b7074c8998b81c07c3199e035e24dd2b33fee5e4859c6b"
+      },
+      {
+        "path": "test-evidence/rc-05/cargo-test-workspace.log",
+        "reason": "Historical capture contains parent-local build-path provenance; Saddle records fresh evidence instead.",
+        "source_sha256": "28efafd740e12ec0736d3515734ba42ceb55ed4c38e3dd9b33dfaa87c0e0f70b"
+      },
+      {
+        "path": "test-evidence/rc-05/python-sdk-tests.log",
+        "reason": "Historical capture contains parent-local environment provenance; Saddle records fresh evidence instead.",
+        "source_sha256": "d87b1d27595aa8b65bb39ce048a8fa8e4e0766c5015b5dfb06a56aec40b86ef8"
+      }
+    ],
+    "approved_transformations": [
+      {
+        "path": "Cargo.lock",
+        "reason": "SAD-12 offline regeneration for the independent 37-package closure.",
+        "source_sha256": "a9fc8be80efb729495018ce36851aea2e11cfa9e211625d5cd0b87619039b70c",
+        "target_sha256": "39ffb3dce2112c287be0f7d7d2f020d1d6a3d10c3d3eddf231c548c767d48701"
+      },
+      {
+        "path": "Cargo.toml",
+        "reason": "SAD-10 closure narrowing plus SAD-12 independent repository identity.",
+        "source_sha256": "98b7061cb2778dddeda10f43ebeff67e28d3d23440310b6b40ae889c5006556e",
+        "target_sha256": "c1b264839615aca7ef66ebb95e15d2ab62b84c154c44729e93ff41f532b596d7"
+      },
+      {
+        "path": "README.md",
+        "reason": "Saddle canonical README retained and parent-coupling guidance removed.",
+        "source_sha256": "61fca36cfcb678b9b7f88b8fa55272f843776158bd9e77dc161245881f09730d",
+        "target_sha256": "0dedfce5d927f507fd532c7e63155d14bcdb0af9d4020c06192f446b8c6e46ed"
+      },
+      {
+        "path": "deployment/appliance/tests/test_validate_profile.py",
+        "reason": "SAD-14 recreates excluded unsafe profiles in memory with ephemeral values.",
+        "source_sha256": "d8c1c9ee4b539d73977b102de33814f81fba4499b06c4902bc2f52d5b02bb1ef",
+        "target_sha256": "7abd28ba37b9ac5a0e5644a49aa9974f77594416c5decdeb1ba5e11bf27a1a9d"
+      },
+      {
+        "path": "deployment/supply-chain/sign.sh",
+        "reason": "SAD-12 keyless signing identity points to Saddle's independent repository.",
+        "source_sha256": "41e71eeb6f539cd2e0f79fd8bf30ddc58ee3193944ca42be2b07749503c1334b",
+        "target_sha256": "92ee4bd54324c6da7edef6cb4d9b1fa11b9d8a73240625f10daaa795c7ce2e86"
+      }
+    ]
+  },
+  "status": "PASS"
+}

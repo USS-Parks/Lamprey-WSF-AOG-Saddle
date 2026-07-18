@@ -186,3 +186,21 @@ package-closure addendum required by its imported console/deployment gate.
 | Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |
 | Commit footer | PASS | `e7627a474bb7af8119ae7a7825c5d6146e4ba6c2` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `ecb11f0abbfa9df087d15a12a1cf04f64870138a` to `e7627a474bb7af8119ae7a7825c5d6146e4ba6c2`. |
+
+## SAD-15
+
+**State under test:** a depth-one, clean checkout of published source checkpoint
+`62b076ea480894e177f504a4fbea3ec638a54b3c`, outside both parent workspaces.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| M1 source completeness | PASS | Deterministic reconciliation accepted 885 selected source paths: 870 raw hash matches, five approved transformations, ten non-portable source exclusions, and the 20-path SAD-14 package addendum. |
+| Immutable source manifest | PASS | Pinned-seed manifest verification reported 1,491 tracked paths and 1,008 candidates; SHA-256 `eb7e97e405b4eb28e94b469e094e74e3fbd6451657ea69fc5f470b1472130ac4`. |
+| License provenance | PASS | Both seed and Saddle root-license checks found zero files; M1 did not invent a licensing decision. |
+| No-secret source | PASS | The 898-path tracked-blob proof reported zero unsuppressed Gitleaks and secondary-detector findings; exact 20-path packaging scans also reported zero findings. |
+| Fresh independence | PASS | Deterministic verifier reported 631 active paths and zero parent references, external Cargo paths, submodules, or symlinks. |
+| Locked Rust gates | PASS | `cargo fmt --check`, 37-package locked metadata/check, strict all-target clippy, 187 successful test summaries with zero failures, audit, deny, and docs all passed. |
+| Console, deployment, and package gates | PASS | Locked console install had zero audit vulnerabilities; 23 console tests and build passed; WSF HA/appliance/shadow profiles, Compose config, 128 package regressions plus one documented skip, and isolated package staging all passed. |
+| Fresh no-slop policy | PASS | Configured full Git-for-Windows-Bash pre-push hook reported `no-slop: clean (full)` from the fresh checkout. |
+| Fresh tree hygiene | PASS | No tracked modifications followed the gate; only the two deliberately generated SAD-15 evidence files were untracked before closeout staging. |
+| M1 evidence artifacts | PASS | `m1-completeness-proof.json` SHA-256 `26dd07c7ec860cffd7025165dec9e854106932d6b18bee73d279f37453cfbb7c`; `independence-gate.json` SHA-256 `70022ca187a3b6df85cbd682c5579bf9fb95a679482b809b23c51f452c1f0909`. |

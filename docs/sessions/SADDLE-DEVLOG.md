@@ -505,3 +505,55 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ### Next prompt
 
 `SAD-15 — M1 independent-source checkpoint`.
+
+---
+
+## SAD-15 — M1 independent-source checkpoint
+
+**Status:** PASS — the M1 gate ran from a clean remote clone at
+`62b076ea480894e177f504a4fbea3ec638a54b3c`; the evidence checkpoint is
+pending this closeout commit.
+
+### Fresh-checkout gate
+
+- cloned `origin/main` depth-one outside either parent workspace: clean status,
+  939 tracked paths, and exact published source SHA;
+- M1 reconciliation proof passed: 885 selected source paths, 870 raw blob
+  matches, five approved transformations, ten explicit non-portable exclusions,
+  and all 20 SAD-14 packaging-addendum paths;
+- immutable SAD-02 manifest verification passed: 1,491 tracked seed paths and
+  1,008 candidates; the source manifest SHA-256 is
+  `eb7e97e405b4eb28e94b469e094e74e3fbd6451657ea69fc5f470b1472130ac4`;
+- seed and target root-license checks both found zero files, preserving the
+  documented source fact without inventing a license decision;
+- deterministic independence verification passed: 631 active paths and zero
+  parent references, external Cargo paths, submodules, or symlinks;
+- locked Rust gate passed: formatting, 37-package metadata, workspace check,
+  strict all-target clippy, 187 successful test result summaries with zero
+  failures against the configured live OpenBao endpoint, audit, deny, and docs;
+- console and deployment gates passed: committed-lock install audit clean, 23
+  console tests, production build, generated-certificate verification, WSF HA
+  production plus appliance/shadow demo validation, and appliance Compose
+  config with shell-only throwaway credentials and no `.env`;
+- appliance/package regressions passed: 128 passed and one documented skip;
+  staging-only package validation passed in isolated `C:\tmp` material;
+- tracked-blob no-secret proof passed for 898 paths with zero unsuppressed
+  Gitleaks and independent-secondary findings; the 20-path packaging addendum
+  also had zero findings from both scanners; and
+- the configured full Git-for-Windows-Bash no-slop hook passed from the fresh
+  checkout. The low-level raw helper intentionally remains stricter than that
+  hook for immutable historical audit evidence and is not the project gate.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-15/m1-completeness-proof.json`, SHA-256
+  `26dd07c7ec860cffd7025165dec9e854106932d6b18bee73d279f37453cfbb7c`;
+- `test-evidence/saddle/SAD-15/independence-gate.json`, SHA-256
+  `70022ca187a3b6df85cbd682c5579bf9fb95a679482b809b23c51f452c1f0909`; and
+- the reproducible source checkpoint remains
+  `62b076ea480894e177f504a4fbea3ec638a54b3c` until the SAD-15 closeout
+  commit publishes the evidence bundle.
+
+### Next prompt
+
+`SAD-20 — Rename orchestration packages and binaries`.
