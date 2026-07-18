@@ -633,7 +633,8 @@ resolution failure; no repository gate was waived.
 **Status:** PASS — implementation commit
 `a9e46f013120e9afc6a4afcb6ed21cebbecfa597`; verification closeout and first
 verified remote checkpoint
-`04a859d883268a1faa0b7b7b73e21a31d7e16b1e`.
+`04a859d883268a1faa0b7b7b73e21a31d7e16b1e`; corrective identity closure
+`5ca45e81c3de44d5cdc1e31e1561195b1da12cc2`.
 
 ### Work completed
 
@@ -643,8 +644,9 @@ verified remote checkpoint
 - Renamed node SPIFFE identities to `spiffe://saddle/node/<id>`, the default
   OpenBao trust prefix to `kv/data/saddle`, the internal forwarding header to
   `x-saddle-forwarded`, and the mutating admin role to `saddle-admin`.
-- Cut daemon and edge configuration to `SADDLED_*`, `SADDLE_NODE_*`, and
-  `SADDLE_*` only. No normal-runtime fallback reads retired environment names.
+- Cut daemon, edge, and CLI configuration to `SADDLED_*`, `SADDLE_NODE_*`,
+  `SADDLECTL_*`, and `SADDLE_*` only. No normal-runtime fallback reads retired
+  environment names.
 - Renamed active trust, persistence, backup, fixture, test, conformance, CI,
   image/service, deployment, and operator-document identifiers. The live estate
   is now `deployment/saddle-harness`, its cluster manifest is
@@ -672,7 +674,7 @@ verified remote checkpoint
 - `cargo audit` and `cargo deny check` — PASS; existing non-fatal deny warnings
   remain unchanged;
 - deterministic SAD-20 and SAD-21 identity verify-only gates — PASS; SAD-21
-  proves nine required markers, five renamed paths, zero unexplained old active
+  proves ten required markers, five renamed paths, zero unexplained old active
   identities, and two negative authorization assertions;
 - all Saddle harness shell scripts parse under Git for Windows Bash and
   `docker-compose.exe -f deployment/saddle-harness/docker-compose.yml config -q`
@@ -687,14 +689,16 @@ verified remote checkpoint
 ### Evidence
 
 - `test-evidence/saddle/SAD-21/runtime-identity-gate.json`, SHA-256
-  `c3732746da01c3514e9b9b1c71240f9226df84d932b1b83e7f2ff63aed8aa32a`;
+  `8f32aa53a9cda5502d32d1a3e1e5f7e0825bdc1ae3ad01f389e62b8f4431441e`;
 - `tools/verify_saddle_runtime_identity.py`, SHA-256
-  `f9c6979aa4574927f423856c18af1600ca5928f4feeef466112a64a0a3321c59`;
+  `e2415da37216f48a2f33ebce52d34bc388788e4106b40e6027be6abcbc34cb3e`;
   and
 - implementation commit
   `a9e46f013120e9afc6a4afcb6ed21cebbecfa597`; and
 - verification closeout and first verified remote checkpoint
-  `04a859d883268a1faa0b7b7b73e21a31d7e16b1e`.
+  `04a859d883268a1faa0b7b7b73e21a31d7e16b1e`; and
+- corrective active-identity closure
+  `5ca45e81c3de44d5cdc1e31e1561195b1da12cc2`.
 
 ### Next prompt
 

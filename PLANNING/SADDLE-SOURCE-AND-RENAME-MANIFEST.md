@@ -304,7 +304,7 @@ identity remain explicitly assigned to SAD-21.
 
 SAD-21 moved normal runtime and operator-facing identity to Saddle across the
 estate API group, resource finalizers and labels, SPIFFE node identities,
-OpenBao defaults, daemon and node environment variables, forwarding header,
+OpenBao defaults, daemon, node, and CLI environment variables, forwarding header,
 admin role, trust and backup identifiers, fixtures, conformance text, CI jobs,
 deployment paths, image/service names, and active runbooks. The deployment
 estate is now rooted at `deployment/saddle-harness`, with its cluster manifest
