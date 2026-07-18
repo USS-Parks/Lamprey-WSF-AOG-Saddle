@@ -418,3 +418,33 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ### Next prompt
 
 `SAD-13 — Restore the complete Rust gate`.
+
+---
+
+## SAD-13 — Restore the complete Rust gate
+
+**Status:** PASS — complete Rust gate verified; remote checkpoint pending publication.
+
+### Work completed
+
+- Ran the complete Rust gate from the independent 37-package workspace using
+  the regenerated locked closure.
+- No import-induced workspace source repair was required: formatting, build,
+  lint, test, dependency-policy, and documentation commands all completed
+  successfully.
+
+### Gate
+
+- `cargo fmt --check` — PASS;
+- `cargo check --workspace --locked` — PASS;
+- `cargo clippy --workspace --all-targets --locked -- -D warnings -A clippy::pedantic` — PASS;
+- `cargo test --workspace --locked` with the configured live OpenBao test
+  endpoint — PASS: 187 successful result summaries and zero failures;
+- `cargo audit` and `cargo deny check` — PASS; and
+- `cargo doc --workspace --no-deps --locked` — PASS. Rustdoc emitted existing
+  intra-doc/link-markup warnings but returned no error and generated all
+  workspace documentation outputs.
+
+### Next prompt
+
+`SAD-14 — Restore console and deployment gates`.

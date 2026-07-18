@@ -146,3 +146,17 @@ removal, including the closure-specific offline lockfile regeneration.
 | Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |
 | Commit footer | PASS | `0f2dfdf87539736984d59b15dd038982e46d9c06` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `40fc7ce9328d56c335a1e9fe09d1def37fec0593` to `0f2dfdf87539736984d59b15dd038982e46d9c06`. |
+
+## SAD-13
+
+**State under test:** the independently materialized, 37-package Saddle
+workspace after SAD-12's clean-checkout independence proof.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| `cargo fmt --check` | PASS | The complete workspace formatting check returned clean. |
+| Locked workspace check | PASS | `cargo check --workspace --locked` completed with the configured local `protoc` and Git-for-Windows OpenSSL path. |
+| Strict all-target clippy | PASS | `cargo clippy --workspace --all-targets --locked -- -D warnings -A clippy::pedantic` completed without lint failures. |
+| Unit/property/integration suite | PASS | `cargo test --workspace --locked` with the configured live OpenBao endpoint reported 187 successful result summaries and zero failures. |
+| RustSec and dependency policy | PASS | `cargo audit` and `cargo deny check` completed successfully; deny emitted only non-failing stale-allowance and duplicate-package warnings. |
+| Workspace documentation | PASS | `cargo doc --workspace --no-deps --locked` generated documentation for all workspace outputs. Rustdoc diagnostic warnings were emitted for existing intra-doc/link-markup annotations, but the command returned no error. |
