@@ -631,7 +631,9 @@ resolution failure; no repository gate was waived.
 ## SAD-21 — Rename protocol, trust, persistence, and deployment identities
 
 **Status:** PASS — implementation commit
-`a9e46f013120e9afc6a4afcb6ed21cebbecfa597`.
+`a9e46f013120e9afc6a4afcb6ed21cebbecfa597`; verification closeout and first
+verified remote checkpoint
+`04a859d883268a1faa0b7b7b73e21a31d7e16b1e`.
 
 ### Work completed
 
@@ -690,7 +692,9 @@ resolution failure; no repository gate was waived.
   `f9c6979aa4574927f423856c18af1600ca5928f4feeef466112a64a0a3321c59`;
   and
 - implementation commit
-  `a9e46f013120e9afc6a4afcb6ed21cebbecfa597`.
+  `a9e46f013120e9afc6a4afcb6ed21cebbecfa597`; and
+- verification closeout and first verified remote checkpoint
+  `04a859d883268a1faa0b7b7b73e21a31d7e16b1e`.
 
 ### Next prompt
 
