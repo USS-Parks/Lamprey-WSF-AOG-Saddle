@@ -843,3 +843,89 @@ first verified remote checkpoint `4de1ec3671d630845fb0b4856130506509801023`.
 ### Next prompt
 
 `SAD-30 — Establish saddle-bridge and freeze cross-plane contracts`.
+
+---
+
+## SAD-30 — Establish saddle-bridge and freeze cross-plane contracts
+
+**Status:** PASS — implementation commit
+`9d173b2242720eb21e5f3ea5206022c3c77d05e8`; first remote checkpoint pending
+publication of this verification closeout.
+
+### Work completed
+
+- Added the 38th workspace package, `saddle-bridge`, as the explicit
+  WSF-to-Saddle-to-AOG authority boundary. Added a Saddle principal audience
+  and exact admission, placement, runtime, and action request operations.
+- Froze `saddle.bridge/v1` with private-field, serialize-only
+  `VerifiedSaddleRequest`, `AdmissionGrant`, `PlacementGrant`, `RuntimeGrant`,
+  and `ActionGrant` types. Compile-fail doctests prove wire JSON cannot
+  construct the authority-bearing types.
+- Reused `fabric-token::verify_in_context` for WSF signature, issuer-key,
+  tenant, bundle, time, and caveat verification; reused
+  `MonotonicRevocationStore` for signed freshness and anti-rollback; consumed
+  AOG's existing `AggregateDecision` through a policy adapter rather than
+  recomposing HIPAA/ITAR/OCAP policy.
+- Required current revocation authorization at initial verification and every
+  grant transition. Each grant carries immutable tenant, lineage, monotonic
+  revocation sequence, expiry, exact target/digests, and metadata-only receipt
+  intent; each child is an authority subset of its parent.
+- Added an atomic `ReplayStore` adapter with separate request/action namespaces
+  and fail-closed storage errors. The built-in memory store is explicitly for
+  tests/local use; production consumers can supply durable Saddle storage.
+- Added the compatibility/reuse matrix, deterministic verifier/evidence, and
+  adversarial property suite. Updated the current-state gap matrix honestly:
+  the typed contract is complete, while real admission/scheduler/node/AOG
+  wiring remains SAD-31 through SAD-35.
+
+### Gate
+
+- deterministic SAD-30 bridge verifier — PASS: 38-package workspace,
+  `saddle.bridge/v1`, six frozen contract/error types, three reused authority
+  seams, five adversarial property suites, and two compile-fail doctests;
+- non-constructibility — PASS: verified request and grants implement neither
+  `Deserialize` nor `Default` and expose no public field construction;
+- authority narrowing — PASS across scope, expiry, every budget counter,
+  exact placement/node/action, tenant, and lineage axes;
+- replay/revocation — PASS: request and action replay deny, replay-store
+  failure fences, and absent/stale/expired/revoked/advanced revocation state
+  denies at the relevant transition;
+- deny/fence — PASS: any AOG deny wins and a vacuous aggregate with zero
+  applied modules fences;
+- refreshed SAD-23 active-name gate — PASS: 958 tracked files, 952 text files,
+  38 packages, 221 Cargo identity strings, 309 count-locked explained
+  occurrences, and zero unexplained or generated-metadata matches;
+- `cargo fmt --check`, locked full-workspace all-target check, and strict
+  all-target clippy — PASS;
+- full `cargo test --workspace --locked` with live OpenBao, Git-bundled OpenSSL,
+  mTLS, consensus, revocation, restore/receipt-chain, and all doctests — PASS;
+  five existing aggressive/SLO conformance tests and the existing
+  weave-overhead SLO remain explicitly ignored in the standard lane;
+- `cargo audit` and `cargo deny check` — PASS with existing nonfatal unmatched
+  allowance, duplicate-dependency, and advisory-not-detected warnings only;
+- staged diff, deterministic evidence verify, Gitleaks staged scan,
+  anti-truncation, and staged/full no-slop gates — PASS. The integrity script
+  emitted its existing multi-value `integer expected` warnings but exited zero;
+  and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-30/bridge-contract-gate.json`, SHA-256
+  `cbf7c130203bda7187fe7a878c9ef83d4ee59bab20c5e5720295d4a22cfca489`;
+- `tools/verify_saddle_bridge_contracts.py`, SHA-256
+  `9413aec71408f5fba4e2661c6c6671305d9abdd9bcc386e085b35ae84407588b`;
+- `crates/saddle-bridge/src/lib.rs`, SHA-256
+  `1127e465fc0a1c3431b5a2efb7cd3f82100661d16a975ed8578e94d42a2f6533`;
+- `crates/saddle-bridge/tests/contract_properties.rs`, SHA-256
+  `6258990f629d2442a718e1222fc11e5ab9a289e6c0b9bc4baef2cbd5f081a692`;
+- `docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md`, SHA-256
+  `f9517d44e8f3b7768dd113be2e689eba5e718e8c62a6f54eca49ffc3d64fdb41`;
+- refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
+  SHA-256 `67e36cf69f64e0abc7b7a5aefb9a6a61bc8b5f8823e7aad34c35d7f4cf92fa30`;
+  and
+- implementation commit `9d173b2242720eb21e5f3ea5206022c3c77d05e8`.
+
+### Next prompt
+
+`SAD-31 — WSF-authenticated Saddle admission`.
