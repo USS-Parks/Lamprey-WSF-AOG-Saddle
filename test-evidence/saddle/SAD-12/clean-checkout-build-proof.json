@@ -1,0 +1,17 @@
+{
+  "verified_index_tree": "2b84b274fa9435db46bd6bb96984c20e8ad9a1c0",
+  "archive_git_entry_exists": false,
+  "cargo_check": {
+    "command": "cargo check --workspace --locked",
+    "result": "PASS"
+  },
+  "cargo_metadata": {
+    "external_local_path_count": 0,
+    "package_count": 37,
+    "workspace_member_count": 37
+  },
+  "clean_active_forbidden_reference_file_count": 0,
+  "clean_archive_reparse_point_count": 0,
+  "lockfile_sha256": "39ffb3dce2112c287be0f7d7d2f020d1d6a3d10c3d3eddf231c548c767d48701",
+  "status": "PASS"
+}

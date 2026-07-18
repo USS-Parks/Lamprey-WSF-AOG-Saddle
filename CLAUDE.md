@@ -6,9 +6,9 @@
 Island Mountain's independent WSF + AOG + Saddle major project. Saddle is the Kubernetes-level scheduler/orchestrator that binds WSF authority to AOG workloads and actions. The governed client/seat remains a downstream application in this repository, not the project boundary and not the Priority-1 critical path.
 
 ## Hard separation rules (never violate)
-1. **Never touch the open-source Lamprey Harness repo** (`USS-Parks/lamprey`, local working copy `C:\Users\17076\Documents\Claude\Lamprey Harness`) from a Saddle session. It stays free, era-locked, and community-maintained on its own timeline.
+1. **Never use an external parent working copy** from a Saddle session. The separate open-source harness stays free, era-locked, and community-maintained on its own timeline.
 2. Harness code may be **copied and adapted into Saddle** (same owner, same author) — copy it, own it here. Never submodule, symlink, or import across repos.
-3. WSF/AOG and the existing orchestration implementation are imported in full from a pinned `USS-Parks/Mighty-Eel-OS` commit, scrubbed of secrets, and owned here. No release build may depend on a parent checkout, submodule, symlink, or source fetch.
+3. WSF/AOG and the existing orchestration implementation are imported in full from the approved seed recorded in Saddle's provenance ledger, scrubbed of secrets, and owned here. No release build may depend on a parent checkout, submodule, symlink, or source fetch.
 4. Saddle has its **own version timeline**: independent semver, tags `vX.Y.Z`, no inheritance from either parent.
 
 ## Governance
@@ -24,14 +24,11 @@ Island Mountain's independent WSF + AOG + Saddle major project. Saddle is the Ku
 
 Enforcement doctrine: **server-side enforcement for everything that crosses a wire** (gateway/toolproxy verify tokens themselves; the seat holds no standing credentials), **client-side enforcement plus tamper-evident receipts for local execution** (shell/file tools) — bypass is detectable rather than impossible, and buyer docs say exactly that.
 
-## Reference map (external working copies, read-only from Saddle sessions)
-| What | Where |
-|---|---|
-| OSS harness architecture index | `C:\Users\17076\Documents\Claude\Lamprey Harness\CLAUDE.md` (v0.16.0) |
-| WSF/AOG working copy | `C:\Users\17076\Documents\Claude\Mighty Eel OS\mai\` |
-| WSF/AOG build plan (P-SPR) | `C:\Users\17076\Documents\Claude\Mighty Eel OS\PLANNING\AOG-WSF-SOVEREIGNTY-STACK-PSPR.md` |
-| WSF/AOG build log | `C:\Users\17076\Documents\Claude\Mighty Eel OS\mai\docs\sessions\SOVEREIGNTY-DEVLOG.md` |
-| Canonical threat model | `C:\Users\17076\Documents\Claude\Mighty Eel OS\mai\docs\architecture\AGENTIC-SECURITY-MAP.md` |
+## Reference map
+
+Saddle-local provenance, architecture, execution, and verification records are
+authoritative for this repository. Do not require or inspect an external parent
+working copy to build, test, package, or operate Saddle.
 
 ## Current state
-The independence decision and canonical PSPR are under authorized full STS execution as of 2026-07-17. SAD-00 through SAD-03 establish the safe source boundary before product import; Saddle orchestration remains ahead of governed-seat bootstrap in priority. Execution truth is recorded in `docs/sessions/SADDLE-DEVLOG.md` and `docs/verification/SADDLE-VERIFICATION.md`.
+The independence decision and canonical PSPR are under authorized full STS execution as of 2026-07-17. SAD-00 through SAD-11 established the safe source boundary; SAD-12 removes parent coupling before the remaining build gates. Saddle orchestration remains ahead of governed-seat bootstrap in priority. Execution truth is recorded in `docs/sessions/SADDLE-DEVLOG.md` and `docs/verification/SADDLE-VERIFICATION.md`.

@@ -11,7 +11,7 @@ This repository is the independent home of the complete non-secret WSF + AOG + S
 - the complete `fabric-*` and `wsf-*` trust-plane source;
 - the complete AOG gateway, toolproxy, approvals, policy, metering, and integration source;
 - the orchestration path formerly called Loom, renamed and owned as Saddle;
-- every internal source dependency required to build and test those components without a path, submodule, or source dependency on Mighty Eel OS;
+- every internal source dependency required to build and test those components without an external path, submodule, or source dependency;
 - the governed client/seat and operator surfaces built over the same contracts; and
 - tests, contracts, deployment assets, CI, runbooks, and evidence required to substantiate the stack's claims.
 
@@ -29,7 +29,7 @@ The bridge invariant is simple: **no AOG action or workload becomes authoritativ
 
 ## Lineage and separation
 
-- **Mighty Eel OS** is the source of the initial WSF/AOG/orchestration implementation. The source is imported at a pinned, verified commit with a file-and-hash provenance ledger. After the cutover gate, this repository becomes authoritative for the imported stack.
+- The initial WSF/AOG/orchestration source is recorded at a pinned, verified seed commit with a file-and-hash provenance ledger. After the cutover gate, this repository becomes authoritative for the imported stack.
 - **Lamprey Harness** remains a separate open-source project. Harness source may be copied and adapted into a Saddle client application, but Saddle never becomes a dependency of the community repository and no work flows back automatically.
 - Signed release artifacts remain a supported deployment mechanism; they are not a substitute for native source ownership in this repository.
 

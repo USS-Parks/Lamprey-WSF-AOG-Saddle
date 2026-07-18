@@ -1,0 +1,22 @@
+{
+  "active_tracked_path_count": 609,
+  "external_cargo_path_dependencies": [],
+  "forbidden_parent_references": [],
+  "historical_exclusion_policy": {
+    "excluded": [
+      "PLANNING/",
+      "docs/",
+      "test-evidence/",
+      "Markdown narrative files",
+      ".secrets.baseline"
+    ],
+    "reason": "preserved provenance and executed history are non-executable and do not establish a build dependency"
+  },
+  "historical_or_narrative_path_count": 304,
+  "schema_version": 1,
+  "status": "PASS",
+  "submodule_status_entries": [],
+  "submodule_tree_paths": [],
+  "symlink_tree_paths": [],
+  "tracked_path_count": 913
+}
