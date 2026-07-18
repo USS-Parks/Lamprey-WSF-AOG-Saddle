@@ -276,7 +276,7 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 
 ## SAD-10 — Establish the independent workspace
 
-**Status:** PASS — implementation checkpoint pending publication.
+**Status:** PASS — implementation published in combined remote checkpoint `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da`.
 
 ### Work completed
 
@@ -326,7 +326,7 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 
 ## SAD-11 — Import contracts, console/client, deployments, CI, tools, docs, and evidence
 
-**Status:** PASS — implementation checkpoint pending publication with SAD-10.
+**Status:** PASS — implementation published at remote checkpoint `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da` with SAD-10.
 
 ### Work completed
 
@@ -364,6 +364,8 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
   `697d7b4b8984b24a739a53c9d8437c2a941eb3be6a1bec62657dd0fe49084573`; and
 - SAD-10 compatibility verifier `tools/materialize_saddle_workspace.py`,
   SHA-256 `2c54d33336f5f26ff8286b35aa51d07eca3c9726e7d3eff0c9ad92b89b6a62d2`.
+- implementation commit `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da`, with
+  verified target remote checkpoint at the same SHA.
 
 ### Next prompt
 

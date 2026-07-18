@@ -102,6 +102,8 @@ the SAD-02 source ledger, and the initial Saddle native workspace cut.
 | Toolchain and license source fact | PASS | The pinned seed has no root toolchain or license file; no license was invented during SAD-10. |
 | Reproducibility | PASS | The materializer's verify-only pass accepted every materialized file and the deterministic evidence record. |
 | Cargo metadata | PASS | `cargo metadata --format-version=1 --no-deps --locked` resolved exactly 37 recorded packages with zero external local paths. |
+| Commit footer | PASS | `850628da4cffc92fc17e22811377a7c8eece1101` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | SAD-10 published in the combined implementation checkpoint `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da`. |
 
 ## SAD-11
 
@@ -121,3 +123,5 @@ Saddle support/documentation/evidence cut.
 | `git diff --cached --check` | PASS | Final staged SAD-11 tree reported zero whitespace violations. |
 | Staged no-slop gate | PASS | Explicit Git for Windows Bash pre-commit hook reported `no-slop: clean (staged)`. |
 | Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |
+| Commit footer | PASS | `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `0b83c81ef3a7d92973d2fdb35be74d31b2558ee2` to `93f2d2f7fb9cba29e27a3bf57fe5554a58de97da`. |
