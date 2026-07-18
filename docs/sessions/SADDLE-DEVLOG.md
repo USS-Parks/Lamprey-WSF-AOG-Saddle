@@ -451,3 +451,54 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ### Next prompt
 
 `SAD-14 — Restore console and deployment gates`.
+
+---
+
+## SAD-14 — Restore console and deployment gates
+
+**Status:** PASS — complete console, Compose, and staging-package gate verified; remote checkpoint pending publication.
+
+### Work completed
+
+- Installed the console from its committed lockfile and restored its test and
+  production-build gate.
+- Generated disposable Saddle PKI/state material under `C:\tmp`, verified both
+  leaf certificates against the generated CA, used shell-only throwaway Compose
+  credentials, and removed all private material immediately afterward. No
+  appliance `.env` file was present or created.
+- Repaired the deployment import boundary without rewriting SAD-02 history:
+  materialized the 20-path package closure consumed by the imported package
+  script/tests, with three active repository metadata links adapted to Saddle.
+- Kept the six excluded unsafe profile fixtures out of the repository; their
+  validator conditions now exist only as in-memory, ephemeral test inputs.
+
+### Gate
+
+- `npm ci`, `npm run test`, and `npm run build` in `console/` — PASS: 23 tests
+  and a production Vite bundle;
+- generated ephemeral material, certificate verification, appliance demo profile
+  validation, and `docker compose ... config -q` — PASS with no `.env`;
+- CI-defined WSF HA production plus appliance/shadow demo profile validation — PASS;
+- appliance and package regression tests — PASS: 128 passed, 1 documented skip;
+- `scripts/build-package.sh --validate-only --skip-dashboard` in isolated
+  temporary staging — PASS: required package layout present;
+- packaging materializer write plus verify-only passes — PASS: 20 paths and
+  three repository-identity adaptations;
+- Gitleaks and the independent secondary scanner over the new packaging surface
+  — PASS: zero findings; and
+- staged deterministic independence gate — PASS: 936 tracked paths, 629 active
+  paths, and zero forbidden parent references, external Cargo paths,
+  submodules, or symlinks.
+
+### Evidence
+
+- `tools/materialize_saddle_packaging_surface.py`, SHA-256
+  `946b291a3f45da1e6b40c8c803681f1049672aa9861c6a698db4f90967be09e6`;
+- `test-evidence/saddle/SAD-14/packaging-surface-import-proof.json`, SHA-256
+  `92c289a8d9521ca0bf660ac692e5115df846b5a70324476695e88f5ac1701cfa`; and
+- `test-evidence/saddle/SAD-14/independence-gate.json`, SHA-256
+  `562b3b7a69a6ecba492562b64496777380968d9872726c23e86bac304acb98df`.
+
+### Next prompt
+
+`SAD-15 — M1 independent-source checkpoint`.

@@ -164,3 +164,21 @@ workspace after SAD-12's clean-checkout independence proof.
 | Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)` with the worktree trusted for the sandbox ownership boundary. |
 | Commit footer | PASS | `2459b5a800493e74afde96adf43bcd5d4fe31d5b` ends with the exact canonical footer. |
 | Remote checkpoint | PASS | Target `main` advanced from `c25e7753e00efa3dfd0eb7ea94201561513a9bd0` to `2459b5a800493e74afde96adf43bcd5d4fe31d5b`. |
+
+## SAD-14
+
+**State under test:** the independent Saddle workspace after the bounded
+package-closure addendum required by its imported console/deployment gate.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Locked console install | PASS | `npm ci` installed 198 committed-lockfile packages with zero npm audit vulnerabilities. |
+| Console tests and production build | PASS | `npm run test` reported 23 passing tests; `npm run build` completed Vite's production bundle. |
+| Ephemeral trust material | PASS | Generated CA, server, and client certificates verified; private material was deleted from `C:\tmp` immediately after use. |
+| Appliance Compose validation | PASS | The demo profile and `docker compose --profile demo ... config -q` passed with shell-only throwaway credentials and no appliance `.env`. |
+| CI trust-profile validation | PASS | WSF HA passed production rules; appliance and shadow passed demo rules. |
+| Validator and package regressions | PASS | `pytest deployment/appliance/tests/ tools/packaging_tests/ -q`: 128 passed, 1 documented skip. |
+| Staging-only package build | PASS | `scripts/build-package.sh --validate-only --skip-dashboard` produced the required temporary package layout. |
+| Bounded packaging import | PASS | Separate deterministic proof records 20 original SAD-02 out-of-scope paths, 17 raw blobs, and three repository-identity adaptations. |
+| Packaging secret scans | PASS | Gitleaks and the independent secondary scanner both returned zero findings across the new 20-file package surface. |
+| Staged independence | PASS | Deterministic verifier recorded 936 tracked paths, 629 active paths, and zero forbidden parent references, external Cargo paths, submodules, or symlinks. |

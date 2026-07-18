@@ -19,20 +19,90 @@ def _rules(path: Path, profile: str) -> set[str]:
     return {v.rule for v in vp.validate(vp.load_compose(path), profile)}
 
 
+def _unsafe_profile(case: str) -> dict:
+    """Create each excluded negative profile in memory with no fixture file.
+
+    The original YAML fixtures were deliberately excluded by SAD-03 because
+    they contain unsafe credential-shaped values. These test-only profiles
+    recreate the validator condition without materializing a runtime file.
+    """
+    injected = "${SADDLE_EPHEMERAL_TEST_TOKEN:?generated at test runtime}"
+    if case == "prod-dev-mode":
+        return {
+            "services": {
+                "openbao": {
+                    "image": "openbao/openbao:latest",
+                    "command": ["server", "-dev", "-dev-listen-address=0.0.0.0:8200"],
+                }
+            }
+        }
+    if case == "prod-known-token":
+        return {
+            "services": {
+                "openbao": {"image": "openbao/openbao:2.1.0", "command": ["server"]},
+                "seed": {"environment": {"WSF_OPENBAO_TOKEN": "root"}},
+            }
+        }
+    if case == "prod-host-published":
+        return {
+            "services": {
+                "openbao": {
+                    "image": "openbao/openbao:2.1.0",
+                    "command": ["server"],
+                    "environment": {"BAO_ROOT_TOKEN": injected},
+                    "ports": ["8200:8200"],
+                }
+            }
+        }
+    if case == "demo-nonloopback":
+        return {
+            "services": {
+                "openbao": {
+                    "image": "openbao/openbao:latest",
+                    "profiles": ["demo"],
+                    "command": ["server", "-dev", f"-dev-root-token-id={injected}"],
+                    "ports": ["8200:8200"],
+                }
+            }
+        }
+    if case == "demo-baked-token":
+        return {
+            "services": {
+                "openbao": {
+                    "image": "openbao/openbao:latest",
+                    "profiles": ["demo"],
+                    "command": ["server", "-dev", "-dev-root-token-id=root"],
+                    "ports": ["127.0.0.1:8200:8200"],
+                }
+            }
+        }
+    if case == "demo-not-gated":
+        return {
+            "services": {
+                "openbao": {
+                    "image": "openbao/openbao:latest",
+                    "command": ["server", "-dev", f"-dev-root-token-id={injected}"],
+                    "ports": ["127.0.0.1:8200:8200"],
+                }
+            }
+        }
+    raise ValueError(f"unknown unsafe profile case: {case}")
+
+
 @pytest.mark.parametrize(
-    ("fixture", "profile", "expected_rule"),
+    ("case", "profile", "expected_rule"),
     [
-        ("unsafe-prod-dev-mode.yml", "production", "dev-mode"),
-        ("unsafe-prod-known-token.yml", "production", "weak-credential"),
-        ("unsafe-prod-host-published.yml", "production", "host-published-trust"),
-        ("unsafe-demo-nonloopback.yml", "demo", "trust-exposed-nonloopback"),
-        ("unsafe-demo-baked-token.yml", "demo", "weak-token"),
-        ("unsafe-demo-not-gated.yml", "demo", "demo-not-gated"),
+        ("prod-dev-mode", "production", "dev-mode"),
+        ("prod-known-token", "production", "weak-credential"),
+        ("prod-host-published", "production", "host-published-trust"),
+        ("demo-nonloopback", "demo", "trust-exposed-nonloopback"),
+        ("demo-baked-token", "demo", "weak-token"),
+        ("demo-not-gated", "demo", "demo-not-gated"),
     ],
 )
-def test_unsafe_fixture_is_rejected(fixture: str, profile: str, expected_rule: str) -> None:
-    rules = _rules(FIXTURES / fixture, profile)
-    assert expected_rule in rules, f"{fixture} ({profile}): expected {expected_rule}, got {rules}"
+def test_unsafe_fixture_is_rejected(case: str, profile: str, expected_rule: str) -> None:
+    rules = {violation.rule for violation in vp.validate(_unsafe_profile(case), profile)}
+    assert expected_rule in rules, f"{case} ({profile}): expected {expected_rule}, got {rules}"
 
 
 def test_secure_production_fixture_passes() -> None:

@@ -245,6 +245,26 @@ python tools/generate_saddle_source_manifest.py \
   --verify
 ```
 
+## 4.1 SAD-14 bounded packaging closure addendum
+
+SAD-14's imported `scripts/build-package.sh` and
+`tools/packaging_tests/` establish a bounded packaging dependency that the
+original generated ledger had correctly recorded as textually out of scope.
+The original SAD-02 manifest remains immutable. The independent repository now
+uses `tools/materialize_saddle_packaging_surface.py` to consume the original
+seed objects and produce
+`test-evidence/saddle/SAD-14/packaging-surface-import-proof.json` for exactly
+20 required package README, Debian metadata, maintainer-script, and systemd
+unit paths.
+
+Seventeen selected blobs are byte-for-byte seed material. Three active package
+metadata paths adapt only their repository URL to Saddle's independent target;
+the proof records both source and target SHA-256 values. The excluded
+`deployment/appliance/fixtures/unsafe-*` paths remain absent: their validator
+conditions are recreated in memory with ephemeral values, not imported as
+credential-shaped fixture files. The legacy package names remain pending the
+Phase 2 Saddle identity rename.
+
 ## 5. Loom-to-Saddle active identity map
 
 The baseline broad scan finds 120 tracked files with Loom identity patterns. That includes immutable history and active code. Active source/deployment/workflow residues are concentrated in the 12 orchestration packages, `wsf-hardening`, `deployment/loom-harness`, three workflow files, and active operator documents.

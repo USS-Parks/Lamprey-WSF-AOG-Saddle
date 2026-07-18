@@ -1,0 +1,198 @@
+{
+  "adaptation": {
+    "count": 3,
+    "reason": "active package metadata must point to Saddle's independent repository",
+    "target_repository": "https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle"
+  },
+  "original_manifest_disposition": "out-of-scope-no-match",
+  "reason": "SAD-14 packaging validation requires the bounded closure consumed by the already imported package-build script and packaging tests; SAD-02 evidence remains unchanged.",
+  "schema_version": 1,
+  "seed": {
+    "sha": "fedf005a30ad388ab156dc8bd693a3aa3f0702ea"
+  },
+  "source_manifest_sha256": "eb7e97e405b4eb28e94b469e094e74e3fbd6451657ea69fc5f470b1472130ac4",
+  "status": "PASS",
+  "target_path_count": 20,
+  "target_paths": [
+    {
+      "mode": "100644",
+      "path": "packaging/README.md",
+      "repository_identity_adapted": false,
+      "seed_git_object": "a1bff775010d3b178d876fac473e62229ce10b33",
+      "seed_sha256": "7a58ab6aff0a3691ad9af3c064b32cfb49a0cdd683f39f56485ecbf7c9a4d71f",
+      "source_byte_size": 8795,
+      "target_sha256": "7a58ab6aff0a3691ad9af3c064b32cfb49a0cdd683f39f56485ecbf7c9a4d71f"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/changelog",
+      "repository_identity_adapted": false,
+      "seed_git_object": "fa235b8648ac103d493cfd7f74a46b6d409c5876",
+      "seed_sha256": "0c4a935bdfdbd14ba913aac1e0d7e176b0a5c390d52348d5b732e5ffed129aae",
+      "source_byte_size": 570,
+      "target_sha256": "0c4a935bdfdbd14ba913aac1e0d7e176b0a5c390d52348d5b732e5ffed129aae"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/compat",
+      "repository_identity_adapted": false,
+      "seed_git_object": "b1bd38b62a0800a4f6a80c34e21c5acffae52c7e",
+      "seed_sha256": "1a252402972f6057fa53cc172b52b9ffca698e18311facd0f3b06ecaaef79e17",
+      "source_byte_size": 3,
+      "target_sha256": "1a252402972f6057fa53cc172b52b9ffca698e18311facd0f3b06ecaaef79e17"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/conffiles",
+      "repository_identity_adapted": false,
+      "seed_git_object": "8c472693dd3ec94b0faebf34b49d1f8566e2c183",
+      "seed_sha256": "3315b244ee861d98c6cdc852eb885b6ee8763af20278ce6a2e139b7bf8db9ce2",
+      "source_byte_size": 78,
+      "target_sha256": "3315b244ee861d98c6cdc852eb885b6ee8763af20278ce6a2e139b7bf8db9ce2"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/control",
+      "repository_identity_adapted": true,
+      "seed_git_object": "4b2c0f93378d81b95f684e885f735dd9b08fe53e",
+      "seed_sha256": "871cea45ad44e6684e932c3f652a267d0cf86103d0fa5a216ad75b2e5aba4d36",
+      "source_byte_size": 1259,
+      "target_sha256": "e08b1d3594f15abfe6e1d8e5390cb08d2e2d8747db06d42f4a6d132339cbd73e"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/copyright",
+      "repository_identity_adapted": true,
+      "seed_git_object": "ba3df0e2797b17cc69e954b174fde042f0c58edf",
+      "seed_sha256": "3730bd7233b2595ef72cab84018366f78ed500d6cf7b83e8021492a731562ccf",
+      "source_byte_size": 491,
+      "target_sha256": "6b661fb9acaf092a869233b8ea9bf97da195c782f007a545fb5e884edb78e366"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/install",
+      "repository_identity_adapted": false,
+      "seed_git_object": "c8ee4d45f5218dc473261030644cbf47e678ad8b",
+      "seed_sha256": "f395403034b5d686b1c0888de8b916e52baf73f127700da58dcbcaeb0e0c1602",
+      "source_byte_size": 1025,
+      "target_sha256": "f395403034b5d686b1c0888de8b916e52baf73f127700da58dcbcaeb0e0c1602"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/rules",
+      "repository_identity_adapted": false,
+      "seed_git_object": "b14a00d23904542a45d5844f01cdc709ee8a1372",
+      "seed_sha256": "c1bd711389cddc5a6fd58b7d6a52272e9ad7cbc9fa9d44b0fb59589b79ae5aaf",
+      "source_byte_size": 1237,
+      "target_sha256": "c1bd711389cddc5a6fd58b7d6a52272e9ad7cbc9fa9d44b0fb59589b79ae5aaf"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/debian/source/format",
+      "repository_identity_adapted": false,
+      "seed_git_object": "89ae9db8f88b823b6a7eabf55e203658739da122",
+      "seed_sha256": "e8e18df40bcd69d6aa404282679186d9b8256ac63a5b4e80d7f081e8a0095a2e",
+      "source_byte_size": 13,
+      "target_sha256": "e8e18df40bcd69d6aa404282679186d9b8256ac63a5b4e80d7f081e8a0095a2e"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/scripts/mai-healthcheck.sh",
+      "repository_identity_adapted": false,
+      "seed_git_object": "2ea5f10f646f5b6e2525213f8bacf88d4ad98647",
+      "seed_sha256": "fe8d7e8961e9b625d46ea84b797ef7acec7d8fe6a32b939fb55feb69f8f0e706",
+      "source_byte_size": 1324,
+      "target_sha256": "fe8d7e8961e9b625d46ea84b797ef7acec7d8fe6a32b939fb55feb69f8f0e706"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/scripts/mai-ship-validate.sh",
+      "repository_identity_adapted": false,
+      "seed_git_object": "541b892a61a219574f42a1fe816d0dbb1c72c9bc",
+      "seed_sha256": "af3bfc85a4180384e7509de1fdbf3467a02f8e04f41873eb6322634b9409f825",
+      "source_byte_size": 784,
+      "target_sha256": "af3bfc85a4180384e7509de1fdbf3467a02f8e04f41873eb6322634b9409f825"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/scripts/postinstall.sh",
+      "repository_identity_adapted": false,
+      "seed_git_object": "614214206cfeacc769a61963cd6355cbee7464e2",
+      "seed_sha256": "388bc2c5f5132bfc8fd83e2e3afa99d4b77734a29d4a7055ee4a3ed81efb1ca8",
+      "source_byte_size": 6000,
+      "target_sha256": "388bc2c5f5132bfc8fd83e2e3afa99d4b77734a29d4a7055ee4a3ed81efb1ca8"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/scripts/postremove.sh",
+      "repository_identity_adapted": false,
+      "seed_git_object": "3b599fe9fad17242ad3610cece5ad41176a13b9a",
+      "seed_sha256": "92cecba5f18b59a7276c6291f29a05bfe003de64fbee798f863705ade43fcbcb",
+      "source_byte_size": 1728,
+      "target_sha256": "92cecba5f18b59a7276c6291f29a05bfe003de64fbee798f863705ade43fcbcb"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/scripts/preinstall.sh",
+      "repository_identity_adapted": false,
+      "seed_git_object": "7d80848c327b3fe31bc4449f72a4eb8a63203d43",
+      "seed_sha256": "9e8b0acea64b311a0a6767a6cdd9e3cc3b37e1047c255eb6167d53d20b3e4f06",
+      "source_byte_size": 1717,
+      "target_sha256": "9e8b0acea64b311a0a6767a6cdd9e3cc3b37e1047c255eb6167d53d20b3e4f06"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/scripts/preremove.sh",
+      "repository_identity_adapted": false,
+      "seed_git_object": "04d948fd2c040c85405d107bd80d288f3651f902",
+      "seed_sha256": "ca272275694eff0f0efcf79982c95fb0eddb8cf57fe915e155f68c5d01a7224a",
+      "source_byte_size": 1486,
+      "target_sha256": "ca272275694eff0f0efcf79982c95fb0eddb8cf57fe915e155f68c5d01a7224a"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/systemd/mai-adapter-manager.service",
+      "repository_identity_adapted": false,
+      "seed_git_object": "a6a9952700a9571916ac96ec2138b019c54bd1aa",
+      "seed_sha256": "dea47211c125b163dd686040086d2bfc1f1c9e27f227ecd74df5802f0aa98571",
+      "source_byte_size": 1184,
+      "target_sha256": "dea47211c125b163dd686040086d2bfc1f1c9e27f227ecd74df5802f0aa98571"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/systemd/mai-api.service",
+      "repository_identity_adapted": true,
+      "seed_git_object": "ce6f97e0e4445b2c6d028a8d9d825ffdaccff361",
+      "seed_sha256": "5dd5aeada8d9bcb18a924de9d1a62667941023b87c8e57d02dca1b58884d8062",
+      "source_byte_size": 1323,
+      "target_sha256": "1ebf73ae99cfa7e87ce5612292e680d084980ca3798fae1353e46cf1e9c9027a"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/systemd/mai-dashboard.service",
+      "repository_identity_adapted": false,
+      "seed_git_object": "0857795d463f17419ead1d42177db3d6155761a6",
+      "seed_sha256": "482ffb1c1fbfaf44077a9bbf18da2f07f8a2138bdcd2934d230732fac77b5b0a",
+      "source_byte_size": 1665,
+      "target_sha256": "482ffb1c1fbfaf44077a9bbf18da2f07f8a2138bdcd2934d230732fac77b5b0a"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/systemd/mai-healthcheck.service",
+      "repository_identity_adapted": false,
+      "seed_git_object": "0388a150e6e0d10b9f43a01d822ad58bc53c000a",
+      "seed_sha256": "6a550316162fce04eda42ef610f6e991558c69dc4457768cb16ff0c320a9749d",
+      "source_byte_size": 545,
+      "target_sha256": "6a550316162fce04eda42ef610f6e991558c69dc4457768cb16ff0c320a9749d"
+    },
+    {
+      "mode": "100644",
+      "path": "packaging/systemd/mai-healthcheck.timer",
+      "repository_identity_adapted": false,
+      "seed_git_object": "721d69dcca6f14caa7a5dabe457c5211ef9f6641",
+      "seed_sha256": "ac501811c825d7e1d2c60b7a78d9f3c65eb0882a84c6a7b50b021445cfa9797b",
+      "source_byte_size": 290,
+      "target_sha256": "ac501811c825d7e1d2c60b7a78d9f3c65eb0882a84c6a7b50b021445cfa9797b"
+    }
+  ]
+}
