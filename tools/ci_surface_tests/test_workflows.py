@@ -1,17 +1,24 @@
 """Fail when active workflows drift back to excluded parent-repository surfaces."""
 
 from pathlib import Path
+import importlib.util
 import json
 import re
 import subprocess
 from types import SimpleNamespace
 
 import yaml
-from tools import verify_saddle_active_name_eradication as active_name
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 WORKFLOWS = sorted(WORKFLOW_DIR.glob("*.yml"))
+ACTIVE_NAME_SPEC = importlib.util.spec_from_file_location(
+    "verify_saddle_active_name_eradication",
+    REPO_ROOT / "tools" / "verify_saddle_active_name_eradication.py",
+)
+assert ACTIVE_NAME_SPEC is not None and ACTIVE_NAME_SPEC.loader is not None
+active_name = importlib.util.module_from_spec(ACTIVE_NAME_SPEC)
+ACTIVE_NAME_SPEC.loader.exec_module(active_name)
 
 FORBIDDEN_ACTIVE_REFERENCES = (
     "mai-api",
