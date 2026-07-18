@@ -1349,6 +1349,30 @@ checkpoint `c16b07facadd03e2f7c493957d3da2f75d7d55af`:
   Windows validation suite and uploaded result artifact:
   https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29657053366
 
+### Node 24 follow-up
+
+Follow-up commit `30a30dbc4027d4b27080c2a329acb9364155125f`
+corrected the workflow runtime after local Node `v24.15.0` was confirmed. The
+console build now requests Node 24 explicitly, and every JavaScript action uses
+an officially declared Node 24 major: `actions/checkout@v7`,
+`actions/setup-node@v7`, `actions/setup-python@v6`, and
+`actions/upload-artifact@v7`. The CI contract suite now rejects older runtime
+pins.
+
+The production console build under Node 24, SAD-23 deterministic verification,
+the 9-test CI contract suite, staged/full no-slop, route policy, and canonical
+footer gates passed locally. All applicable push workflows then passed without
+the prior Node 20 deprecation annotation:
+
+- `commit-msg-check` run `29659752294` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29659752294
+- `Saddle Validation` run `29659752302` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29659752302
+- `Saddle CI` run `29659752286` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29659752286
+- `Saddle Workspace Validation` run `29659752314` - PASS in 25m58s:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29659752314
+
 ### Next prompt
 
 `SAD-35 - Live two-tenant bridge gate`.
