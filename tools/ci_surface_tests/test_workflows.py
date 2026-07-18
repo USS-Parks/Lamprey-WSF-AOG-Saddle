@@ -31,6 +31,13 @@ FORBIDDEN_ACTIVE_REFERENCES = (
     "gpu-release",
 )
 
+NODE24_ACTION_PINS = {
+    "actions/checkout": "v7",
+    "actions/setup-node": "v7",
+    "actions/setup-python": "v6",
+    "actions/upload-artifact": "v7",
+}
+
 
 def load(path: Path) -> dict[str, object]:
     return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
@@ -53,6 +60,18 @@ def test_active_workflows_do_not_reference_excluded_surfaces() -> None:
     combined = "\n".join(path.read_text(encoding="utf-8").lower() for path in WORKFLOWS)
     for token in FORBIDDEN_ACTIVE_REFERENCES:
         assert token not in combined, f"active workflow still references excluded surface: {token}"
+
+
+def test_javascript_actions_and_project_node_use_node24() -> None:
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in WORKFLOWS)
+    for action, expected_major in NODE24_ACTION_PINS.items():
+        pins = set(re.findall(rf"{re.escape(action)}@(v\d+)", combined))
+        assert pins == {expected_major}, f"{action} must use its Node 24 action major"
+
+    workflow = load(WORKFLOW_DIR / "ship-validation.yml")
+    steps = workflow["jobs"]["repository-boundary"]["steps"]
+    setup_node = next(step for step in steps if step.get("uses", "").startswith("actions/setup-node@"))
+    assert setup_node["with"]["node-version"] == "24"
 
 
 def test_every_workflow_cargo_package_exists() -> None:
