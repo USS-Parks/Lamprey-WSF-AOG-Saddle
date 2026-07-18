@@ -79,14 +79,18 @@ def test_nightly_depends_on_all_fast_validation_jobs() -> None:
     }
 
 
-def test_active_name_gate_builds_its_cli_evidence_dependency_first() -> None:
+def test_active_name_gate_builds_generated_evidence_dependencies_first() -> None:
     workflow = load(WORKFLOW_DIR / "ship-validation.yml")
     steps = workflow["jobs"]["repository-boundary"]["steps"]
     commands = [step.get("run", "") for step in steps]
-    build_index = commands.index("cargo build -p saddlectl --locked")
     verify_index = next(
         index
         for index, command in enumerate(commands)
         if "verify_saddle_active_name_eradication.py" in command
     )
-    assert build_index < verify_index
+    assert commands.index("cargo build -p saddlectl --locked") < verify_index
+    console_build_index = next(
+        index for index, command in enumerate(commands) if "npm run build --prefix console" in command
+    )
+    assert "npm ci --prefix console" in commands[console_build_index]
+    assert console_build_index < verify_index

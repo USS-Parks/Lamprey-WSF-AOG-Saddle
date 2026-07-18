@@ -59,11 +59,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: console/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify independent source boundary
         run: python tools/verify_saddle_independence.py --root . --evidence-output test-evidence/saddle/SAD-12/independence-gate.json --verify
       - name: Build CLI evidence dependency
         run: cargo build -p saddlectl --locked
+      - name: Build console evidence dependency
+        run: |
+          npm ci --prefix console
+          npm run build --prefix console
       - name: Verify active identity boundary
         run: python tools/verify_saddle_active_name_eradication.py --root . --evidence-output test-evidence/saddle/SAD-23/active-name-eradication-gate.json --verify
       - name: Run workflow contract tests
