@@ -182,3 +182,7 @@ package-closure addendum required by its imported console/deployment gate.
 | Bounded packaging import | PASS | Separate deterministic proof records 20 original SAD-02 out-of-scope paths, 17 raw blobs, and three repository-identity adaptations. |
 | Packaging secret scans | PASS | Gitleaks and the independent secondary scanner both returned zero findings across the new 20-file package surface. |
 | Staged independence | PASS | Deterministic verifier recorded 936 tracked paths, 629 active paths, and zero forbidden parent references, external Cargo paths, submodules, or symlinks. |
+| Staged no-slop gate | PASS | Explicit Git for Windows Bash pre-commit hook reported `no-slop: clean (staged)`. |
+| Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |
+| Commit footer | PASS | `e7627a474bb7af8119ae7a7825c5d6146e4ba6c2` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `ecb11f0abbfa9df087d15a12a1cf04f64870138a` to `e7627a474bb7af8119ae7a7825c5d6146e4ba6c2`. |

@@ -456,7 +456,7 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 
 ## SAD-14 — Restore console and deployment gates
 
-**Status:** PASS — complete console, Compose, and staging-package gate verified; remote checkpoint pending publication.
+**Status:** PASS — implementation published at remote checkpoint `e7627a474bb7af8119ae7a7825c5d6146e4ba6c2`.
 
 ### Work completed
 
@@ -488,7 +488,10 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
   — PASS: zero findings; and
 - staged deterministic independence gate — PASS: 936 tracked paths, 629 active
   paths, and zero forbidden parent references, external Cargo paths,
-  submodules, or symlinks.
+  submodules, or symlinks;
+- staged pre-commit and full pre-push no-slop gates — PASS; and
+- canonical commit footer plus target remote checkpoint
+  `e7627a474bb7af8119ae7a7825c5d6146e4ba6c2` — PASS.
 
 ### Evidence
 
