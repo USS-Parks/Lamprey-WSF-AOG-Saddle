@@ -62,6 +62,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify independent source boundary
         run: python tools/verify_saddle_independence.py --root . --evidence-output test-evidence/saddle/SAD-12/independence-gate.json --verify
+      - name: Build CLI evidence dependency
+        run: cargo build -p saddlectl --locked
       - name: Verify active identity boundary
         run: python tools/verify_saddle_active_name_eradication.py --root . --evidence-output test-evidence/saddle/SAD-23/active-name-eradication-gate.json --verify
       - name: Run workflow contract tests
