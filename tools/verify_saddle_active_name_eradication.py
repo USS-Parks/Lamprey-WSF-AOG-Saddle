@@ -195,7 +195,7 @@ def help_gate(root: Path) -> dict[str, Any]:
     if result.returncode not in {0, 2} or "usage: saddlectl" not in output or occurrences:
         raise VerificationError("saddlectl help surface retains an invalid or retired identity")
     return {
-        "artifact": binary.relative_to(root).as_posix(),
+        "artifact": "target/debug/saddlectl",
         "exit_code": result.returncode,
         "retired_name_occurrences": occurrences,
     }

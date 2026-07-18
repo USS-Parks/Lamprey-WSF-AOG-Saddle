@@ -380,7 +380,7 @@
     "text_files": 4
   },
   "help_surface": {
-    "artifact": "target/debug/saddlectl.exe",
+    "artifact": "target/debug/saddlectl",
     "exit_code": 2,
     "retired_name_occurrences": 0
   },

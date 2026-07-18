@@ -4,8 +4,10 @@ from pathlib import Path
 import json
 import re
 import subprocess
+from types import SimpleNamespace
 
 import yaml
+from tools import verify_saddle_active_name_eradication as active_name
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
@@ -94,3 +96,20 @@ def test_active_name_gate_builds_generated_evidence_dependencies_first() -> None
     )
     assert "npm ci --prefix console" in commands[console_build_index]
     assert console_build_index < verify_index
+
+
+def test_active_name_help_evidence_is_platform_neutral(tmp_path: Path, monkeypatch) -> None:
+    binary = tmp_path / "target" / "debug" / "saddlectl.exe"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"")
+    monkeypatch.setattr(
+        active_name.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=2,
+            stdout="usage: saddlectl\n",
+            stderr="",
+        ),
+    )
+
+    assert active_name.help_gate(tmp_path)["artifact"] == "target/debug/saddlectl"
