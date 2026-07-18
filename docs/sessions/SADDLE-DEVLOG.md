@@ -1014,3 +1014,80 @@ verified remote checkpoint `8a6e3e1ec311afce6e261ec3c807be60c10fe291`.
 ### Next prompt
 
 `SAD-32 — WSF-attested scheduling`.
+
+## SAD-32 — WSF-attested scheduling
+
+**Status:** PASS — implementation commit
+`a87aed1604a81ea5680411dd932bc81ab2a3356e`; remote publication pending.
+
+### Work completed
+
+- Added explicit workload scheduling constraints for required CPU, memory, GPU,
+  and slots; connectivity; provider models; and optional exact platform
+  measurement.
+- Made heartbeat freshness, verified-attestation expiry, trust ring,
+  classification ceiling, attestation floor, hardware/PCR evidence,
+  measurement, air-gap compatibility, provider/model eligibility, and declared
+  capacity hard fail-closed filters which execute before scoring.
+- Added canonical `saddle.node-attestation/v1` evidence signed by the existing
+  ML-DSA anchor over the exact node, ring, floor, platform/PCR profile, issue
+  time, and expiry. The real scheduler controller verifies that signature and
+  expiry before retaining an attested node snapshot.
+- Made provider observations timestamped and fenced when missing, unhealthy, or
+  stale. A coherent scheduling decision time now controls heartbeat,
+  attestation, and provider freshness.
+- Added adversarial pressure, failover, stale-heartbeat, stale-attestation,
+  stale-provider, air-gap, capacity, and provider-model tests, plus registration
+  tests rejecting attacker signatures and profile tampering.
+- Preserved an explicit boundary: serialized `PlacementGrant` handoff and the
+  internal controller system-identity seam remain SAD-33 work. This prompt does
+  not claim hardware quote verification unless the signing anchor's issuance
+  path is backed by it.
+
+### Gate
+
+- deterministic SAD-32 attested-scheduling verifier — PASS: four scheduler
+  adversarial tests and two registration-tampering tests prove that pressure,
+  failover, or stale cache cannot authorize an under-attested placement;
+- refreshed SAD-23 active-name gate — PASS: 38 classified files and 309
+  count-locked explained occurrences, with no unexplained active-name result;
+- `cargo fmt --all --check`, locked full-workspace all-target check, strict
+  all-target clippy, and workspace documentation — PASS; documentation retained
+  the repository's pre-existing nonfatal rustdoc warnings;
+- full sequential `cargo test --workspace --locked` with live OpenBao, Moto AWS
+  STS, Git-bundled OpenSSL, mTLS, consensus, revocation, restore/receipt-chain,
+  official OpenAI/Anthropic SDK clients, and all doctests — PASS; the existing
+  five aggressive/SLO conformance tests and weave-overhead SLO remain explicitly
+  ignored in the standard lane;
+- `cargo audit` and `cargo deny check` — PASS with existing nonfatal unmatched
+  allowance, duplicate-dependency, and advisory-not-detected warnings only;
+- staged diff, deterministic evidence verification, Gitleaks staged scan,
+  anti-truncation, verify-tree, and staged/full no-slop gates — PASS; and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-32/attested-scheduling-gate.json`, SHA-256
+  `396976ad3fd32cc06f1642545d855fb14de88419757edcb72948ba8316ae2d60`;
+- `tools/verify_wsf_attested_scheduling.py`, SHA-256
+  `ea70b4fd48c51289f44b84d0bd13743840e3ef5e00404bd6d0dd2b6d1d859159`;
+- `crates/saddle-node/src/registration.rs`, SHA-256
+  `88c1d3a29ac4010da5ec543758c9d2f7ffc494d8c539660d290b75971c342115`;
+- `crates/saddle-controller/src/scheduler.rs`, SHA-256
+  `1c7f944112f91fa05a4c9e54052dcf317e29f0fdec2d62a24ee92e9184f2abf9`;
+- `crates/saddle-scheduler/src/filters.rs`, SHA-256
+  `4762b4213a71e5e1a254ef9f66001afa892a21c4e3a31e49a3dc8347a5722542`;
+- `crates/saddle-scheduler/tests/sad32_hard_placement.rs`, SHA-256
+  `213878fec086563cf76e7ee47d5857dff4b84e14c1da1d7b613acc7dd287af32`;
+- `docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md`, SHA-256
+  `792a1237fe5998b8d46caa20982485c40b2035b12169f51c48d026ffc26b9065`;
+- `PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md`, SHA-256
+  `519d51fef3b8396aeb117595770db9871040969658ee8222ab27e73c097c9b7a`;
+- refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
+  SHA-256 `2ecd1a5a80a9648493e2d324e90915b7abd2d7ff57969d1760e36e7956bd17fc`;
+  and
+- implementation commit `a87aed1604a81ea5680411dd932bc81ab2a3356e`.
+
+### Next prompt
+
+`SAD-33 — AOG workload integration`.

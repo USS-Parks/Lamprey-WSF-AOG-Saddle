@@ -14,6 +14,8 @@
 
 **Latest verified remote checkpoint:** SAD-31 verification closeout and first verified remote checkpoint are `8a6e3e1ec311afce6e261ec3c807be60c10fe291`.
 
+**SAD-32 local closeout:** **COMPLETE; SAD-33 NEXT.** SAD-32 makes heartbeat, anchor-signed node attestation, ring, classification, exact measurement, air-gap/connectivity, provider/model eligibility, and declared CPU/memory/GPU/slot capacity fail-closed predicates before scoring. Its implementation commit is `a87aed1604a81ea5680411dd932bc81ab2a3356e`, and deterministic evidence is `test-evidence/saddle/SAD-32/attested-scheduling-gate.json`. Remote publication is pending; the verified checkpoint above remains authoritative until publication is proved.
+
 ---
 
 ## 0. Governance
@@ -224,7 +226,7 @@ Import means a pinned snapshot with hashes and provenance, not an indefinite mir
 - [x] **SAD-31 — WSF-authenticated Saddle admission.** Require server-derived WSF identity, current revocation, scope, budget, caveats, final resource identity, and durable audit-before-success on privileged mutations.
   **Gate:** missing/stale/spoofed/cross-tenant authority fails closed through the real API.
 
-- [ ] **SAD-32 — WSF-attested scheduling.** Make trust ring, classification ceiling, attestation floor, air-gap compatibility, capacity, and provider eligibility hard predicates.
+- [x] **SAD-32 — WSF-attested scheduling.** Make trust ring, classification ceiling, attestation floor, air-gap compatibility, capacity, and provider eligibility hard predicates.
   **Gate:** no under-attested placement under pressure, failover, or stale cache.
 
 - [ ] **SAD-33 — AOG workload integration.** Manage gateway, toolproxy, approvals, and governed agent runtimes as Saddle workloads with least-privilege child capabilities.
