@@ -935,7 +935,8 @@ verified remote checkpoint `163beaeb0d842ff950ce9684ed2fb02d3af08ea5`.
 ## SAD-31 — WSF-authenticated Saddle admission
 
 **Status:** PASS — implementation commit
-`0b3d7a648c5807d58b4575ff15d2fad9840c837c`.
+`0b3d7a648c5807d58b4575ff15d2fad9840c837c`; verification closeout and first
+verified remote checkpoint `8a6e3e1ec311afce6e261ec3c807be60c10fe291`.
 
 ### Work completed
 
@@ -1005,7 +1006,10 @@ verified remote checkpoint `163beaeb0d842ff950ce9684ed2fb02d3af08ea5`.
 - refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
   SHA-256 `f9ad6d116cf304c8dc38ef301c306d3ed8a9619346110dc21dfa7c60796cb6c2`;
   and
-- implementation commit `0b3d7a648c5807d58b4575ff15d2fad9840c837c`.
+- implementation commit `0b3d7a648c5807d58b4575ff15d2fad9840c837c`;
+  and
+- verification closeout and first verified remote checkpoint
+  `8a6e3e1ec311afce6e261ec3c807be60c10fe291`.
 
 ### Next prompt
 
