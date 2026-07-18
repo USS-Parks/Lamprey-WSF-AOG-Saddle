@@ -160,3 +160,7 @@ workspace after SAD-12's clean-checkout independence proof.
 | Unit/property/integration suite | PASS | `cargo test --workspace --locked` with the configured live OpenBao endpoint reported 187 successful result summaries and zero failures. |
 | RustSec and dependency policy | PASS | `cargo audit` and `cargo deny check` completed successfully; deny emitted only non-failing stale-allowance and duplicate-package warnings. |
 | Workspace documentation | PASS | `cargo doc --workspace --no-deps --locked` generated documentation for all workspace outputs. Rustdoc diagnostic warnings were emitted for existing intra-doc/link-markup annotations, but the command returned no error. |
+| Staged no-slop gate | PASS | Explicit Git for Windows Bash pre-commit hook reported `no-slop: clean (staged)`. |
+| Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)` with the worktree trusted for the sandbox ownership boundary. |
+| Commit footer | PASS | `2459b5a800493e74afde96adf43bcd5d4fe31d5b` ends with the exact canonical footer. |
+| Remote checkpoint | PASS | Target `main` advanced from `c25e7753e00efa3dfd0eb7ea94201561513a9bd0` to `2459b5a800493e74afde96adf43bcd5d4fe31d5b`. |

@@ -423,7 +423,7 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 
 ## SAD-13 — Restore the complete Rust gate
 
-**Status:** PASS — complete Rust gate verified; remote checkpoint pending publication.
+**Status:** PASS — implementation published at remote checkpoint `2459b5a800493e74afde96adf43bcd5d4fe31d5b`.
 
 ### Work completed
 
@@ -443,7 +443,10 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 - `cargo audit` and `cargo deny check` — PASS; and
 - `cargo doc --workspace --no-deps --locked` — PASS. Rustdoc emitted existing
   intra-doc/link-markup warnings but returned no error and generated all
-  workspace documentation outputs.
+  workspace documentation outputs;
+- staged pre-commit and full pre-push no-slop gates — PASS; and
+- canonical commit footer plus target remote checkpoint
+  `2459b5a800493e74afde96adf43bcd5d4fe31d5b` — PASS.
 
 ### Next prompt
 
