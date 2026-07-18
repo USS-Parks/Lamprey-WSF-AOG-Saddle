@@ -1095,3 +1095,95 @@ verified remote checkpoint `3da29ab4fffa6499584fce128a77c4451cf1fd84`.
 ### Next prompt
 
 `SAD-33 — AOG workload integration`.
+
+## SAD-33 — AOG workload integration
+
+**Status:** PASS — implementation commit
+`57616b479b66ea582369d85cd9d2a74fe684b09f`; verification closeout and
+remote checkpoint pending publication of this ledger update.
+
+### Work completed
+
+- Added an explicit approvals workload kind and fixed least-privilege AOG role
+  and runtime-class mappings for gateway, toolproxy, approvals, agent, and
+  inference workloads.
+- Added canonical workload digests and exact service identities binding tenant,
+  workload kind, node, and immutable placement UID. Replica count is excluded
+  so scaling starts only new ordinals while runtime-affecting changes roll the
+  existing binding.
+- Added `NodeRuntime`, which verifies ML-DSA signature, expiry, revocation,
+  tenant, workload UID/digest, placement UID, exact node identity, token ID,
+  single fixed role, and classification immediately before driver start. Its
+  reconciler stops missing, changed, or revoked assignments.
+- Replaced unrestricted release-build scheduler admission with a private,
+  server-minted, tenant/profile/TTL/controller-epoch `ControllerGrant`.
+  Scheduler grants can only create runtime-bound pending placements, finalize
+  their token ID without rewriting immutable binding fields, or delete them.
+  The former system fixture remains available only in debug builds.
+- Made the scheduler require a current same-tenant capability root, create the
+  immutable placement before signing its child, store the exact child in live
+  OpenBao, and roll back the child if placement finalization fails.
+- Added a live integration gate using real admission/controller queues,
+  scheduler reconciliation, OpenBao, and `ProcessDriver`. It proves all five
+  workload classes start; agent scale 1→2 starts only the new ordinal; digest
+  roll replaces and restarts the binding; sibling-token theft and scheduler
+  field forgery fail closed; and capability/controller-epoch revocation removes
+  or invalidates authority.
+- Preserved the explicit compatibility boundary: the signed child capability is
+  enforced at the node, but the frozen typed `PlacementGrant` and `RuntimeGrant`
+  proof values are not yet the serialized controller-node handoff. SAD-34 adds
+  action authorization/receipts; this typed handoff must close before SAD-35.
+
+### Gate
+
+- deterministic SAD-33 AOG workload integration verifier — PASS against live
+  OpenBao, including release checks proving unrestricted scheduler authority is
+  absent from release builds;
+- deterministic SAD-32 attested-scheduling regression gate — PASS;
+- refreshed SAD-23 active-name gate — PASS: 38 classified files and 309
+  count-locked explained occurrences, with no unexplained active-name result;
+- `cargo fmt --all --check`, locked full-workspace all-target check, strict
+  all-target clippy, release controller/API check, and workspace documentation
+  — PASS; documentation retained two pre-existing nonfatal controller rustdoc
+  warnings;
+- full sequential `cargo test --workspace --locked` with live OpenBao, Moto AWS
+  STS, Git-bundled OpenSSL, mTLS, consensus, revocation, restore/receipt-chain,
+  official provider SDK clients, and all doctests — PASS; the repository's
+  existing aggressive/SLO tests remain explicitly ignored in the standard lane;
+- `cargo audit` and `cargo deny check` — PASS with existing nonfatal unmatched
+  allowance, duplicate-dependency, and advisory-not-detected warnings only;
+- staged diff, deterministic evidence verification, Gitleaks staged scan,
+  verify-tree, and staged no-slop gate — PASS; verify-tree retained its existing
+  nonfatal multi-value `integer expected` warning; and
+- canonical commit footer — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-33/aog-workload-integration-gate.json`, SHA-256
+  `6d3d58d97afb4b3081e7dfed7c1b86f5830e0b4b2bfa477b3090323640075ca7`;
+- `tools/verify_aog_workload_integration.py`, SHA-256
+  `8818954df65f785857ca395c00224ab126f58d9cd532ac5f3a705a82c89739d2`;
+- `crates/saddle-node/src/runtime.rs`, SHA-256
+  `3183ba7aa700db2bc8891ccf13c444cf63fb71dcded9794aa43b86652e81f2b1`;
+- `crates/saddle-controller/src/scheduler.rs`, SHA-256
+  `f3724c11756d12c7f23b10b7c0facff4e77974fe1adfd476a221236f60f85735`;
+- `crates/saddle-apiserver/src/admission.rs`, SHA-256
+  `d2904585a9adebab1e27cb1d32e18456592be77e3a2334d8f857f64890ba5ff9`;
+- `crates/saddle-controller/src/objects.rs`, SHA-256
+  `2d571a0dbdf3297e586fe615268b9a8d68faba800711f6a71305bec98788d7c9`;
+- `crates/saddle-controller/tests/sad33_aog_workloads.rs`, SHA-256
+  `dd82e12e0cbf092d8167d127570de177d1dd3331ce4505630b4c4465f3c08f21`;
+- `docs/contracts/SADDLE-BRIDGE-COMPATIBILITY-MATRIX.md`, SHA-256
+  `18dc26c746b1a2dfeefe0561a9bcce4651dc63dbf7f609771709a8110af7fdb3`;
+- `PLANNING/SADDLE-CURRENT-STATE-GAP-MATRIX.md`, SHA-256
+  `55052dbb21e27649a0d00330aaa83584cec9a3f3ad2c6131ab69c35c68d23d42`;
+- refreshed `test-evidence/saddle/SAD-32/attested-scheduling-gate.json`,
+  SHA-256 `0a0d518ed779e0440fa099b3021d6b25bc2c675524bd7e535518940896e4cafc`;
+- refreshed `test-evidence/saddle/SAD-23/active-name-eradication-gate.json`,
+  SHA-256 `3e8ef5fdf517fb8e6a848bc3f55da774c8f72f1fdab94bd472022a031dd14aca`;
+  and
+- implementation commit `57616b479b66ea582369d85cd9d2a74fe684b09f`.
+
+### Next prompt
+
+`SAD-34 — Per-action reauthorization and receipts`.
