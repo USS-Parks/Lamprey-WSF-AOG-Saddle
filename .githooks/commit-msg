@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# commit-msg — stamp the MAI canonical footer, strip AI co-author credit.
+# Robust by design: this hook must NEVER reject a commit for a spurious tooling
+# reason. It rewrites the message idempotently (strip AI-attribution trailer,
+# guarantee the footer) and, if any step misbehaves (no mktemp, no awk, unreadable
+# temp), falls back so the footer is still stamped and the commit still lands.
+# It always exits 0 — a footer hook that blocks commits is worse than the problem.
+# Install: git config core.hooksPath .githooks (auto-armed by .githooks/session-start.sh).
+# CI mirror: .github/workflows/commit-msg-check.yml
+set -uo pipefail
+MSG_FILE="${1:-}"
+[ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ] || exit 0    # nothing to stamp -> don't block
+HOOK_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo .)"
+AWK="$HOOK_DIR/footer-filter.awk"
+FOOTER="Authored and reviewed by Basho Parks, copyright 2026"
+
+work="$(mktemp 2>/dev/null || echo "${MSG_FILE}.work.$$")"
+# Drop git's comment + verbose-scissors lines the way git would — unless the message
+# is nothing but comment lines (protects a rare `-m '#...'` message).
+if grep -qvE '^#' "$MSG_FILE" 2>/dev/null; then
+  sed -e '/^# -\{5,\} >8 -\{5,\}/,$d' -e '/^#/d' "$MSG_FILE" > "$work" 2>/dev/null || cp "$MSG_FILE" "$work" 2>/dev/null
+else
+  cp "$MSG_FILE" "$work" 2>/dev/null
+fi
+
+# Apply the shared filter (strip AI credit + append footer). If awk is missing or
+# errors, fall back to the raw body — the direct stamp below still guarantees it.
+out="$(mktemp 2>/dev/null || echo "${MSG_FILE}.out.$$")"
+if ! awk -f "$AWK" < "$work" > "$out" 2>/dev/null; then
+  cp "$work" "$out" 2>/dev/null || cp "$MSG_FILE" "$out" 2>/dev/null
+fi
+cp "$out" "$MSG_FILE" 2>/dev/null
+rm -f "$work" "$out" 2>/dev/null
+
+# Belt-and-suspenders: guarantee the footer is present no matter what happened above.
+if ! grep -qF "$FOOTER" "$MSG_FILE" 2>/dev/null; then
+  printf '\n%s\n' "$FOOTER" >> "$MSG_FILE"
+fi
+exit 0

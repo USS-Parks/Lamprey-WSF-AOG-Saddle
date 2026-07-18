@@ -1,0 +1,54 @@
+# MAI Policy Runtime Configuration
+#
+# Loaded by the policy runtime at startup. Deserialises into
+# `mai_compliance::ComposerConfig` (priority + enabled set) plus a
+# `mai_compliance::DecisionCacheConfig` (TTL + soft cap) and an
+# optional template name.
+#
+# The priority chain only affects the *ordering* of reasons and flags
+# in `AggregateDecision`. The allow/deny axis and the most-restrictive
+# route fold are order-independent by construction — see
+# `mai-compliance/src/policy/composer.rs` for the proof and tests.
+#
+# Operators should treat changes here as code: review them, version
+# them, and roll them out the same way as any other compliance
+# configuration (`ear.toml`, `itar.toml`, `ocap.toml`, `hipaa.toml`).
+
+[composer]
+# Default priority chain per the policy-runtime acceptance criteria. OCAP wins over
+# ITAR wins over HIPAA when reasons are surfaced to the audit log.
+# Recognised module ids: "hipaa", "itar", "ocap".
+priority = ["ocap", "itar", "hipaa"]
+
+# Modules enabled at startup. Modules not listed here are dropped from
+# the composer input — their decisions never influence the aggregate.
+# At least one module should be enabled in production deployments;
+# disabling all of them turns the policy runtime into a no-op.
+enabled = ["hipaa", "itar", "ocap"]
+
+[cache]
+# Time-to-live for cached decisions, in seconds. The cache is keyed on
+# the request's tenant, source, model hint, classification level +
+# pattern set, and the verified trust context (claim id, subject hash,
+# revocation status, offline mode, scopes, allowed routes). Identical
+# requests within the TTL window receive the same decision without
+# re-running the per-module evaluators.
+ttl_secs = 60
+
+# Soft maximum number of entries. When exceeded, expired entries are
+# evicted first; remaining overflow drops the oldest by insertion
+# time. 1024 keeps the cache under ~1 MiB even with verbose flag and
+# reason payloads, which is comfortable for any embedded deployment.
+max_entries = 1024
+
+# Optional template selector. When set to one of "standard",
+# "healthcare", "defense", "tribal_government", the runtime applies
+# the template's priority + enabled set on startup, *after* loading
+# the `[composer]` section. Leave commented out to use the
+# `[composer]` values verbatim.
+#
+# Templates are starting points, not policy — tribal-government and
+# defence deployments are expected to customise the resulting
+# config before promoting to production.
+#
+#   template = "healthcare"

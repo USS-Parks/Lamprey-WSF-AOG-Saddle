@@ -1,0 +1,46 @@
+# MAI deployment profile: airgap-demo
+#
+# Fully offline demo. Air-gap switch is hard-on. The trust cache is
+# pre-loaded from a signed bundle on disk. No network. Every
+# Lamprey decision uses the cached bundle + the local audit chain.
+# This is the profile used in the demo suite to prove the
+# Trust Manifold survives a complete cloud outage.
+
+[profile]
+name = "airgap-demo"
+description = "Fully offline demo. Air-gap on, pre-loaded bundle, local audit chain only."
+
+[trust]
+# No Trust Bridge URL — the appliance must not even attempt the lookup.
+trust_bridge_url = ""
+verifier = "ml-dsa"
+# Long thresholds: the bundle was issued before the air-gap event and
+# may need to survive a week-long demo cycle without renewal.
+warn_after_secs = 86400      # 1 day
+expire_after_secs = 604800   # 7 days
+# Path on disk to the signed bundle the appliance loads at boot. The
+# refresher process does not run in this profile.
+preloaded_bundle_path = "/var/mai/bundles/airgap-demo.bundle"
+bound_tenant = "demo-tenant"
+
+[compliance]
+# Defense template exercises the strictest fall-back: ITAR + EAR with
+# `default-to-ITAR-on-ambiguity` plus the OCAP overlay for tribal
+# crossover demos.
+template = "defense"
+tenants = ["demo-tenant"]
+
+[airgap]
+# Switch position is FORCED on for this profile. The hardware reader
+# is not consulted; the policy is the source of truth.
+switch_state = "air_gapped"
+allow_cloud_route = false
+hardware_switch_reader = "policy-forced"
+
+[server]
+bind_address = "127.0.0.1:8443"
+log_level = "info"
+enable_compliance_dashboard = true
+# Final disable: even if a stale route slipped through, the cloud
+# transport is hard-off at the server level.
+disable_cloud_transport = true

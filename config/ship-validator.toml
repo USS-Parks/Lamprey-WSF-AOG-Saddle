@@ -1,0 +1,36 @@
+# mai-ship-validate config (SHIP-01 placeholder)
+#
+# The validator CLI itself is implemented in SHIP-07. SHIP-01 lands the
+# file so operators have a single place to point the tool at when it
+# arrives. Any field below that the validator does not yet understand
+# is ignored; new fields are additive.
+
+[validator]
+# Path to the profile being validated. Defaults to /etc/mai/profile.toml
+# when invoked without --profile.
+profile_path = "/etc/mai/profile.toml"
+# Refuse to validate any profile whose `mode` is not "production".
+require_production_mode = true
+
+[output]
+# "human" or "json". CLI flag --json overrides.
+format = "human"
+# Emit one check per line on stderr while running.
+trace = false
+
+[checks]
+# SHIP-01 only registers config-only checks. SHIP-02 onward will append
+# runtime checks (vault open, audit append round-trip, trust bundle
+# verification, etc.). The list below is the *order* the validator will
+# print results in; check IDs come from production_guard.rs (SHIP-02).
+order = [
+    "PROD-CONFIG-001",
+    "PROD-PATHS-001",
+    "PROD-VAULT-001",
+    "PROD-AUDIT-001",
+    "PROD-TRUST-001",
+    "PROD-AUTH-001",
+    "PROD-DASH-001",
+    "PROD-NET-001",
+    "PROD-OBS-001",
+]

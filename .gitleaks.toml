@@ -1,0 +1,123 @@
+# gitleaks configuration for the MAI workspace.
+#
+# J-10b: the baseline scan reported 20 findings against the default
+# ruleset. Every finding was investigated and classified as a false
+# positive of one of the categories below. Real secret detection is
+# also covered by `detect-secrets scan --all-files`, which PASSes
+# against this tree because it carries an explicit baseline.
+#
+# When adding entries here, prefer the narrowest possible allowlist:
+# path-level for build artifacts and evidence dumps, regex-level for
+# named test fixtures. Do not add blanket regex allowlists that would
+# silence real secrets elsewhere in the tree.
+
+title = "MAI gitleaks allowlist"
+
+[extend]
+# Inherit the default ruleset; we only allowlist on top of it. Do not
+# replace.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Path-level allowlists
+# ---------------------------------------------------------------------------
+
+[allowlist]
+description = "Aggregate allowlist for the MAI workspace"
+
+paths = [
+    # Rust build artifacts: `target/**/*.rmeta` files embed crate-format
+    # marker strings (the `pkcs8` crate's RSA/EC key-format literals) as
+    # part of rustc's serialized metadata. They are not secrets;
+    # rebuilding the workspace would re-create the exact same matches.
+    # Gitleaks default scope is `--no-git`, so it walks `target/` unless
+    # we tell it otherwise. We could pass `--exclude` on the CLI, but
+    # keeping the policy in this file is more durable.
+    '''^target/''',
+    '''(^|/)target/''',
+
+    # The detect-secrets baseline itself: every entry is a `hashed_secret`
+    # (SHA-1 of the flagged bytes), maintained by `detect-secrets scan
+    # --all-files`. Hashes of findings are not the findings.
+    '''(^|/)\.secrets\.baseline$''',
+
+    # Evidence reports embed the OUTPUT of `detect-secrets scan`, which
+    # itself prints `hashed_secret` fields for every entropy hit it
+    # finds. Those are SHA-1 hashes of test fixtures and build-artifact
+    # bytes, not secrets in their own right; gitleaks matches them as
+    # generic-api-keys because the JSON is regular hex. The original
+    # scan output is the authoritative source. (The undated reports live
+    # at docs/, the dated ones under docs/scans/ — cover both.)
+    '''(^|/)docs/(scans/)?LOCAL-GITDOCTOR-(REPORT|EVIDENCE)\.(md|json)$''',
+
+    # Captured stdout from RC1-prep first-boot rehearsals. The
+    # `Key: im-...` line is the printed admin key from a TEST bundle;
+    # the corresponding hash never went to prod, and a real production
+    # boot path never writes the raw key to disk (see
+    # `mai-api/src/server.rs::load_auth_state` line 711-728: stdout
+    # only, never logged).
+    '''^test-evidence/''',
+    '''(^|/)test-evidence/''',
+
+    # IGD-01: deployment/*-staging/ holds UNTRACKED local runtime
+    # artifacts with real credentials (TLS keys, the sealer key, audit
+    # logs, minted bundles). Only those subpaths are allowlisted so
+    # `gitleaks detect --no-git` does not re-flag the local files on
+    # every run. The TRACKED staging config (profiles, auth-key
+    # fixtures, scripts) stays IN scan scope — a committed staging
+    # secret must be caught, never blanket-silenced.
+    '''(^|/)deployment/[^/]*-staging/(openbao-tls|openbao-audit|state)/''',
+    '''(^|/)deployment/[^/]*-staging/bundle\.json$''',
+
+    # Contract protocol docs (contracts/*.md) show example wire-shape JSON with
+    # illustrative token_id / key values — documentation, not credentials.
+    '''^contracts/''',
+    '''(^|/)contracts/''',
+
+    # Dated gitdoctor evidence dumps (same class as the undated ones above): the
+    # embedded strings are detect-secrets hashes of fixtures, not live secrets.
+    '''(^|/)docs/(scans/)?LOCAL-GITDOCTOR-(REPORT|EVIDENCE)[-0-9]*\.(md|json)$''',
+
+    # Planning doc carrying an example token in prose (moved under docs/sessions/).
+    '''(^|/)docs/(sessions/)?THREE-LAYER-MANIFOLD-PLAN\.md$''',
+
+    # Named test fixtures: example claim/anchor tokens inside #[test] blocks.
+    '''(^|/)crates/aogd/tests/live_openbao_anchor\.rs$''',
+    '''(^|/)crates/fabric-contracts/tests/contracts\.rs$''',
+]
+
+# ---------------------------------------------------------------------------
+# Targeted regex allowlists
+# ---------------------------------------------------------------------------
+#
+# `regexes` matches the leaked content itself (per the gitleaks 8.x
+# allowlist semantics). Each entry below is a named test fixture used
+# inside a `#[test]` block to verify the project's own redaction or
+# hashing code path. The strings are committed deliberately and have
+# no production counterpart.
+
+regexes = [
+    # mai-api/src/metrics.rs::test_label_value_redacts_secrets
+    # exercises the SHIP-11 metrics scrubber against a fake live-token
+    # shape. The redaction guarantee is what the test is asserting.
+    '''sk-live-abcdef0123456789''',
+    '''hvs\.CAESIQABCDEF''',
+
+    # mai-api/src/auth.rs::test_hash_api_key_deterministic uses a
+    # fixed test key to assert that hash_api_key() is deterministic.
+    # The value is never honored by any production code path; it
+    # exists solely to compare h1 == h2.
+    '''im-test-key-12345''',
+
+    # crates/aog-toolproxy/src/scan.rs::asia_temp_key_is_redacted asserts the
+    # egress scanner redacts an example AWS temp-key shape. Test fixture only.
+    '''ASIAY34FZKBOKMUTVV7A''',
+
+    # crates/wsf-broker/src/gcp.rs test asserts the GCP broker requests public
+    # googleapis OAuth scope URLs — public constants, not secrets.
+    '''https://www\.googleapis\.com/auth/[A-Za-z0-9._-]+''',
+
+    # gcp.rs test fixture: a placeholder GCP bearer (ya29. prefix) with obvious
+    # non-secret material, asserting the broker's token plumbing.
+    '''ya29\.gcp-bearer-material''',
+]

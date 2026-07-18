@@ -1,0 +1,60 @@
+# Rust
+target/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.pytest-tmp/
+pytest_temp/
+py_tmp_dir/
+temp_test_dir/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.venv/
+venv/
+
+# Test artifacts
+results/
+tests/benchmarks/results/
+tests/burn-in/results/
+.tmp/
+# Spurious root artifacts (CQ-95 / CFG-CLEAN): keep repo root clean.
+/12
+/et HEAD
+/pytest-cache-files-*
+pytest-cache-files-*/
+# Junk from sandbox sed failures
+.integrity/scripts/c *
+
+# Node (MCP server)
+node_modules/
+package-lock.json.bak
+*.log
+
+# Inno Setup build artifacts (LCH-1)
+packaging/windows/Output/
+packaging/windows/bin/
+
+# Local staging artifacts (IGD-01): never commit live keys / tokens.
+# Subsumes the 4 path-specific entries added by c8055ea.
+deployment/openbao-staging/
+deployment/*-staging/

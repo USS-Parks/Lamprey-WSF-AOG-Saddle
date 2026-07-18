@@ -1,0 +1,336 @@
+name: MAI CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # SHIP-12: nightly schedule lives in ship-validation.yml (03:30 UTC).
+  # GPU-required nightly + Sunday benchmarks stay opt-in until a self-hosted
+  # runner exists; the jobs are wired below but their triggers stay commented
+  # so they do not page on a missing runner.
+  # schedule:
+  #   - cron: '0 2 * * *'   # GPU nightly (needs self-hosted runner)
+  #   - cron: '0 3 * * 0'   # GPU weekly Sunday (needs self-hosted runner)
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  config-check:
+    name: Config & DevOps Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify lock-file parity
+        run: bash scripts/verify-lock-parity.sh .
+
+      - name: Security route-policy gate
+        run: bash .integrity/scripts/route-policy-check.sh
+
+      - name: Lint Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          config: .hadolint.yaml
+
+  rust-check:
+    name: Rust Quality Gates
+    runs-on: ubuntu-latest
+    env:
+      # CI-only: no debuginfo in dev/test artifacts. A toolchain bump invalidates
+      # the whole rust-cache and the cold workspace build overruns the runner disk.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free runner disk (cold workspace builds exceed the default free space)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Seed the cache even from a red run, so a toolchain-bump cold build
+          # only ever happens once.
+          cache-on-failure: true
+
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Check compilation
+        run: cargo check --workspace
+
+      - name: Lint (clippy)
+        run: cargo clippy --workspace -- -D warnings -A clippy::pedantic
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Unit tests
+        run: cargo test --workspace
+
+      - name: Verify no unsafe in mai-core
+        run: |
+          # Match the `unsafe` keyword in code position — an unsafe block / fn /
+          # impl / trait / extern — not the substring inside a string literal or
+          # comment. The old `grep -rn "unsafe"` flagged legitimate error messages
+          # ("unsafe package name", "unsafe as a storage path") as false positives,
+          # and its `grep -v '^\s*//'` filters never matched (grep -rn prefixes each
+          # line with the file path, so the line never starts with `//`).
+          if grep -rnE '(^|[^A-Za-z0-9_])unsafe[[:space:]]*(\{|fn|impl|trait|extern)' mai-core/src/; then
+            echo "ERROR: unsafe code found in mai-core"
+            exit 1
+          fi
+          echo "OK: no unsafe in mai-core"
+
+  advisories:
+    name: Supply-Chain & Advisories (cargo-audit + cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-audit + cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny
+
+      # Reads the ignore list in .cargo/audit.toml, kept in sync with deny.toml
+      # + docs/compliance/INDEPENDENT-EVIDENCE-DEFERRALS.md. SOV-0.2c cleared all
+      # vulnerabilities (exit 0); this job keeps it that way on every push/PR.
+      - name: cargo audit
+        run: cargo audit
+
+      # advisories + bans + licenses, per deny.toml.
+      - name: cargo deny check
+        run: cargo deny check advisories bans licenses
+
+  # SOV-W1: live-OpenBao gate — the no-mock-only closure rule (plan §0.3.5) for
+  # the first live-trust path. Brings up a dev OpenBao via `docker run` (Actions
+  # service containers cannot override the image command to pass `-dev`), then
+  # runs the env-gated wsf-bridge live test (self-bootstraps AppRole/KV/tenant
+  # from the dev root token, issues + verifies a token, signs a bundle).
+  wsf-live:
+    name: WSF Live-OpenBao Gate (no-mock closure)
+    runs-on: ubuntu-latest
+    needs: [rust-check]
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free runner disk (cold workspace builds exceed the default free space)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Start OpenBao (dev mode)
+        run: |
+          docker run -d --name openbao --cap-add=IPC_LOCK -p 8200:8200 \
+            -e BAO_DEV_ROOT_TOKEN_ID=root -e BAO_DEV_LISTEN_ADDRESS=0.0.0.0:8200 \
+            openbao/openbao:latest server -dev -dev-root-token-id=root
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8200/v1/sys/seal-status | grep -q '"sealed":false'; then
+              echo "OpenBao ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "OpenBao did not unseal in time"; docker logs openbao; exit 1
+      - name: Start Moto (AWS STS mock)
+        # Moto, not LocalStack: LocalStack :latest (2026.x) now fails closed
+        # without a paid license token (exit 55). Moto is the free, purpose-built
+        # AWS mock and implements STS AssumeRole identically. See SOV-W2.
+        run: |
+          docker run -d --name moto -p 5566:5000 motoserver/moto:latest
+          for i in $(seq 1 20); do
+            if curl -sf --max-time 3 http://127.0.0.1:5566/ >/dev/null 2>&1; then
+              echo "Moto ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Moto did not become ready"; docker logs moto; exit 1
+      - name: Install pinned official gateway compatibility clients
+        run: python3 -m pip install --disable-pip-version-check openai==2.45.0 anthropic==0.116.0
+      - name: WSF/AOG live-trust tests (OpenBao bridge + Moto STS broker)
+        env:
+          WSF_OPENBAO_ADDR: http://127.0.0.1:8200
+          WSF_OPENBAO_TOKEN: root
+          WSF_AWS_ENDPOINT: http://127.0.0.1:5566
+        run: |
+          cargo test -p wsf-bridge --test live_openbao -- --nocapture
+          cargo test -p aogd --test live_openbao_anchor -- --nocapture
+          cargo test -p wsf-broker --test live_localstack -- --nocapture
+          cargo test -p wsf-broker --test live_gcp -- --nocapture
+          cargo test -p wsf-broker --test live_azure -- --nocapture
+          cargo test -p wsf-seal --test live_seal -- --nocapture
+          cargo test -p wsf-ledger --test live_ledger -- --nocapture
+          cargo test -p wsf-cache --test live_cache -- --nocapture
+          cargo test -p wsf-tenants --test live_tenants -- --nocapture
+          cargo test -p wsf-api --test live_api -- --nocapture
+          cargo test -p aog-gateway --test live_gateway -- --nocapture
+          cargo test -p aog-gateway --test kill_switch -- --nocapture
+          cargo test -p aog-gateway --test openai_surface -- --nocapture
+          cargo test -p aog-gateway --test anthropic_surface -- --nocapture
+          cargo test -p aog-gateway --test policy_modes -- --nocapture
+          cargo test -p aog-gateway --test metering -- --nocapture
+          cargo test -p aog-gateway --test official_client_compat -- --nocapture
+
+  loom-live:
+    name: Loom Phase-V Live Gates (containerized 5+5 estate)
+    runs-on: ubuntu-latest
+    needs: [rust-check]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the loom-harness image (aogd + aog-noded)
+        run: docker build -f deployment/loom-harness/Dockerfile -t loom-harness:vh4 .
+      - name: Bring up the 5-CP + 5-edge estate (Raft cluster + OpenBao)
+        run: docker compose -f deployment/loom-harness/docker-compose.yml up -d --wait
+      # Write gates first (distinct key prefixes, no cross-gate collision), then
+      # the partition gates last so a residual cut cannot perturb a later write.
+      - name: V5 — kill-switch-under-scale (bar 7)
+        run: bash deployment/loom-harness/gates/v5-kill-switch-under-scale.sh
+      - name: V8 — scale (bar 6)
+        run: bash deployment/loom-harness/gates/v8-scale.sh
+      - name: V10 — revocation-to-denial SLO (the kill number)
+        run: bash deployment/loom-harness/gates/v10-revocation-slo.sh
+      - name: V4 — split-brain safety (regression)
+        run: bash deployment/loom-harness/gates/v4-split-brain.sh
+      - name: V7 — chaos + soak (bars 4/5)
+        run: bash deployment/loom-harness/gates/v7-chaos-soak.sh
+      - name: Dump estate logs on failure
+        if: failure()
+        run: docker compose -f deployment/loom-harness/docker-compose.yml logs --no-color --tail=300
+      - name: Teardown
+        if: always()
+        run: docker compose -f deployment/loom-harness/docker-compose.yml down -v
+
+  # SOV-0.7 deferrals still open:
+  #   * tsc + vitest job -> Phase C, when the React console exists.
+  #   * SBOM (syft) generation + image signing -> D3 (signed supply chain).
+
+  python-check:
+    name: Python Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install ruff mypy pytest pytest-asyncio
+          pip install -e "mai-sdk-python[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check adapters/ mai-sdk-python/
+
+      # SHIP-12: mypy is a hard gate. SDK runs --strict; adapters honor the
+      # per-module overrides in pyproject.toml (SHIP-16 closes them out).
+      - name: Type check SDK (mypy --strict)
+        run: mypy --strict mai-sdk-python/src/
+      - name: Type check adapters (mypy with SHIP-12 overrides)
+        run: mypy adapters/
+
+      - name: Unit tests
+        run: pytest adapters/ mai-sdk-python/ -v --ignore=**/test_integration*
+
+  # CI-safe integration tests (no GPU required, runs on every PR)
+  # Uses mock adapters; tests the Rust MAI stack only.
+  integration-ci:
+    name: Integration Tests (CI, No GPU)
+    runs-on: ubuntu-latest
+    needs: [rust-check]
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free runner disk (cold workspace builds exceed the default free space)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Run mai-core integration tests
+        run: cargo test -p mai-core --test integration_lifecycle -- --nocapture
+      - name: Run mai-adapters CI integration tests
+        run: cargo test -p mai-adapters --test e2e_integration -- --nocapture
+
+  # CI-safe benchmarks (no GPU, structural validation only)
+  benchmarks-ci:
+    name: Benchmark Validation (CI, No GPU)
+    runs-on: ubuntu-latest
+    needs: [rust-check]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Run benchmark suite (simulated)
+        run: cargo test -p mai-adapters --features benchmark --test benchmarks -- --nocapture
+
+  # ─── GPU-Required Jobs (uncomment when self-hosted runner available) ────
+  #
+  # integration-gpu:
+  #   name: Integration Tests (GPU)
+  #   runs-on: [self-hosted, gpu]
+  #   needs: [rust-check]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2
+  #     - name: Verify Ollama is running
+  #       run: curl -s http://localhost:11434/api/tags || (echo "Ollama not available" && exit 1)
+  #     - name: Run Rust integration tests
+  #       run: cargo test -p mai-adapters --features integration -- --nocapture
+  #     - name: Run E2E integration tests
+  #       run: cargo test -p mai-adapters --features integration --test e2e_integration -- --nocapture
+  #     - name: Run Python integration tests
+  #       run: pytest adapters/ -m integration -v
+  #
+  # benchmarks-gpu:
+  #   name: Performance Benchmarks (GPU)
+  #   runs-on: [self-hosted, gpu]
+  #   needs: [rust-check]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.12"
+  #     - name: Run benchmarks
+  #       run: |
+  #         cargo test -p mai-adapters --features benchmark -- --nocapture 2>&1 | \
+  #           tee /tmp/bench_output.txt
+  #     - name: Store benchmark results
+  #       run: cat /tmp/bench_output.txt | python3 tests/benchmarks/bench_compare.py store
+  #     - name: Compare with previous run
+  #       run: python3 tests/benchmarks/bench_compare.py compare
+  #       continue-on-error: true
+  #     - name: Upload benchmark results
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: benchmark-results
+  #         path: tests/benchmarks/results/

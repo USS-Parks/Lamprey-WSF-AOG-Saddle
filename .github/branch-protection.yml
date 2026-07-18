@@ -1,0 +1,55 @@
+# Branch Protection as Code — SCAN-1 (Review Integrity)
+#
+# This file is the source of truth for the branch-protection rules that
+# the operator must apply to `main` in GitHub's repo settings (or via
+# `gh api PUT /repos/:owner/:repo/branches/main/protection -f ...`).
+#
+# It is NOT executed by any in-tree workflow. It exists so that
+# (a) the rules are reviewable in PRs, and (b) any drift between this
+# file and the real settings is auditable.
+
+branch: main
+
+# Require at least one CODEOWNERS-matched review on every PR.
+required_pull_request_reviews:
+  required_approving_review_count: 1
+  require_code_owner_reviews: true
+  dismiss_stale_reviews: true
+  # No bypass — even repo admins must open a PR.
+  require_last_push_approval: true
+
+# Required status checks. These are the workflow job names that must
+# be green before merge. Names match `.github/workflows/*.yml` jobs.
+required_status_checks:
+  strict: true                 # branch must be up-to-date before merge
+  contexts:
+    - "ci / fmt"
+    - "ci / clippy"
+    - "ci / cargo-test"
+    - "ci / ruff"
+    - "ci / mypy"
+    - "ci / pytest"
+    - "ship-validate / production-guard"
+    - "lamprey-validate / compliance"
+
+# Signed commits are required for the integrity lane (audit trail
+# tamper-evidence has its own PQC signature stack; this is an
+# additional layer at the VCS surface).
+required_signatures: true
+
+# Linear history simplifies the audit log of governance changes.
+required_linear_history: true
+
+# No force-pushes; no deletions.
+allow_force_pushes: false
+allow_deletions: false
+
+# Conversations must be resolved before merge so review threads
+# do not silently drop.
+required_conversation_resolution: true
+
+# Restrict who can push directly (should be empty — everything via PR).
+restrictions:
+  users: []
+  teams: []
+  apps: []

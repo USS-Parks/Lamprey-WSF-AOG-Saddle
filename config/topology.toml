@@ -1,0 +1,44 @@
+# MAI GPU Topology Configuration
+#
+# Controls how GPU interconnect topology is discovered, weighted, and
+# monitored. All weights are tunable; defaults match NVIDIA DGX-class
+# systems with NVLink and PCIe interconnects.
+
+# Edge cost formula: cost = latency_score * latency_weight + (1/bandwidth) * bw_weight
+# Higher cost = worse link for tensor-parallel workloads.
+latency_weight = 1.0
+bw_weight = 1.0
+
+# Metrics refresh interval in milliseconds.
+# Dynamic metrics (VRAM, utilization, thermal) are polled at this rate.
+# Topology (link types) is static and only read once at startup.
+refresh_interval_ms = 500
+
+# VRAM usage threshold (fraction 0.0-1.0) for anomaly flagging.
+# When used VRAM exceeds this fraction, a VramExhaustion anomaly is raised.
+vram_anomaly_threshold = 0.9
+
+# Seconds of continuous 100% utilization before flagging UtilizationStuck.
+utilization_stuck_seconds = 60
+
+# GPU temperature (Celsius) above which ThermalThrottle anomaly is raised.
+thermal_throttle_celsius = 83
+
+# Manual topology override for environments without nvidia-smi.
+# If set, this string is used instead of running nvidia-smi topo -m.
+# Useful for development machines and CI.
+# manual_topology = """
+# \tGPU0\tCPU Affinity\tNUMA Affinity
+# GPU0\t X \t0-15\t\tN/A
+# """
+
+# Per-link-type bandwidth overrides (GB/s).
+# These are used to compute edge weights. Adjust if your hardware
+# differs from the defaults (e.g., PCIe Gen5 vs Gen4).
+[link_weights]
+nv4_bandwidth_gbps = 900.0
+nv2_bandwidth_gbps = 600.0
+nv1_bandwidth_gbps = 300.0
+pxb_bandwidth_gbps = 64.0
+phb_bandwidth_gbps = 32.0
+sys_bandwidth_gbps = 16.0

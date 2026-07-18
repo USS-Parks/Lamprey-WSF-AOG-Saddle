@@ -1,0 +1,112 @@
+# MAI KV Cache Manager Configuration
+#
+# Controls GPU VRAM allocation for inference KV caches.
+# All weights are tunable at runtime via config reload.
+
+# Total VRAM budget for KV caches in bytes.
+# This should be set based on available GPU VRAM minus model weights.
+# Default: 8 GB (conservative single-GPU setup).
+# Scout (RTX 4090): ~12 GB after model weights
+# Ranger (2x H100): ~60 GB after model weights
+# PackLeader (8x H100): ~400 GB after model weights
+total_budget_bytes = 8_000_000_000
+
+# --- Eviction Scoring Weights ---
+# Higher eviction score = more likely to be evicted.
+# Tune these via the simulation framework.
+
+[eviction]
+# Weight for idle time component (time since last access).
+idle_weight = 1.0
+
+# Weight for size component (KV cache memory consumed).
+size_weight = 0.5
+
+# Weight for reuse prediction (protects frequently-used sequences).
+reuse_weight = 0.8
+
+# Reuse prediction: alpha = request frequency weight.
+reuse_alpha = 0.6
+
+# Reuse prediction: beta = recency weight.
+reuse_beta = 0.4
+
+# Maximum idle time in seconds for normalization.
+# Idle times above this are clamped to 1.0.
+max_idle_secs = 600.0
+
+# Maximum single-sequence size in bytes for normalization.
+max_sequence_bytes = 2_000_000_000
+
+# --- Anti-Thrashing Protection ---
+
+[anti_thrash]
+# Minimum time (seconds) a sequence must exist before it can be evicted.
+min_residency_secs = 30.0
+
+# Time window (seconds) for recently-evicted detection.
+# If evicted and re-admitted within this window, apply penalty.
+readmit_window_secs = 120.0
+
+# Score penalty for recently re-admitted sequences (negative = harder to evict).
+readmit_penalty = -100.0
+
+# Maximum evictions per second (prevents cascade failure).
+max_evictions_per_sec = 10
+
+# Maximum eviction history entries retained for telemetry.
+max_history = 100
+
+# --- VRAM Trigger Thresholds ---
+# Fractions of total_budget_bytes (0.0 to 1.0).
+
+[triggers]
+# Pre-compute eviction candidates when VRAM usage exceeds this.
+proactive_threshold = 0.75
+
+# Start evicting (respecting guards) when VRAM usage exceeds this.
+eviction_threshold = 0.85
+
+# Emergency eviction (bypass min residency) when VRAM usage exceeds this.
+emergency_threshold = 0.95
+
+# --- Per-Model Memory Factors ---
+# KV cache bytes per token = layers * kv_heads * head_dim * 2 * dtype_size
+# The "2" accounts for both K and V tensors.
+# dtype_size: 2 = fp16/bf16, 1 = fp8, 4 = fp32
+
+[model_factors.llama3-8b]
+layers = 32
+kv_heads = 8
+head_dim = 128
+dtype_size = 2
+# Per-token: 32 * 8 * 128 * 2 * 2 = 131,072 bytes
+# 2048 tokens = ~256 MB
+
+[model_factors.llama3-70b]
+layers = 80
+kv_heads = 8
+head_dim = 128
+dtype_size = 2
+# Per-token: 80 * 8 * 128 * 2 * 2 = 327,680 bytes
+# 2048 tokens = ~640 MB
+
+[model_factors.qwen3-70b]
+layers = 80
+kv_heads = 8
+head_dim = 128
+dtype_size = 2
+
+[model_factors.nomic-embed-text]
+layers = 12
+kv_heads = 12
+head_dim = 64
+dtype_size = 2
+# Embedding models have small KV caches (short context, small arch)
+# Per-token: 12 * 12 * 64 * 2 * 2 = 36,864 bytes
+
+[model_factors.mistral-7b]
+layers = 32
+kv_heads = 8
+head_dim = 128
+dtype_size = 2

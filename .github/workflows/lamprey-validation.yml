@@ -1,0 +1,81 @@
+name: Lamprey MAI Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Validation suite to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - quality-gates
+          - router
+          - compliance
+          - rust-workspace
+          - policy-stress
+          - audit-stress
+          - release-policy
+          - release-audit
+          - python-adapters
+          - python-ipc
+          - python-trace-sim
+          - config-parse
+          - burn-in
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  VALIDATION_SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'all' }}
+
+jobs:
+  github-hosted:
+    name: GitHub-hosted validation
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install protobuf compiler
+        run: choco install protoc --yes
+
+      - name: Install Python validation dependencies
+        run: python -m pip install --upgrade pip pytest pytest-asyncio
+
+      - name: Run Lamprey validation
+        shell: pwsh
+        run: scripts\lamprey-validation.ps1 -Suite "$env:VALIDATION_SUITE" -Output results\lamprey-validation
+
+      - name: Publish summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path results\lamprey-validation\summary.md) {
+            Get-Content results\lamprey-validation\summary.md | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lamprey-validation-${{ env.VALIDATION_SUITE }}-${{ github.run_number }}
+          path: results/lamprey-validation/

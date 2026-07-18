@@ -1,0 +1,45 @@
+# Ranger Tier Configuration
+# Multi-GPU, vLLM tensor parallel, Phi-4-mini Sentinel
+# Target hardware: 2x GPU (RTX 5090 or MI300X), 48-80GB combined VRAM
+
+[mai]
+product_tier = "ranger"
+log_level = "info"
+
+[mai.power]
+sentinel_model = "phi-4-mini"
+auto_demote_full_to_sentinel_minutes = 12
+auto_demote_sentinel_to_sleep_minutes = 120
+enable_schedule_profiles = true
+
+[mai.scheduler]
+strategy = "least-loaded"
+max_queue_depth = 100
+request_timeout_seconds = 180
+
+[mai.adapters]
+enabled = ["vllm", "ollama"]
+process_memory_limit_mb = 16384
+process_cpu_limit_percent = 90
+restart_max_attempts = 5
+restart_backoff_base_seconds = 1
+
+[mai.api]
+listen_address = "127.0.0.1"
+rest_port = 8080
+grpc_port = 50051
+enable_streaming = true
+enable_websocket = true
+
+[mai.vault]
+zfs_dataset = "vault/models"
+profile_db_path = "/var/lib/mai/profiles.db"
+audit_log_path = "/var/lib/mai/audit/"
+
+[mai.health]
+heartbeat_interval_seconds = 10
+telemetry_retention_days = 90
+
+[mai.models]
+preload = ["phi-4-mini", "qwen3-70b-q4_k_m"]
+sentinel = "phi-4-mini"

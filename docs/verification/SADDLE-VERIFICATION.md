@@ -102,3 +102,22 @@ the SAD-02 source ledger, and the initial Saddle native workspace cut.
 | Toolchain and license source fact | PASS | The pinned seed has no root toolchain or license file; no license was invented during SAD-10. |
 | Reproducibility | PASS | The materializer's verify-only pass accepted every materialized file and the deterministic evidence record. |
 | Cargo metadata | PASS | `cargo metadata --format-version=1 --no-deps --locked` resolved exactly 37 recorded packages with zero external local paths. |
+
+## SAD-11
+
+**State under test:** clean pinned seed `fedf005a30ad388ab156dc8bd693a3aa3f0702ea`,
+the SAD-02 source ledger, the verified SAD-10 native closure, and the staged
+Saddle support/documentation/evidence cut.
+
+| Evidence | Result | Notes |
+|---|---|---|
+| Seed-tree provenance | PASS | The materializer checked every SAD-11 raw path against its pinned-seed Git object, mode, byte size, and SHA-256. |
+| Support-surface materialization | PASS | 492 raw blobs: 242 remaining direct imports and 250 historical-evidence records. |
+| Ledger coverage | PASS | SAD-10 plus SAD-11 materialize all 885 `import` and `historical-evidence` ledger paths; zero missing and zero unexpected paths. |
+| Canonical README boundary | PASS | Saddle retains its existing README; the superseded source README is recorded as an adaptation, not copied. |
+| Historical-status boundary | PASS | The generated historical-status notice and six Saddle-owned boundary records make no Saddle completion, release, security, or production claim. |
+| Source whitespace preservation | PASS | `.gitattributes` is generated from the 52 verified raw blobs requiring a path-specific exception; authored paths retain normal whitespace checks. |
+| Reproducibility | PASS | Materializer write and verify-only passes both accepted the deterministic SAD-11 evidence record. |
+| `git diff --cached --check` | PASS | Final staged SAD-11 tree reported zero whitespace violations. |
+| Staged no-slop gate | PASS | Explicit Git for Windows Bash pre-commit hook reported `no-slop: clean (staged)`. |
+| Full no-slop gate | PASS | Explicit Git for Windows Bash pre-push hook reported `no-slop: clean (full)`. |

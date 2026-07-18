@@ -243,6 +243,23 @@ def write_or_verify(
     destination.write_bytes(expected)
 
 
+def write_or_verify_attribute_prefix(destination: Path, required_prefix: bytes, verify_only: bool) -> None:
+    if destination.exists() or destination.is_symlink():
+        if destination.is_symlink() or not destination.is_file():
+            raise MaterializationError(f"attribute policy collision is not a regular file: {destination}")
+        try:
+            actual = destination.read_bytes()
+        except OSError as error:
+            raise MaterializationError(f"cannot read attribute policy: {destination}: {error}") from error
+        if not actual.startswith(required_prefix):
+            raise MaterializationError(f"attribute policy is missing the SAD-10 required prefix: {destination}")
+        return
+    if verify_only:
+        raise MaterializationError(f"required attribute policy is missing: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(required_prefix)
+
+
 def safe_destination(target_root: Path, relative_path: str) -> Path:
     destination = (target_root / checked_relative_path(relative_path)).resolve()
     if not is_within(destination, target_root):
@@ -405,7 +422,7 @@ def main() -> int:
     for path in sorted(selected):
         expected = target_cargo if path == ROOT_WORKSPACE_MANIFEST else blobs[path]
         write_or_verify(safe_destination(target_root, path), expected, args.verify)
-    write_or_verify(
+    write_or_verify_attribute_prefix(
         safe_destination(target_root, TARGET_ATTRIBUTES_PATH), TARGET_ATTRIBUTES, args.verify
     )
 

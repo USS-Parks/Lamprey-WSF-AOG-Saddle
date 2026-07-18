@@ -1,0 +1,45 @@
+# Scout Tier Configuration
+# Single GPU, single adapter (Ollama), Phi-4-mini Sentinel
+# Target hardware: 1x NVIDIA RTX 5090, 32GB VRAM
+
+[mai]
+product_tier = "scout"
+log_level = "info"
+
+[mai.power]
+sentinel_model = "phi-4-mini"
+auto_demote_full_to_sentinel_minutes = 12
+auto_demote_sentinel_to_sleep_minutes = 120
+enable_schedule_profiles = false
+
+[mai.scheduler]
+strategy = "model-affinity"
+max_queue_depth = 50
+request_timeout_seconds = 120
+
+[mai.adapters]
+enabled = ["ollama"]
+process_memory_limit_mb = 8192
+process_cpu_limit_percent = 80
+restart_max_attempts = 5
+restart_backoff_base_seconds = 1
+
+[mai.api]
+listen_address = "127.0.0.1"
+rest_port = 8080
+grpc_port = 50051
+enable_streaming = true
+enable_websocket = true
+
+[mai.vault]
+zfs_dataset = "vault/models"
+profile_db_path = "/var/lib/mai/profiles.db"
+audit_log_path = "/var/lib/mai/audit/"
+
+[mai.health]
+heartbeat_interval_seconds = 10
+telemetry_retention_days = 90
+
+[mai.models]
+preload = ["phi-4-mini", "qwen3-14b-q5_k_m"]
+sentinel = "phi-4-mini"

@@ -1,0 +1,50 @@
+binary                                                        pass fail  ign
+------------------------------------------------------------------------------
+mai_adapters unit                                               28    0    0
+e2e_integration :: e2e_integration.rs                           14    0    0
+mai_admin unit                                                  29    0    0
+backup_e2e :: backup_e2e.rs                                     15    0    0
+restore_e2e :: restore_e2e.rs                                   20    0    0
+mai_agent unit                                                  65    0    0
+rag_pipeline_test :: rag_pipeline_test.rs                        4    0    0
+task_lifecycle_test :: task_lifecycle_test.rs                    7    0    0
+tool_calling_test :: tool_calling_test.rs                        5    0    0
+mai_api unit                                                   194    0    0
+mai_api unit                                                     1    0    0
+mai_ship_validate unit                                           5    0    0
+audit_wal :: audit_wal.rs                                        7    0    0
+auth_bypass_consistency :: auth_bypass_consistency.rs            3    0    0
+auth_gate_a :: auth_gate_a.rs                                    6    0    0
+compliance_integration :: compliance_integration.rs             17    0    0
+grpc_integration :: grpc_integration.rs                          4    0    0
+http_integration :: http_integration.rs                          7    0    0
+production_guard :: production_guard.rs                          6    0    0
+sealer_bootstrap :: sealer_bootstrap.rs                          7    0    0
+ship_07b_endpoints :: ship_07b_endpoints.rs                      7    0    0
+ship_11_observability :: ship_11_observability.rs               13    0    0
+ship_convergence :: ship_convergence.rs                          4    0    0
+ship_profile :: ship_profile.rs                                  3    0    0
+streaming_integration :: streaming_integration.rs                5    0    0
+system_integration :: system_integration.rs                      7    0    0
+trust_production :: trust_production.rs                         25    0    0
+vault_bootstrap :: vault_bootstrap.rs                            9    0    0
+mai_compliance unit                                            331    0    0
+compliance_demos :: compliance_demos.rs                          6    0    0
+compliance_perf :: compliance_perf.rs                            3    0    0
+phi_perf :: phi_perf.rs                                          1    0    0
+mai_core unit                                                  192    0    0
+integration_lifecycle :: integration_lifecycle.rs                4    0    0
+mai_hil unit                                                     7    0    0
+mai_router unit                                                 62    0    0
+baseline_policy_load :: baseline_policy_load.rs                  4    0    0
+latency_budget :: latency_budget.rs                              1    0    0
+mai_scheduler unit                                             324    0    0
+gate_c_session33 :: gate_c_session33.rs                          8    0    0
+topology_integration :: topology_integration.rs                 16    0    0
+mai_sdk_rs unit                                                  8    0    0
+mai_vault unit                                                  55    0    0
+mai_scheduler (doc)                                              0    0    2
+------------------------------------------------------------------------------
+TOTAL                                                         1539    0    2
+
+binary_count=44 pass=1539 fail=0 ignored=2

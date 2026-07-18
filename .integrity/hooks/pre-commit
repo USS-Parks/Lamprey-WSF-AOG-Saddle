@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# Enhanced Pre-Commit Hook: Anti-Truncation + Syntax Guard
+# Install: git config core.hooksPath .integrity/hooks
+
+set -uo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+ERRORS=0
+WARNINGS=0
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+echo "=== Pre-Commit Integrity Checks ==="
+
+for FILE in $STAGED_FILES; do
+    # Skip binary files
+    if git show ":$FILE" 2>/dev/null | file - | grep -q "binary\|executable"; then
+        continue
+    fi
+
+    STAGED_CONTENT=$(git show ":$FILE" 2>/dev/null || true)
+
+    # CHECK 1: Null bytes (compare byte counts)
+    ORIG_SZ=$(printf '%s' "$STAGED_CONTENT" | wc -c)
+    CLEAN_SZ=$(printf '%s' "$STAGED_CONTENT" | tr -d '\0' | wc -c)
+    if [ "$ORIG_SZ" -ne "$CLEAN_SZ" ]; then
+        echo -e "${RED}BLOCKED${NC} [null-bytes] $FILE"
+        ERRORS=$((ERRORS + 1))
+        continue
+    fi
+
+    # CHECK 2: Truncation detection (skip new files not yet in HEAD)
+    if git show "HEAD:$FILE" &>/dev/null; then
+        HEAD_SIZE=$(git show "HEAD:$FILE" | wc -c)
+        STAGED_SIZE=$(printf '%s' "$STAGED_CONTENT" | wc -c)
+
+        if [ "$HEAD_SIZE" -gt 100 ] && [ "$STAGED_SIZE" -gt 0 ]; then
+            RATIO=$((STAGED_SIZE * 100 / HEAD_SIZE))
+            if [ "$RATIO" -lt 50 ]; then
+                echo -e "${RED}BLOCKED${NC} [truncated] $FILE (HEAD:${HEAD_SIZE}B -> Staged:${STAGED_SIZE}B = ${RATIO}%)"
+                echo -e "  ${YELLOW}Bypass: git commit --no-verify${NC}"
+                ERRORS=$((ERRORS + 1))
+            elif [ "$RATIO" -lt 75 ]; then
+                echo -e "${YELLOW}WARN${NC} [shrunk] $FILE (${RATIO}% of original)"
+                WARNINGS=$((WARNINGS + 1))
+            fi
+        fi
+    fi
+
+    # CHECK 3: Bracket balance for code files. JSON is EXCLUDED here
+    # (J-10b): the grep -o heuristic false-positived on large scan-
+    # output JSON files whose nested-object braces, when fed through
+    # bash pipes, did not match the char-level count visible in the
+    # working tree. CHECK 4 below replaces that with a real
+    # json.load() parse for JSON files, which is what actually proves
+    # the structural integrity of those files.
+    case "$FILE" in
+        *.rs|*.py|*.js|*.ts)
+            OPEN=$(printf '%s' "$STAGED_CONTENT" | grep -o '{' | wc -l || true)
+            CLOSE=$(printf '%s' "$STAGED_CONTENT" | grep -o '}' | wc -l || true)
+            DELTA=$((OPEN - CLOSE))
+            ABS=${DELTA#-}
+            if [ "$ABS" -gt 3 ]; then
+                echo -e "${RED}BLOCKED${NC} [unbalanced-braces] $FILE ({:$OPEN }:$CLOSE delta:$DELTA)"
+                ERRORS=$((ERRORS + 1))
+            fi
+            ;;
+    esac
+
+    # CHECK 4: Python syntax check + JSON parse check.
+    case "$FILE" in
+        *.py)
+            if command -v python3 &>/dev/null; then
+                if ! printf '%s' "$STAGED_CONTENT" | python3 -c "import sys, ast; ast.parse(sys.stdin.read())" 2>/dev/null; then
+                    echo -e "${RED}BLOCKED${NC} [syntax-error] $FILE"
+                    ERRORS=$((ERRORS + 1))
+                fi
+            fi
+            ;;
+        *.json)
+            # J-10b: structural integrity for JSON is "does it parse",
+            # not "do the brace counts match" (string contents in JSON
+            # can legitimately throw off naive char counts). Skip when
+            # python is unavailable rather than false-positive.
+            if command -v python3 &>/dev/null; then
+                if ! printf '%s' "$STAGED_CONTENT" | python3 -c "import json, sys; json.load(sys.stdin)" 2>/dev/null; then
+                    echo -e "${RED}BLOCKED${NC} [malformed-json] $FILE"
+                    ERRORS=$((ERRORS + 1))
+                fi
+            fi
+            ;;
+    esac
+done
+
+# CHECK 5: cargo fmt --check on the workspace when any .rs file is staged.
+# Mirrors CI; keeps doc-only commits fast (the check is skipped entirely
+# when no Rust files changed).
+if printf '%s\n' "$STAGED_FILES" | grep -q '\.rs$'; then
+    if command -v cargo >/dev/null 2>&1; then
+        if ! cargo fmt --check >/dev/null 2>&1; then
+            echo -e "${RED}BLOCKED${NC} [unformatted] cargo fmt --check failed"
+            echo -e "  ${YELLOW}Fix: cargo fmt  (then re-stage the touched files)${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e "${YELLOW}WARN${NC} [fmt-skipped] cargo not in PATH; skipping cargo fmt --check"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+fi
+
+# CHECK 6: CANON §11 no-slop gate — block newly-added build-process artifacts
+# (Session/BF markers, dangling doc refs, bare TODO / stub confessions). Scans
+# only ADDED lines so pre-existing debt can't wedge an unrelated commit; the
+# pre-push full-tree scan is the zero-remain backstop.
+SLOP_SCAN="$(git rev-parse --show-toplevel)/.integrity/scripts/no-slop-scan.sh"
+if [ -x "$SLOP_SCAN" ]; then
+    if ! "$SLOP_SCAN" staged; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+echo ""
+echo -e "Files: $(echo "$STAGED_FILES" | wc -w) | ${RED}Blocked${NC}: ${ERRORS} | ${YELLOW}Warnings${NC}: ${WARNINGS}"
+
+if [ "$ERRORS" -gt 0 ]; then
+    echo -e "${RED}Commit rejected. Fix issues or use --no-verify to bypass.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}All checks passed.${NC}"
+exit 0
+

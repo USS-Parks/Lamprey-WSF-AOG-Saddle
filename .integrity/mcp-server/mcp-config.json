@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/mcp-config-schema.json",
+  "mcpServers": {
+    "mai-integrity": {
+      "command": "node",
+      "args": ["server.js"],
+      "cwd": ".integrity/mcp-server",
+      "description": "File integrity verification: anti-truncation, null-byte detection, atomic writes, pre-stage checks"
+    }
+  }
+}

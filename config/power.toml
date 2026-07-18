@@ -1,0 +1,12 @@
+[power]
+transition_timeout_secs = 30.0
+promotion_latency_target_secs = 8.0
+thermal_throttle_celsius = 83.0
+thermal_recovery_celsius = 75.0
+
+[power.auto_demotion]
+full_to_sentinel_secs = 720
+sentinel_to_sleep_secs = 7200
+
+[power.controller]
+poll_interval_secs = 30

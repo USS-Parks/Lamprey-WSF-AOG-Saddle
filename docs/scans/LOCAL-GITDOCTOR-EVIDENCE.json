@@ -1,0 +1,766 @@
+{
+  "mapped_scan": {
+    "category_scores": {
+      "Code Quality": {
+        "failed": 7,
+        "passed": 3,
+        "score": 30,
+        "total": 10
+      },
+      "Configuration": {
+        "failed": 2,
+        "passed": 5,
+        "score": 71,
+        "total": 7
+      },
+      "Performance": {
+        "failed": 3,
+        "passed": 3,
+        "score": 50,
+        "total": 6
+      },
+      "Project Hygiene": {
+        "failed": 1,
+        "passed": 4,
+        "score": 80,
+        "total": 5
+      },
+      "Review Integrity": {
+        "failed": 6,
+        "passed": 2,
+        "score": 25,
+        "total": 8
+      },
+      "Security": {
+        "failed": 3,
+        "passed": 13,
+        "score": 81,
+        "total": 16
+      },
+      "Testing": {
+        "failed": 2,
+        "passed": 4,
+        "score": 67,
+        "total": 6
+      }
+    },
+    "failed": 24,
+    "findings": [
+      {
+        "category": "Security",
+        "check_id": "SEC-003",
+        "description": "Interpolated SQL can create injection vulnerabilities.",
+        "evidence": [
+          "compliance-dashboard/reports.py:5 ``list_reports`` / ``get_report`` / ``delete_report`` /",
+          "mai-api/src/grpc/server.rs:68 /// the REST server in a `tokio::select!` or `tokio::join!`.",
+          "mai-api/src/handlers/compliance.rs:26 //! - `DELETE /v1/compliance/reports/{id}`       \u2014 delete (refuses protected)",
+          "mai-api/src/handlers/compliance.rs:647 /// `DELETE /v1/compliance/reports/{id}`",
+          "mai-api/src/sealer_builder.rs:3 //! Select the [`StoreSealer`] implementation for the compliance audit",
+          "mai-api/src/state.rs:78 /// SHIP-07 Slice B: selected `POST /v1/auth/exchange_token` mode.",
+          "mai-api/src/trust_builder.rs:10 //!   Disabled) \u2014 selects how `POST /v1/auth/exchange_token` mints",
+          "mai-api/src/trust_builder.rs:78 /// Selected behavior for `POST /v1/auth/exchange_token`."
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "HIGH",
+        "title": "SQL injection via string interpolation"
+      },
+      {
+        "category": "Security",
+        "check_id": "SEC-004",
+        "description": "Secrets should not be committed to source.",
+        "evidence": [
+          "compliance-dashboard/util.py:21 ENV_API_TOKEN = \"MAI_DASHBOARD_API_TOKEN\"",
+          "compliance-dashboard/util.py:22 ENV_ADMIN_TOKEN = \"MAI_DASHBOARD_ADMIN_TOKEN\"",
+          "tests/sdk_integration.py:71 api_key=\"im-this-key-does-not-exist-at-all\","
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "HIGH",
+        "title": "Hardcoded API keys and secrets"
+      },
+      {
+        "category": "Security",
+        "check_id": "SEC-016",
+        "description": "GET endpoints should not mutate server state.",
+        "evidence": [
+          "compliance-dashboard/reports.py:5 ``list_reports`` / ``get_report`` / ``delete_report`` /",
+          "mai-api/src/audit.rs:440 /// Get the writer reference for direct queries.",
+          "mai-api/src/config.rs:401 /// Get a receiver that yields updated configs when the file changes.",
+          "mai-api/src/handlers/updates.rs:28 /// GET /v1/updates/check",
+          "mai-api/src/handlers/updates.rs:97 /// GET /v1/updates/status",
+          "mai-api/src/routes.rs:70 get(handlers::models::get_model).delete(handlers::models::remove_model_handler),",
+          "mai-api/src/routes.rs:104 .route(\"/v1/updates/check\", get(handlers::updates::check_updates))",
+          "mai-api/src/routes.rs:109 .route(\"/v1/updates/status\", get(handlers::updates::update_status));"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "State-changing GET routes"
+      },
+      {
+        "category": "Performance",
+        "check_id": "PERF-002",
+        "description": "Sync Node file I/O blocks the event loop.",
+        "evidence": [
+          ".integrity/mcp-server/server.js:20 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, statSync } from \"fs\";",
+          ".integrity/mcp-server/server.js:111 const content = readFileSync(filePath);",
+          ".integrity/mcp-server/server.js:120 const content = readFileSync(filePath, \"utf-8\");",
+          ".integrity/mcp-server/server.js:138 const content = readFileSync(filePath, \"utf-8\");",
+          ".integrity/mcp-server/server.js:154 const currentContent = readFileSync(filePath, \"utf-8\");",
+          ".integrity/mcp-server/server.js:177 if (!existsSync(filePath)) {",
+          ".integrity/mcp-server/server.js:202 const content = readFileSync(filePath, \"utf-8\");",
+          ".integrity/mcp-server/server.js:217 const stat = statSync(filePath);"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "LOW",
+        "title": "Synchronous file I/O blocking event loop"
+      },
+      {
+        "category": "Performance",
+        "check_id": "PERF-003",
+        "description": "Database calls inside loops can create N+1 behavior.",
+        "evidence": [
+          "compliance-dashboard/tests/test_dashboard.py:22 sys.path.insert(0, str(path))",
+          "mai-adapters/src/manager.rs:83 processes.insert(adapter.name.clone(), Mutex::new(process));",
+          "mai-adapters/src/process.rs:446 full_obj.insert(k.clone(), v.clone());",
+          "mai-agent/src/context.rs:261 session.segments.insert(insert_pos, segment);",
+          "mai-agent/src/rag.rs:299 payload.insert(",
+          "mai-agent/src/rag.rs:303 payload.insert(",
+          "mai-api/src/auth.rs:686 assert!(keys.insert(generate_api_key()));",
+          "mai-api/src/production_guard.rs:245 seen.insert(c.id.as_str()),"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "N+1 database query pattern"
+      },
+      {
+        "category": "Performance",
+        "check_id": "PERF-004",
+        "description": "Repeated JSON serialization in loops adds CPU overhead.",
+        "evidence": [
+          "adapters/exllamav2/client.py:116 chunk_data = json.loads(payload)",
+          "adapters/llamacpp/client.py:121 chunk_data = json.loads(payload)",
+          "adapters/ollama/client.py:147 chunk_data = json.loads(line_str)",
+          "adapters/runner.py:130 request = json.loads(line_str)",
+          "adapters/sglang/client.py:120 chunk_data = json.loads(payload)",
+          "adapters/tensorrt/client.py:117 chunk_data = json.loads(payload)",
+          "adapters/tgi/client.py:115 chunk_data = json.loads(payload)",
+          "adapters/vllm/client.py:126 chunk_data = json.loads(payload)"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "LOW",
+        "title": "JSON.parse/stringify inside loops"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-001",
+        "description": "Large files may need focused modules.",
+        "evidence": [
+          ".integrity/mcp-server/server.js 372 lines",
+          "adapters/base.py 448 lines",
+          "adapters/exllamav2/tests/test_adapter.py 373 lines",
+          "adapters/llamacpp/tests/test_adapter.py 368 lines",
+          "adapters/ollama/adapter.py 316 lines",
+          "adapters/ollama/client.py 301 lines",
+          "adapters/runner.py 385 lines",
+          "adapters/tests/test_ipc_protocol.py 358 lines",
+          "adapters/vllm/adapter.py 332 lines",
+          "apps/openbao-trust-demo/main.py 369 lines",
+          "compliance-dashboard/app.py 456 lines",
+          "compliance-dashboard/tests/test_dashboard.py 447 lines"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "God files over 300 lines"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-003",
+        "description": "Empty bodies and placeholder panics create false confidence.",
+        "evidence": [
+          ".integrity/mcp-server/server.js:10 * - pre_stage_check: Full verification pass before git add",
+          ".integrity/mcp-server/server.js:35 description: \"Check a single file for corruption: null bytes, truncation vs HEAD, bracket balance, syntax validity. Returns structured pass/fail report.\",",
+          ".integrity/mcp-server/server.js:112 return content.includes(0) ? { pass: false, detail: \"Null bytes detected\" } : { pass: true };",
+          ".integrity/mcp-server/server.js:114 return { pass: false, detail: `Read error: ${e.message}` };",
+          ".integrity/mcp-server/server.js:125 return { pass: false, detail: `Brace imbalance: { ${open} } ${close} delta ${open - close}` };",
+          ".integrity/mcp-server/server.js:128 return { pass: true, warning: `Minor brace mismatch: delta ${open - close}` };",
+          ".integrity/mcp-server/server.js:130 return { pass: true };",
+          ".integrity/mcp-server/server.js:132 return { pass: false, detail: `Read error: ${e.message}` };"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "HIGH",
+        "title": "Empty function bodies"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-004",
+        "description": "TODO/FIXME/HACK/BUG markers indicate unfinished work.",
+        "evidence": [
+          "docs/ADAPTER-COMPLETION-MATRIX.md:66 | **BUG** | `test_adapter.py:99` asserts `embed()` returns `[0.1, 0.2, 0.3]` but `embed()` returns an `Embedding` dataclass \u2014 should assert on `.vector` or `.in",
+          "docs/ADAPTER-COMPLETION-MATRIX.md:115 | **BUG** | `test_adapter.py:84\u201385` asserts `healthy=True` but the adapter returns degraded status when the engine is not ready \u2014 the test contradicts the adapt",
+          "docs/dougherty/JOHN-REMEDIATION-PLAN.md:54 | 1 | email + QUA-004 | \"Extensive TODO placeholders and incomplete implementations throughout\" | QUA-004 + Code Smell `Placeholder Implementation` HIGH | Mixed",
+          "docs/dougherty/JOHN-REMEDIATION-ROSTER.md:1156 - Adapter stubs: `wc -l` of adapters/*/adapter.py + `grep -c NotImplementedError` = 0 for each. **Important nuance:** John's \"extensive TODO placeholders\" claim",
+          "docs/JOHN-REMEDIATION-PLAN.md:54 | 1 | email + QUA-004 | \"Extensive TODO placeholders and incomplete implementations throughout\" | QUA-004 + Code Smell `Placeholder Implementation` HIGH | Mixed",
+          "docs/JOHN-REMEDIATION-ROSTER.md:1219 - Adapter stubs: `wc -l` of adapters/*/adapter.py + `grep -c NotImplementedError` = 0 for each. **Important nuance:** John's \"extensive TODO placeholders\" claim",
+          "docs/KNOWN-ISSUES.md:126 | `TODO` | 3 files (`mai-adapters/src/manager.rs:586`, `mai-core/src/models/usb.rs:161`, `mai-scheduler/src/default.rs:394/399/402`) | Three carry session-pinne",
+          "docs/KNOWN-ISSUES.md:127 | `FIXME`, `unimplemented!` | 0 in src | clean. |",
+          "docs/RC1-TESTER-FEEDBACK.md:324 > Extensive use of TODO placeholders and incomplete implementations",
+          "docs/SHIP-HARDENING-PLAN.md:1458 TODO",
+          "docs/SHIP-HARDENING-PLAN.md:1459 FIXME",
+          "mai-adapters/src/manager.rs:586 // TODO: Track in-flight request count per adapter."
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "Unresolved TODO/FIXME markers"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-007",
+        "description": "Mixing .then and async/await can reduce maintainability.",
+        "evidence": [
+          "mai-core/src/models/lifecycle.rs mixes async/await and .then()"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "LOW",
+        "title": "Mixed async patterns"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-008",
+        "description": "Many exports can indicate an unfocused module.",
+        "evidence": [
+          "mai-adapters/src/bridge.rs 27 exports",
+          "mai-agent/src/context.rs 19 exports",
+          "mai-agent/src/rag.rs 15 exports",
+          "mai-agent/src/stt.rs 15 exports",
+          "mai-agent/src/tasks.rs 23 exports",
+          "mai-agent/src/tools.rs 22 exports",
+          "mai-agent/src/types.rs 39 exports",
+          "mai-api/src/auth.rs 22 exports"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "LOW",
+        "title": "Modules with 15+ exports"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-009",
+        "description": "4+ indentation levels make code harder to read.",
+        "evidence": [
+          ".integrity/mcp-server/server.js:70 ~4 indentation levels",
+          "adapters/base.py:222 ~4 indentation levels",
+          "adapters/exllamav2/adapter.py:70 ~4 indentation levels",
+          "adapters/exllamav2/client.py:72 ~4 indentation levels",
+          "adapters/llamacpp/adapter.py:71 ~4 indentation levels",
+          "adapters/llamacpp/client.py:75 ~4 indentation levels",
+          "adapters/llamacpp/tests/test_integration_live.py:205 ~4 indentation levels",
+          "adapters/ollama/adapter.py:89 ~4 indentation levels"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "Deeply nested code"
+      },
+      {
+        "category": "Code Quality",
+        "check_id": "QUA-010",
+        "description": "Promise chains without catch can hide rejections.",
+        "evidence": [
+          "mai-agent/src/context.rs:532 .then(sa.added_at.cmp(&sb.added_at))",
+          "mai-core/src/models/lifecycle.rs:112 backend: summary.capabilities.chat.then(|| \"auto\".to_string()),"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": ".then() without .catch()"
+      },
+      {
+        "category": "Configuration",
+        "check_id": "CFG-001",
+        "description": "Hardcoded localhost URLs may not deploy cleanly.",
+        "evidence": [
+          ".env.example:57 # OLLAMA_HOST=http://127.0.0.1:11434",
+          ".env.example:61 # LLAMACPP_HOST=http://127.0.0.1:8081",
+          ".github/workflows/ci.yml:126 #       run: curl -s http://localhost:11434/api/tags || (echo \"Ollama not available\" && exit 1)",
+          ".github/workflows/gpu-release.yml:122 if ! curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then",
+          "adapters/llamacpp/tests/test_integration_live.py:13 export LLAMACPP_HOST=http://127.0.0.1:8081",
+          "adapters/llamacpp/tests/test_integration_live.py:88 \"set LLAMACPP_HOST=http://127.0.0.1:8081 to enable live tests.\",",
+          "adapters/ollama/tests/test_adapter.py:52 assert config.base_url == \"http://127.0.0.1:11434\"",
+          "adapters/ollama/tests/test_integration_live.py:9 export OLLAMA_HOST=http://127.0.0.1:11434"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "LOW",
+        "title": "Hardcoded localhost URLs in source"
+      },
+      {
+        "category": "Configuration",
+        "check_id": "CFG-002",
+        "description": "Docker images should pin tags or digests.",
+        "evidence": [
+          "Dockerfile:58 FROM rust:1.88-slim-bookworm AS rust-builder",
+          "Dockerfile:121 FROM python:3.12-slim-bookworm AS python-builder",
+          "Dockerfile:142 FROM gcr.io/distroless/cc-debian12:nonroot AS runtime"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "Unpinned Docker base images"
+      },
+      {
+        "category": "Testing",
+        "check_id": "TST-004",
+        "description": "Tests should assert outcomes.",
+        "evidence": [
+          "adapters/tests/_streaming_server.py no assertion signal",
+          "tests/benchmarks/bench_compare.py no assertion signal"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "HIGH",
+        "title": "Test files without assertions"
+      },
+      {
+        "category": "Testing",
+        "check_id": "TST-006",
+        "description": "Excessive mocks may test mocks rather than behavior.",
+        "evidence": [
+          "adapters/exllamav2/tests/test_adapter.py 27 mock signals",
+          "adapters/llamacpp/tests/test_adapter.py 27 mock signals",
+          "adapters/ollama/tests/test_adapter.py 31 mock signals",
+          "adapters/sglang/tests/test_adapter.py 10 mock signals",
+          "adapters/tensorrt/tests/test_adapter.py 9 mock signals",
+          "adapters/vllm/tests/test_adapter.py 11 mock signals"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "MEDIUM",
+        "title": "Mock-everything antipattern"
+      },
+      {
+        "category": "Review Integrity",
+        "check_id": "REV-001",
+        "description": "Docstrings and API comments should not mask unimplemented behavior.",
+        "evidence": [
+          "mai-sdk-rs/src/lib.rs:768 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:782 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:787 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:792 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:807 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:812 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:819 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:824 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:829 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:836 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:851 documented item ends in placeholder macro",
+          "mai-sdk-rs/src/lib.rs:882 documented item ends in placeholder macro"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "review-integrity",
+        "severity": "HIGH",
+        "title": "Documented surface with placeholder body"
+      },
+      {
+        "category": "Review Integrity",
+        "check_id": "REV-002",
+        "description": "Backend integration surfaces should not retain multiple stub or placeholder signals.",
+        "evidence": [
+          "mai-sdk-python/src/mai/client.py 2 placeholder signals in adapter/backend/client surface"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "review-integrity",
+        "severity": "HIGH",
+        "title": "Adapter/client placeholder density"
+      },
+      {
+        "category": "Review Integrity",
+        "check_id": "REV-003",
+        "description": "Completion/security claims need implementation evidence when placeholders remain nearby.",
+        "evidence": [
+          "compliance-dashboard/tests/test_dashboard.py contains completion/security claims and placeholder language",
+          "docs/acquisition/ARCHITECTURE.md contains completion/security claims and placeholder language",
+          "docs/ADAPTER-COMPLETION-MATRIX.md contains completion/security claims and placeholder language",
+          "docs/COGENT-DEPLOYMENT-ROADMAP.md contains completion/security claims and placeholder language",
+          "docs/dougherty/JOHN-REMEDIATION-PLAN.md contains completion/security claims and placeholder language",
+          "docs/dougherty/JOHN-REMEDIATION-ROSTER.md contains completion/security claims and placeholder language",
+          "docs/HANDOFF.md contains completion/security claims and placeholder language",
+          "docs/HUMAN-TOUCH-AUDIT.md contains completion/security claims and placeholder language",
+          "docs/INDEX.md contains completion/security claims and placeholder language",
+          "docs/JOHN-REMEDIATION-PLAN.md contains completion/security claims and placeholder language",
+          "docs/JOHN-REMEDIATION-ROSTER.md contains completion/security claims and placeholder language",
+          "docs/KNOWN-ISSUES.md contains completion/security claims and placeholder language"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "review-integrity",
+        "severity": "MEDIUM",
+        "title": "Polished completion claims beside placeholders"
+      },
+      {
+        "category": "Review Integrity",
+        "check_id": "REV-005",
+        "description": "Broad errors that pass, return None, or default silently hide broken paths.",
+        "evidence": [
+          "mai-adapters/src/config.rs:99 .unwrap_or_default();",
+          "mai-adapters/src/config.rs:252 let content = std::fs::read_to_string(check_file).unwrap_or_default();",
+          "mai-agent/src/context.rs:666 .unwrap_or_default()",
+          "mai-agent/src/rag.rs:377 .unwrap_or_default()",
+          "mai-agent/src/rag.rs:389 .unwrap_or_default()",
+          "mai-agent/src/tasks.rs:112 available_tools: request.available_tools.unwrap_or_default(),",
+          "mai-agent/src/tools.rs:436 .unwrap_or_default()",
+          "mai-api/src/grpc/audit.rs:104 model: e.model_name.clone().unwrap_or_default(),",
+          "mai-api/src/grpc/inference.rs:113 .unwrap_or_default()",
+          "mai-api/src/grpc/inference.rs:236 .unwrap_or_default()",
+          "mai-api/src/handlers/compliance.rs:394 entry: serde_json::to_value(&row.entry).unwrap_or_default(),",
+          "mai-api/src/handlers/inference.rs:135 .unwrap_or_default()"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "review-integrity",
+        "severity": "HIGH",
+        "title": "Silent broad error handling"
+      },
+      {
+        "category": "Review Integrity",
+        "check_id": "REV-006",
+        "description": "Assertions should validate outcomes rather than merely confirming execution.",
+        "evidence": [
+          "apps/compliance-routed/tests/test_integration.py:21 assert spec is not None",
+          "apps/compliance-routed/tests/test_smoke.py:19 assert spec is not None",
+          "apps/local-secure-inference/tests/test_integration.py:22 assert spec is not None",
+          "apps/local-secure-inference/tests/test_smoke.py:24 assert spec is not None",
+          "apps/openbao-trust-demo/tests/test_integration.py:23 assert spec is not None",
+          "apps/openbao-trust-demo/tests/test_smoke.py:23 assert spec is not None",
+          "apps/operator/tests/test_integration.py:22 assert spec is not None",
+          "apps/operator/tests/test_smoke.py:22 assert spec is not None",
+          "apps/rag-reference/tests/test_integration.py:22 assert spec is not None",
+          "apps/rag-reference/tests/test_smoke.py:23 assert spec is not None",
+          "apps/tribal-sovereignty/tests/test_integration.py:22 assert spec is not None",
+          "apps/tribal-sovereignty/tests/test_smoke.py:19 assert spec is not None"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "review-integrity",
+        "severity": "MEDIUM",
+        "title": "Thin smoke assertions"
+      },
+      {
+        "category": "Review Integrity",
+        "check_id": "REV-007",
+        "description": "Repeated blocks across modules suggest copy-forward implementation that deserves review.",
+        "evidence": [
+          "adapters/exllamav2/adapter.py:9 duplicates 6-line block in adapters/llamacpp/adapter.py:10",
+          "adapters/exllamav2/adapter.py:10 duplicates 6-line block in adapters/llamacpp/adapter.py:11",
+          "adapters/exllamav2/adapter.py:11 duplicates 6-line block in adapters/llamacpp/adapter.py:12",
+          "adapters/exllamav2/adapter.py:82 duplicates 6-line block in adapters/llamacpp/adapter.py:81",
+          "adapters/exllamav2/adapter.py:92 duplicates 6-line block in adapters/llamacpp/adapter.py:91",
+          "adapters/exllamav2/adapter.py:93 duplicates 6-line block in adapters/llamacpp/adapter.py:92",
+          "adapters/exllamav2/adapter.py:163 duplicates 6-line block in adapters/llamacpp/adapter.py:98",
+          "adapters/exllamav2/adapter.py:164 duplicates 6-line block in adapters/llamacpp/adapter.py:99"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "review-integrity",
+        "severity": "LOW",
+        "title": "Duplicated boilerplate blocks"
+      },
+      {
+        "category": "Project Hygiene",
+        "check_id": "PRJ-004",
+        "description": "Lock files make installs deterministic.",
+        "evidence": [
+          "Missing tracked lock file(s): Cargo.lock"
+        ],
+        "evidence_layer": "mapped-check",
+        "origin": "john-finding",
+        "severity": "HIGH",
+        "title": "Missing dependency lock file"
+      }
+    ],
+    "overall_score": 59,
+    "passed": 34,
+    "root": "C:\\Users\\17076\\Documents\\Claude\\Island Mountain Mighty Eel OS\\mai",
+    "total_checks": 58
+  },
+  "probes": [
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-m",
+        "pytest",
+        "tools/local_gitdoctor_tests",
+        "-q"
+      ],
+      "exit_code": 0,
+      "layer": "adversarial-fixture",
+      "output_tail": "....                                                                     [100%]\n4 passed in 0.36s",
+      "probe_id": "ADV-001",
+      "reason": "",
+      "status": "PASS",
+      "title": "Known-bad and known-clean scanner fixtures",
+      "toolchain": "scanner"
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.46s",
+      "probe_id": "IND-RS-001",
+      "reason": "",
+      "status": "PASS",
+      "title": "cargo check workspace",
+      "toolchain": "Rust"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--",
+        "-D",
+        "warnings",
+        "-A",
+        "clippy::pedantic"
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.80s",
+      "probe_id": "IND-RS-002",
+      "reason": "",
+      "status": "PASS",
+      "title": "cargo clippy workspace",
+      "toolchain": "Rust"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "_pipeline_test-6010627a34f4d738.exe)\n     Running tests\\task_lifecycle_test.rs (target\\debug\\deps\\task_lifecycle_test-875c45471aa65546.exe)\n     Running tests\\tool_calling_test.rs (target\\debug\\deps\\tool_calling_test-12ce0b9f367b7538.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_api-9b4beda981db52e2.exe)\n     Running unittests src\\main.rs (target\\debug\\deps\\mai_api-d7ca5cb2dc168d19.exe)\n     Running unittests src\\bin\\mai_ship_validate.rs (target\\debug\\deps\\mai_ship_validate-b82f5a34f094b258.exe)\n     Running tests\\audit_wal.rs (target\\debug\\deps\\audit_wal-d7c215707b11e239.exe)\n     Running tests\\auth_bypass_consistency.rs (target\\debug\\deps\\auth_bypass_consistency-51e824e2cbcf1395.exe)\n     Running tests\\auth_gate_a.rs (target\\debug\\deps\\auth_gate_a-bf27e036c5890f19.exe)\n     Running tests\\compliance_integration.rs (target\\debug\\deps\\compliance_integration-6b035356379cd1ff.exe)\n     Running tests\\grpc_integration.rs (target\\debug\\deps\\grpc_integration-9ffa632423d2ee85.exe)\n     Running tests\\http_integration.rs (target\\debug\\deps\\http_integration-1ef8ed1c0e3864de.exe)\n     Running tests\\production_guard.rs (target\\debug\\deps\\production_guard-403a429c41fbbfab.exe)\n     Running tests\\sealer_bootstrap.rs (target\\debug\\deps\\sealer_bootstrap-e39cdd31014e3455.exe)\n     Running tests\\ship_07b_endpoints.rs (target\\debug\\deps\\ship_07b_endpoints-e9f05c0c85c9caab.exe)\n     Running tests\\ship_11_observability.rs (target\\debug\\deps\\ship_11_observability-52b4cf4fd3825c07.exe)\n     Running tests\\ship_convergence.rs (target\\debug\\deps\\ship_convergence-7495bda579093444.exe)\n     Running tests\\ship_profile.rs (target\\debug\\deps\\ship_profile-3a717207a4d07197.exe)\n     Running tests\\streaming_integration.rs (target\\debug\\deps\\streaming_integration-90bb88d809d7cabe.exe)\n     Running tests\\system_integration.rs (target\\debug\\deps\\system_integration-0fd03a66cd68b2fc.exe)\n     Running tests\\trust_production.rs (target\\debug\\deps\\trust_production-4a1005b233250029.exe)\n     Running tests\\vault_bootstrap.rs (target\\debug\\deps\\vault_bootstrap-2c1bc51ce836936f.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_compliance-6b37f67c59a43cf9.exe)\n     Running tests\\compliance_demos.rs (target\\debug\\deps\\compliance_demos-6077891ff57c9cf5.exe)\n     Running tests\\compliance_perf.rs (target\\debug\\deps\\compliance_perf-591ad891fd863dc1.exe)\n     Running tests\\phi_perf.rs (target\\debug\\deps\\phi_perf-9e80e56a42f54a16.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_core-24dab66f41fd198d.exe)\n     Running tests\\integration_lifecycle.rs (target\\debug\\deps\\integration_lifecycle-108e823103ccca70.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_hil-441ca364441dae53.exe)\n     Running tests\\integration.rs (target\\debug\\deps\\integration-976dddba66ea4867.exe)\n     Running unittests src\\main.rs (target\\debug\\deps\\mai_pkg_builder-bb898097cd33c19b.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_router-758b447630fe0560.exe)\n     Running tests\\baseline_policy_load.rs (target\\debug\\deps\\baseline_policy_load-b470826a057a927d.exe)\n     Running tests\\latency_budget.rs (target\\debug\\deps\\latency_budget-46769399d6f3f6a0.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_scheduler-a62a3a77de511e95.exe)\n     Running tests\\gate_c_session33.rs (target\\debug\\deps\\gate_c_session33-18169a2423c8a64a.exe)\n     Running tests\\topology_integration.rs (target\\debug\\deps\\topology_integration-de26ca9010e05a98.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_sdk_rs-fc74994f0d6bf62e.exe)\n     Running unittests src\\lib.rs (target\\debug\\deps\\mai_vault-09eb82cc15d715b6.exe)\n     Running unittests src\\main.rs (target\\debug\\deps\\rule_tester-c405b667d1612033.exe)\n   Doc-tests mai_adapters\n   Doc-tests mai_admin\n   Doc-tests mai_agent\n   Doc-tests mai_api\n   Doc-tests mai_compliance\n   Doc-tests mai_core\n   Doc-tests mai_hil\n   Doc-tests mai_router\n   Doc-tests mai_scheduler\n   Doc-tests mai_sdk_rs\n   Doc-tests mai_vault",
+      "probe_id": "IND-RS-003",
+      "reason": "",
+      "status": "PASS",
+      "title": "cargo test workspace",
+      "toolchain": "Rust"
+    },
+    {
+      "command": [
+        "cargo",
+        "audit"
+      ],
+      "exit_code": 1,
+      "layer": "independent-implementation",
+      "output_tail": "Fetching advisory database from `https://github.com/RustSec/advisory-db.git`\nerror: couldn't fetch advisory database: git operation failed: failed to prepare fetch\nCaused by:\n  -> An IO error occurred when talking to the server\n  -> error sending request for url (https://github.com/RustSec/advisory-db.git/info/refs?service=git-upload-pack)",
+      "probe_id": "IND-RS-004",
+      "reason": "",
+      "status": "FAIL",
+      "title": "cargo audit",
+      "toolchain": "Rust"
+    },
+    {
+      "command": [
+        "cargo",
+        "deny",
+        "check"
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "321 \u2502 \u2502 wit-bindgen 0.57.1 registry+https://github.com/rust-lang/crates.io-index\n    \u2502 \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518 lock entries\n    \u2502  \n    \u251c wit-bindgen v0.51.0\n      \u2514\u2500\u2500 wasip3 v0.4.0+wasi-0.3.0-rc-2026-01-06\n          \u2514\u2500\u2500 getrandom v0.4.2\n              \u251c\u2500\u2500 tempfile v3.27.0\n              \u2502   \u251c\u2500\u2500 (dev) mai-admin v0.1.0\n              \u2502   \u251c\u2500\u2500 (dev) mai-api v0.1.0\n              \u2502   \u251c\u2500\u2500 (dev) mai-vault v0.1.0\n              \u2502   \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n              \u2502   \u251c\u2500\u2500 native-tls v0.2.18\n              \u2502   \u2502   \u251c\u2500\u2500 hyper-tls v0.6.0\n              \u2502   \u2502   \u2502   \u2514\u2500\u2500 reqwest v0.12.28\n              \u2502   \u2502   \u2502       \u2514\u2500\u2500 (dev) mai-api v0.1.0 (*)\n              \u2502   \u2502   \u251c\u2500\u2500 reqwest v0.12.28 (*)\n              \u2502   \u2502   \u2514\u2500\u2500 tokio-native-tls v0.3.1\n              \u2502   \u2502       \u251c\u2500\u2500 hyper-tls v0.6.0 (*)\n              \u2502   \u2502       \u2514\u2500\u2500 reqwest v0.12.28 (*)\n              \u2502   \u2514\u2500\u2500 prost-build v0.13.5\n              \u2502       \u251c\u2500\u2500 (build) mai-api v0.1.0 (*)\n              \u2502       \u2514\u2500\u2500 tonic-build v0.12.3\n              \u2502           \u2514\u2500\u2500 (build) mai-api v0.1.0 (*)\n              \u2514\u2500\u2500 uuid v1.23.1\n                  \u251c\u2500\u2500 mai-adapters v0.1.0\n                  \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n                  \u251c\u2500\u2500 mai-agent v0.1.0\n                  \u251c\u2500\u2500 mai-api v0.1.0 (*)\n                  \u251c\u2500\u2500 mai-core v0.1.0\n                  \u2502   \u251c\u2500\u2500 mai-adapters v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-agent v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-api v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-compliance v0.1.0\n                  \u2502   \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-pkg-builder v0.1.0\n                  \u2502   \u251c\u2500\u2500 mai-scheduler v0.1.0\n                  \u2502   \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n                  \u2502   \u2514\u2500\u2500 mai-vault v0.1.0 (*)\n                  \u251c\u2500\u2500 mai-scheduler v0.1.0 (*)\n                  \u2514\u2500\u2500 mai-vault v0.1.0 (*)\n    \u251c wit-bindgen v0.57.1\n      \u2514\u2500\u2500 wasip2 v1.0.3+wasi-0.2.9\n          \u251c\u2500\u2500 getrandom v0.3.4\n          \u2502   \u2514\u2500\u2500 rand_core v0.9.5\n          \u2502       \u251c\u2500\u2500 rand v0.9.4\n          \u2502       \u2502   \u2514\u2500\u2500 tungstenite v0.29.0\n          \u2502       \u2502       \u2514\u2500\u2500 tokio-tungstenite v0.29.0\n          \u2502       \u2502           \u2514\u2500\u2500 axum v0.8.9\n          \u2502       \u2502               \u251c\u2500\u2500 axum-extra v0.10.3\n          \u2502       \u2502               \u2502   \u2514\u2500\u2500 mai-api v0.1.0\n          \u2502       \u2502               \u2514\u2500\u2500 mai-api v0.1.0 (*)\n          \u2502       \u2514\u2500\u2500 rand_chacha v0.9.0\n          \u2502           \u2514\u2500\u2500 rand v0.9.4 (*)\n          \u2514\u2500\u2500 getrandom v0.4.2\n              \u251c\u2500\u2500 tempfile v3.27.0\n              \u2502   \u251c\u2500\u2500 (dev) mai-admin v0.1.0\n              \u2502   \u251c\u2500\u2500 (dev) mai-api v0.1.0 (*)\n              \u2502   \u251c\u2500\u2500 (dev) mai-vault v0.1.0\n              \u2502   \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n              \u2502   \u251c\u2500\u2500 native-tls v0.2.18\n              \u2502   \u2502   \u251c\u2500\u2500 hyper-tls v0.6.0\n              \u2502   \u2502   \u2502   \u2514\u2500\u2500 reqwest v0.12.28\n              \u2502   \u2502   \u2502       \u2514\u2500\u2500 (dev) mai-api v0.1.0 (*)\n              \u2502   \u2502   \u251c\u2500\u2500 reqwest v0.12.28 (*)\n              \u2502   \u2502   \u2514\u2500\u2500 tokio-native-tls v0.3.1\n              \u2502   \u2502       \u251c\u2500\u2500 hyper-tls v0.6.0 (*)\n              \u2502   \u2502       \u2514\u2500\u2500 reqwest v0.12.28 (*)\n              \u2502   \u2514\u2500\u2500 prost-build v0.13.5\n              \u2502       \u251c\u2500\u2500 (build) mai-api v0.1.0 (*)\n              \u2502       \u2514\u2500\u2500 tonic-build v0.12.3\n              \u2502           \u2514\u2500\u2500 (build) mai-api v0.1.0 (*)\n              \u2514\u2500\u2500 uuid v1.23.1\n                  \u251c\u2500\u2500 mai-adapters v0.1.0\n                  \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n                  \u251c\u2500\u2500 mai-agent v0.1.0\n                  \u251c\u2500\u2500 mai-api v0.1.0 (*)\n                  \u251c\u2500\u2500 mai-core v0.1.0\n                  \u2502   \u251c\u2500\u2500 mai-adapters v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-agent v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-api v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-compliance v0.1.0\n                  \u2502   \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n                  \u2502   \u251c\u2500\u2500 mai-pkg-builder v0.1.0\n                  \u2502   \u251c\u2500\u2500 mai-scheduler v0.1.0\n                  \u2502   \u2502   \u2514\u2500\u2500 mai-api v0.1.0 (*)\n                  \u2502   \u2514\u2500\u2500 mai-vault v0.1.0 (*)\n                  \u251c\u2500\u2500 mai-scheduler v0.1.0 (*)\n                  \u2514\u2500\u2500 mai-vault v0.1.0 (*)",
+      "probe_id": "IND-RS-005",
+      "reason": "",
+      "status": "PASS",
+      "title": "cargo deny",
+      "toolchain": "Rust"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-m",
+        "pytest",
+        "-q",
+        "--ignore=target",
+        "--ignore=results"
+      ],
+      "exit_code": 1,
+      "layer": "independent-implementation",
+      "output_tail": "l\\\\Temp\\\\mai-e2e-3k0odkvh'\ntopdown = False\nonerror = <function _rmtree_unsafe.<locals>.onerror at 0x00000292596794E0>\nfollowlinks = <object object at 0x0000029252C10210>\n\n>   ???\nE   PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\17076\\\\AppData\\\\Local\\\\Temp\\\\mai-e2e-3k0odkvh'\n\n<frozen os>:377: PermissionError\n\nDuring handling of the above exception, another exception occurred:\n\n    @pytest.fixture(scope=\"module\")\n    def running_server() -> Iterator[int]:\n        \"\"\"Spawn mai-api in a temp working directory; yield the REST port.\"\"\"\n        binary = _find_binary()\n        if binary is None:\n            pytest.skip(\n                \"mai-api binary not built. Run \"\n                \"`cargo build --release -p mai-api` before invoking this e2e.\",\n            )\n    \n        rest_port = _free_port()\n        grpc_port = _free_port()\n    \n>       with tempfile.TemporaryDirectory(prefix=\"mai-e2e-\") as tmpdir:\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests\\e2e\\test_compliance_smoke.py:125: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\nC:\\Python314\\Lib\\tempfile.py:971: in __exit__\n    self.cleanup()\nC:\\Python314\\Lib\\tempfile.py:975: in cleanup\n    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)\nC:\\Python314\\Lib\\tempfile.py:955: in _rmtree\n    _shutil.rmtree(name, onexc=onexc)\nC:\\Python314\\Lib\\shutil.py:852: in rmtree\n    _rmtree_impl(path, dir_fd, onexc)\nC:\\Python314\\Lib\\shutil.py:689: in _rmtree_unsafe\n    for dirpath, dirnames, filenames in results:\n                                        ^^^^^^^\n<frozen os>:413: in walk\n    ???\nC:\\Python314\\Lib\\shutil.py:687: in onerror\n    onexc(os.scandir, err.filename, err)\nC:\\Python314\\Lib\\tempfile.py:927: in onexc\n    _resetperms(path)\nC:\\Python314\\Lib\\tempfile.py:283: in _resetperms\n    _dont_follow_symlinks(_os.chmod, path, 0o700)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\n\nfunc = <built-in function chmod>\npath = 'C:\\\\Users\\\\17076\\\\AppData\\\\Local\\\\Temp\\\\mai-e2e-3k0odkvh', args = (448,)\n\n    def _dont_follow_symlinks(func, path, *args):\n        # Pass follow_symlinks=False, unless not supported on this platform.\n        if func in _os.supports_follow_symlinks:\n>           func(path, *args, follow_symlinks=False)\nE           PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\17076\\\\AppData\\\\Local\\\\Temp\\\\mai-e2e-3k0odkvh'\n\nC:\\Python314\\Lib\\tempfile.py:272: PermissionError\n=========================== short test summary info ===========================\nERROR apps/compliance-routed/tests/test_smoke.py::test_deny_blocks_dispatch_with_exit_code\nERROR apps/local-secure-inference/tests/test_smoke.py::test_deny_blocks_dispatch_with_exit_code\nERROR apps/openbao-trust-demo/tests/test_smoke.py::test_deny_blocks_dispatch_with_exit_code\nERROR apps/operator/tests/test_smoke.py::test_run_returns_5_on_core_panel_failure\nERROR apps/rag-reference/tests/test_smoke.py::test_deny_blocks_dispatch_with_exit_code\nERROR apps/tribal-sovereignty/tests/test_smoke.py::test_deny_blocks_dispatch_with_exit_code\nERROR mai-sdk-python/tests/test_config.py::test_from_file_reads_toml - Permis...\nERROR mai-sdk-python/tests/test_config.py::test_load_precedence_overrides_beat_env_beat_file\nERROR mai-sdk-python/tests/test_config.py::test_load_handles_missing_file_gracefully\nERROR tests/e2e/test_compliance_smoke.py::test_health_live_returns_status_live\nERROR tests/e2e/test_compliance_smoke.py::test_compliance_status_exposes_audit_integrity\nERROR tests/e2e/test_compliance_smoke.py::test_audit_chain_verifies_on_fresh_boot\nERROR tests/e2e/test_compliance_smoke.py::test_apply_healthcare_template_succeeds\nERROR tests/e2e/test_compliance_smoke.py::test_audit_chain_still_verifies_after_template_apply\nERROR tests/e2e/test_compliance_smoke.py::test_generate_hipaa_report_synchronously\nERROR tests/e2e/test_compliance_smoke.py::test_guest_blocked_from_view_audit_routes\n669 passed, 35 skipped, 16 errors in 98.44s (0:01:38)",
+      "probe_id": "IND-PY-001",
+      "reason": "",
+      "status": "FAIL",
+      "title": "pytest repository tests",
+      "toolchain": "Python"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "All checks passed!",
+      "probe_id": "IND-PY-002",
+      "reason": "",
+      "status": "PASS",
+      "title": "ruff lint",
+      "toolchain": "Python"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-m",
+        "bandit",
+        "-r",
+        ".",
+        "-f",
+        "json",
+        "-c",
+        "pyproject.toml"
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "NCE.HIGH\": 0,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 0,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 110,\n      \"nosec\": 0,\n      \"skipped_tests\": 0\n    },\n    \".\\\\tools\\\\trace-tools\\\\reconstruct.py\": {\n      \"CONFIDENCE.HIGH\": 0,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 0,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 89,\n      \"nosec\": 0,\n      \"skipped_tests\": 0\n    },\n    \".\\\\tools\\\\trace-tools\\\\tests\\\\test_trace_tools.py\": {\n      \"CONFIDENCE.HIGH\": 0,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 0,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 132,\n      \"nosec\": 0,\n      \"skipped_tests\": 0\n    },\n    \"_totals\": {\n      \"CONFIDENCE.HIGH\": 0,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 0,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 20908,\n      \"nosec\": 0,\n      \"skipped_tests\": 2\n    }\n  },\n  \"results\": []\n}\n[main]\tINFO\tprofile include tests: None\n[main]\tINFO\tprofile exclude tests: B310,B311,B603,B404,B607,B105,B101\n[main]\tINFO\tcli include tests: None\n[main]\tINFO\tcli exclude tests: None\n[manager]\tWARNING\tTest in comment: HTML is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: template is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: every is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: var is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: passes is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: through is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: html is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: escape is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: not is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: a is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: SQL is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: statement is not a test name or id, ignoring\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:273\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:273\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:274\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:274\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:277\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:278\n[tester]\tWARNING\tnosec encountered (B608), but no failed test on file .\\compliance-dashboard\\app.py:285\n[manager]\tWARNING\tTest in comment: test is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: asserts is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: ABSENCE is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: of is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: 0 is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: 0 is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: 0 is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: 0 is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: never is not a test name or id, ignoring\n[manager]\tWARNING\tTest in comment: binds is not a test name or id, ignoring\n[tester]\tWARNING\tnosec encountered (B104), but no failed test on file .\\tools\\packaging_tests\\test_systemd_units.py:167",
+      "probe_id": "IND-PY-003",
+      "reason": "",
+      "status": "PASS",
+      "title": "bandit security scan",
+      "toolchain": "Python"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-m",
+        "pip_audit"
+      ],
+      "exit_code": 1,
+      "layer": "independent-implementation",
+      "output_tail": "Traceback (most recent call last):\n  File \"C:\\Python314\\Lib\\pathlib\\__init__.py\", line 1011, in mkdir\n    os.mkdir(self, mode)\n    ~~~~~~~~^^^^^^^^^^^^\nFileNotFoundError: [WinError 3] The system cannot find the path specified: 'C:\\\\Users\\\\17076\\\\AppData\\\\Local\\\\pip-audit\\\\Cache'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\pip_audit\\__main__.py\", line 8, in <module>\n    audit()\n    ~~~~~^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\pip_audit\\_cli.py\", line 452, in audit\n    service = PyPIService(cache_dir=args.cache_dir, timeout=args.timeout)\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\pip_audit\\_service\\pypi.py\", line 48, in __init__\n    self.session = caching_session(cache_dir)\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\pip_audit\\_cache.py\", line 177, in caching_session\n    cache=_SafeFileCache(_get_cache_dir(cache_dir, use_pip=use_pip)),\n                         ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\pip_audit\\_cache.py\", line 66, in _get_cache_dir\n    pip_audit_cache_dir = user_cache_path(\"pip-audit\", appauthor=False, ensure_exists=True)\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\platformdirs\\__init__.py\", line 587, in user_cache_path\n    ).user_cache_path\n      ^^^^^^^^^^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\platformdirs\\api.py\", line 268, in user_cache_path\n    return Path(self.user_cache_dir)\n                ^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\platformdirs\\windows.py\", line 70, in user_cache_dir\n    return self._append_parts(path, opinion_value=\"Cache\")\n           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\platformdirs\\windows.py\", line 47, in _append_parts\n    self._optionally_create_directory(path)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\platformdirs\\api.py\", line 115, in _optionally_create_directory\n    Path(path).mkdir(parents=True, exist_ok=True)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Python314\\Lib\\pathlib\\__init__.py\", line 1015, in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Python314\\Lib\\pathlib\\__init__.py\", line 1011, in mkdir\n    os.mkdir(self, mode)\n    ~~~~~~~~^^^^^^^^^^^^\nPermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\17076\\\\AppData\\\\Local\\\\pip-audit'",
+      "probe_id": "IND-PY-004",
+      "reason": "",
+      "status": "FAIL",
+      "title": "pip-audit dependency scan",
+      "toolchain": "Python"
+    },
+    {
+      "command": [
+        "gitleaks",
+        "detect",
+        "--source",
+        ".",
+        "--no-git",
+        "--redact"
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "\u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-build-tracker-7dz7qclx\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-build-tracker-_wi612zk\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-build-tracker-m6wvtt9n\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-download-e8bmr1d4\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-ephem-wheel-cache-2yhzscxa\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-ephem-wheel-cache-ry7mnmaf\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-install-ucd_uonf\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-install-ufr8h_4z\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-target-8gvxh5gv\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-target-dpfunxd7\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-unpack-0pp2z_0t\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-unpack-ge900ct0\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp\\\\pip-unpack-qchl1vb4\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp-2\\\\pip-build-tracker-ximcch1q\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp-2\\\\pip-ephem-wheel-cache-xi14qljh\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp-2\\\\pip-install-lrqjdqbm\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp-2\\\\pip-target-i0rc2si2\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pip-temp-2\\\\pip-unpack-let45qwl\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pytest\\\\pytest-of-17076\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\".tmp\\\\pytest-basetemp\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\"results\\\\lamprey-validation-pressure\\\\tmp\\\\pytest\"\n\u001b[90m2:12PM\u001b[0m \u001b[33mWRN\u001b[0m \u001b[1mskipping directory\u001b[0m \u001b[36merror=\u001b[0m\u001b[31m\u001b[1m\"permission denied\"\u001b[0m\u001b[0m \u001b[36mpath=\u001b[0m\"results\\\\pytest-sdk-smoke\\\\run\"\n\u001b[90m2:12PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9942868 bytes (9.94 MB) in 664ms\u001b[0m\n\u001b[90m2:12PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m",
+      "probe_id": "IND-SEC-001",
+      "reason": "",
+      "status": "PASS",
+      "title": "gitleaks secret scan",
+      "toolchain": "Secrets"
+    },
+    {
+      "command": [
+        "detect-secrets",
+        "scan",
+        "--all-files"
+      ],
+      "exit_code": 1,
+      "layer": "independent-implementation",
+      "output_tail": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"C:\\Users\\17076\\.cargo\\bin\\detect-secrets.exe\\__main__.py\", line 5, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\detect_secrets\\main.py\", line 30, in main\n    handle_scan_action(args)\n    ~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\detect_secrets\\main.py\", line 70, in handle_scan_action\n    secrets = baseline.create(\n        *args.path,\n    ...<2 lines>...\n        num_processors=args.num_cores,\n    )\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\detect_secrets\\core\\baseline.py\", line 34, in create\n    secrets.scan_files(\n    ~~~~~~~~~~~~~~~~~~^\n        *get_files_to_scan(*paths, should_scan_all_files=should_scan_all_files, root=root),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        **kwargs,\n        ^^^^^^^^^\n    )\n    ^\n  File \"C:\\Users\\17076\\AppData\\Roaming\\Python\\Python314\\site-packages\\detect_secrets\\core\\secrets_collection.py\", line 63, in scan_files\n    with mp.Pool(\n         ~~~~~~~^\n        processes=num_processors,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^\n        initializer=configure_settings_from_baseline,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        initargs=(child_process_settings,),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ) as p:\n    ^\n  File \"C:\\Python314\\Lib\\multiprocessing\\context.py\", line 119, in Pool\n    return Pool(processes, initializer, initargs, maxtasksperchild,\n                context=self.get_context())\n  File \"C:\\Python314\\Lib\\multiprocessing\\pool.py\", line 191, in __init__\n    self._setup_queues()\n    ~~~~~~~~~~~~~~~~~~^^\n  File \"C:\\Python314\\Lib\\multiprocessing\\pool.py\", line 346, in _setup_queues\n    self._inqueue = self._ctx.SimpleQueue()\n                    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"C:\\Python314\\Lib\\multiprocessing\\context.py\", line 113, in SimpleQueue\n    return SimpleQueue(ctx=self.get_context())\n  File \"C:\\Python314\\Lib\\multiprocessing\\queues.py\", line 360, in __init__\n    self._reader, self._writer = connection.Pipe(duplex=False)\n                                 ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^\n  File \"C:\\Python314\\Lib\\multiprocessing\\connection.py\", line 614, in Pipe\n    h2 = _winapi.CreateFile(\n        address, access, 0, _winapi.NULL, _winapi.OPEN_EXISTING,\n        _winapi.FILE_FLAG_OVERLAPPED, _winapi.NULL\n        )\nPermissionError: [WinError 5] Access is denied",
+      "probe_id": "IND-SEC-002",
+      "reason": "",
+      "status": "FAIL",
+      "title": "detect-secrets scan",
+      "toolchain": "Secrets"
+    },
+    {
+      "command": [
+        "hadolint",
+        "Dockerfile"
+      ],
+      "exit_code": null,
+      "layer": "independent-implementation",
+      "output_tail": "",
+      "probe_id": "IND-DOC-001",
+      "reason": "tool not installed: hadolint",
+      "status": "SKIPPED",
+      "title": "hadolint Dockerfile scan",
+      "toolchain": "Docker"
+    },
+    {
+      "command": [
+        "tokei",
+        "."
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n Language              Files        Lines         Code     Comments       Blanks\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n Dockerfile                1          170           52          102           16\n JSON                      2         1278         1278            0            0\n PowerShell                7         1174          959           91          124\n Protocol Buffers          2         1171          745          256          170\n Python                  171        26251        21226          719         4306\n Shell                    13         1901         1428          249          224\n Plain Text               17          271            0          269            2\n TOML                     57         2977         1605          987          385\n YAML                      2         1660         1539           53           68\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Markdown                133        31126            0        23601         7525\n |- BASH                  38          417          353           42           22\n |- HCL                    1            6            5            1            0\n |- JSON                  24          907          902            0            5\n |- PowerShell            21          164          117           27           20\n |- Python                13          244          199           14           31\n |- Rust                   8          272          206           56           10\n |- TOML                   7          203          177            2           24\n |- YAML                   1            2            2            0            0\n (Total)                            33341         1961        23743         7637\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Rust                    247        81788        68954         3261         9573\n |- Markdown             246        11234            8        10162         1064\n (Total)                            93022        68962        13423        10637\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n Total                   652       163216        99755        39892        23569\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+      "probe_id": "IND-CPLX-001",
+      "reason": "",
+      "status": "PASS",
+      "title": "tokei line-count scan",
+      "toolchain": "Complexity"
+    },
+    {
+      "command": [
+        "scc",
+        "."
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nLanguage            Files       Lines    Blanks  Comments       Code Complexity\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nRust                  247      93,061     9,552    14,479     69,030      3,337\nPython                171      26,251     3,206     2,544     20,501      1,699\nMarkdown              139      33,945     7,768         0     26,177          0\nTOML                   59       3,090       398     1,063      1,629          6\nPlain Text             17         271         2         0        269          0\nShell                  17       2,190       271       287      1,632        230\nPowershell              7       1,174       110        83        981        173\nYAML                    6       2,307       137       155      2,015          0\nSystemd                 5         197        19         8        170          0\nJSON                    4       1,303         0         0      1,303          0\nBASH                    2         174        30        20        124         30\nProtocol Buffe\u2026         2       1,171       170       256        745          0\nDocker ignore           1          57        11        15         31          0\nDockerfile              1         170        16       102         52          5\nJavaScript              1         372        32        26        314         25\nLicense                 1          11         1         0         10          0\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nTotal                 680     165,744    21,723    19,038    124,983      5,505\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nEstimated Cost to Develop (organic) $4,298,221\nEstimated Schedule Effort (organic) 23.94 months\nEstimated People Required (organic) 15.95\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nProcessed 6302604 bytes, 6.303 megabytes (SI)\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+      "probe_id": "IND-CPLX-002",
+      "reason": "",
+      "status": "PASS",
+      "title": "scc complexity scan",
+      "toolchain": "Complexity"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-m",
+        "radon",
+        "cc",
+        "."
+      ],
+      "exit_code": 0,
+      "layer": "independent-implementation",
+      "output_tail": "_init__ - A\n    M 140:4 BatchAwareKvManager.__init__ - A\n    M 149:4 BatchAwareKvManager.set_active_batch - A\ntools\\simulator\\metrics.py\n    M 65:4 MetricsCollector.report - B\n    M 54:4 MetricsCollector.percentile - A\n    C 7:0 MetricsCollector - A\n    M 8:4 MetricsCollector.__init__ - A\n    M 21:4 MetricsCollector.record_latency - A\n    M 24:4 MetricsCollector.record_token_rate - A\n    M 27:4 MetricsCollector.record_batch - A\n    M 30:4 MetricsCollector.record_queue_depth - A\n    M 33:4 MetricsCollector.record_eviction - A\n    M 36:4 MetricsCollector.record_admission - A\n    M 39:4 MetricsCollector.record_request - A\n    M 42:4 MetricsCollector.record_completion - A\n    M 45:4 MetricsCollector.record_thrash - A\n    M 48:4 MetricsCollector.record_kv_utilization - A\n    M 51:4 MetricsCollector.record_violation - A\n    M 86:4 MetricsCollector.report_json - A\n    M 89:4 MetricsCollector.reset - A\ntools\\simulator\\replay_compare.py\n    F 45:0 run_trace_replay - B\n    F 136:0 compare_policies_on_trace - A\n    F 163:0 main - A\ntools\\simulator\\report.py\n    F 39:0 render_markdown - B\n    F 118:0 main - A\n    F 33:0 _fmt - A\n    F 84:0 find_best - A\n    F 114:0 render_json - A\ntools\\simulator\\trace_generator.py\n    F 29:0 load_trace - A\n    C 45:0 TraceGenerator - A\n    M 72:4 TraceGenerator._compute_offsets - A\n    M 92:4 TraceGenerator.generate - A\n    F 23:0 _parse_timestamp - A\n    M 59:4 TraceGenerator.__init__ - A\n    M 102:4 TraceGenerator._materialize - A\n    M 82:4 TraceGenerator.remaining - A\n    M 86:4 TraceGenerator.total - A\n    M 89:4 TraceGenerator.reset - A\ntools\\simulator\\workload.py\n    M 26:4 ChatWorkload.generate - B\n    C 11:0 ChatWorkload - A\n    C 80:0 MixedWorkload - A\n    C 53:0 BatchWorkload - A\n    M 81:4 MixedWorkload.__init__ - A\n    M 88:4 MixedWorkload.generate - A\n    C 7:0 WorkloadGenerator - A\n    M 63:4 BatchWorkload.generate - A\n    M 8:4 WorkloadGenerator.generate - A\n    M 12:4 ChatWorkload.__init__ - A\n    M 54:4 BatchWorkload.__init__ - A\ntools\\simulator\\tests\\test_replay_compare.py\n    F 59:0 test_run_trace_replay_emits_required_fields - B\n    F 120:0 test_report_markdown_includes_all_policies - A\n    F 138:0 test_report_find_best_picks_max_throughput_and_min_p95 - A\n    F 83:0 test_run_trace_replay_is_deterministic - A\n    F 112:0 test_compare_policies_runs_all_when_unspecified - A\n    F 20:0 _load - A\n    F 39:0 _write_trace - A\n    F 131:0 test_report_markdown_handles_empty_comparison - A\n    F 35:0 _iso - A\n    F 103:0 test_run_trace_replay_rejects_unknown_policy - A\ntools\\simulator\\tests\\test_simulator_extensions.py\n    F 61:0 test_trace_generator_preserves_inter_request_gaps - B\n    F 113:0 test_hybrid_emits_spike_during_window - B\n    F 87:0 test_trace_generator_marks_continuations - A\n    F 101:0 test_trace_generator_time_scale_compresses_timeline - A\n    F 16:0 _load - A\n    F 34:0 _write_trace - A\n    F 55:0 _to_iso - A\n    F 140:0 test_spike_config_validates - A\ntools\\smoke\\smoke_client.py\n    F 43:0 run - B\n    F 28:0 get - A\n    F 89:0 main - A\ntools\\trace-tools\\anonymize.py\n    F 46:0 anonymize_event - A\n    F 64:0 process - A\n    F 85:0 main - A\n    F 58:0 validate - A\n    F 39:0 rehash - A\ntools\\trace-tools\\calibrate.py\n    F 54:0 calibrate - B\n    F 40:0 load_sessions - A\n    F 106:0 main - A\n    F 89:0 clamp - A\n    F 93:0 render_toml - A\ntools\\trace-tools\\reconstruct.py\n    F 31:0 reconstruct - C\n    F 69:0 process - A\n    F 24:0 parse_timestamp - A\n    F 89:0 main - A\ntools\\trace-tools\\tests\\test_trace_tools.py\n    F 113:0 test_reconstruct_groups_events_by_session_and_computes_gaps - B\n    F 71:0 test_anonymize_strips_disallowed_fields_and_rehashes - B\n    F 146:0 test_calibrate_increases_alpha_with_repeat_traffic - B\n    F 159:0 test_calibrate_render_toml_includes_coefficients - A\n    F 139:0 test_calibrate_returns_defaults_for_empty_input - A\n    F 20:0 _load - A\n    F 34:0 _event - A\n    F 64:0 _write_ndjson - A\n    F 105:0 test_anonymize_validate_rejects_extra_fields - A",
+      "probe_id": "IND-CPLX-003",
+      "reason": "",
+      "status": "PASS",
+      "title": "radon complexity scan",
+      "toolchain": "Complexity"
+    }
+  ],
+  "root": "C:\\Users\\17076\\Documents\\Claude\\Island Mountain Mighty Eel OS\\mai",
+  "summary": {
+    "adversarial-fixture": {
+      "FAIL": 0,
+      "PASS": 1,
+      "SKIPPED": 0,
+      "TOTAL": 1
+    },
+    "independent-implementation": {
+      "FAIL": 4,
+      "PASS": 10,
+      "SKIPPED": 1,
+      "TOTAL": 15
+    }
+  }
+}

@@ -1,0 +1,76 @@
+# MAI Compliance Audit Log Configuration
+#
+# Loaded by the audit log at startup. Deserialises into
+# mai_compliance::{ChainConfig, AuditStoreConfig, TriggersConfig}.
+# The shipped defaults satisfy HIPAA 7-year retention and the §A.9
+# metadata-only sync acceptance criteria.
+#
+# Operators should treat this file as code: review, version, and roll
+# out the same way as ear.toml / itar.toml / ocap.toml / hipaa.toml /
+# policy.toml.
+
+# -- Hash chain manager --
+[chain]
+# Sign every Nth entry with the audit ML-DSA-87 key. 0 disables
+# periodic signing entirely (chain still links via previous_hash,
+# but no signatures are recorded). The default of 1000 lands a
+# signature per ~1000 decisions which is the same cadence external
+# auditors are used to from PKCS#7 timestamp services.
+signature_interval = 1000
+
+# Identifier of the public key the verifier uses to validate
+# periodic signatures. This MUST be a key id present in the
+# MlDsaBundleVerifier anchor registry (same registry as bundle
+# verification). Leave empty for unsigned bring-up; set before
+# enabling signature_interval > 0 in production.
+signing_key_id = ""
+
+# -- Audit store --
+[store]
+# Maximum entries kept in the in-memory tail. Once exceeded, the
+# oldest entries are evicted (still present in the WAL if one is
+# configured). 8192 keeps the tail under ~16 MiB for typical
+# entries and is large enough for a day of audit history on a
+# moderately busy appliance.
+max_in_memory = 8192
+
+# Optional append-only JSON-lines WAL. Each appended entry is
+# serialised as one line; when a StoreSealer is wired, the line is
+# sealed before write so the on-disk WAL is encrypted at rest.
+# Leave commented out to keep the audit log in memory only (suitable
+# for tests and bring-up; not for production).
+#
+#   wal_path = "/var/lib/mai/audit/audit.wal.jsonl"
+
+# Retention horizon in days. Documented for operators — the store
+# itself does not prune beyond max_in_memory; an out-of-band
+# pruning / archival job is expected. The shipped default of 7 *
+# 365 days (2555) is the HIPAA minimum.
+retention_days = 2555
+
+# Cap on the number of correlation events queued while the
+# cloud audit destination is unreachable. Oldest events are dropped
+# once the cap is reached; drop count is surfaced on
+# AuditStore::drop_counters() for dashboards.
+offline_queue_capacity = 4096
+
+# -- Triggers --
+[triggers]
+# Sliding-window length in seconds. Default 300 = 5 minutes,
+# matching the violation-threshold acceptance criterion (
+# "any policy violation detected within 1 second" — the detection
+# latency is per-event; the *escalation* threshold uses this window).
+window_secs = 300
+
+# Number of denied / quarantined decisions within window_secs that
+# escalates to Warn severity. Twice the threshold escalates to
+# Critical.
+violation_threshold = 5
+
+# Storage usage watermark percentages. The audit log emits a Warn
+# escalation when the in-memory tail crosses warn_percent of
+# max_in_memory, and a Critical escalation when it crosses
+# critical_percent. Each watermark fires once per transition (no
+# spam).
+warn_percent = 80
+critical_percent = 90

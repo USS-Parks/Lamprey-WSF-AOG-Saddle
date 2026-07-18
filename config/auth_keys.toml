@@ -1,0 +1,35 @@
+# MAI API Key Authentication Configuration
+#
+# Place this file at config/auth_keys.toml relative to the MAI server
+# working directory. The server loads it on startup.
+#
+# To generate a new key:
+#   1. Start the server without this file (first-boot mode)
+#   2. Copy the printed admin key and hash from stdout
+#   3. Add the hash below as a [[keys]] entry
+#   4. Restart the server
+#
+# Keys are stored as SHA-256 hashes (hex). The raw key is never written
+# to disk by the server. Only the hash is needed for validation.
+
+[settings]
+# Allow X-IM-Profile header for internal service-to-service calls.
+# Set to true ONLY for dev/test. In production, require API keys.
+allow_internal_profile_header = false
+
+# Per-key rate limit (requests per minute). Default: 60.
+rate_limit_per_minute = 60
+
+# Example key entry. Replace the hash with your actual key hash.
+# [[keys]]
+# hash = "e3b0c44298fc1c149afbf4c8996fb924..."
+# profile_id = "admin"
+# role = "admin"
+# display_name = "System Admin"
+
+# Family profile example:
+# [[keys]]
+# hash = "a1b2c3d4..."
+# profile_id = "family-dad"
+# role = "adult"
+# display_name = "Dad"

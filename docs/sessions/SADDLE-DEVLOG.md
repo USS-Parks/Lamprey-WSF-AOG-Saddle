@@ -321,3 +321,50 @@ scan, and full target no-slop hook all passed. Target `main` advanced from
 ### Next prompt
 
 `SAD-11 — Import contracts, console/client, deployments, CI, tools, docs, and evidence`.
+
+---
+
+## SAD-11 — Import contracts, console/client, deployments, CI, tools, docs, and evidence
+
+**Status:** PASS — implementation checkpoint pending publication with SAD-10.
+
+### Work completed
+
+- Materialized the remaining ledger-selected support surface from the immutable
+  seed: 242 direct raw imports plus 250 historical-evidence blobs.
+- Retained Saddle's canonical `README.md`; the superseded source README is
+  recorded as an identity-preserving adaptation rather than copied into Saddle.
+- Added six concise Saddle-owned boundary/status records. They preserve imported
+  link integrity without claiming source completion, release, security, or
+  production status for Saddle.
+- Added a deterministic support-surface materializer. It verifies every raw
+  blob before writing and derives a `.gitattributes` exception only for the 52
+  source-authentic raw paths whose preserved bytes need it.
+- Updated the SAD-10 materializer so its base attribute rule is verified as a
+  required prefix; SAD-11 can therefore extend the policy without weakening or
+  overwriting the independently verified native-workspace cut.
+
+### Gate
+
+- seed binding and support-surface materializer write plus verify-only runs — PASS;
+- 885 ledger-selected `import` and `historical-evidence` paths materialized
+  across SAD-10 and SAD-11, with zero missing or unexpected paths — PASS;
+- canonical README and historical-status guards prevent a Saddle completion
+  claim from source history — PASS;
+- staged `git diff --check`, explicit staged pre-commit, and full pre-push
+  no-slop gates — PASS.
+
+### Evidence
+
+- `test-evidence/saddle/SAD-11/support-surface-import-proof.json`, SHA-256
+  `ba4ca9202b36a7812eef36e25145748a8011b5a693e73bc5b834842805189f87`;
+- `tools/materialize_saddle_support_surfaces.py`, SHA-256
+  `6a1fb6e07dba99a9e6bced7275edf808a8f94b13097bc4be96f495066adeae2b`;
+- current `.gitattributes` source-preservation policy, SHA-256
+  `697d7b4b8984b24a739a53c9d8437c2a941eb3be6a1bec62657dd0fe49084573`; and
+- SAD-10 compatibility verifier `tools/materialize_saddle_workspace.py`,
+  SHA-256 `2c54d33336f5f26ff8286b35aa51d07eca3c9726e7d3eff0c9ad92b89b6a62d2`.
+
+### Next prompt
+
+`SAD-12 — Remove parent-repository coupling`.

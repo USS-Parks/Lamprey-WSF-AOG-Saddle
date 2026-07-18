@@ -1,0 +1,114 @@
+# MAI OCAP Compliance Configuration
+#
+# Deserialises into mai_compliance::{TribalDataDetectorConfig,
+# TreatyDetectorConfig, CulturalFilterConfig, OcapConfig} at server
+# startup. Operators tune confidence thresholds, role / consent
+# defaults, authorised-profile sets, and the treaty registry to match
+# their tribal-government deployment's governance protocol.
+#
+# OCAP (Ownership, Control, Access, Possession) is the First Nations
+# data governance framework. Tribal communities own their data,
+# control its use, control access, and must physically possess it.
+# Treat this configuration as code that the tribal authority approves
+# before deployment — not as default boilerplate.
+
+# -- Tribal data detection --
+[tribal_data]
+# Lowest confidence to surface in the detector report.
+#   "possible"  — most coverage (more false positives)
+#   "probable"  — drops weak keyword hits (recommended default)
+#   "explicit"  — only structurally unambiguous markers
+min_confidence = "possible"
+
+# When all hits are Possible-only, promote the report to "tribal data
+# detected" anyway. False by default: false positives in OCAP are a
+# respect violation, not an availability cost.
+possible_implies_tribal = false
+
+# -- Treaty-aware routing --
+# Treaties are recognised by the in-crate baseline (numbered, year-
+# prefixed, named); routing rules per treaty come from this registry.
+# Each entry below maps a TreatyId (canonical id from the recogniser)
+# to a routing obligation. Tribal authorities are expected to review
+# this list before deployment.
+[treaty.registry."treaty_7"]
+treaty = "treaty_7"
+requires_local_processing = true
+requires_consent_review = true
+note = "Treaty 7 (1877) — Blackfoot Confederacy; example only, replace with deployment-reviewed text."
+
+[treaty.registry."treaty_jay"]
+treaty = "treaty_jay"
+requires_local_processing = true
+requires_consent_review = true
+note = "Jay Treaty (1794) — border-crossing rights; consult tribal authority on data routing."
+
+[treaty.registry."treaty_fort_laramie"]
+treaty = "treaty_fort_laramie"
+requires_local_processing = true
+requires_consent_review = true
+note = "Fort Laramie Treaty (1851 / 1868) — Lakota Sioux and signatories; review locally."
+
+# -- Cultural sensitivity filter --
+[cultural]
+# Lowest confidence to surface from the cultural-sensitivity filter.
+# Defaults to "probable": the consequence of a hit here is to defer
+# human-reviewable content, so over-firing burdens reviewers without
+# improving compliance.
+min_confidence = "probable"
+
+# -- OCAP policy engine --
+[ocap]
+# Promote Possible-only tribal data hits to actionable when set true.
+# Mirrors the tribal_data toggle above; kept separate so deployments
+# can tune detection and policy independently.
+possible_implies_tribal = false
+
+# When true (default), the evaluator refuses to evaluate when the
+# claim's TrustContext does not contain ComplianceScope::Ocap. Turn
+# this off only for bring-up; production deployments must require
+# scope alignment so tenant compliance posture is honoured.
+require_ocap_scope = true
+
+# Minimum access role required to receive elder-attributed material.
+# One of: "public", "member", "council", "elder", "cultural_authority".
+min_role_for_elder_material = "elder"
+
+# Minimum access role required to receive sacred / ceremonial content.
+# Defaults to "council" — this is conservative; some communities will
+# require "elder" or "cultural_authority". Confirm with the tribal
+# authority before deployment.
+min_role_for_sacred_material = "council"
+
+# Authorised access-role set for processing tribal data at all (the
+# "Control" principle). Empty set = any role with the per-signal
+# minimum may proceed (most permissive). Lock this down per
+# deployment.
+#
+# Example for a tribal-government health deployment that only allows
+# Council and Elder roles to process tribal data:
+#   authorised_profiles = ["council", "elder", "cultural_authority"]
+authorised_profiles = []
+
+# -- Tribal vocabulary extensions --
+# Each entry adds a regex to the detector at startup. The shipped
+# baseline references *categories* of tribal vocabulary (treaty,
+# reserve, clan, sacred site, ceremony, traditional knowledge, elder
+# attribution, nation reference); deployments add the specific names
+# their tribal authority has approved for detection.
+#
+# Confidence values: "possible", "probable", "explicit".
+# Kinds: "treaty_reference", "reserve", "clan", "sacred_site",
+#        "ceremony", "traditional_knowledge", "elder_attribution",
+#        "nation_reference".
+#
+# Example:
+#   [[tribal_data.patterns]]
+#   kind = "clan"
+#   confidence = "explicit"
+#   rule_id = "local.clan.wolf"
+#   pattern = "(?i)\\bWolf\\s+Clan\\b"
+#
+# (No defaults shipped — every tribal nation's vocabulary is its own
+# governance call. Add deployment-specific terms below as the tribal
+# authority approves them.)
