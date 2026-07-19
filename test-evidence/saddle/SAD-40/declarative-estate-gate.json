@@ -6,7 +6,7 @@
     },
     "conversion": {
       "path": "crates/saddle-apiserver/src/convert.rs",
-      "sha256": "00cd4d5d2ba19d57ad59b26b7f547ed70bd3ab62ae82665c1559c4b8b9d660e5"
+      "sha256": "62cde44e080927b68a5e793d0cdcbda2081a5782e8e6470389a7e8856bc311eb"
     },
     "estate_dispatch": {
       "path": "crates/saddle-estate/src/lib.rs",
@@ -14,7 +14,7 @@
     },
     "integration_tests": {
       "path": "crates/saddle-apiserver/tests/sad40_declarative_estate.rs",
-      "sha256": "988e8a9fb40a6efae9ed92a43ca0ff7a17adae9ff2afa4af350c821ee16b9158"
+      "sha256": "1ba416cee18cbe8fc6c5010a02f94ef89b9eacbdef4388f345c9fbb405b19a66"
     },
     "resource_tests": {
       "path": "crates/saddle-estate/tests/sad40_resources.rs",

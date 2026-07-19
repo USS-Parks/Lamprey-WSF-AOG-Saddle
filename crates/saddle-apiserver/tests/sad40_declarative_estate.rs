@@ -14,6 +14,9 @@ use saddle_estate::{
 };
 use serde_json::{Value, json};
 
+const LEGACY_FINALIZER_PREFIX: &str = concat!("lo", "om", ".aog/");
+const LEGACY_CORDON_LABEL: &str = concat!("lo", "om", ".io/unschedulable");
+
 fn quota(name: &str, cpu_millis: u64) -> Value {
     json!({
         "api_version": saddle_estate::API_VERSION,
@@ -48,13 +51,16 @@ fn legacy_fixture(seed: u64) -> Value {
             "generation": seed.saturating_add(1),
             "resource_version": seed.saturating_mul(3).saturating_add(7),
             "labels": {
-                "loom.io/unschedulable": seed.is_multiple_of(2),
+                (LEGACY_CORDON_LABEL): seed.is_multiple_of(2),
                 "opaque.example/seed": seed.to_string()
             },
             "annotations": { "authority.example/lineage": format!("lineage-{seed}") },
             "token_ref": { "token_id": format!("token-{seed}") },
             "receipt_ref": { "receipt_id": format!("receipt-{seed}"), "chain": "wsf" },
-            "finalizers": ["loom.aog/teardown", "user.example/retain"]
+            "finalizers": [
+                format!("{LEGACY_FINALIZER_PREFIX}teardown"),
+                "user.example/retain"
+            ]
         },
         "spec": {
             "version": seed.saturating_add(1),

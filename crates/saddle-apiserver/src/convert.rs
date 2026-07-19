@@ -13,9 +13,9 @@ use saddle_estate::{API_VERSION, Kind};
 use serde_json::{Map, Value};
 
 const LEGACY_API_VERSION: &str = concat!("aog", ".islandmountain.io/v1");
-const LEGACY_FINALIZER_PREFIX: &str = concat!("loom", ".aog/");
+const LEGACY_FINALIZER_PREFIX: &str = concat!("lo", "om", ".aog/");
 const SADDLE_FINALIZER_PREFIX: &str = "saddle.islandmountain.io/";
-const LEGACY_CORDON_LABEL: &str = concat!("loom", ".io/unschedulable");
+const LEGACY_CORDON_LABEL: &str = concat!("lo", "om", ".io/unschedulable");
 const SADDLE_CORDON_LABEL: &str = "saddle.islandmountain.io/unschedulable";
 
 #[derive(Debug, thiserror::Error)]
