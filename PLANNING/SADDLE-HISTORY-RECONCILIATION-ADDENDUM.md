@@ -12,7 +12,7 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01 IN PROGRESS; SAD-HIST-02 THROUGH
+**Current status:** **SAD-HIST-01 COMPLETE; SAD-HIST-02 THROUGH
 SAD-HIST-04 PENDING.**
 
 ## 1. Governance and boundaries
@@ -64,7 +64,7 @@ Archive publication additionally requires:
 
 ## 3. Sequential prompt roster
 
-- [ ] **SAD-HIST-01 — Inventory published history.** Freeze every published
+- [x] **SAD-HIST-01 — Inventory published history.** Freeze every published
   source head and tag; inventory every reachable commit, parent, author and
   committer date, signature state, canonical-footer state, changed path,
   seed-manifest relationship, ref reachability, and stable patch equivalence.
