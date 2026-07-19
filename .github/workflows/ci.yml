@@ -149,6 +149,7 @@ jobs:
           cargo test -p aog-gateway --test official_client_compat -- --nocapture
           cargo test -p saddle-controller --test sad33_aog_workloads -- --nocapture
           cargo test -p saddle-controller --test sad35_two_tenant_bridge --locked -- --nocapture
+          cargo test -p saddle-controller --test live_vkey --locked -- --nocapture
 
   saddle-live:
     name: Saddle Phase-V Live Gates
@@ -224,3 +225,5 @@ jobs:
         run: cargo test -p saddle-conformance --locked -- --nocapture
       - name: SAD-41 consensus truth and fencing
         run: cargo test -p saddle-controller --test sad41_consensus_truth --locked -- --nocapture
+      - name: SAD-42 level-triggered reconciliation
+        run: cargo test -p saddle-controller --test sad42_reconciliation --locked -- --nocapture

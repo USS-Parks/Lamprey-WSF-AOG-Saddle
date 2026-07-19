@@ -3,8 +3,8 @@
 //! informer cache, (2) enqueues every key whose revision changed since last
 //! observed — duplicates coalesce in the [`WorkQueue`] — and (3), only when
 //! its [`LeaderGate`] says this replica leads, drains due retries and runs
-//! the reconciler over queued keys, with per-key exponential backoff on
-//! failure.
+//! the reconciler over queued keys, with bounded attempts, per-key jittered
+//! exponential backoff, and visible dead letters on persistent failure.
 //!
 //! Level-triggered means a reconciler is handed only a *key*: it must read
 //! current authoritative state and converge toward it, never interpret the
@@ -28,7 +28,7 @@ use std::time::{Duration, Instant};
 use saddle_store::raft::watch::Informer;
 use saddle_store::{Revision, StoreError};
 
-use crate::queue::{Backoff, WorkQueue};
+use crate::queue::{Backoff, DeadLetter, WorkQueue};
 
 /// What a reconciler asks the runtime to do next for a key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,6 +120,10 @@ pub struct SyncStats {
     pub processed: usize,
     /// Reconciles that failed (each scheduled a backed-off retry).
     pub failed: usize,
+    /// Failed reconciles cancelled at the configured per-attempt deadline.
+    pub timed_out: usize,
+    /// Keys newly retained for dead-letter visibility during this pass.
+    pub dead_lettered: usize,
 }
 
 /// One controller: an informer-fed, leader-gated reconcile loop over a key
@@ -137,6 +141,7 @@ pub struct Controller<R: Reconciler> {
     resync_interval: Option<Duration>,
     last_resync: Option<Instant>,
     watch_staleness: Duration,
+    reconcile_timeout: Duration,
 }
 
 impl<R: Reconciler> Controller<R> {
@@ -159,6 +164,7 @@ impl<R: Reconciler> Controller<R> {
             resync_interval: None,
             last_resync: None,
             watch_staleness: Duration::from_secs(30),
+            reconcile_timeout: Duration::from_secs(30),
         }
     }
 
@@ -183,7 +189,23 @@ impl<R: Reconciler> Controller<R> {
     /// Replace the retry backoff policy.
     #[must_use]
     pub fn with_backoff(mut self, backoff: Backoff) -> Self {
-        self.queue = WorkQueue::new(backoff);
+        self.queue.set_backoff(backoff);
+        self
+    }
+
+    /// Bound one reconcile attempt. Expiry cancels the future and follows the
+    /// same visible retry/dead-letter path as an explicit error.
+    #[must_use]
+    pub fn with_reconcile_timeout(mut self, timeout: Duration) -> Self {
+        self.reconcile_timeout = timeout.max(Duration::from_millis(1));
+        self
+    }
+
+    /// Set the consecutive-failure limit before a key is retained as a visible
+    /// dead letter. A new event, resync, or manual enqueue redrives it.
+    #[must_use]
+    pub fn with_max_retries(mut self, max_retries: u32) -> Self {
+        self.queue.set_max_retries(max_retries);
         self
     }
 
@@ -209,6 +231,12 @@ impl<R: Reconciler> Controller<R> {
     #[must_use]
     pub fn delayed_len(&self) -> usize {
         self.queue.delayed_len()
+    }
+
+    /// Current dead-letter diagnostics, ordered by key.
+    #[must_use]
+    pub fn dead_letters(&self) -> Vec<DeadLetter> {
+        self.queue.dead_letters()
     }
 
     /// Force a key onto the queue (a manual kick; dedup applies).
@@ -246,10 +274,15 @@ impl<R: Reconciler> Controller<R> {
                 .is_none_or(|last| now.duration_since(last) >= interval);
             if due {
                 let keys: Vec<String> = self.known.keys().cloned().collect();
+                let mut resynced = 0;
                 for key in &keys {
-                    self.queue.add(key);
+                    resynced += usize::from(self.queue.add_resync(key));
                 }
-                stats.enqueued += keys.len();
+                stats.enqueued += resynced;
+                // A deleted key is no longer in `known`, so explicitly redrive
+                // dead letters as well. Finalizer-backed deletion remains
+                // recoverable across arbitrarily long external outages.
+                stats.enqueued += self.queue.redrive_dead_letters();
                 self.last_resync = Some(now);
             }
         }
@@ -264,19 +297,35 @@ impl<R: Reconciler> Controller<R> {
                 break;
             };
             stats.processed += 1;
-            match self.reconciler.reconcile(&key).await {
-                Ok(Action::Done) => self.queue.forget(&key),
-                Ok(Action::Requeue) => {
+            match tokio::time::timeout(self.reconcile_timeout, self.reconciler.reconcile(&key))
+                .await
+            {
+                Ok(Ok(Action::Done)) => self.queue.forget(&key),
+                Ok(Ok(Action::Requeue)) => {
                     self.queue.forget(&key);
                     self.queue.add(&key); // in-processing → dirty → re-queued by done()
                 }
-                Ok(Action::RequeueAfter(delay)) => {
+                Ok(Ok(Action::RequeueAfter(delay))) => {
                     self.queue.forget(&key);
                     self.queue.requeue_after(&key, delay, now);
                 }
+                Ok(Err(error)) => {
+                    stats.failed += 1;
+                    let retry = self.queue.retry_with_error(&key, error.to_string(), now);
+                    stats.dead_lettered += usize::from(retry.dead_lettered);
+                }
                 Err(_) => {
                     stats.failed += 1;
-                    self.queue.retry(&key, now);
+                    stats.timed_out += 1;
+                    let retry = self.queue.retry_with_error(
+                        &key,
+                        format!(
+                            "controller {} exceeded reconcile deadline {:?}",
+                            self.name, self.reconcile_timeout
+                        ),
+                        now,
+                    );
+                    stats.dead_lettered += usize::from(retry.dead_lettered);
                 }
             }
             self.queue.done(&key);
@@ -322,15 +371,24 @@ impl<R: Reconciler> Controller<R> {
         mut shutdown: tokio::sync::watch::Receiver<bool>,
     ) -> Result<(), StoreError> {
         loop {
-            self.sync(Instant::now()).await?;
+            tokio::select! {
+                result = self.sync(Instant::now()) => result?,
+                () = cancellation_requested(&mut shutdown) => return Ok(()),
+            };
             tokio::select! {
                 () = tokio::time::sleep(interval) => {}
-                changed = shutdown.changed() => {
-                    if changed.is_err() || *shutdown.borrow() {
-                        return Ok(());
-                    }
-                }
+                () = cancellation_requested(&mut shutdown) => return Ok(()),
             }
+        }
+    }
+}
+
+/// Resolve only when shutdown is requested (or every sender disappears).
+/// Spurious `false` updates do not cancel an in-flight reconcile.
+async fn cancellation_requested(shutdown: &mut tokio::sync::watch::Receiver<bool>) {
+    loop {
+        if *shutdown.borrow() || shutdown.changed().await.is_err() {
+            return;
         }
     }
 }

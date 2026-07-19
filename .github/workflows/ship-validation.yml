@@ -79,6 +79,8 @@ jobs:
         run: python tools/verify_sad40_declarative_estate.py --root . --evidence-output test-evidence/saddle/SAD-40/declarative-estate-gate.json --verify
       - name: Verify SAD-41 consensus truth and fencing
         run: python tools/verify_sad41_consensus_truth.py --root . --evidence-output test-evidence/saddle/SAD-41/consensus-truth-gate.json --verify
+      - name: Verify SAD-42 level-triggered reconciliation
+        run: python tools/verify_sad42_reconciliation.py --root . --evidence-output test-evidence/saddle/SAD-42/reconciliation-gate.json --verify
       - name: Run workflow contract tests
         run: |
           pip install pytest pytest-asyncio pyyaml

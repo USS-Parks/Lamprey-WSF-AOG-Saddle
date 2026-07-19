@@ -9,8 +9,10 @@
 //! Time is always passed in by the caller (`now: Instant`) — the queue never
 //! reads a clock — so retry and delay behavior is deterministic under test.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
+
+const DEFAULT_MAX_RETRIES: u32 = 8;
 
 /// Per-key exponential backoff: `base * 2^(n-1)` before the `n`-th
 /// consecutive retry, capped at `max`. This is the rate limit on a failing
@@ -42,11 +44,61 @@ impl Backoff {
         self.backoff_mul(factor)
     }
 
+    /// Deterministic per-key jitter in the inclusive range 75%-100% of the
+    /// exponential ceiling. A stable hash keeps fault-history tests exactly
+    /// reproducible while preventing a controller fleet from retrying every
+    /// failed key in lockstep.
+    #[must_use]
+    pub fn delay_for(&self, key: &str, failures: u32) -> Duration {
+        let ceiling = self.delay(failures);
+        if ceiling.is_zero() {
+            return ceiling;
+        }
+
+        // FNV-1a is deliberate: `DefaultHasher` output is not a cross-version
+        // contract and would make generated fault evidence unstable.
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        for byte in key.as_bytes().iter().copied().chain(failures.to_le_bytes()) {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        let permille = 750_u128 + u128::from(hash % 251);
+        let nanos = ceiling.as_nanos().saturating_mul(permille) / 1_000;
+        let seconds = nanos / 1_000_000_000;
+        let subsec_nanos = u32::try_from(nanos % 1_000_000_000).unwrap_or(u32::MAX);
+        Duration::new(u64::try_from(seconds).unwrap_or(u64::MAX), subsec_nanos)
+            .max(Duration::from_nanos(1))
+    }
+
     fn backoff_mul(&self, factor: u32) -> Duration {
         self.base
             .checked_mul(factor)
             .map_or(self.max, |d| d.min(self.max))
     }
+}
+
+/// A key whose consecutive reconciles exhausted the automatic retry budget.
+/// It remains visible and can be redriven by a new event, resync, or explicit
+/// enqueue.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeadLetter {
+    /// Store key that could not be reconciled.
+    pub key: String,
+    /// Consecutive failures in the exhausted retry cycle.
+    pub failures: u32,
+    /// Most recent reconcile error or deadline diagnostic.
+    pub last_error: String,
+}
+
+/// Result of recording one failed reconcile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RetryResult {
+    /// Consecutive failures including this attempt.
+    pub failures: u32,
+    /// Jittered delay when another automatic retry was scheduled.
+    pub delay: Option<Duration>,
+    /// Whether this attempt exhausted the retry cycle.
+    pub dead_lettered: bool,
 }
 
 /// The dedup-ing, backoff-aware work queue driving one controller.
@@ -58,15 +110,33 @@ impl Backoff {
 /// [`requeue_after`](WorkQueue::requeue_after) (voluntary re-run) → then
 /// [`done`](WorkQueue::done). Delayed re-adds become due via
 /// [`drain_ready`](WorkQueue::drain_ready).
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WorkQueue {
     fifo: VecDeque<String>,
     queued: HashSet<String>,
     processing: HashSet<String>,
     dirty: HashSet<String>,
     failures: HashMap<String, u32>,
-    delayed: Vec<(Instant, String)>,
+    delayed: HashMap<String, Instant>,
+    dead_letters: BTreeMap<String, DeadLetter>,
     backoff: Backoff,
+    max_retries: u32,
+}
+
+impl Default for WorkQueue {
+    fn default() -> Self {
+        Self {
+            fifo: VecDeque::new(),
+            queued: HashSet::new(),
+            processing: HashSet::new(),
+            dirty: HashSet::new(),
+            failures: HashMap::new(),
+            delayed: HashMap::new(),
+            dead_letters: BTreeMap::new(),
+            backoff: Backoff::default(),
+            max_retries: DEFAULT_MAX_RETRIES,
+        }
+    }
 }
 
 impl WorkQueue {
@@ -78,17 +148,55 @@ impl WorkQueue {
         }
     }
 
+    /// Replace the retry backoff without discarding queued work or failure
+    /// visibility.
+    pub fn set_backoff(&mut self, backoff: Backoff) {
+        self.backoff = backoff;
+    }
+
+    /// Set the consecutive-failure limit before a key becomes a visible dead
+    /// letter. At least one attempt is always allowed.
+    pub fn set_max_retries(&mut self, max_retries: u32) {
+        self.max_retries = max_retries.max(1);
+    }
+
     /// Enqueue `key` for reconciliation. Coalesces: a key already queued is
     /// not queued twice; a key currently being processed is marked dirty and
     /// re-queued when [`done`](WorkQueue::done) is called for it.
     pub fn add(&mut self, key: &str) {
+        // A genuinely new observation or explicit operator kick supersedes an
+        // old retry delay. Keep an existing dead-letter diagnostic visible
+        // until the redriven key actually succeeds (`forget`).
+        if self.delayed.remove(key).is_some() || self.dead_letters.contains_key(key) {
+            self.failures.remove(key);
+        }
+        self.enqueue(key);
+    }
+
+    /// Periodic level-triggered re-enqueue. An ordinary delayed retry keeps
+    /// its backoff, while a dead letter is explicitly redriven.
+    pub fn add_resync(&mut self, key: &str) -> bool {
+        if self.dead_letters.contains_key(key) {
+            self.failures.remove(key);
+            self.delayed.remove(key);
+            return self.enqueue(key);
+        }
+        if self.delayed.contains_key(key) {
+            return false;
+        }
+        self.enqueue(key)
+    }
+
+    fn enqueue(&mut self, key: &str) -> bool {
         if self.processing.contains(key) {
             self.dirty.insert(key.to_owned());
-            return;
+            return false;
         }
         if self.queued.insert(key.to_owned()) {
             self.fifo.push_back(key.to_owned());
+            return true;
         }
+        false
     }
 
     /// Pop the next key to reconcile, marking it in-processing.
@@ -112,28 +220,73 @@ impl WorkQueue {
     /// Record a failed reconcile and schedule the delayed retry under the
     /// backoff policy. Returns the consecutive-failure count.
     pub fn retry(&mut self, key: &str, now: Instant) -> u32 {
+        self.retry_with_error(key, "reconcile failed", now).failures
+    }
+
+    /// Record a failed reconcile with its diagnostic. Retries use deterministic
+    /// keyed jitter. Once `max_retries` is reached, the key is retained in the
+    /// dead-letter map instead of being silently dropped.
+    pub fn retry_with_error(
+        &mut self,
+        key: &str,
+        error: impl Into<String>,
+        now: Instant,
+    ) -> RetryResult {
+        let error = error.into();
         let n = self.failures.entry(key.to_owned()).or_insert(0);
-        *n += 1;
-        let due = now + self.backoff.delay(*n);
-        self.delayed.push((due, key.to_owned()));
-        *n
+        *n = n.saturating_add(1);
+        let failures = *n;
+        self.delayed.remove(key);
+        if let Some(dead_letter) = self.dead_letters.get_mut(key) {
+            dead_letter.failures = failures;
+            dead_letter.last_error.clone_from(&error);
+        }
+        if failures >= self.max_retries {
+            self.dead_letters.insert(
+                key.to_owned(),
+                DeadLetter {
+                    key: key.to_owned(),
+                    failures,
+                    last_error: error,
+                },
+            );
+            return RetryResult {
+                failures,
+                delay: None,
+                dead_lettered: true,
+            };
+        }
+
+        let delay = self.backoff.delay_for(key, failures);
+        self.delayed.insert(key.to_owned(), now + delay);
+        RetryResult {
+            failures,
+            delay: Some(delay),
+            dead_lettered: false,
+        }
     }
 
     /// Schedule a voluntary re-run of `key` after `delay` (no failure counted).
     pub fn requeue_after(&mut self, key: &str, delay: Duration, now: Instant) {
-        self.delayed.push((now + delay, key.to_owned()));
+        let due = now + delay;
+        self.delayed
+            .entry(key.to_owned())
+            .and_modify(|existing| *existing = (*existing).min(due))
+            .or_insert(due);
     }
 
     /// Reset the failure count for `key` (call on success).
     pub fn forget(&mut self, key: &str) {
         self.failures.remove(key);
+        self.delayed.remove(key);
+        self.dead_letters.remove(key);
     }
 
     /// Move every delayed key whose due time has arrived back into the queue.
     /// Returns how many came due (dedup may coalesce them into fewer entries).
     pub fn drain_ready(&mut self, now: Instant) -> usize {
         let mut ready = Vec::new();
-        self.delayed.retain(|(due, key)| {
+        self.delayed.retain(|key, due| {
             if *due <= now {
                 ready.push(key.clone());
                 false
@@ -142,9 +295,28 @@ impl WorkQueue {
             }
         });
         for key in &ready {
-            self.add(key);
+            self.enqueue(key);
         }
         ready.len()
+    }
+
+    /// Requeue every dead letter without erasing its diagnostic. A successful
+    /// reconcile clears it; another exhausted retry cycle updates it.
+    pub fn redrive_dead_letters(&mut self) -> usize {
+        let keys: Vec<String> = self.dead_letters.keys().cloned().collect();
+        let mut enqueued = 0;
+        for key in keys {
+            self.failures.remove(&key);
+            self.delayed.remove(&key);
+            enqueued += usize::from(self.enqueue(&key));
+        }
+        enqueued
+    }
+
+    /// Deterministically ordered dead-letter diagnostics.
+    #[must_use]
+    pub fn dead_letters(&self) -> Vec<DeadLetter> {
+        self.dead_letters.values().cloned().collect()
     }
 
     /// Consecutive failures recorded for `key`.
@@ -212,6 +384,10 @@ mod tests {
         assert_eq!(b.delay(5), Duration::from_millis(100), "capped at max");
         assert_eq!(b.delay(31), Duration::from_millis(100), "no overflow");
         assert_eq!(b.delay(u32::MAX), Duration::from_millis(100), "no overflow");
+        let jittered = b.delay_for("tenant/acme", 3);
+        assert!(jittered >= Duration::from_millis(30));
+        assert!(jittered <= Duration::from_millis(40));
+        assert_eq!(jittered, b.delay_for("tenant/acme", 3));
     }
 
     #[test]
@@ -248,14 +424,62 @@ mod tests {
     }
 
     #[test]
-    fn drained_duplicates_coalesce() {
+    fn delayed_duplicates_coalesce_before_drain() {
         let mut q = WorkQueue::default();
         let now = Instant::now();
         // The same key scheduled twice (two failed replicas of one event)…
         q.requeue_after("a", Duration::ZERO, now);
         q.requeue_after("a", Duration::ZERO, now);
-        // …drains as two due entries but one queued run.
-        assert_eq!(q.drain_ready(now), 2);
+        // …is retained as one delayed entry and one queued run.
+        assert_eq!(q.delayed_len(), 1);
+        assert_eq!(q.drain_ready(now), 1);
         assert_eq!(q.len(), 1);
+    }
+
+    #[test]
+    fn exhausted_retry_is_visible_and_redrives_until_success() {
+        let mut q = WorkQueue::new(Backoff {
+            base: Duration::from_millis(10),
+            max: Duration::from_secs(1),
+        });
+        q.set_max_retries(2);
+        let now = Instant::now();
+
+        let first = q.retry_with_error("a", "transient", now);
+        assert!(!first.dead_lettered);
+        assert!(first.delay.is_some());
+        let second = q.retry_with_error("a", "still broken", now);
+        assert!(second.dead_lettered);
+        assert_eq!(q.delayed_len(), 0);
+        assert_eq!(
+            q.dead_letters(),
+            vec![DeadLetter {
+                key: "a".to_owned(),
+                failures: 2,
+                last_error: "still broken".to_owned(),
+            }]
+        );
+
+        assert_eq!(q.redrive_dead_letters(), 1);
+        assert_eq!(q.take().as_deref(), Some("a"));
+        q.forget("a");
+        q.done("a");
+        assert!(q.dead_letters().is_empty());
+    }
+
+    #[test]
+    fn resync_respects_backoff_and_redrives_dead_letters() {
+        let mut q = WorkQueue::default();
+        q.set_max_retries(2);
+        let now = Instant::now();
+
+        q.retry_with_error("a", "transient", now);
+        assert!(!q.add_resync("a"), "resync must not bypass backoff");
+        assert_eq!(q.delayed_len(), 1);
+
+        q.retry_with_error("a", "persistent", now);
+        assert_eq!(q.dead_letters().len(), 1);
+        assert!(q.add_resync("a"), "resync redrives a visible dead letter");
+        assert_eq!(q.take().as_deref(), Some("a"));
     }
 }

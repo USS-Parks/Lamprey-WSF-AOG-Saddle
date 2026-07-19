@@ -1,7 +1,8 @@
 //! `saddle-controller` — Saddle's reconciliation runtime (Phase R).
 //!
 //! The level-triggered controller framework — a dedup-ing [`WorkQueue`]
-//! with per-key exponential backoff and delayed requeue, and a [`Controller`]
+//! with per-key jittered exponential backoff, visible dead letters, and delayed
+//! requeue, and a [`Controller`]
 //! loop that observes desired state through the informer and drives one
 //! [`Reconciler`] over the keys that changed, gated so only the leading
 //! replica acts ([`LeaderGate`]). The Phase-R controllers (Tenant, TrustRing,
@@ -111,7 +112,7 @@ pub use node::NodeController;
 pub use objects::{EstateClient, is_terminating, parse_key};
 pub use providers::ProviderPoolController;
 pub use provision::{OPENBAO_FINALIZER, TenantProvisioner};
-pub use queue::{Backoff, WorkQueue};
+pub use queue::{Backoff, DeadLetter, RetryResult, WorkQueue};
 pub use revocation::RevocationController;
 pub use rings::TrustRingController;
 pub use rollout::{

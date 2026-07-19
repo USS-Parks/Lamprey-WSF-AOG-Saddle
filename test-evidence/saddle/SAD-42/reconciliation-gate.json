@@ -1,0 +1,77 @@
+{
+  "artifacts": {
+    "ci_workflow": {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "0dcfac78ffe43c6ecf27317664b5813d047279e8e3ec64e2a4ca579511a28716"
+    },
+    "controller_runtime": {
+      "path": "crates/saddle-controller/src/runtime.rs",
+      "sha256": "22a73431a0ddd9043c64be32e0aefcf72c00498cdd4fc9c07cdebdf0402831e1"
+    },
+    "estate_client": {
+      "path": "crates/saddle-controller/src/objects.rs",
+      "sha256": "2d571a0dbdf3297e586fe615268b9a8d68faba800711f6a71305bec98788d7c9"
+    },
+    "informer": {
+      "path": "crates/saddle-store/src/raft/watch.rs",
+      "sha256": "a1b67ba44cd201cfe3962a9168c18e7c04807a69c5fc7b23d1b0619d9bd0c6a9"
+    },
+    "live_finalizer": {
+      "path": "crates/saddle-controller/src/vkeys.rs",
+      "sha256": "b3378fb32eca138cd7b4d31373994a11299fd15ebe4b791782011b49e172ed5b"
+    },
+    "replay_tests": {
+      "path": "crates/saddle-controller/tests/replay.rs",
+      "sha256": "2ea66331734e673f5141b7a25e1867504d244ef5f2cd103331dfdc2a4dc62e5e"
+    },
+    "sad42_tests": {
+      "path": "crates/saddle-controller/tests/sad42_reconciliation.rs",
+      "sha256": "607f1d3136eba74566e575a6a249aff966cb09114a02ed0cc50f62e17ed3cea0"
+    },
+    "work_queue": {
+      "path": "crates/saddle-controller/src/queue.rs",
+      "sha256": "5c932d816ebc9b4d34e888bc60dd77cd31394de4f82f74fbf0da64e0c364d66e"
+    }
+  },
+  "profile": {
+    "deterministic_seed": "0x5ad42000c0def17e",
+    "fault_histories": 256,
+    "overflow_histories": 86,
+    "restart_histories": 52,
+    "watch_overflow_events_per_injected_history": 100
+  },
+  "prompt": "SAD-42",
+  "properties": {
+    "controller_restart": "finalizer_preserves_recoverable_truth",
+    "dead_letter_visibility": "bounded_retry_then_visible_redrive",
+    "dropped_watch_recovery": "full_relist",
+    "duplicate_reorder_replay_tolerance": "same_end_state",
+    "finalization": "external_withdrawal_before_admitted_delete",
+    "jittered_exponential_backoff": "deterministic_per_key",
+    "level_triggered_current_state": "pass",
+    "live_external_finalizer_gate": "live_vkey_in_wsf_live_ci",
+    "periodic_resync": "respects_backoff_and_redrives_dead_letters",
+    "queue_test_names": [
+      "queue::tests::backoff_doubles_and_caps",
+      "queue::tests::exhausted_retry_is_visible_and_redrives_until_success",
+      "queue::tests::resync_respects_backoff_and_redrives_dead_letters"
+    ],
+    "reconcile_deadline": "hung_future_cancelled",
+    "replay_test_names": [
+      "duplicate_and_dropped_events_converge_identically",
+      "failed_reconciles_retry_with_backoff_and_converge",
+      "non_leader_observes_but_never_acts",
+      "requeue_actions_run_the_key_again",
+      "resync_heartbeat_reconciles_without_a_change"
+    ],
+    "sad42_test_names": [
+      "fault_injected_histories_converge_to_same_state",
+      "real_finalizer_replay_withdraws_external_state_before_delete",
+      "reconcile_deadline_cancels_and_dead_letters_hung_work",
+      "shutdown_cancels_an_inflight_reconcile"
+    ],
+    "shutdown_cancellation": "inflight_future_cancelled"
+  },
+  "schema_version": "saddle-sad42-reconciliation-gate/v1",
+  "status": "pass"
+}
