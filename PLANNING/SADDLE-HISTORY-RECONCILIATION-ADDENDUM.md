@@ -12,8 +12,8 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01 COMPLETE; SAD-HIST-02 THROUGH
-SAD-HIST-04 PENDING.**
+**Current status:** **SAD-HIST-01 COMPLETE; SAD-HIST-02 LOCAL GATES PASS WITH
+REMOTE VERIFICATION PENDING; SAD-HIST-03 AND SAD-HIST-04 PENDING.**
 
 ## 1. Governance and boundaries
 
@@ -79,7 +79,9 @@ Archive publication additionally requires:
   object map.
   **Gate:** no secret-bearing object can enter Saddle; every rewrite is
   explained and reproducible; original SHAs remain cited as external
-  provenance.
+  provenance. **Local result:** a sanitized rewrite is required for one blob
+  and one commit message; the complete object/ref maps and two-scanner proof
+  pass locally. Completion remains pending applicable green GitHub workflows.
 
 - [ ] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
   non-patch-equivalent commit for WSF/AOG/Saddle behavior, security findings,
@@ -98,10 +100,17 @@ Archive publication additionally requires:
   every applicable GitHub workflow is green, and the canonical PSPR and DEVLOG
   truthfully record the closeout.
 
-## 4. Current authorization
+## 4. Authorization history
 
 The user authorized STS execution of SAD-HIST-01. That authorization covers the
 isolated inventory implementation, evidence, focused commit, branch push, and
 green review checkpoint. SAD-HIST-01 does not authorize archive-ref publication,
 history rewriting, code transplantation, or execution of SAD-HIST-02 through
 SAD-HIST-04.
+
+The user authorized STS execution of SAD-HIST-02 on 2026-07-18 from verified
+Saddle checkpoint `f66134ef4b3b36c1506f277dbbb9bf61c7d82d7c`. That authorization covers the
+isolated two-scanner proof, reproducible sanitized-map definition, focused
+branch commits, branch push, and green-workflow closeout. It does not authorize
+publication of archive refs, rewriting active Saddle history, source
+transplantation, SAD-HIST-03 or SAD-HIST-04, or merge to `main`.
