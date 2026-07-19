@@ -15,6 +15,7 @@
 //! `wsf-ledger`, never here (A1.4).
 
 pub mod kinds;
+pub mod scheduler;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -22,6 +23,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 pub use kinds::*;
+pub use scheduler::*;
 
 /// The API group + version every Saddle resource is served under. Schema
 /// evolution is handled by conversion; this is the current stored form.
@@ -55,11 +57,17 @@ pub enum Kind {
     ToolGrant,
     RolloutPlan,
     RevocationIntent,
+    ResourceQuota,
+    PriorityClass,
+    PlacementGroup,
+    DisruptionBudget,
+    RuntimeClass,
+    NodeLease,
 }
 
 impl Kind {
     /// Every kind in the estate, for whole-estate sweeps (GC, conformance).
-    pub const ALL: [Kind; 13] = [
+    pub const ALL: [Kind; 19] = [
         Kind::Tenant,
         Kind::TrustRing,
         Kind::VirtualKey,
@@ -73,6 +81,12 @@ impl Kind {
         Kind::ToolGrant,
         Kind::RolloutPlan,
         Kind::RevocationIntent,
+        Kind::ResourceQuota,
+        Kind::PriorityClass,
+        Kind::PlacementGroup,
+        Kind::DisruptionBudget,
+        Kind::RuntimeClass,
+        Kind::NodeLease,
     ];
 }
 
@@ -92,6 +106,12 @@ impl fmt::Display for Kind {
             Kind::ToolGrant => "ToolGrant",
             Kind::RolloutPlan => "RolloutPlan",
             Kind::RevocationIntent => "RevocationIntent",
+            Kind::ResourceQuota => "ResourceQuota",
+            Kind::PriorityClass => "PriorityClass",
+            Kind::PlacementGroup => "PlacementGroup",
+            Kind::DisruptionBudget => "DisruptionBudget",
+            Kind::RuntimeClass => "RuntimeClass",
+            Kind::NodeLease => "NodeLease",
         };
         f.write_str(s)
     }
@@ -389,4 +409,10 @@ resource_objects!(
     ToolGrant,
     RolloutPlan,
     RevocationIntent,
+    ResourceQuota,
+    PriorityClass,
+    PlacementGroup,
+    DisruptionBudget,
+    RuntimeClass,
+    NodeLease,
 );

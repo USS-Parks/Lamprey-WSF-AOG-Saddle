@@ -142,8 +142,8 @@ impl AppState {
         self.admission.export_receipts(generated_at)
     }
 
-    /// Configure the read-path conversion registry. Default is the identity
-    /// (serve stored objects unchanged).
+    /// Configure the read-path conversion registry. The default is the strict
+    /// Saddle v1 hub with bounded legacy-v1 structural conversion.
     #[must_use]
     pub fn with_conversions(mut self, conversions: ConversionRegistry) -> Self {
         self.reader = self.reader.with_conversions(conversions);

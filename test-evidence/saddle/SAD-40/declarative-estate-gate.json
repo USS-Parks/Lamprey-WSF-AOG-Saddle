@@ -1,0 +1,88 @@
+{
+  "artifacts": {
+    "admission": {
+      "path": "crates/saddle-apiserver/src/admission.rs",
+      "sha256": "5b3c4ed9ab18438c0bacf3c1ec514a0bd5f59401923f4c3b82935a93ebc0a5a4"
+    },
+    "conversion": {
+      "path": "crates/saddle-apiserver/src/convert.rs",
+      "sha256": "00cd4d5d2ba19d57ad59b26b7f547ed70bd3ab62ae82665c1559c4b8b9d660e5"
+    },
+    "estate_dispatch": {
+      "path": "crates/saddle-estate/src/lib.rs",
+      "sha256": "41408a9145cb0dd85d440128cb2fc816263d4d2dd208de4a8584c5255ab3dc63"
+    },
+    "integration_tests": {
+      "path": "crates/saddle-apiserver/tests/sad40_declarative_estate.rs",
+      "sha256": "988e8a9fb40a6efae9ed92a43ca0ff7a17adae9ff2afa4af350c821ee16b9158"
+    },
+    "resource_tests": {
+      "path": "crates/saddle-estate/tests/sad40_resources.rs",
+      "sha256": "fea668cd144efcaf08c7c594622c40c2e70f817cf1d850a76cef7f4e5dbe0e56"
+    },
+    "scheduler_resources": {
+      "path": "crates/saddle-estate/src/scheduler.rs",
+      "sha256": "b921d87b40bb42457087a29e135c9fbfaf6cbd248b33740eef30c33f836431be"
+    },
+    "sealing": {
+      "path": "crates/saddle-apiserver/src/seal.rs",
+      "sha256": "d34a31f7f8da3bef5b4cf81c78a90f7cd2349a862b24c959ba1a3a3ab2e29449"
+    }
+  },
+  "hub_api_version": "saddle.islandmountain.io/v1",
+  "prompt": "SAD-40",
+  "properties": {
+    "authority_uid_generation_resource_version_desired_state_preserved": "pass",
+    "deterministic_conversion_fuzz_cases": 512,
+    "integration_test_names": [
+      "conversion_fuzz_preserves_authority_versions_desired_state_and_rollback",
+      "conversion_refuses_unknown_versions_kind_spoofing_and_label_collision",
+      "quota_cas_watch_and_finalizer_paths_share_the_real_admission_store",
+      "runtime_class_credentials_are_sealed_before_persistence"
+    ],
+    "legacy_state_rollback": "exact",
+    "optimistic_concurrency": "pass",
+    "resource_test_names": [
+      "resource_quota_roundtrip",
+      "priority_class_roundtrip",
+      "placement_group_roundtrip",
+      "disruption_budget_roundtrip",
+      "runtime_class_roundtrip",
+      "node_lease_roundtrip",
+      "scheduler_resources_fail_closed_on_invalid_or_unknown_state"
+    ],
+    "sensitive_field_sealing": "pass",
+    "two_phase_finalization": "pass",
+    "typed_round_trip": "pass",
+    "unknown_version_and_kind": "fail_closed",
+    "watch_delivery_and_resync": "pass"
+  },
+  "resource_model": {
+    "kind_count": 19,
+    "kinds": [
+      "Tenant",
+      "TrustRing",
+      "VirtualKey",
+      "Capability",
+      "PolicyBundle",
+      "ProviderPool",
+      "Workload",
+      "Placement",
+      "Node",
+      "MissionContract",
+      "ToolGrant",
+      "RolloutPlan",
+      "RevocationIntent",
+      "ResourceQuota",
+      "PriorityClass",
+      "PlacementGroup",
+      "DisruptionBudget",
+      "RuntimeClass",
+      "NodeLease"
+    ],
+    "new_scheduler_kind_count": 6,
+    "unknown_sensitive_fields": "fail_closed"
+  },
+  "schema_version": "saddle-sad40-declarative-estate-gate/v1",
+  "status": "pass"
+}

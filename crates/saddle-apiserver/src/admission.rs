@@ -654,6 +654,18 @@ impl Admission {
                 EstateScope::authorize(context, PrivilegedCapability::PolicyPublication)
                     .map_err(|error| ApiError::Forbidden(error.to_string()))?;
             }
+            if matches!(object, ResourceObject::RuntimeClass(_)) && principal.tenant().is_some() {
+                return Err(ApiError::Forbidden(
+                    "runtime classes require estate authority".to_owned(),
+                ));
+            }
+            if matches!(object, ResourceObject::PriorityClass(class) if class.spec.protected)
+                && principal.tenant().is_some()
+            {
+                return Err(ApiError::Forbidden(
+                    "protected priority classes require estate authority".to_owned(),
+                ));
+            }
             Some(decision)
         } else {
             None
@@ -1259,6 +1271,24 @@ fn preserve_status(object: &mut ResourceObject, current: &ResourceObject) {
             copy_status!(new, old)
         }
         (ResourceObject::RevocationIntent(new), ResourceObject::RevocationIntent(old)) => {
+            copy_status!(new, old)
+        }
+        (ResourceObject::ResourceQuota(new), ResourceObject::ResourceQuota(old)) => {
+            copy_status!(new, old)
+        }
+        (ResourceObject::PriorityClass(new), ResourceObject::PriorityClass(old)) => {
+            copy_status!(new, old)
+        }
+        (ResourceObject::PlacementGroup(new), ResourceObject::PlacementGroup(old)) => {
+            copy_status!(new, old)
+        }
+        (ResourceObject::DisruptionBudget(new), ResourceObject::DisruptionBudget(old)) => {
+            copy_status!(new, old)
+        }
+        (ResourceObject::RuntimeClass(new), ResourceObject::RuntimeClass(old)) => {
+            copy_status!(new, old)
+        }
+        (ResourceObject::NodeLease(new), ResourceObject::NodeLease(old)) => {
             copy_status!(new, old)
         }
         _ => {}

@@ -1,30 +1,53 @@
-//! Resource versioning + conversion.
+//! Fail-closed estate version conversion.
 //!
-//! The estate is served at a single **hub** api-version. A stored object at an
-//! older version is upgraded to the hub transparently **on read** by a chain of
-//! per-`(Kind, from_version)` converters — so a schema bump serves old objects
-//! without a migration or estate downtime. Writes are unchanged:
-//! admission still validates the estate's current stored schema.
-//!
-//! The default registry is the identity (hub = the estate `API_VERSION`, no
-//! converters): every object is served exactly as stored.
+//! Stored objects are served through a single hub version. Conversion changes
+//! only named structural identities; authority, UID, generation, resource
+//! version, desired state, status, receipts, and opaque payloads remain byte-for-
+//! byte equivalent as JSON values. Missing converters, non-advancing converters,
+//! kind disagreement, and conversion cycles are errors rather than a request to
+//! serve an unrecognized schema.
 
 use std::collections::HashMap;
 
 use saddle_estate::{API_VERSION, Kind};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
-/// A single-step upgrade of an object's JSON from one api-version to the next.
-type Converter = Box<dyn Fn(Value) -> Value + Send + Sync>;
+const LEGACY_API_VERSION: &str = concat!("aog", ".islandmountain.io/v1");
+const LEGACY_FINALIZER_PREFIX: &str = concat!("loom", ".aog/");
+const SADDLE_FINALIZER_PREFIX: &str = "saddle.islandmountain.io/";
+const LEGACY_CORDON_LABEL: &str = concat!("loom", ".io/unschedulable");
+const SADDLE_CORDON_LABEL: &str = "saddle.islandmountain.io/unschedulable";
 
-/// A registry of per-kind version converters plus the hub version to serve at.
+#[derive(Debug, thiserror::Error)]
+pub enum ConversionError {
+    #[error("resource kind is missing or does not match expected {expected}")]
+    KindMismatch { expected: Kind },
+    #[error("resource api_version is missing")]
+    MissingVersion,
+    #[error("no conversion from {version:?} to hub {hub:?} for {kind}")]
+    UnsupportedVersion {
+        kind: Kind,
+        version: String,
+        hub: String,
+    },
+    #[error("converter for {kind} did not advance api_version {version:?}")]
+    DidNotAdvance { kind: Kind, version: String },
+    #[error("conversion for {kind} exceeded the bounded chain length")]
+    Cycle { kind: Kind },
+    #[error("conversion rejected malformed structural state: {0}")]
+    Malformed(String),
+}
+
+type Converter = Box<dyn Fn(Value) -> Result<Value, ConversionError> + Send + Sync>;
+
+/// Per-kind single-step converters and the version served by the API.
 pub struct ConversionRegistry {
     hub: String,
     converters: HashMap<(Kind, String), Converter>,
 }
 
 impl ConversionRegistry {
-    /// The identity registry: hub = the estate `API_VERSION`, no converters.
+    /// Strict identity at the current hub. A non-hub object fails closed.
     #[must_use]
     pub fn identity() -> Self {
         Self {
@@ -33,7 +56,19 @@ impl ConversionRegistry {
         }
     }
 
-    /// A registry serving at `hub`.
+    /// The canonical Saddle v1 hub, including the bounded legacy estate-group
+    /// conversion used during rolling reads of pre-cutover snapshots.
+    #[must_use]
+    pub fn saddle_v1() -> Self {
+        let mut registry = Self::identity();
+        for kind in Kind::ALL {
+            registry = registry.with_fallible_converter(kind, LEGACY_API_VERSION, move |value| {
+                convert_legacy_v1(kind, value)
+            });
+        }
+        registry
+    }
+
     #[must_use]
     pub fn new(hub: impl Into<String>) -> Self {
         Self {
@@ -42,52 +77,176 @@ impl ConversionRegistry {
         }
     }
 
-    /// Register a single-step converter for `kind` from api-version `from` (one
-    /// step toward the hub).
+    /// Register an infallible single-step converter.
     #[must_use]
     pub fn with_converter(
-        mut self,
+        self,
         kind: Kind,
         from: impl Into<String>,
         convert: impl Fn(Value) -> Value + Send + Sync + 'static,
+    ) -> Self {
+        self.with_fallible_converter(kind, from, move |value| Ok(convert(value)))
+    }
+
+    /// Register a fallible single-step converter.
+    #[must_use]
+    pub fn with_fallible_converter(
+        mut self,
+        kind: Kind,
+        from: impl Into<String>,
+        convert: impl Fn(Value) -> Result<Value, ConversionError> + Send + Sync + 'static,
     ) -> Self {
         self.converters
             .insert((kind, from.into()), Box::new(convert));
         self
     }
 
-    /// The hub api-version served.
     #[must_use]
     pub fn hub(&self) -> &str {
         &self.hub
     }
 
-    /// Convert `value` up to the hub version, applying registered converters step
-    /// by step. If no converter advances toward the hub, the value is served as
-    /// stored — an unknown-but-valid older version is never silently dropped.
-    #[must_use]
-    pub fn convert(&self, kind: Kind, mut value: Value) -> Value {
-        // Bounded to guard against a non-advancing converter cycle.
+    /// Convert a resource to the hub, refusing unknown or cyclic paths.
+    pub fn convert(&self, kind: Kind, mut value: Value) -> Result<Value, ConversionError> {
+        require_kind(kind, &value)?;
         for _ in 0..16 {
-            let current = value
-                .get("api_version")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned();
+            let current = api_version(&value)?.to_owned();
             if current == self.hub {
-                break;
+                return Ok(value);
             }
-            match self.converters.get(&(kind, current)) {
-                Some(convert) => value = convert(value),
-                None => break,
+            let convert = self
+                .converters
+                .get(&(kind, current.clone()))
+                .ok_or_else(|| ConversionError::UnsupportedVersion {
+                    kind,
+                    version: current.clone(),
+                    hub: self.hub.clone(),
+                })?;
+            value = convert(value)?;
+            require_kind(kind, &value)?;
+            if api_version(&value)? == current {
+                return Err(ConversionError::DidNotAdvance {
+                    kind,
+                    version: current,
+                });
             }
         }
-        value
+        Err(ConversionError::Cycle { kind })
     }
 }
 
 impl Default for ConversionRegistry {
     fn default() -> Self {
-        Self::identity()
+        Self::saddle_v1()
     }
+}
+
+fn api_version(value: &Value) -> Result<&str, ConversionError> {
+    value
+        .get("api_version")
+        .and_then(Value::as_str)
+        .ok_or(ConversionError::MissingVersion)
+}
+
+fn require_kind(kind: Kind, value: &Value) -> Result<(), ConversionError> {
+    let expected = kind.to_string();
+    if value.get("kind").and_then(Value::as_str) == Some(expected.as_str()) {
+        Ok(())
+    } else {
+        Err(ConversionError::KindMismatch { expected: kind })
+    }
+}
+
+/// Convert exactly the retired estate v1 structural identities to Saddle v1.
+/// No desired-state or authority-bearing field is otherwise interpreted.
+pub fn convert_legacy_v1(kind: Kind, mut value: Value) -> Result<Value, ConversionError> {
+    require_kind(kind, &value)?;
+    if api_version(&value)? != LEGACY_API_VERSION {
+        return Err(ConversionError::UnsupportedVersion {
+            kind,
+            version: api_version(&value)?.to_owned(),
+            hub: API_VERSION.to_owned(),
+        });
+    }
+    value["api_version"] = Value::String(API_VERSION.to_owned());
+    rewrite_metadata(
+        &mut value,
+        LEGACY_FINALIZER_PREFIX,
+        SADDLE_FINALIZER_PREFIX,
+        LEGACY_CORDON_LABEL,
+        SADDLE_CORDON_LABEL,
+    )?;
+    Ok(value)
+}
+
+/// Exact structural inverse used to prove legacy-state rollback. Callers use
+/// this only for a value known to have come from [`convert_legacy_v1`].
+pub fn rollback_legacy_v1(kind: Kind, mut value: Value) -> Result<Value, ConversionError> {
+    require_kind(kind, &value)?;
+    if api_version(&value)? != API_VERSION {
+        return Err(ConversionError::UnsupportedVersion {
+            kind,
+            version: api_version(&value)?.to_owned(),
+            hub: LEGACY_API_VERSION.to_owned(),
+        });
+    }
+    value["api_version"] = Value::String(LEGACY_API_VERSION.to_owned());
+    rewrite_metadata(
+        &mut value,
+        SADDLE_FINALIZER_PREFIX,
+        LEGACY_FINALIZER_PREFIX,
+        SADDLE_CORDON_LABEL,
+        LEGACY_CORDON_LABEL,
+    )?;
+    Ok(value)
+}
+
+fn rewrite_metadata(
+    value: &mut Value,
+    old_finalizer: &str,
+    new_finalizer: &str,
+    old_label: &str,
+    new_label: &str,
+) -> Result<(), ConversionError> {
+    let Some(metadata) = value.get_mut("metadata").and_then(Value::as_object_mut) else {
+        return Err(ConversionError::Malformed("metadata is missing".to_owned()));
+    };
+    if let Some(finalizers) = metadata.get_mut("finalizers") {
+        let finalizers = finalizers
+            .as_array_mut()
+            .ok_or_else(|| ConversionError::Malformed("finalizers is not an array".to_owned()))?;
+        for finalizer in finalizers {
+            let text = finalizer.as_str().ok_or_else(|| {
+                ConversionError::Malformed("finalizer is not a string".to_owned())
+            })?;
+            if let Some(suffix) = text.strip_prefix(old_finalizer) {
+                *finalizer = Value::String(format!("{new_finalizer}{suffix}"));
+            }
+        }
+    }
+    if let Some(labels) = metadata.get_mut("labels") {
+        let labels = labels
+            .as_object_mut()
+            .ok_or_else(|| ConversionError::Malformed("labels is not an object".to_owned()))?;
+        rewrite_label(labels, old_label, new_label)?;
+    }
+    Ok(())
+}
+
+fn rewrite_label(
+    labels: &mut Map<String, Value>,
+    old: &str,
+    new: &str,
+) -> Result<(), ConversionError> {
+    let Some(value) = labels.remove(old) else {
+        return Ok(());
+    };
+    if labels.get(new).is_some_and(|current| current != &value) {
+        labels.insert(old.to_owned(), value);
+        return Err(ConversionError::Malformed(
+            "legacy and Saddle cordon labels conflict".to_owned(),
+        ));
+    }
+    labels.insert(new.to_owned(), value);
+    Ok(())
 }

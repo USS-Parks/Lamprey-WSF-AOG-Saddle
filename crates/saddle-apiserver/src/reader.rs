@@ -27,11 +27,12 @@ impl StoreReader {
     pub fn new(raft: Arc<RaftNode>) -> Self {
         Self {
             raft,
-            conversions: Arc::new(ConversionRegistry::identity()),
+            conversions: Arc::new(ConversionRegistry::default()),
         }
     }
 
-    /// Replace the read-path conversion registry. Default is the identity.
+    /// Replace the read-path conversion registry. The default is the strict
+    /// Saddle v1 hub with bounded legacy-v1 structural conversion.
     #[must_use]
     pub fn with_conversions(mut self, conversions: ConversionRegistry) -> Self {
         self.conversions = Arc::new(conversions);
@@ -59,7 +60,13 @@ impl StoreReader {
             .map_err(|e| ApiError::Store(e.to_string()))?
         {
             Some(versioned) => Ok(Some(
-                self.conversions.convert(kind, decode_value(&versioned)?),
+                self.conversions
+                    .convert(kind, decode_value(&versioned)?)
+                    .map_err(|error| {
+                        ApiError::Invalid(saddle_estate::EstateError::Deserialize(
+                            error.to_string(),
+                        ))
+                    })?,
             )),
             None => Ok(None),
         }
@@ -98,7 +105,12 @@ impl StoreReader {
             .map_err(|e| ApiError::Store(e.to_string()))?;
         entries
             .iter()
-            .map(|(_, v)| decode_value(v).map(|value| self.conversions.convert(kind, value)))
+            .map(|(_, v)| {
+                let value = decode_value(v)?;
+                self.conversions.convert(kind, value).map_err(|error| {
+                    ApiError::Invalid(saddle_estate::EstateError::Deserialize(error.to_string()))
+                })
+            })
             .collect()
     }
 

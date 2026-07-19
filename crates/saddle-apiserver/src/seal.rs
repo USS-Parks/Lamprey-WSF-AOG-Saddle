@@ -93,6 +93,19 @@ impl Sealer {
                     r.spec.credential_ref = Some(SEALED_PLACEHOLDER.to_owned());
                 }
             }
+            ResourceObject::RuntimeClass(r) => {
+                if let Some(cred) = r.spec.credential_ref.clone()
+                    && cred != SEALED_PLACEHOLDER
+                {
+                    let seal = self.seal_value("runtime_class.credential_ref", cred.as_bytes())?;
+                    stash(
+                        &mut r.metadata.annotations,
+                        "runtime_class.credential_ref",
+                        &seal,
+                    );
+                    r.spec.credential_ref = Some(SEALED_PLACEHOLDER.to_owned());
+                }
+            }
             _ => {}
         }
         Ok(())

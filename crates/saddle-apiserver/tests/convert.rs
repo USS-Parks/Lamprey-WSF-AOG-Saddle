@@ -1,5 +1,5 @@
 //! A stored object at an older schema version is served at the hub version,
-//! converted transparently on read; the default (identity) registry serves stored
+//! converted transparently on read; an explicit identity registry serves hub
 //! objects unchanged.
 
 mod common;
