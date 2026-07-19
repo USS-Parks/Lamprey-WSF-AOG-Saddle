@@ -13,7 +13,7 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
 **Current status:** **SAD-HIST-01, SAD-HIST-02, AND SAD-HIST-03 COMPLETE;
-SAD-HIST-04 PENDING.**
+SAD-HIST-04 ARCHIVE PUBLICATION VERIFIED; REVIEWED-LANE INTEGRATION PENDING.**
 
 ## 1. Governance and boundaries
 
@@ -133,3 +133,11 @@ transplant, deterministic evidence, in-scope commits, branch push, and remote
 workflow closeout. It does not authorize archive-ref publication, rewriting or
 merging source history, SAD-HIST-04, merge to `main`, deployment, or credential
 rotation.
+
+The user authorized SAD-HIST-04 STS for the entirety of the 2026-07-19 session.
+That authorization covers exact sanitized archive-ref publication, immutable
+namespace protection, deterministic provenance evidence, in-scope commits and
+branch pushes, complete applicable GitHub workflow verification, and the
+reviewed non-squash merge to `main`. It does not authorize force-push, a merge
+of the Mighty Eel source graph into active Saddle history, deployment,
+credential rotation, paid services, or unrelated changes.

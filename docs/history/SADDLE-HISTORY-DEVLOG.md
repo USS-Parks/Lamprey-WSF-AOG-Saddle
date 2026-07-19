@@ -172,8 +172,8 @@ proof. The existing AF-005 real-ZFS+TPM deferral also remains unchanged.
 The focused branch was published through five additive commits. The workflow
 repairs did not rewrite their predecessors:
 
-- adapted WSF OpenAPI transplant:
-  `1caaa4f8d160bece69aaf0416d57d573e73b2a1d`;
+- commit `1caaa4f8d160bece69aaf0416d57d573e73b2a1d` contains the adapted WSF
+  OpenAPI transplant;
 - reconciliation ledger and deterministic verifier:
   `7c6527e89206a48700b5c41b7d4a55bf94a5af13`;
 - zero-phone-home false-positive repair and regression coverage:
@@ -204,3 +204,48 @@ this pull-request run:
 
 No merge to `main`, historical object import, or archive-ref publication
 occurred. SAD-HIST-04 remains pending and is not authorized by this closeout.
+
+## SAD-HIST-04 - Publish and close history
+
+**Status:** archive publication verified; reviewed-lane integration pending
+
+**Branch:** `session/SAD-HIST-4`
+
+**Reconciled main base:** `f66134ef4b3b36c1506f277dbbb9bf61c7d82d7c`
+
+**Reviewed lane checkpoint:** `8c38d9d47ffe714932c61616c1d236c60159a716`
+
+### Archive publication
+
+- Reproduced the SAD-HIST-02 archive proof byte-for-byte with Gitleaks 8.30.1
+  and TruffleHog 3.95.9 before creating a remote archive ref.
+- Created active GitHub ruleset `19173522` for
+  `refs/heads/history/mighty-eel/**`; deletion, updates, and non-fast-forward
+  changes are prohibited and no bypass actor exists.
+- Published the 38 approved sanitized tips individually. No mirror push,
+  source-history merge, replacement ref, graft, tag, or active `main` update
+  occurred.
+- Live verification matched all 38 remote tips to the approved ref map and
+  proved the 762-commit, 10,444-object sanitized graph.
+
+### Active-tree result
+
+Current `origin/main` was already an ancestor of the reviewed additive lane.
+The only active product changes remain the SAD-HIST-03 WSF OpenAPI adaptation
+and its bounded no-phone-home scanner repair. `Cargo.toml` and `Cargo.lock` are
+byte-identical to the reconciled base. Archive objects are not parents of
+active Saddle history.
+
+### Evidence
+
+- `docs/history/SAD-HIST-04-ARCHIVE-PUBLICATION.md`;
+- `test-evidence/saddle/SAD-HIST-04/archive-publication.json`;
+- `tools/verify_saddle_history_publication.py`; and
+- `tools/ci_surface_tests/test_history_publication.py`.
+
+### Remaining gate
+
+The publication implementation must pass the complete applicable local and
+GitHub workflow stacks. The reviewed lane must then merge without squashing;
+only after that integration may the canonical PSPR and canonical Saddle DEVLOG
+record SAD-HIST-04 complete.
