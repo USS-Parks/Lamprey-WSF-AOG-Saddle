@@ -1,0 +1,107 @@
+# Saddle Published-History Reconciliation Addendum
+
+**Initiative:** Preserve and reconcile WSF, AOG, and Saddle work that was
+published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
+`main` timeline.
+**Authority:** Supporting addendum to
+`SADDLE-WSF-AOG-INDEPENDENT-PROJECT-PSPR.md`.
+**Target repository:** `USS-Parks/Lamprey-WSF-AOG-Saddle`.
+**Source repository:** `USS-Parks/Mighty-Eel-OS`.
+**Original parallel-lane base:** verified Saddle checkpoint
+`c436abe6b930c57bc0170c3c13793276f08490d5`.
+**Reconciled integration base:** SAD-40 closeout checkpoint
+`b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
+**Parallel branch:** `session/SAD-HIST-1`.
+**Current status:** **SAD-HIST-01 IN PROGRESS; SAD-HIST-02 THROUGH
+SAD-HIST-04 PENDING.**
+
+## 1. Governance and boundaries
+
+This lane runs independently from SAD-40. It must not use, modify, clean,
+stage, or commit the SAD-40 worktree or index. It must incorporate the latest
+verified `main` before final integration and defer the canonical PSPR status
+line and `docs/sessions/SADDLE-DEVLOG.md` append until that reconciliation.
+
+The lane preserves two truthful timelines:
+
+1. original published commits retain their object IDs, authors, dates, parents,
+   and merge topology under a protected archival namespace when they pass the
+   historical secret gate; and
+2. new Saddle review, adaptation, verification, and acceptance commits retain
+   their real current committer dates and explicitly cite their source objects.
+
+The following are prohibited throughout this lane:
+
+- force-push, rebase of published history, backdating, grafts, or replacement
+  refs;
+- merging the unrelated Mighty Eel graph into Saddle `main`;
+- copying a live source working tree, importing hidden or ignored state, or
+  introducing a parent checkout, submodule, symlink, or path dependency;
+- pushing any historical object before the full-history secret gate passes;
+- treating patch equivalence as proof that a security or behavior obligation
+  is closed; and
+- silently omitting a published ref or non-main commit.
+
+## 2. Verification gates
+
+A history prompt is complete only when its deterministic evidence regenerates
+byte-for-byte from the exact published ref set and every changed file passes
+the repository integrity, active-name, no-slop, secret, and applicable test
+gates. Every new commit must carry the canonical Basho Parks footer.
+
+Historical source commits remain immutable. Any later transplant is a new,
+focused Saddle commit after human review. Bulk transplant commits, copied model
+attribution, prompt residue, mechanical narration, and unsupported completion
+claims are not accepted.
+
+Archive publication additionally requires:
+
+- two independent full-history secret scanners across every candidate object;
+- exact source-ref, object-count, reachability, signature, and old-to-new SHA
+  checks;
+- protected, non-main archival refs with an immutable provenance ledger; and
+- proof that Saddle's active tree and release dependency graph are unchanged.
+
+## 3. Sequential prompt roster
+
+- [ ] **SAD-HIST-01 — Inventory published history.** Freeze every published
+  source head and tag; inventory every reachable commit, parent, author and
+  committer date, signature state, canonical-footer state, changed path,
+  seed-manifest relationship, ref reachability, and stable patch equivalence.
+  **Gate:** every advertised ref and reachable commit is accounted for; every
+  commit not reachable from source `main` is classified as patch-equivalent,
+  tree-equivalent, or review-required; regeneration is byte-for-byte
+  deterministic; no history is imported or pushed.
+
+- [ ] **SAD-HIST-02 — Prove archive safety.** Run two independent secret
+  scanners across all candidate commits and deleted blobs; define exact clean
+  archive refs or a transparent sanitized rewrite with a complete old-to-new
+  object map.
+  **Gate:** no secret-bearing object can enter Saddle; every rewrite is
+  explained and reproducible; original SHAs remain cited as external
+  provenance.
+
+- [ ] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
+  non-patch-equivalent commit for WSF/AOG/Saddle behavior, security findings,
+  tests, documentation, and superseding Saddle implementation. Transplant only
+  still-required behavior through focused Saddle-native commits that cite the
+  source SHA.
+  **Gate:** every commit has an honest reuse, superseded, transplant, archive,
+  or exclusion disposition with code and test evidence where applicable.
+
+- [ ] **SAD-HIST-04 — Publish and close history.** Push verified historical
+  objects only under protected `history/mighty-eel/...` refs, publish the final
+  provenance ledger, incorporate current `main`, run the complete applicable
+  gate stack, and merge the reviewed lane without squashing.
+  **Gate:** archival refs reproduce the approved object graph, active Saddle
+  source is unchanged except for reviewed transplants and provenance tooling,
+  every applicable GitHub workflow is green, and the canonical PSPR and DEVLOG
+  truthfully record the closeout.
+
+## 4. Current authorization
+
+The user authorized STS execution of SAD-HIST-01. That authorization covers the
+isolated inventory implementation, evidence, focused commit, branch push, and
+green review checkpoint. SAD-HIST-01 does not authorize archive-ref publication,
+history rewriting, code transplantation, or execution of SAD-HIST-02 through
+SAD-HIST-04.
