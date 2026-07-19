@@ -8,8 +8,8 @@
   "paths": {
     "/v1/tokens/issue": {
       "post": {
-        "summary": "Issue a signed trust token for a subject within a tenant.",
-        "responses": { "200": { "description": "The signed token." }, "502": { "description": "OpenBao unavailable." } }
+        "summary": "Issue a signed trust token from the authenticated principal and tenant policy. The body carries bounded intent only: requested roles, models, and budget.",
+        "responses": { "200": { "description": "The signed token." }, "401": { "description": "Missing or invalid workload identity." }, "403": { "description": "Principal, tenant policy, role, model, or budget denied." }, "422": { "description": "Malformed bounded-intent request or an unknown authority field." }, "502": { "description": "OpenBao unavailable." } }
       }
     },
     "/v1/tokens/verify": {
@@ -20,8 +20,8 @@
     },
     "/v1/tokens/attenuate": {
       "post": {
-        "summary": "Mint a narrower child token from a parent (fails closed on any widening).",
-        "responses": { "200": { "description": "The signed child token." }, "422": { "description": "Attenuation widens the parent." } }
+        "summary": "Mint a child from an authenticated parent and narrowing restrictions only. Signature, expiry, current revocation, tenant, lineage, and every authority axis fail closed.",
+        "responses": { "200": { "description": "The signed child token." }, "401": { "description": "Missing or invalid workload identity." }, "403": { "description": "Principal, tenant, or current revocation denied." }, "422": { "description": "Parent authentication failed or a restriction widens authority." } }
       }
     },
     "/v1/envelopes/seal": {
@@ -38,18 +38,18 @@
     },
     "/v1/credentials/exchange": {
       "post": {
-        "summary": "Exchange a verified token for ephemeral, scoped cloud credentials.",
-        "responses": { "200": { "description": "Temporary credentials." }, "403": { "description": "Token rejected or expired." } }
+        "summary": "Exchange a verified token through a tenant-scoped named grant. The server resolves the cloud identity and scope; callers never supply a raw role ARN, service account, or provider scope.",
+        "responses": { "200": { "description": "Temporary scoped credentials." }, "401": { "description": "Missing or invalid workload identity." }, "403": { "description": "Token, tenant, current revocation, or named grant denied." }, "422": { "description": "Malformed request or a caller-supplied cloud-authority field." } }
       }
     },
     "/v1/receipts": {
       "get": {
-        "summary": "Query the receipt ledger by correlation field/value (tenant-scoped; global auditors read across tenants).",
+        "summary": "Query the receipt ledger by correlation field/value. Results are tenant-scoped to the authenticated principal; only an explicitly enrolled global auditor reads across tenants.",
         "parameters": [
           { "name": "field", "in": "query", "required": false, "schema": { "type": "string" } },
           { "name": "value", "in": "query", "required": false, "schema": { "type": "string" } }
         ],
-        "responses": { "200": { "description": "Matching ledger entries." } }
+        "responses": { "200": { "description": "Matching tenant-scoped entries, or cross-tenant entries for an enrolled global auditor." }, "401": { "description": "Missing or invalid workload identity." }, "403": { "description": "Principal or current revocation denied." } }
       }
     },
     "/v1/receipts/export": {
