@@ -9,6 +9,8 @@
     "current-gap-ledger": 0,
     "founding-direction": 3,
     "hardening-evidence-history": 7,
+    "history-inventory-evidence": 309,
+    "history-inventory-generator": 1,
     "import-allowlist-evidence": 17,
     "independence-decision": 5,
     "legacy-state-cli-gate": 9,
@@ -132,6 +134,13 @@
       "reason": "Pre-import hardening evidence is immutable source provenance."
     },
     {
+      "id": "history-inventory-evidence",
+      "kind": "exact",
+      "path": "test-evidence/saddle/SAD-HIST-01/history-inventory.json",
+      "category": "historical_provenance",
+      "reason": "Published-history evidence preserves original subjects and paths without making them active identities."
+    },
+    {
       "id": "source-manifest-evidence",
       "kind": "exact",
       "path": "test-evidence/saddle/SAD-02/source-manifest.json",
@@ -207,6 +216,13 @@
       "path": "tools/generate_saddle_source_manifest.py",
       "category": "verification_input",
       "reason": "Provenance scanner recognizes historical component-family names."
+    },
+    {
+      "id": "history-inventory-generator",
+      "kind": "exact",
+      "path": "tools/generate_saddle_history_inventory.py",
+      "category": "verification_input",
+      "reason": "History classifier recognizes the retired component name only as provenance."
     },
     {
       "id": "package-identity-verifier",

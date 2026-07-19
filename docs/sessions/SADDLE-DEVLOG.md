@@ -1543,3 +1543,39 @@ and regenerated the affected evidence. On that final implementation checkpoint:
 ### Next prompt
 
 `SAD-41 — Consensus truth and fencing`.
+
+## SAD-HIST-04 - Published-history reconciliation closeout
+
+**Status:** COMPLETE - reviewed lane merged and canonical ledgers closed
+
+### Scope and publication
+
+SAD-HIST-04 remained an isolated history-reconciliation lane. It reproduced
+the SAD-HIST-02 sanitized archive proof with Gitleaks 8.30.1 and TruffleHog
+3.95.9 before publication, then published exactly 38 sanitized refs beneath
+`refs/heads/history/mighty-eel/...`. Active GitHub ruleset `19173522` prohibits
+deletion, updates, and non-fast-forward changes and grants no bypass actor.
+
+Live verification matched all remote tips and proved the 762-commit,
+10,444-object graph: 4,885 blobs, 4,797 trees, and 762 commits. The original
+secret-bearing blob and commit are absent. No mirror push, source-history merge,
+replacement ref, graft, tag, or archive-parented active branch was used.
+
+### Verification and integration
+
+The implementation passed the complete applicable local verification stack.
+Reviewed head `85b5c0925136ce7ea9865f197e1295db42ed07ca` then passed every applicable
+GitHub check in pull request
+[#4](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/pull/4), including
+Saddle CI `29696226957`, Saddle Validation `29696226956`, Saddle Workspace
+Validation `29696226935`, canonical footer `29696226937`, and supply chain
+`29696226926`. The lane merged without squashing as
+`2937f6494561fc607519de6c17c259bc7c684e51`.
+
+`Cargo.toml` and `Cargo.lock` remain byte-identical to the reconciled base. The
+protected archive refs are not parents or ancestors of active Saddle `main`.
+
+### Canonical continuation
+
+This closeout does not supersede or advance the canonical implementation
+roster. `SAD-41 - Consensus truth and fencing` remains the next prompt.

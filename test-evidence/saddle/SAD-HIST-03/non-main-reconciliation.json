@@ -1,0 +1,1048 @@
+{
+  "generator": {
+    "path": "tools/reconcile_saddle_history_non_main.py",
+    "sha256": "6891416383a9d713c0f6644b5df6a9a18a5c9ffddb403d2a6fc8b431434dcf04"
+  },
+  "inputs": {
+    "approved_source_main": "fedf005a30ad388ab156dc8bd693a3aa3f0702ea",
+    "history_base": "0e3bd77656601b46cc03d96765d703c3916dbcd3",
+    "inventory_path": "test-evidence/saddle/SAD-HIST-01/history-inventory.json",
+    "inventory_sha256": "b46cc39cf6266fc961849e3869d3980c87328bd57baf6eb10525a42ea406c88f"
+  },
+  "prompt": "SAD-HIST-03",
+  "reviews": [
+    {
+      "behavior": "GitHub-hosted JavaScript actions moved off deprecated Node 20 runtimes.",
+      "changed_paths": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/commit-msg-check.yml",
+        ".github/workflows/gpu-release.yml",
+        ".github/workflows/lamprey-validation.yml",
+        ".github/workflows/ship-validation.yml",
+        ".github/workflows/supply-chain.yml"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "actions/checkout@v7"
+          ],
+          "path": ".github/workflows/ci.yml",
+          "purpose": "Active CI uses the current Node 24 checkout major.",
+          "sha256": "6cccc05625781e8fe7877439681e1cb9048cae6da3996ee9669c8dd7e85a17d8"
+        },
+        {
+          "anchors": [
+            "\"actions/checkout\": \"v7\"",
+            "def test_javascript_actions_and_project_node_use_node24"
+          ],
+          "path": "tools/ci_surface_tests/test_workflows.py",
+          "purpose": "The workflow contract rejects a regression to older JavaScript runtimes.",
+          "sha256": "56d11576c07352bc6450cf212e4d195ceed8f48467ad2e272a2e93bb74269d83"
+        }
+      ],
+      "inventory_patch_id": "73f982799d63dc91e9b70ab352cb76e0cfc04e23",
+      "manifest_disposition_counts": {
+        "import": 6
+      },
+      "published_refs": [
+        "refs/heads/session/node24-github-actions"
+      ],
+      "rationale": "Saddle commit 30a30db independently moved the active workflow set to the declared Node 24 action majors and added a contract test. It is broader and newer than the source commit's checkout-v5 transition.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "f9d0b01f5cb421b11d665a0f077fab77162adab42ef0d596eb297dafe6caf2d1",
+          "sha": "30a30dbc4027d4b27080c2a329acb9364155125f",
+          "subject": "CI-06: move workflow runtime to Node 24"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "9504ae1f0b112ff9344b6e97e3449502069357dcdc14124d0d2e6d074088df94",
+        "sha": "02ae597155582f6fbcb25ae171d9b70cc2843943",
+        "subject": "Move GitHub Actions to Node 24 runtimes across CI and release workflows"
+      },
+      "source_main_commits": [],
+      "source_patch_sha256": "681aa3a7b77321178bad0a11883b060c68b9d37bffca30097618e53bfeddb045",
+      "verification": [
+        "python -m pytest tools/ci_surface_tests/test_workflows.py -q"
+      ]
+    },
+    {
+      "behavior": "AF-001 full attenuation closure across token, WSF, AOG, scheduler, node, and broker consumers.",
+      "changed_paths": [
+        "Cargo.lock",
+        "crates/aog-apiserver/src/auth.rs",
+        "crates/aog-apiserver/src/lib.rs",
+        "crates/aog-apiserver/src/seal.rs",
+        "crates/aog-apiserver/tests/seal.rs",
+        "crates/aog-controller/src/scheduler.rs",
+        "crates/aog-controller/src/vkeys.rs",
+        "crates/aog-node/src/edge.rs",
+        "crates/fabric-contracts/src/token.rs",
+        "crates/fabric-token/Cargo.toml",
+        "crates/fabric-token/src/lib.rs",
+        "crates/fabric-token/tests/security_regression.rs",
+        "crates/fabric-token/tests/token.rs",
+        "crates/wsf-api/src/lib.rs",
+        "crates/wsf-broker/src/lib.rs",
+        "crates/wsf-broker/tests/live_localstack.rs",
+        "docs/scans/SECURITY-REGRESSION-REGISTRY.md",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "test-evidence/security-remediation/M1/phase-T/SUMMARY.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "fn verify_in_context_rejects_wrong_tenant_and_bundle",
+            "fn verify_in_context_fresh_revocation_rejects_unknown"
+          ],
+          "path": "crates/fabric-token/tests/attenuation_context.rs",
+          "purpose": "Context tests cover tenant, bundle, freshness, and external revocation.",
+          "sha256": "847396e455bd91b18e88c67ce28dbcf092b9de020db70ba25aca5daf9f80a187"
+        },
+        {
+          "anchors": [
+            "fn randomized_widening_on_every_axis_is_rejected",
+            "fn valid_narrowing_on_every_axis_succeeds"
+          ],
+          "path": "crates/fabric-token/tests/attenuation_property.rs",
+          "purpose": "Property coverage exercises the monotonicity surface beyond fixed examples.",
+          "sha256": "960689bfe72abbd624bdabd309466c8bf414db32e3f2792570d493cfff0ccd37"
+        },
+        {
+          "anchors": [
+            "SKIP attenuate_live: set WSF_OPENBAO_ADDR"
+          ],
+          "path": "crates/wsf-api/tests/attenuate_live.rs",
+          "purpose": "The public WSF route has an OpenBao-backed live attenuation gate.",
+          "sha256": "c55f3244ccb04062c4e0a246c30e276377b0c24273c82dccbd7a1015817dd8d4"
+        },
+        {
+          "anchors": [
+            "fn property_every_authority_axis_only_narrows"
+          ],
+          "path": "crates/saddle-bridge/tests/contract_properties.rs",
+          "purpose": "Saddle's current bridge contract retains bounded authority properties.",
+          "sha256": "1b73c178d14702c6ecf8bc25a6a289ebd38d43e49f1a3cf874948cfe5f8d00be"
+        }
+      ],
+      "inventory_patch_id": "f5d7d8d68eedd43ca1b55f4d424c34c9834cdf30",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 1,
+        "historical-evidence": 3,
+        "import": 16
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "The approved source-main T1-T7 series is the reviewed implementation and contains stricter parent context, expiry, external revocation, depth, lineage, and property checks. Saddle imported it and subsequently hardened its renamed bridge and server paths, so no branch transplant remains.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        },
+        {
+          "commit_object_sha256": "4928b87d20ab8155a66a6963ab55294497e7e4b1c7741329147876adb33471df",
+          "sha": "9d173b2242720eb21e5f3ea5206022c3c77d05e8",
+          "subject": "SAD-30: freeze cross-plane grant contracts"
+        },
+        {
+          "commit_object_sha256": "6a62b45b5c8a46d883843e8cb03943ef2ac154fee98ff98db719d02bddf21839",
+          "sha": "ef8b27236e1e4f24b27fbad9b249703299291bfc",
+          "subject": "SAD-35: enforce live two-tenant action bridge"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "b09e771874ac9e5384f73990afa7fd480a902c38f865936bcfe5dca48a564c66",
+        "sha": "7b65774afd6bb6b6e06a9554b08318a7483d3806",
+        "subject": "Security remediation Phase T: authenticate + fully constrain attenuation (AF-001)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "a09dcc21e87d0642c832ff00dae988e89ee31125ade29cfd9cda7afd44ca0ce1",
+          "sha": "aee70e10a87438db8a7b923ab46217751d5329ef",
+          "subject": "Security remediation T1-T4: authenticate the parent before attenuation"
+        },
+        {
+          "commit_object_sha256": "bed524e2529daa50643ae2d8d8a341346898591b80c3f2bf0ae0cdeb428bec6d",
+          "sha": "bfdfa6ab0deb46db9ddd9a8758378029ed3f4b88",
+          "subject": "Security remediation T7: live attenuation gate; AF-001 -> PROVEN"
+        },
+        {
+          "commit_object_sha256": "016df8c7f0a664c9867367ad01527e80cb3d2d84a5fea71aa30d64dfa0a33899",
+          "sha": "77bc784cbdf92c6a66b0b4c29dbc70846842f2ac",
+          "subject": "Security remediation T2: update live_api W6 to restriction-only attenuate"
+        },
+        {
+          "commit_object_sha256": "18a2309999f159a32020cd39ca5916b347f630345988f10aa02b8a18e4c8844e",
+          "sha": "f68f95b2c09f3a90a9960355bbc5f021b50a9ece",
+          "subject": "Security remediation T5: meter budget by attenuation lineage"
+        },
+        {
+          "commit_object_sha256": "f01295fbf3a59add3c80e1dde7a90cea7fd976b06401862df10dbb7a4cf7fa5f",
+          "sha": "1543b93544e242895c29c88f28ca27bb4cd531e3",
+          "subject": "Security remediation T6: token v1 compatibility and migration"
+        },
+        {
+          "commit_object_sha256": "cb740d231c344dc1ceac8ddfaafc15e278da181cc3bd6b55348bb5e06a413ee2",
+          "sha": "61c120aac590382d577181322e3fc3b72bfe9e55",
+          "subject": "Security remediation: log T5/T6; Phase T complete (T1-T7)"
+        }
+      ],
+      "source_patch_sha256": "5ca0330371c284de67b2872b4fed2d1ae1fc07e6db5d783d7d73ab6b95857999",
+      "verification": [
+        "cargo test -p fabric-token",
+        "cargo test -p saddle-bridge --test contract_properties"
+      ]
+    },
+    {
+      "behavior": "AF-007 authenticated tenant-scoped receipt queries and auditor export.",
+      "changed_paths": [
+        ".integrity/route-policy.tsv",
+        "crates/wsf-api/src/client.rs",
+        "crates/wsf-api/src/lib.rs",
+        "crates/wsf-api/tests/auth_gate.rs",
+        "crates/wsf-api/tests/live_api.rs",
+        "crates/wsf-ledger/src/lib.rs",
+        "crates/wsf-seal/src/lib.rs",
+        "docs/scans/SECURITY-REGRESSION-REGISTRY.md",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "test-evidence/security-remediation/M1/phase-L/SUMMARY.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "async fn receipts_are_tenant_scoped_with_no_cross_tenant_oracle",
+            "async fn global_auditor_reads_across_tenants_and_exports_a_verifiable_pack"
+          ],
+          "path": "crates/wsf-api/tests/ledger_authz.rs",
+          "purpose": "Tests prove tenant isolation and the explicit global-auditor exception.",
+          "sha256": "49f0b49d4da77c4ea381d249eb574725e3b4d610f98cd502e84423948bc0219b"
+        },
+        {
+          "anchors": [
+            "pub trait AuditorStore"
+          ],
+          "path": "crates/wsf-api/src/audit.rs",
+          "purpose": "Auditor enrollment is explicit server-side authority.",
+          "sha256": "af0d50484da94ad40f30b000f9719732ac6b1639c92d6df35167d2b0b7e1d67d"
+        },
+        {
+          "anchors": [
+            "tenant-scoped",
+            "global auditors"
+          ],
+          "path": "crates/wsf-api/src/openapi.json",
+          "purpose": "The public contract documents tenant-scoped receipts and global auditors.",
+          "sha256": "e1b3f0bcaca289b03ea2412c2991070b74027bdebcd0afc67dbae6709365ad9a"
+        }
+      ],
+      "inventory_patch_id": "19bdcf29b7ce1233bc1aa91333ec591f72dd107c",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 1,
+        "historical-evidence": 3,
+        "import": 7
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Approved source main implemented tenant scoping, auditor-only cross-tenant reads, and signed export in focused L1-L4 commits with deterministic and live tests. That complete state was imported into Saddle and supersedes the branch core patch.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "531ffb08ffd7eaf664256eaa9114160a75b30e7550d8fdfe605fbd4ac8cbc476",
+        "sha": "83742a6e4c29beafc897af29672f05cc471ed337",
+        "subject": "Security remediation Phase L: authorize the receipt ledger (AF-007)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "a49c61e6a46c46e93c5498c54ab6c98a749c62e405255ec78d1dde10789926f0",
+          "sha": "38b71131565fc2ff95f30bc1391bbfecd619ae1b",
+          "subject": "Security remediation L1/L2 (+E6 receipt binding): tenant-scoped receipts"
+        },
+        {
+          "commit_object_sha256": "58f9dac73dbb814e1dc79ddeb4bb30fa38d4fa932f11fb0459f4d7a5d3af06ea",
+          "sha": "2726ed05927957c6a1b68e18863e73604b395989",
+          "subject": "Security remediation L2/L4: auditor-only cross-tenant reads + signed export; AF-007 -> PROVEN"
+        },
+        {
+          "commit_object_sha256": "ea2e7e0034b1c65b2bc405aa2e6e5f334f6b964435b75ef8d6e15e769fcc5f78",
+          "sha": "34be593e58a9cf1d8a06deaffc8331f476208b2b",
+          "subject": "Security remediation: log Phase L core; AF-007 -> FIXED"
+        }
+      ],
+      "source_patch_sha256": "6d888de7f40743f1db74559bed7394c093825b254e5a04dc81fb9b2c2244ef45",
+      "verification": [
+        "cargo test -p wsf-api --test ledger_authz"
+      ]
+    },
+    {
+      "behavior": "Mighty Eel RC1.2 release-build, bundle, and outside-tester documentation.",
+      "changed_paths": [
+        "docs/RC1-TESTER-FEEDBACK.md",
+        "docs/RC1.2-BUILD-NOTES.md",
+        "docs/RC1.2-BUNDLE-NOTES.md",
+        "docs/RC1.2-TEST-EVIDENCE.md"
+      ],
+      "disposition": "archive",
+      "evidence": [
+        {
+          "anchors": [
+            "\"sha\": \"8f27bbea2d04be3c9614eeeeac67bd0315b836a2\"",
+            "\"absent-at-seed\": 4"
+          ],
+          "path": "test-evidence/saddle/SAD-HIST-01/history-inventory.json",
+          "purpose": "The frozen inventory classifies all four changed paths as absent at the seed.",
+          "sha256": "b46cc39cf6266fc961849e3869d3980c87328bd57baf6eb10525a42ea406c88f"
+        },
+        {
+          "anchors": [
+            "history/mighty-eel/"
+          ],
+          "path": "PLANNING/SADDLE-HISTORY-RECONCILIATION-ADDENDUM.md",
+          "purpose": "Historical release objects belong only under the protected archive namespace.",
+          "sha256": "dcab690a1e928451e6087096970384a11c42cb2299bdd94112bd7c2271285711"
+        }
+      ],
+      "inventory_patch_id": "565665229aee085480eeca6c104011f00e13878a",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 4
+      },
+      "published_refs": [
+        "refs/heads/session/RC-10"
+      ],
+      "rationale": "The commit is product-release evidence for a different MAI/Lamprey bundle, not WSF, AOG, or Saddle behavior. All four paths were absent from the approved Saddle seed and selected closure. The sanitized historical object should be preserved in SAD-HIST-04, but its stale binaries, hashes, and tester instructions must not be presented as a Saddle release.",
+      "saddle_commits": [],
+      "source": {
+        "commit_object_sha256": "ae3f82c3281895218e28a99a1284988882eb7b2df49586cf116a070fbb018b1e",
+        "sha": "8f27bbea2d04be3c9614eeeeac67bd0315b836a2",
+        "subject": "RC-10: post-DOUGHERTY re-bundle (RC1.2)"
+      },
+      "source_main_commits": [],
+      "source_patch_sha256": "bedc5f70d9c037040c8472bdfe47676b3d9601ff3dbb46ed9af3dc2a332cecec",
+      "verification": []
+    },
+    {
+      "behavior": "OpenAPI reconciliation for authenticated issuance, attenuation, grants, and receipts.",
+      "changed_paths": [
+        "crates/wsf-api/src/openapi.json"
+      ],
+      "disposition": "transplant",
+      "evidence": [
+        {
+          "anchors": [
+            "authenticated principal",
+            "tenant-scoped named grant",
+            "global auditors"
+          ],
+          "path": "crates/wsf-api/src/openapi.json",
+          "purpose": "The adapted contract states authenticated issuance, bounded grants, and scoped receipts.",
+          "sha256": "e1b3f0bcaca289b03ea2412c2991070b74027bdebcd0afc67dbae6709365ad9a"
+        },
+        {
+          "anchors": [
+            "92dc928febb49837b71755ccb75a8eeccbe14b2b",
+            "def test_privileged_routes_describe_their_authority_boundaries"
+          ],
+          "path": "tools/ci_surface_tests/test_wsf_openapi.py",
+          "purpose": "The CI contract locks the adapted authority descriptions to current DTOs.",
+          "sha256": "88e3ab3c27c3b6d6b54988cde3242702b780be49da0c3ac4d3351162e466421a"
+        }
+      ],
+      "inventory_patch_id": "883c5968bf6a928528151469fe0e0d46e828679f",
+      "manifest_disposition_counts": {
+        "import": 1
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Current Saddle code enforced the hardened routes, but its OpenAPI document still described the pre-hardening issuance, attenuation, and credential contracts. Commit 1caaa4f adapts the still-required intent to current DTOs, preserves the field/value receipt query, documents auditor export, and adds a contract test.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "57592b1d5fada769f74231cb332a8205a9d5c82744fcdcd6abbea939c9bd7c30",
+          "sha": "1caaa4f8d160bece69aaf0416d57d573e73b2a1d",
+          "subject": "Reconcile the hardened WSF OpenAPI contract (SAD-HIST-03)"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "cb6329c228ba05946e3ebdce58652e20917287b10e01ae1a625843a6a5dcd626",
+        "sha": "92dc928febb49837b71755ccb75a8eeccbe14b2b",
+        "subject": "Security remediation Q8: reconcile WSF openapi.json with the trust-plane fixes"
+      },
+      "source_main_commits": [],
+      "source_patch_sha256": "b92f1b771a3bc9e08149120c2d77bde2944f5dd9dbd2ff22fbfbecffb778b68d",
+      "verification": [
+        "python -m json.tool crates/wsf-api/src/openapi.json",
+        "python -m unittest tools.ci_surface_tests.test_wsf_openapi -v",
+        "cargo test -p wsf-api --test ledger_authz"
+      ]
+    },
+    {
+      "behavior": "AF-001 parent authentication and monotonic attenuation, including the AOG mutate-stage call path.",
+      "changed_paths": [
+        "crates/aog-apiserver/src/auth.rs",
+        "crates/aog-apiserver/src/lib.rs",
+        "crates/aog-apiserver/src/seal.rs",
+        "crates/aog-apiserver/tests/seal.rs",
+        "crates/fabric-token/Cargo.toml",
+        "crates/fabric-token/src/lib.rs",
+        "crates/fabric-token/tests/security_regression.rs",
+        "crates/fabric-token/tests/token.rs",
+        "crates/wsf-api/src/lib.rs",
+        "docs/scans/SECURITY-REGRESSION-REGISTRY.md",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "pub fn attenuate(",
+            "verify_in_context(parent, ctx)?",
+            "fn narrow_child("
+          ],
+          "path": "crates/fabric-token/src/lib.rs",
+          "purpose": "Attenuation authenticates the parent and applies the complete monotonicity gate.",
+          "sha256": "6c452535dd1b1a89b9d76a7b60c092de3a82934ed001bbb9c7b24f3929457ee7"
+        },
+        {
+          "anchors": [
+            "fn reg_af_001_unsigned_parent_is_rejected",
+            "fn reg_af_001_wrong_key_parent_is_rejected",
+            "fn reg_af_001_role_widening_is_rejected"
+          ],
+          "path": "crates/fabric-token/tests/security_regression.rs",
+          "purpose": "Permanent adversarial fixtures reject unsigned, wrong-key, and widening parents.",
+          "sha256": "cb4ae69b2675ac0a15d9026a46ffd7d884c7b96238221ba8d78a77a15ac06a8e"
+        },
+        {
+          "anchors": [
+            "pub fn scoped_child_token(",
+            "attenuate_preverified"
+          ],
+          "path": "crates/saddle-apiserver/src/seal.rs",
+          "purpose": "The renamed Saddle server uses the reviewed preverified attenuation seam.",
+          "sha256": "d34a31f7f8da3bef5b4cf81c78a90f7cd2349a862b24c959ba1a3a3ab2e29449"
+        }
+      ],
+      "inventory_patch_id": "235b4b22dd5a64af4366c31b3c796522d2209195",
+      "manifest_disposition_counts": {
+        "historical-evidence": 3,
+        "import": 9
+      },
+      "published_refs": [
+        "refs/heads/claude/af-001-signature-verify-irpxey"
+      ],
+      "rationale": "The approved source main closed the same finding through smaller reviewed T1-T7 commits, then added lineage, versioning, and property hardening. Saddle imported that complete state and later renamed and hardened the AOG server boundary; the branch patch is an earlier, narrower implementation.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "c05d593c4721eeb341405a6f747dc63973b862c5630b822deff8f4edac09defd",
+        "sha": "9684ab5f237ef7818d7485f25b657d95884c4a73",
+        "subject": "fabric-token: authenticate parent before attenuation (AF-001)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "a09dcc21e87d0642c832ff00dae988e89ee31125ade29cfd9cda7afd44ca0ce1",
+          "sha": "aee70e10a87438db8a7b923ab46217751d5329ef",
+          "subject": "Security remediation T1-T4: authenticate the parent before attenuation"
+        },
+        {
+          "commit_object_sha256": "bed524e2529daa50643ae2d8d8a341346898591b80c3f2bf0ae0cdeb428bec6d",
+          "sha": "bfdfa6ab0deb46db9ddd9a8758378029ed3f4b88",
+          "subject": "Security remediation T7: live attenuation gate; AF-001 -> PROVEN"
+        },
+        {
+          "commit_object_sha256": "18a2309999f159a32020cd39ca5916b347f630345988f10aa02b8a18e4c8844e",
+          "sha": "f68f95b2c09f3a90a9960355bbc5f021b50a9ece",
+          "subject": "Security remediation T5: meter budget by attenuation lineage"
+        },
+        {
+          "commit_object_sha256": "f01295fbf3a59add3c80e1dde7a90cea7fd976b06401862df10dbb7a4cf7fa5f",
+          "sha": "1543b93544e242895c29c88f28ca27bb4cd531e3",
+          "subject": "Security remediation T6: token v1 compatibility and migration"
+        },
+        {
+          "commit_object_sha256": "4fd256e544e579d234563c2253498919ac5172b07aa6043476797ba9c75aa5b0",
+          "sha": "b3b674561be71e24bdb1a172ae1d2ef00c7f9e7b",
+          "subject": "remediation(K1): refuse empty-model-list attenuation widening (H1)"
+        },
+        {
+          "commit_object_sha256": "e486e97d9bf06a4871e9ddca52222a252107632e84ebf4f79f597fa2fe806ddd",
+          "sha": "521837d2af294f93d637e23fe431ead1e7ba919b",
+          "subject": "remediation(K2): bind key_id + alg into the token signature (H2)"
+        },
+        {
+          "commit_object_sha256": "d03a2e64848eeb70f330df69cbafc28f6cb2ce0389e0047629c41afb6c447b35",
+          "sha": "fc9c71a2d9f4767cc1423ccfd0e27884d325d87d",
+          "subject": "remediation(K4): attenuation-monotonicity property suite (H1 breadth)"
+        }
+      ],
+      "source_patch_sha256": "8b56810125099ae06979d63719fc7602567394779427491194e52530a4d76522",
+      "verification": [
+        "cargo test -p fabric-token",
+        "cargo test -p saddle-apiserver --test seal"
+      ]
+    },
+    {
+      "behavior": "AF-003 tenant- and subject-bound envelope seal/unseal behavior.",
+      "changed_paths": [
+        "crates/aog-gateway/src/route.rs",
+        "crates/fabric-contracts/src/envelope.rs",
+        "crates/fabric-envelope/src/lib.rs",
+        "crates/fabric-envelope/tests/envelope.rs",
+        "crates/wsf-seal/src/lib.rs",
+        "crates/wsf-seal/tests/tenant_binding.rs",
+        "docs/scans/SECURITY-REGRESSION-REGISTRY.md",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "test-evidence/security-remediation/M1/phase-E/SUMMARY.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "pub tenant_id: String",
+            "pub envelope_version: u32"
+          ],
+          "path": "crates/fabric-contracts/src/envelope.rs",
+          "purpose": "The envelope contract carries an explicit tenant binding and v2 version.",
+          "sha256": "8ed9813dead032484822bd337a0ad29657f54f4202d9548138c562a810548ffe"
+        },
+        {
+          "anchors": [
+            "pub fn transit_key_for",
+            "cross-tenant unseal denied"
+          ],
+          "path": "crates/wsf-seal/src/lib.rs",
+          "purpose": "Seal/unseal derives tenant ownership and isolates Transit keys per tenant.",
+          "sha256": "485fa79687b3a8f507a9159a581e219d7ba9709b8e5b9951f3d8b8c8fdbff03d"
+        },
+        {
+          "anchors": [
+            "async fn per_tenant_transit_keys_isolate_wrapped_material"
+          ],
+          "path": "crates/wsf-seal/tests/live_tenant_keys.rs",
+          "purpose": "A live OpenBao test proves cryptographic tenant-key isolation.",
+          "sha256": "83eab9d1f29aeaec075f1b6b2caa18931670cbf0af97132669ff2ff80b4222d9"
+        }
+      ],
+      "inventory_patch_id": "a956b743f7464ed1f018335c7ea2d631deaeaf41",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 2,
+        "historical-evidence": 3,
+        "import": 5
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Approved source main separately implemented tenant-bound v2 envelopes, per-tenant Transit keys, service-capability checks, migration, and live tests. Saddle imported that broader state, which supersedes the branch Phase E patch.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "1fe413a0ddc9dadcac70a3efe68d29fb5f4cacdd4eecae6491c4439c4c050921",
+        "sha": "9aea8b60b29fa90e5bb3b500b22546965e85dac5",
+        "subject": "Security remediation Phase E: tenant-bound envelopes (AF-003)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "5def255c6b7bfcf18300c129743df029ac5780d6315b441d92fdf6d41f64064a",
+          "sha": "8fcb6ae7ed4f1458e5b1d767fea742c865566ef4",
+          "subject": "Security remediation E1/E3/E4/E7: tenant-bound envelopes (AF-003)"
+        },
+        {
+          "commit_object_sha256": "cc7ef58236ed88e5bcd41ed4f513775030425074ca86b74b19b990764209fed5",
+          "sha": "0a7f3839c55382512f8eb607afc79c1251779425",
+          "subject": "Security remediation E2: per-tenant Transit key namespace"
+        },
+        {
+          "commit_object_sha256": "f4050bb7812bf58b4bc12364064220a3080d59679950201afe1d79a4184e42be",
+          "sha": "c15631c877d6e6ef4059b814733479f2863f4852",
+          "subject": "remediation(M4): bind seal/unseal to the authenticated principal's tenant"
+        },
+        {
+          "commit_object_sha256": "34f9f1310bc17590a2e64bd8cdf670d84665a815752747b4402848934b58dd09",
+          "sha": "4f7e29da413496e5ea4ef961ac5a1794bd6e1867",
+          "subject": "Security remediation: log Phase E core; AF-003 -> PROVEN"
+        }
+      ],
+      "source_patch_sha256": "3a6f26eef067452f4ccf839f9a389d812016686462f63513d528449690a742c7",
+      "verification": [
+        "cargo test -p fabric-envelope",
+        "cargo test -p wsf-seal --lib"
+      ]
+    },
+    {
+      "behavior": "AF-004 tenant-scoped named grants for bounded cloud credential exchange.",
+      "changed_paths": [
+        "crates/wsf-api/src/lib.rs",
+        "crates/wsf-api/tests/live_api.rs",
+        "crates/wsf-broker/src/error.rs",
+        "crates/wsf-broker/src/lib.rs",
+        "crates/wsf-broker/tests/live_localstack.rs",
+        "docs/scans/SECURITY-REGRESSION-REGISTRY.md",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "test-evidence/security-remediation/M1/phase-B/SUMMARY.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "pub trait GrantStore",
+            "fn grant_for(&self, tenant_id: &str, grant_id: &str)"
+          ],
+          "path": "crates/wsf-api/src/grants.rs",
+          "purpose": "Callers name a tenant-scoped grant; server-side policy resolves cloud identity.",
+          "sha256": "e38c71343b21712b012d98e8555fc7834041e4240e0ee46333afb686cd02a40a"
+        },
+        {
+          "anchors": [
+            "pub struct GrantScope",
+            "pub struct AzureGrantScope",
+            "pub struct GcpGrantScope"
+          ],
+          "path": "crates/wsf-broker/src/lib.rs",
+          "purpose": "Broker scope types carry only server-resolved grant authority.",
+          "sha256": "a6071e113044095a53fda3107983206fbc666af0d759bf18ef6846a57ae497ca"
+        },
+        {
+          "anchors": [
+            "async fn exchange_is_grant_scoped_not_raw_arn"
+          ],
+          "path": "crates/wsf-api/tests/broker_grant.rs",
+          "purpose": "The public exchange route rejects raw or cross-tenant authority.",
+          "sha256": "901ce99b672baa5a09ecbb65369d781173ed1ef28df5c153de89ea596f6c846b"
+        }
+      ],
+      "inventory_patch_id": "f766b2ebc01f83a82f389fdda119458c6d913b33",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 1,
+        "historical-evidence": 3,
+        "import": 5
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Approved source main split the broker fix into grant resolution, least privilege, credential hygiene, and live gates for AWS, Azure, and GCP. Saddle imported the complete provider-neutral design, superseding the earlier branch patch.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "9d21a1abe9c1ee4cd412ea4cc72ab21ee72f27ebdb93fbf2d4ef0aba6a1be32b",
+        "sha": "d935079723f23a92ac4a6cf06273f3ce5e7d2daf",
+        "subject": "Security remediation Phase B: confine the credential broker (AF-004)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "929c377cb94660e356c37cc97b1ed87dc9530f83896f7ae7384ca6cc37113247",
+          "sha": "9b66c3adceeed594d62ab1300a7a1ef3a2c96578",
+          "subject": "Security remediation B1/B2/B6: grant-scoped credential exchange (AF-004)"
+        },
+        {
+          "commit_object_sha256": "639d9b5acd056024f98d7cbeea81ea30a2d588560e2f593fdabd0fa8fcfd36db",
+          "sha": "d5111e38bf4bd2bb92a5d679b1b6857205616bab",
+          "subject": "Security remediation B3/B4/B5: least-privilege broker + credential hygiene"
+        },
+        {
+          "commit_object_sha256": "9c793944bdcd420c524c6edd1e0b7dcdf17ae9d631f76f0494ba8ed7bcdaf9b0",
+          "sha": "30073bb33cf99d92bd5c0630bb253fdcc5989fb1",
+          "subject": "remediation(M3): route the Azure/GCP brokers through server-resolved grant scopes"
+        },
+        {
+          "commit_object_sha256": "f50747c9fdf50418839b08a4746089bf30a0d0212c7f5f8b8c068eff109e09a9",
+          "sha": "dc8db0921cd3d350f8f28da4df8a7cde92e8dfe6",
+          "subject": "Security remediation: log Phase B core; AF-004 -> PROVEN"
+        }
+      ],
+      "source_patch_sha256": "9e7517ecb0ac16d28e202ec7a31aed4b3f271e070c5d0e988f8fafafe5282e8c",
+      "verification": [
+        "cargo test -p wsf-broker --lib",
+        "cargo test -p wsf-api --test broker_grant --no-run"
+      ]
+    },
+    {
+      "behavior": "AF-006 fresh signed revocation consumption on WSF privileged paths.",
+      "changed_paths": [
+        "Cargo.lock",
+        "crates/fabric-revocation/Cargo.toml",
+        "crates/fabric-revocation/src/lib.rs",
+        "crates/wsf-broker/Cargo.toml",
+        "crates/wsf-broker/src/azure.rs",
+        "crates/wsf-broker/src/gcp.rs",
+        "crates/wsf-broker/src/lib.rs",
+        "crates/wsf-seal/Cargo.toml",
+        "crates/wsf-seal/src/lib.rs",
+        "crates/wsf-seal/tests/tenant_binding.rs",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "test-evidence/security-remediation/M1/phase-R/SUMMARY.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "pub struct MonotonicRevocationStore",
+            "Rollback"
+          ],
+          "path": "crates/fabric-revocation/src/lib.rs",
+          "purpose": "The snapshot store verifies signatures and rejects rollback.",
+          "sha256": "e7df55704b5ec2e310b704ac92de5856014afed2bb7e755bd216b3d2adb75b75"
+        },
+        {
+          "anchors": [
+            "async fn revocation_propagates_to_seal_and_broker_end_to_end"
+          ],
+          "path": "crates/wsf-api/tests/live_revocation.rs",
+          "purpose": "The live gate proves propagation to seal and broker consumers.",
+          "sha256": "29986d841432320a65b0a4a1086cae965dc0eec1cfa3e31e1774d370ad4466ed"
+        },
+        {
+          "anchors": [
+            "revoked (tenant)"
+          ],
+          "path": "crates/wsf-broker/src/lib.rs",
+          "purpose": "Broker exchange consumes the current revocation snapshot.",
+          "sha256": "a6071e113044095a53fda3107983206fbc666af0d759bf18ef6846a57ae497ca"
+        }
+      ],
+      "inventory_patch_id": "2f73821f60457e1fe9d8ae06dc59fc995e9b1c0c",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 2,
+        "historical-evidence": 2,
+        "import": 9
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Approved source main implemented anti-rollback snapshot storage, complete revocation predicates, fail-closed seal/broker consumers, and an end-to-end live gate. Later Saddle gateway and bridge work also requires current revocation.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        },
+        {
+          "commit_object_sha256": "6a62b45b5c8a46d883843e8cb03943ef2ac154fee98ff98db719d02bddf21839",
+          "sha": "ef8b27236e1e4f24b27fbad9b249703299291bfc",
+          "subject": "SAD-35: enforce live two-tenant action bridge"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "7713642742eaf13bb038b8ec445299b895551751078e898909431b2376558692",
+        "sha": "e2ddf278f579be7bf95d9f537b0e93fed33f81df",
+        "subject": "Security remediation Phase R: consume revocation on WSF paths (AF-006)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "3b8b091d7c402b7f2d4a779a16605800915d4d8b9a55742da9ed0a8bbd110b4e",
+          "sha": "76f1ca50a8d925bd3e6aea9176539861f34f1e28",
+          "subject": "Security remediation R2/R3: complete revocation predicate + shared consumer path"
+        },
+        {
+          "commit_object_sha256": "66a2f0e194ef58bf5f983e20b426ff76ebcaf003ba1e5ad8d1a61a39baea387a",
+          "sha": "8c2d4eaf5fafd68e4e9929da5b80b6415a887473",
+          "subject": "Security remediation R1 + consumers + R6: AF-006 -> PROVEN"
+        },
+        {
+          "commit_object_sha256": "224fde929e2600ed485783a3f72e7047f84cdda1f846e4d58b8127f7caf21c36",
+          "sha": "116b0f1c3846cada458e290a492b49973fa97794",
+          "subject": "Security remediation: AF-006 -> FIXED (predicate + shared verify path)"
+        },
+        {
+          "commit_object_sha256": "9f0eb87eb50f5104a1ba5c846a681bfaef1b93de30c57942c0c6ded3483684c0",
+          "sha": "bcd332f2c5f3f3c33eb0daf70adabe77518260fb",
+          "subject": "security: require current gateway revocation"
+        },
+        {
+          "commit_object_sha256": "2e78781c21f9588e1ae645b32b1f09eab16a14fac0e91817cca4701ba820c7fe",
+          "sha": "e28494241a0cddbe415a576ad4a3352efdd47f18",
+          "subject": "security(aog-gateway): complete, fail-closed, fresh revocation at the gateway (AF-15B)"
+        }
+      ],
+      "source_patch_sha256": "9cf7edb190bec950441ab00025ea18896acce62df0a25df18e828142c8dc5382",
+      "verification": [
+        "cargo test -p fabric-revocation",
+        "cargo test -p wsf-broker --lib",
+        "cargo test -p wsf-seal --lib"
+      ]
+    },
+    {
+      "behavior": "AF-005 MAI production-vault readiness and storage implementation.",
+      "changed_paths": [
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "mai-api/src/production_guard.rs",
+        "mai-api/src/server.rs",
+        "mai-api/src/vault_builder.rs",
+        "mai-api/tests/vault_bootstrap.rs",
+        "test-evidence/security-remediation/M1/phase-V/SUMMARY.md"
+      ],
+      "disposition": "exclusion",
+      "evidence": [
+        {
+          "anchors": [
+            "\"sha\": \"f30164f01835c369b39552ae5bb760254330a319\"",
+            "\"out-of-scope-no-match\": 3"
+          ],
+          "path": "test-evidence/saddle/SAD-HIST-01/history-inventory.json",
+          "purpose": "The frozen inventory records only two historical-evidence paths as selected.",
+          "sha256": "b46cc39cf6266fc961849e3869d3980c87328bd57baf6eb10525a42ea406c88f"
+        },
+        {
+          "anchors": [
+            "out-of-scope"
+          ],
+          "path": "PLANNING/SADDLE-SOURCE-AND-RENAME-MANIFEST.md",
+          "purpose": "The source boundary keeps appliance/MAI runtime ownership outside Saddle.",
+          "sha256": "bd870fcc2dc56ef1da947c78a23a46c7945774dedae5d09201e3efb4ec499a1b"
+        }
+      ],
+      "inventory_patch_id": "59711bb68b69bf7cabe64760f703b31d51e55773",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 1,
+        "exclude-with-reason": 1,
+        "historical-evidence": 2,
+        "out-of-scope-no-match": 3
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "The implementation paths are mai-api/mai-core/mai-vault appliance concerns and are outside Saddle's selected WSF+AOG source closure. Only the historical finding/devlog records were selected. Importing this patch would expand scope and reintroduce excluded MAI runtime ownership, so it remains external provenance.",
+      "saddle_commits": [],
+      "source": {
+        "commit_object_sha256": "d51e3c21f53d9123149818578799f714f31cf46cadf5fad7cbefa0dcae5f645d",
+        "sha": "f30164f01835c369b39552ae5bb760254330a319",
+        "subject": "Security remediation Phase V: production vault truth (AF-005)"
+      },
+      "source_main_commits": [],
+      "source_patch_sha256": "ff5e8d3b08327b2484b4a29c525ffb65f4b1f2299335424b953df441fdc37f83",
+      "verification": [
+        "python tools/verify_saddle_independence.py --root . --evidence-output test-evidence/saddle/SAD-12/independence-gate.json --verify"
+      ]
+    },
+    {
+      "behavior": "Partial quality closure: mock-LLM typing/loopback bind plus M1 documentation.",
+      "changed_paths": [
+        "deployment/appliance/mock-llm/app.py",
+        "docs/scans/SECURITY-REMEDIATION-CLOSURE.md",
+        "docs/scans/SECURITY-REMEDIATION-PSPR.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "def _send(self, code: int, obj: object) -> None",
+            "Binds to all interfaces by design",
+            "# noqa: S104"
+          ],
+          "path": "deployment/appliance/mock-llm/app.py",
+          "purpose": "The imported helper is typed and documents its intentional container-only bind.",
+          "sha256": "8ff733b7db6751b7afa59737741dee95f841b3483250031f41fa8e32be5313fc"
+        },
+        {
+          "anchors": [
+            "AF-005",
+            "real ZFS+TPM hardware"
+          ],
+          "path": "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+          "purpose": "The preserved finding ledger records later complete and deferred states honestly.",
+          "sha256": "77d7f7aff4720413411e7aed03828b71a6424eddd40e4a8ac37875943e0a4ab5"
+        }
+      ],
+      "inventory_patch_id": "ad7598a9e41bf8fe11512d53753cb411a9497cf5",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 1,
+        "historical-evidence": 2,
+        "import": 1
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Approved source main independently reviewed the same mock-LLM lint and bind issue, kept the required cross-container bind with an explicit non-production rationale, and completed the later quality and Phase X closeout. Saddle imported that result; the branch loopback default would break the appliance demo network.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "84792a582790808ff7c8c47ba48278222d08e023087b602ddd59dcf0d17f08e5",
+          "sha": "93f2d2f7fb9cba29e27a3bf57fe5554a58de97da",
+          "subject": "SAD-11 materialize support surfaces"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "f7e0d9e65fe7a6f13a91804a2188b25b47025a39b5ae124339994408bb16db8c",
+        "sha": "fa956e788539594426ab4b9a7e281a68872bf557",
+        "subject": "Security remediation Phase Q (partial) + M1 closure report"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "d66a77bf705989e2b2b9541b887a78357a9687a7cca3aa1a9ac1c673d56b280c",
+          "sha": "acd80a8297b3e072174a063d37e073450bde4f93",
+          "subject": "Security remediation AQ-001/AQ-002: green the quality gates"
+        },
+        {
+          "commit_object_sha256": "3b59bfefbf920ac15e7840520d9cef6f577f0b650abf28990fbe5e4b575a0959",
+          "sha": "700cf2b1c08f6c5dce66a2624992500ce50f049f",
+          "subject": "docs(security): Phase X record - migration, live gates, re-scan, go/no-go"
+        }
+      ],
+      "source_patch_sha256": "ff4a115261d86331eb76e7230d76f352c26f3b7b92181b3d54d831c02c125a59",
+      "verification": [
+        "python -m py_compile deployment/appliance/mock-llm/app.py",
+        "python -m ruff check deployment/appliance/mock-llm/app.py"
+      ]
+    },
+    {
+      "behavior": "AF-002 authenticated, tenant-bound WSF token issuance and authorization.",
+      "changed_paths": [
+        ".integrity/route-policy.tsv",
+        "Cargo.lock",
+        "crates/fabric-contracts/src/identity.rs",
+        "crates/fabric-contracts/src/lib.rs",
+        "crates/wsf-api/Cargo.toml",
+        "crates/wsf-api/src/auth.rs",
+        "crates/wsf-api/src/client.rs",
+        "crates/wsf-api/src/lib.rs",
+        "crates/wsf-api/src/main.rs",
+        "crates/wsf-api/tests/auth_gate.rs",
+        "crates/wsf-api/tests/live_api.rs",
+        "docs/scans/SECURITY-REGRESSION-REGISTRY.md",
+        "docs/scans/SECURITY-REMEDIATION-FINDINGS.md",
+        "docs/sessions/SECURITY-REMEDIATION-DEVLOG.md",
+        "test-evidence/security-remediation/M1/phase-A/SUMMARY.md"
+      ],
+      "disposition": "superseded",
+      "evidence": [
+        {
+          "anchors": [
+            "pub struct WsfPrincipal"
+          ],
+          "path": "crates/fabric-contracts/src/principal.rs",
+          "purpose": "The issued identity is a typed authenticated principal, not request JSON.",
+          "sha256": "b30c408e49eb5764c4ee891b558624b7930bc1a0574a544482700e54ca14121f"
+        },
+        {
+          "anchors": [
+            "pub trait WsfAuthenticator",
+            "pub struct WorkloadAuthenticator"
+          ],
+          "path": "crates/wsf-api/src/auth.rs",
+          "purpose": "Production authentication verifies signed workload credentials and tenant binding.",
+          "sha256": "72e47db876c1c3a4ad8907d4bef41993e6cab084b1c6d3f3f9c9761d00898575"
+        },
+        {
+          "anchors": [
+            "async fn ungranted_role_is_denied_with_mode_labeled_receipt",
+            "async fn unknown_tenant_is_denied_before_any_policy"
+          ],
+          "path": "crates/wsf-api/tests/issuance_perms.rs",
+          "purpose": "Permission tests deny ungranted roles and unknown tenants.",
+          "sha256": "572556c79ea5249b74ba996c3240bb1f2c32c42d3e1ca801282050294e68b5d8"
+        },
+        {
+          "anchors": [
+            "async fn two_tenants_two_workloads_against_live_openbao"
+          ],
+          "path": "crates/wsf-api/tests/issue_authz.rs",
+          "purpose": "The two-tenant live authorization gate remains present.",
+          "sha256": "1ae57979af16714cdd0b18719de5263b53945d23212f446027060eb047602ea6"
+        }
+      ],
+      "inventory_patch_id": "6131f5d5b567708bc0cf7cacbab33a3c66f0d53c",
+      "manifest_disposition_counts": {
+        "absent-at-seed": 1,
+        "historical-evidence": 3,
+        "import": 11
+      },
+      "published_refs": [
+        "refs/heads/claude/repository-security-audit-2trwtq"
+      ],
+      "rationale": "Approved source main implemented A1-A5 as separate principal, authenticator, policy, receipt, and live-gate commits. Saddle imported that complete series; the branch's combined Phase A patch is not the controlling implementation.",
+      "saddle_commits": [
+        {
+          "commit_object_sha256": "e3969b0fc86a3b9455ad21a6475250aad87c44dd5e2fae6e4fd6ac5ed9a0387f",
+          "sha": "850628da4cffc92fc17e22811377a7c8eece1101",
+          "subject": "SAD-10 materialize independent workspace"
+        }
+      ],
+      "source": {
+        "commit_object_sha256": "c805ca933a43ae5897d24007d780efc237f4a6bcf8fbbfaa2934d701b618a78f",
+        "sha": "fe8f3321724c95bd45fc15715a9df28f0fc46075",
+        "subject": "Security remediation Phase A: authenticate WSF issuance (AF-002)"
+      },
+      "source_main_commits": [
+        {
+          "commit_object_sha256": "918e454cb158e0b077222c82b077c8cc0d58c93a8c0eba0410bbe1d11bbb13d0",
+          "sha": "97ad579fdc204ec7e324cb915d5bc88789d3c489",
+          "subject": "Security remediation A1: WsfPrincipal contract with no-JSON boundary"
+        },
+        {
+          "commit_object_sha256": "739dda6fbafa40593a6459e62c261476849f7b3d8521c47ba35f0d3c1f804bb1",
+          "sha": "a71bf03b5881ad0b48f094d1cf264e3b4bf6e6d0",
+          "subject": "Security remediation A2: WSF authenticator seam + middleware"
+        },
+        {
+          "commit_object_sha256": "a50698fffee372359b9f629e5d5130fefbde9e6f228002c226d6106d90782f33",
+          "sha": "1a876859a2b4b67f2d464b7287c3c9a4da269278",
+          "subject": "Security remediation A3: derive issuance authority from the principal"
+        },
+        {
+          "commit_object_sha256": "bc522decd9e5cb8f06e38a77e51965aff17d6fba7db662527aeaa1ca0e6fcb31",
+          "sha": "4dd56d178fa113e57633193a0706f1a109a7d081",
+          "subject": "Security remediation A4: issuance permission model + allow/deny receipts"
+        },
+        {
+          "commit_object_sha256": "25a0db074280249cecd083257f9637a66b2d46c302dfe23df1c0cfbd49e6e8bf",
+          "sha": "c509219ca63fcae9a23a9c89be12a7e7211c5ce4",
+          "subject": "Security remediation A5: live issuance gate — two tenants, two workloads"
+        },
+        {
+          "commit_object_sha256": "2353c2b98e7118f459e602a3fb441e3f2364c24abc8b114de74a5603be6139bb",
+          "sha": "093b09e530e8a8f1f9e1e000973f970272dc67d3",
+          "subject": "Security remediation: log Phase A in DEVLOG; AF-002 -> PROVEN"
+        }
+      ],
+      "source_patch_sha256": "be6a47efe482a140c1b1b9f62f577b2f8cd6045db4adc1831325b1cc82ec8f1c",
+      "verification": [
+        "cargo test -p fabric-contracts",
+        "cargo test -p wsf-api --test auth_gate --test issuance_perms"
+      ]
+    }
+  ],
+  "schema_version": "saddle-non-main-reconciliation/v1",
+  "status": "pass",
+  "summary": {
+    "disposition_counts": {
+      "archive": 1,
+      "exclusion": 1,
+      "superseded": 9,
+      "transplant": 1
+    },
+    "review_required_commit_count": 12,
+    "transplant_commit_count": 1,
+    "unreviewed_commit_count": 0
+  }
+}

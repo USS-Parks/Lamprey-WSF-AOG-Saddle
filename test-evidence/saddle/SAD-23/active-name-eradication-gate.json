@@ -314,6 +314,24 @@
       "total_occurrences": 1
     },
     {
+      "category": "historical_provenance",
+      "content_occurrences": 309,
+      "path": "test-evidence/saddle/SAD-HIST-01/history-inventory.json",
+      "path_occurrences": 0,
+      "reason": "Published-history evidence preserves original subjects and paths without making them active identities.",
+      "rule_id": "history-inventory-evidence",
+      "total_occurrences": 309
+    },
+    {
+      "category": "verification_input",
+      "content_occurrences": 1,
+      "path": "tools/generate_saddle_history_inventory.py",
+      "path_occurrences": 0,
+      "reason": "History classifier recognizes the retired component name only as provenance.",
+      "rule_id": "history-inventory-generator",
+      "total_occurrences": 1
+    },
+    {
       "category": "verification_input",
       "content_occurrences": 1,
       "path": "tools/generate_saddle_source_manifest.py",
@@ -350,11 +368,11 @@
       "total_occurrences": 11
     }
   ],
-  "classified_files": 38,
+  "classified_files": 40,
   "classified_occurrences_by_category": {
-    "historical_provenance": 269,
+    "historical_provenance": 578,
     "migration_fixture": 23,
-    "verification_input": 17
+    "verification_input": 18
   },
   "explicit_surface_counts": {
     "cargo_manifests": 39,
@@ -386,8 +404,8 @@
   },
   "schema_version": 1,
   "status": "PASS",
-  "text_files_scanned": 941,
-  "total_retired_name_occurrences": 309,
-  "tracked_files_scanned": 947,
+  "text_files_scanned": 963,
+  "total_retired_name_occurrences": 619,
+  "tracked_files_scanned": 969,
   "unexplained_matches": []
 }
