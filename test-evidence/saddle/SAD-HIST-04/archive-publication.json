@@ -353,7 +353,7 @@
     },
     "non_main_reconciliation": {
       "path": "test-evidence/saddle/SAD-HIST-03/non-main-reconciliation.json",
-      "sha256": "f31dd549267263f1e1d10f663cd984bd87f19c3868322a053339c680a3bc005c"
+      "sha256": "539ade15d9d6e993750e9832bcfdb4c548edbfb4952cd5f8556fea2be1583c0e"
     },
     "scanner_findings": {
       "path": "test-evidence/saddle/SAD-HIST-02/scanner-findings.json",

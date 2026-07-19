@@ -12,8 +12,7 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01, SAD-HIST-02, AND SAD-HIST-03 COMPLETE;
-SAD-HIST-04 ARCHIVE PUBLICATION VERIFIED; REVIEWED-LANE INTEGRATION PENDING.**
+**Current status:** **SAD-HIST-01 THROUGH SAD-HIST-04 COMPLETE.**
 
 ## 1. Governance and boundaries
 
@@ -103,7 +102,7 @@ Archive publication additionally requires:
   the pull-request-only nightly and release publication jobs were correctly
   skipped.
 
-- [ ] **SAD-HIST-04 — Publish and close history.** Push verified historical
+- [x] **SAD-HIST-04 — Publish and close history.** Push verified historical
   objects only under protected `history/mighty-eel/...` refs, publish the final
   provenance ledger, incorporate current `main`, run the complete applicable
   gate stack, and merge the reviewed lane without squashing.
@@ -111,6 +110,13 @@ Archive publication additionally requires:
   source is unchanged except for reviewed transplants and provenance tooling,
   every applicable GitHub workflow is green, and the canonical PSPR and DEVLOG
   truthfully record the closeout.
+  **Result:** all 38 approved sanitized refs are published beneath protected
+  `history/mighty-eel/...` namespace ruleset `19173522`. The reviewed
+  implementation head `85b5c0925136ce7ea9865f197e1295db42ed07ca` passed the complete
+  applicable GitHub workflow stack in pull request 4 and merged without
+  squashing as `2937f6494561fc607519de6c17c259bc7c684e51`. The unrelated archive
+  graph remains outside active Saddle ancestry, and SAD-41 remains the next
+  canonical implementation prompt.
 
 ## 4. Authorization history
 

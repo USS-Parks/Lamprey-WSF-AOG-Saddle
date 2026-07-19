@@ -60,16 +60,16 @@ parents of Saddle `main` and were not fetched into its active history.
 ## Evidence and reproduction
 
 - `test-evidence/saddle/SAD-HIST-04/archive-publication.json`, SHA-256
-  `22d9f939d11d90697b9d2a87e8b6c34fe424fd28baa9f262a7d4e38699e8d1b7`;
+  `520427f410b6e28045b3951e5f5b15572e8c57632001ae5be2e6b860a482f1f9`;
 - `tools/verify_saddle_history_publication.py`, SHA-256
-  `b6ca51b4e253a178d86262baf553d262cc2e31d30085645619d293b0f05033e2`;
+  `a21862c3c89f70b5ac93136dc6f6690e97c1e4a36d3948de882de87f9d9e20a2`;
 - SAD-HIST-02 object map, SHA-256
   `146a43b93caa86538e1ec70c53dabc2622b774a86a92384d1fb683f2b36499fe`;
 - SAD-HIST-02 normalized scanner findings, SHA-256
   `404ac5048b8d538a76480fbf16d934b3edd84473ee4756d1852baba1fa7369d7`;
   and
 - SAD-HIST-03 reconciliation ledger, SHA-256
-  `22999fdf63a08989887f97fe78fcff1ef4da0b0636ed32a8f51f085b47bfab7c`.
+  `539ade15d9d6e993750e9832bcfdb4c548edbfb4952cd5f8556fea2be1583c0e`.
 
 Live deterministic verification uses the isolated sanitized bare repository:
 
@@ -88,6 +88,9 @@ objects or requiring repository-administration credentials:
 python tools\verify_saddle_history_publication.py --root . --verify-recorded
 ```
 
-Archive publication is complete. Integration and canonical-plan closeout
-remain separate until the reviewed lane passes its full applicable workflow
-stack and is merged without squashing.
+Archive publication and reviewed-lane integration are complete. Implementation
+head `85b5c0925136ce7ea9865f197e1295db42ed07ca` passed the complete applicable
+GitHub workflow stack in pull request
+[#4](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/pull/4) and merged
+without squashing as `2937f6494561fc607519de6c17c259bc7c684e51`. The protected
+archive graph remains separate from active Saddle ancestry.

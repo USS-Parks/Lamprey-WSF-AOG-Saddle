@@ -207,13 +207,17 @@ occurred. SAD-HIST-04 remains pending and is not authorized by this closeout.
 
 ## SAD-HIST-04 - Publish and close history
 
-**Status:** archive publication verified; reviewed-lane integration pending
+**Status:** COMPLETE - archive published, protected, reviewed, and merged
 
 **Branch:** `session/SAD-HIST-4`
 
 **Reconciled main base:** `f66134ef4b3b36c1506f277dbbb9bf61c7d82d7c`
 
-**Reviewed lane checkpoint:** `8c38d9d47ffe714932c61616c1d236c60159a716`
+**Reviewed implementation head:** `85b5c0925136ce7ea9865f197e1295db42ed07ca`
+
+**Pull request:** [#4](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/pull/4)
+
+**Non-squash merge:** `2937f6494561fc607519de6c17c259bc7c684e51`
 
 ### Archive publication
 
@@ -243,9 +247,27 @@ active Saddle history.
 - `tools/verify_saddle_history_publication.py`; and
 - `tools/ci_surface_tests/test_history_publication.py`.
 
-### Remaining gate
+### Verification and integration
 
-The publication implementation must pass the complete applicable local and
-GitHub workflow stacks. The reviewed lane must then merge without squashing;
-only after that integration may the canonical PSPR and canonical Saddle DEVLOG
-record SAD-HIST-04 complete.
+The reviewed implementation passed the complete applicable local gate stack,
+including workspace formatting, check, clippy, tests, audit, deny, docs,
+console tests and production build, 52 Python tooling tests, repository-boundary
+tests, integrity, no-slop, no-phone-home, and staged secret scanning. Pull
+request 4 then passed every applicable GitHub check, including:
+
+- Saddle CI run
+  [29696226957](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29696226957);
+- Saddle Validation run
+  [29696226956](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29696226956);
+- Saddle Workspace Validation run
+  [29696226935](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29696226935);
+- commit footer run
+  [29696226937](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29696226937); and
+- supply-chain run
+  [29696226926](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29696226926).
+
+The reviewed lane merged without squashing. The merge has the current Saddle
+mainline and the reviewed implementation head as its two parents; no protected
+archive ref is an ancestor or parent of active `main`. The canonical PSPR and
+canonical Saddle DEVLOG now record the bounded history closeout without
+changing the execution roster: SAD-41 remains next.
