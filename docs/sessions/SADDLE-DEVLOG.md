@@ -1462,3 +1462,84 @@ On implementation checkpoint `ef8b27236e1e4f24b27fbad9b249703299291bfc`:
 ### Next prompt
 
 `SAD-40 — Declarative estate and conversion`.
+
+## SAD-40 — Declarative estate and conversion
+
+**Status:** PASS — implementation commit
+`99b31ebe9415cdd066c0d5fed559ffe9a7747465`; final verified implementation
+checkpoint `14672ead45b2f4effe65f42c27590cea1be0dcab`.
+
+### Work completed
+
+- Expanded the strict typed estate from 13 to 19 kinds with `ResourceQuota`,
+  `PriorityClass`, `PlacementGroup`, `DisruptionBudget`, `RuntimeClass`, and
+  `NodeLease`, including fail-closed schema and semantic validation.
+- Applied estate-authority admission to runtime classes and protected priority
+  classes, preserved status across updates, and envelope-sealed runtime
+  credential references before persistence.
+- Replaced the permissive conversion seam with a fail-closed registry and
+  canonical `saddle.islandmountain.io/v1` hub. Unknown versions, kinds,
+  non-advancing edges, cycles, malformed objects, and metadata collisions are
+  rejected; legacy conversion rolls back exactly.
+- Exercised optimistic concurrency, watches, and two-phase finalization through
+  the real API and Raft-backed store. A 512-case deterministic conversion fuzz
+  gate preserves authority, UID, generation, resource version, desired state,
+  and status through round trip and rollback.
+- Added the SAD-40 verifier to Saddle Validation and recorded deterministic
+  evidence for all six resource round trips, sensitive-field sealing, real
+  store behavior, conversion invariants, and fail-closed cases.
+
+### Local gate
+
+- `cargo fmt --all --check`, locked all-target workspace check, strict
+  all-target clippy, and full `cargo test --workspace --locked` including
+  doctests — PASS. Only the repository's deliberately ignored aggressive/SLO
+  tests remained skipped.
+- `cargo audit`, `cargo deny check`, config parsing, SAD-12 independence,
+  SAD-23 active names, SAD-40 deterministic verification, Gitleaks, full/staged
+  no-slop, integrity verification, and the pre-push gate — PASS. Cargo-deny
+  retained only its existing nonfatal duplicate-version warnings.
+- The SAD-40 resource suite passed seven typed round-trip and fail-closed cases;
+  the API suite passed four integration cases including 512 deterministic fuzz
+  inputs, exact rollback, CAS/watch/finalizer behavior, and persisted sealing.
+- Canonical commit footer verification — PASS for every outgoing commit.
+
+### Remote gate
+
+The first Saddle Validation run, `29668154840`, correctly failed because the
+new tracked files changed the deterministic SAD-12 inventory. Commit
+`a337ba3e46fd210a13f37f9bdde22eaf5099c45b` refreshed that evidence. The next
+Saddle Validation run, `29668240795`, correctly failed when SAD-23 found a
+retired identity used as an active legacy fixture; commit
+`14672ead45b2f4effe65f42c27590cea1be0dcab` made the fixture classification-clean
+and regenerated the affected evidence. On that final implementation checkpoint:
+
+- `commit-msg-check` run `29668445386` — PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29668445386
+- `Saddle Validation` run `29668445380` — PASS, including SAD-12, SAD-23, and
+  the new SAD-40 verifier:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29668445380
+- `Saddle CI` run `29668445374` — PASS, including the five-replica Phase-V and
+  live WSF/AOG/Saddle trust gates:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29668445374
+- `Saddle Workspace Validation` run `29668445379` — PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29668445379
+
+### Evidence
+
+- `test-evidence/saddle/SAD-40/declarative-estate-gate.json`, SHA-256
+  `782a33059c34a74754955e4cdcda485ddfed56f5b318a8fc13b3334d59fd6e76`;
+- `tools/verify_sad40_declarative_estate.py`, SHA-256
+  `2892b67f657ac96f575294c482873ed6bd51f17106ed48986c2de79c0aa66023`;
+- `crates/saddle-estate/tests/sad40_resources.rs`, SHA-256
+  `fea668cd144efcaf08c7c594622c40c2e70f817cf1d850a76cef7f4e5dbe0e56`;
+- `crates/saddle-apiserver/tests/sad40_declarative_estate.rs`, SHA-256
+  `1ba416cee18cbe8fc6c5010a02f94ef89b9eacbdef4388f345c9fbb405b19a66`;
+  and
+- implementation/correction commits `99b31ebe9415cdd066c0d5fed559ffe9a7747465`,
+  `a337ba3e46fd210a13f37f9bdde22eaf5099c45b`, and
+  `14672ead45b2f4effe65f42c27590cea1be0dcab`.
+
+### Next prompt
+
+`SAD-41 — Consensus truth and fencing`.
