@@ -1579,3 +1579,84 @@ protected archive refs are not parents or ancestors of active Saddle `main`.
 
 This closeout does not supersede or advance the canonical implementation
 roster. `SAD-41 - Consensus truth and fencing` remains the next prompt.
+
+## SAD-41 - Consensus truth and fencing
+
+**Status:** PASS - implementation commit
+`d3f26627b4912e8cd25c916dcbddfdf601a8af85`; final verified implementation
+checkpoint `ca6ee6ba21b59ce14f51d2f0f19f87a58ab55b66`.
+
+### Work completed
+
+- Made controller leadership authority contingent on a current quorum-confirmed
+  gate. Minority, removed, or stale leaders cannot serve authoritative writes.
+- Added linearizable leader-transition handling, safe known-member membership
+  changes with quorum overlap, removed-member fencing, and exact late-learner
+  state recovery.
+- Added versioned BLAKE3-checksummed snapshots whose install replaces the
+  keyspace exactly and preserves revision and deletion truth. Invalid versions,
+  lengths, and checksums fail closed.
+- Bounded the watch cache and made lagged consumers fail closed before an exact
+  current-revision relist, preventing stale watch state from becoming an allow.
+- Added a five-case Jepsen-style gate covering 6 concurrent clients with 32
+  attempts each, leader transition, a four-node membership rotation, 100 watch
+  overflow events, malformed/non-quorum membership changes, and minority
+  partition fencing. No acknowledged write was lost and no stale authoritative
+  allow was served.
+- Reconciled the newly published SAD-HIST lane without rewriting history. The
+  history verifier now proves recorded dependency and product digests at their
+  historical commits instead of freezing later mainline files; SAD-12, SAD-23,
+  and SAD-HIST-03 deterministic evidence was refreshed for the merged tree.
+
+### Local gate
+
+- Focused `sad41_consensus_truth` suite - PASS, 5/5 tests; deterministic SAD-41
+  verifier - PASS.
+- `cargo fmt --all --check`, locked workspace check, strict all-target clippy,
+  full `cargo test --workspace --locked` including doctests, `cargo audit`,
+  `cargo deny check`, and locked workspace docs - PASS. Only the repository's
+  deliberately ignored aggressive/SLO/nightly tests remained skipped; existing
+  nonfatal cargo-deny duplicate and rustdoc warnings were unchanged.
+- Node `v24.15.0` console install from lock and production build - PASS, 198
+  packages and zero reported vulnerabilities.
+- Full Python repository suite - PASS, 52/52 tests; focused history-publication
+  regression suite - PASS, 3/3 tests.
+- SAD-12 independence, SAD-23 active names, SAD-40 estate, SAD-41 consensus,
+  SAD-HIST-03 reconciliation, and SAD-HIST-04 publication verifiers - PASS.
+  Gitleaks, integrity, formatting/diff checks, executable modes, the configured
+  full no-slop scan, and the manual pre-push hook also passed.
+- Canonical commit-footer verification - PASS for every outgoing commit.
+
+### Remote gate
+
+On final implementation checkpoint
+`ca6ee6ba21b59ce14f51d2f0f19f87a58ab55b66`:
+
+- `commit-msg-check` run `29700204044` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29700204044
+- `Saddle Validation` run `29700204042` - PASS, including the repository
+  boundary and SAD-41 deterministic verifier:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29700204042
+- `Saddle CI` run `29700204069` - PASS, including Rust quality, supply-chain,
+  Phase-V live estate, live WSF/AOG/Saddle trust, integration, and the SAD-41
+  consensus/conformance gate:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29700204069
+- `Saddle Workspace Validation` run `29700204040` - PASS on Windows:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29700204040
+
+### Evidence
+
+- `test-evidence/saddle/SAD-41/consensus-truth-gate.json`, SHA-256
+  `c0ba07e62a105afe45b912ec28d1eedb8ba674a5b437904b19bf54778e7130de`;
+- `tools/verify_sad41_consensus_truth.py`, SHA-256
+  `a07c566a0f2111d9affb4235e02ae1d648bdb10f6822c1547c3bc64ea60e7c7e`;
+- `crates/saddle-controller/tests/sad41_consensus_truth.rs`, SHA-256
+  `f6156b0af1ad80746f1fc8b18422f6efffc72ce3aa8fd36e5d5c5324b4b3e513`;
+  and
+- implementation commit `d3f26627b4912e8cd25c916dcbddfdf601a8af85`, history
+  integration commit `12d6c8da5703a5398dee9276b3a087fd588b2ad9`, and merged-boundary
+  verification commit `ca6ee6ba21b59ce14f51d2f0f19f87a58ab55b66`.
+
+### Next prompt
+
+`SAD-42 - Level-triggered reconciliation`.
