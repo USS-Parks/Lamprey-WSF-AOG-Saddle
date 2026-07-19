@@ -1,5 +1,5 @@
 {
-  "active_tracked_path_count": 634,
+  "active_tracked_path_count": 635,
   "external_cargo_path_dependencies": [],
   "forbidden_parent_references": [],
   "historical_exclusion_policy": {
@@ -18,5 +18,5 @@
   "submodule_status_entries": [],
   "submodule_tree_paths": [],
   "symlink_tree_paths": [],
-  "tracked_path_count": 965
+  "tracked_path_count": 966
 }
