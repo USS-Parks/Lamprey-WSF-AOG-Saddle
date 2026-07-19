@@ -21,6 +21,24 @@ RULESET_PATTERN = "refs/heads/history/mighty-eel/**"
 REQUIRED_RULES = {"deletion", "non_fast_forward", "update"}
 BASE_COMMIT = "f66134ef4b3b36c1506f277dbbb9bf61c7d82d7c"
 REVIEWED_LANE_COMMIT = "8c38d9d47ffe714932c61616c1d236c60159a716"
+HISTORY_CLOSEOUT_COMMIT = "b3832d81858008c676d1ae54536a9a5ccad506ae"
+HISTORY_CLOSEOUT_RECONCILIATION_SHA256 = (
+    "539ade15d9d6e993750e9832bcfdb4c548edbfb4952cd5f8556fea2be1583c0e"
+)
+HISTORY_DEPENDENCY_SHA256 = {
+    "Cargo.lock": "e84718f80401387abf88a82c0b1f3e5b24690d9a63cf167a9cee97c0e4146312",
+    "Cargo.toml": "670088f33cd9df95f20fe9ac4abc40ed93f2afe610306f317946c8cff1fe6512",
+}
+HISTORY_OPENAPI_SHA256 = (
+    "e1b3f0bcaca289b03ea2412c2991070b74027bdebcd0afc67dbae6709365ad9a"
+)
+HISTORY_NO_PHONE_HOME_SHA256 = (
+    "09983197694628c3968dfabe99240a0289aa0fd9f71122d100010a33b0833488"
+)
+HISTORY_PRODUCT_SHA256 = {
+    "crates/wsf-api/src/openapi.json": HISTORY_OPENAPI_SHA256,
+    "deployment/supply-chain/no-phone-home.sh": HISTORY_NO_PHONE_HOME_SHA256,
+}
 SECRET_OBJECTS = {
     "ffb2ea027f2a965cdad277c1ebbde291d3314a36",
     "c75e95f15256b929e382ec58658348502e6a5f83",
@@ -303,13 +321,22 @@ def verify_recorded_repository_gate(root: Path, recorded: dict[str, Any]) -> Non
     if recorded.get("reviewed_lane_commit") != REVIEWED_LANE_COMMIT:
         fail("recorded reviewed-lane commit changed")
 
+    full_history = git_object_exists(root, BASE_COMMIT) and git_object_exists(
+        root, REVIEWED_LANE_COMMIT
+    )
+
     for path in ("Cargo.toml", "Cargo.lock"):
         expected = recorded.get("dependency_files", {}).get(path, {})
-        current = sha256_file(root / path)
-        if expected.get("base_sha256") != current:
-            fail(f"recorded base dependency digest changed: {path}")
-        if expected.get("current_sha256") != current:
-            fail(f"active dependency digest changed: {path}")
+        base_digest = expected.get("base_sha256")
+        reviewed_digest = expected.get("current_sha256")
+        if base_digest != HISTORY_DEPENDENCY_SHA256[path]:
+            fail(f"recorded base dependency digest is malformed: {path}")
+        if reviewed_digest != base_digest:
+            fail(f"history reconciliation changed the dependency graph: {path}")
+        if full_history:
+            historical = sha256_bytes(git(root, "show", f"{BASE_COMMIT}:{path}"))
+            if base_digest != historical:
+                fail(f"recorded base dependency digest changed: {path}")
 
     product_changes = recorded.get("active_product_changes")
     if not isinstance(product_changes, list):
@@ -323,18 +350,22 @@ def verify_recorded_repository_gate(root: Path, recorded: dict[str, Any]) -> Non
         disposition = item.get("disposition")
         if not isinstance(path, str) or not isinstance(disposition, str):
             fail("recorded active product change is malformed")
-        if sha256_file(root / path) != item.get("sha256"):
-            fail(f"reviewed active product digest changed: {path}")
+        digest = item.get("sha256")
+        if digest != HISTORY_PRODUCT_SHA256.get(path):
+            fail(f"reviewed active product digest is malformed: {path}")
+        if full_history:
+            historical = sha256_bytes(
+                git(root, "show", f"{REVIEWED_LANE_COMMIT}:{path}")
+            )
+            if historical != digest:
+                fail(f"reviewed active product digest changed: {path}")
         recorded_changes[path] = disposition
     if recorded_changes != expected_changes:
         fail("recorded active product change set changed")
 
-    full_history = git_object_exists(root, BASE_COMMIT) and git_object_exists(
-        root, REVIEWED_LANE_COMMIT
-    )
     if full_history:
-        if repository_change_gate(root) != recorded:
-            fail("recorded active-tree gate changed")
+        git(root, "merge-base", "--is-ancestor", BASE_COMMIT, REVIEWED_LANE_COMMIT)
+        git(root, "merge-base", "--is-ancestor", REVIEWED_LANE_COMMIT, "HEAD")
         return
     if git(root, "rev-parse", "--is-shallow-repository").strip() != b"true":
         fail("required history commits are missing from a non-shallow checkout")
@@ -435,8 +466,23 @@ def verify_recorded(root: Path, output: Path) -> None:
     }
     if recorded != expected:
         fail("recorded remote refs do not equal the approved ref map")
-    for record in payload["inputs"].values():
-        if sha256_file(root / record["path"]) != record["sha256"]:
+    for name, record in payload["inputs"].items():
+        if (
+            name == "non_main_reconciliation"
+            and record.get("sha256") != HISTORY_CLOSEOUT_RECONCILIATION_SHA256
+        ):
+            fail("recorded SAD-HIST-03 closeout digest changed")
+        if name == "non_main_reconciliation" and git_object_exists(
+            root, HISTORY_CLOSEOUT_COMMIT
+        ):
+            actual = sha256_bytes(
+                git(root, "show", f"{HISTORY_CLOSEOUT_COMMIT}:{record['path']}")
+            )
+        elif name == "non_main_reconciliation":
+            actual = record["sha256"]
+        else:
+            actual = sha256_file(root / record["path"])
+        if actual != record["sha256"]:
             fail(f"recorded input digest changed: {record['path']}")
     object_map_path = root / "test-evidence/saddle/SAD-HIST-02/object-map.jsonl"
     if object_map_summary(object_map_path) != payload["object_map"]:

@@ -29,7 +29,7 @@
           ],
           "path": ".github/workflows/ci.yml",
           "purpose": "Active CI uses the current Node 24 checkout major.",
-          "sha256": "6cccc05625781e8fe7877439681e1cb9048cae6da3996ee9669c8dd7e85a17d8"
+          "sha256": "6ac369c4cc6212665ea3c0773c9f47ca682ce1177bda305739ddc5b24618ca78"
         },
         {
           "anchors": [
