@@ -25,9 +25,10 @@ fail=0
 SCAN_DIRS=(crates/*/src mai-*/src)
 
 # 1. No vendor call-home (our own domain) and no telemetry/analytics beacons.
-#    The Kubernetes-style API group `<name>.islandmountain.io/vN` is a schema
-#    identifier (an apiVersion / URL path on the local apiserver), NOT a network
-#    destination, so it is excluded here, as are comment-only lines (prose like
+#    Kubernetes-style qualified names under `<name>.islandmountain.io/` are
+#    schema identifiers (apiVersions, finalizers, labels, and annotations) on the
+#    local apiserver, NOT network destinations. They are excluded here, as are
+#    comment-only lines (prose like
 #    "debugging/telemetry" is not a beacon — an SDK import or URL is code, not a
 #    comment). A real call-home to our domain carries a scheme and is still
 #    caught by check 2 below, which flags any external host not on the
@@ -37,6 +38,8 @@ if grep -rEniH \
      "${SCAN_DIRS[@]}" --include='*.rs' 2>/dev/null \
      | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|/\*|\*)' \
      | grep -vE '[a-z0-9-]+\.islandmountain\.io/v[0-9]' \
+     | grep -vE '"[a-z0-9-]+\.islandmountain\.io/[A-Za-z0-9._/-]*"' \
+     | grep -vE 'concat!\("[a-z0-9-]+",[[:space:]]*"\.islandmountain\.io/v[0-9]"\)' \
      | grep -vE 'updates\.islandmountain\.ai'; then
   echo "FAIL: a service references vendor call-home / telemetry (above)." >&2
   fail=1
@@ -49,8 +52,11 @@ fi
 ALLOWED='api\.openai\.com|api\.anthropic\.com|amazonaws\.com|microsoftonline\.com|googleapis\.com|storage\.azure\.com|huggingface\.co'
 while IFS= read -r url; do
   host="${url#*//}"
+  host="${host,,}"
   case "$host" in
-    localhost | 127.0.0.1 | 0.0.0.0 | *.internal) continue ;; # loopback / internal
+    localhost | 127.* | 0.0.0.0 | 10.* | 192.168.* | 169.254.* | \
+      172.1[6-9].* | 172.2[0-9].* | 172.3[01].* | \
+      *.internal | *.lan | *.local) continue ;; # loopback / private / internal
     example.com | *.example.com | *.example | *.test | *.invalid) continue ;; # RFC 2606 doc/test hosts
     updates.islandmountain.ai) continue ;; # documented OTA default (see header); overridable + air-gap-denied
     *.*) : ;;                                                  # dotted → public-ish, check it
