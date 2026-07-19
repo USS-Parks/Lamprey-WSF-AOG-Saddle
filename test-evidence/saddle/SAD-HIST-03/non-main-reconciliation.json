@@ -311,7 +311,7 @@
           ],
           "path": "PLANNING/SADDLE-HISTORY-RECONCILIATION-ADDENDUM.md",
           "purpose": "Historical release objects belong only under the protected archive namespace.",
-          "sha256": "716c6f0690fb198ab84c0ece0507f49b803d6773677f94b65f4befb52642c420"
+          "sha256": "b4e238f19ffdb78b074aefc66116942aef8c50d43e0d79b975a4a65b706fcf44"
         }
       ],
       "inventory_patch_id": "565665229aee085480eeca6c104011f00e13878a",

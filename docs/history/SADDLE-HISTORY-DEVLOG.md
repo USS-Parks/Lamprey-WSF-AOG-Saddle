@@ -115,7 +115,7 @@ SAD-HIST-03 remains pending and is not authorized by this closeout. No merge to
 
 ## SAD-HIST-03 - Non-main reconciliation
 
-**Status:** implementation complete; remote verification pending
+**Status:** complete
 
 **Branch:** `session/SAD-HIST-3`
 
@@ -169,6 +169,38 @@ proof. The existing AF-005 real-ZFS+TPM deferral also remains unchanged.
 
 ### Publication
 
-The focused transplant commit exists locally. The reconciliation/evidence
-commit, branch push, and applicable GitHub workflows are pending. SAD-HIST-04 is
-not authorized by this implementation checkpoint.
+The focused branch was published through five additive commits. The workflow
+repairs did not rewrite their predecessors:
+
+- adapted WSF OpenAPI transplant:
+  `1caaa4f8d160bece69aaf0416d57d573e73b2a1d`;
+- reconciliation ledger and deterministic verifier:
+  `7c6527e89206a48700b5c41b7d4a55bf94a5af13`;
+- zero-phone-home false-positive repair and regression coverage:
+  `7ee939765b9a98936de291519142fb9919f724b6`;
+- deterministic boundary-evidence refresh:
+  `2f5ad2dd2a8e5690c9b8f9ec948c5fd50303fbac`;
+- Linux executable-mode correction:
+  `56bf5596adc84b2db109dad35830b13a2dc0034d`; and
+- draft review: <https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/pull/3>.
+
+The first remote checkpoint exposed a latent static-scanner false positive for
+Kubernetes qualified names and private test fixtures. The repair preserved
+fail-closed detection for real vendor and unknown public endpoints. A later
+tooling run caught the reconciliation generator's Windows-authored executable
+mode; the focused mode-only commit restored the Linux entrypoint contract.
+
+### Remote verification
+
+The reviewed checkpoint passed all 15 applicable checks. The nightly
+integration matrix and release-only SBOM/signing job were correctly skipped on
+this pull-request run:
+
+- [Saddle CI](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29690445079);
+- [Saddle Validation](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29690445095);
+- [Windows workspace validation](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29690445124);
+- [zero-phone-home supply-chain gate](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29690445072); and
+- [canonical footer check](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29690445088).
+
+No merge to `main`, historical object import, or archive-ref publication
+occurred. SAD-HIST-04 remains pending and is not authorized by this closeout.

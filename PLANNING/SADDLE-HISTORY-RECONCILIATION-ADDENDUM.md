@@ -12,8 +12,8 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01 AND SAD-HIST-02 COMPLETE; SAD-HIST-03
-IMPLEMENTED WITH REMOTE VERIFICATION PENDING; SAD-HIST-04 PENDING.**
+**Current status:** **SAD-HIST-01, SAD-HIST-02, AND SAD-HIST-03 COMPLETE;
+SAD-HIST-04 PENDING.**
 
 ## 1. Governance and boundaries
 
@@ -85,7 +85,7 @@ Archive publication additionally requires:
   `509abbed7d47ed1f81bbb9876937ade7422d3873`; the pull-request-only nightly
   integration matrix was correctly skipped.
 
-- [ ] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
+- [x] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
   non-patch-equivalent commit for WSF/AOG/Saddle behavior, security findings,
   tests, documentation, and superseding Saddle implementation. Transplant only
   still-required behavior through focused Saddle-native commits that cite the
@@ -98,8 +98,10 @@ Archive publication additionally requires:
   OpenAPI contract in Saddle commit
   `1caaa4f8d160bece69aaf0416d57d573e73b2a1d`; the deterministic ledger is
   `test-evidence/saddle/SAD-HIST-03/non-main-reconciliation.json`. No source
-  object or archive ref was imported. Remote workflow verification remains
-  required before this checkbox closes.
+  object or archive ref was imported. All 15 applicable GitHub checks passed on
+  reviewed checkpoint `56bf5596adc84b2db109dad35830b13a2dc0034d`;
+  the pull-request-only nightly and release publication jobs were correctly
+  skipped.
 
 - [ ] **SAD-HIST-04 — Publish and close history.** Push verified historical
   objects only under protected `history/mighty-eel/...` refs, publish the final
