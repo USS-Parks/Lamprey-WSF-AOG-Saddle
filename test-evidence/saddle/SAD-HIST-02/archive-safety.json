@@ -1,0 +1,425 @@
+{
+  "archive": {
+    "publication_authorized": false,
+    "publication_command_policy": "push exact archive refs only; never mirror",
+    "ref_map": [
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/canon/branch-worktree-guard",
+        "changed": true,
+        "original_commit_sha": "65d6e11ff3ce8a37fc03bc755938876657fecc52",
+        "original_object_sha": "65d6e11ff3ce8a37fc03bc755938876657fecc52",
+        "sanitized_commit_sha": "a0543f488dd963ec02d2fb5fbaa45f83fae382c3",
+        "source_ref": "refs/heads/canon/branch-worktree-guard"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/claude/af-001-signature-verify-irpxey",
+        "changed": true,
+        "original_commit_sha": "9684ab5f237ef7818d7485f25b657d95884c4a73",
+        "original_object_sha": "9684ab5f237ef7818d7485f25b657d95884c4a73",
+        "sanitized_commit_sha": "472baa42dce49d3a28a8e8b6dbca5b01d9c44086",
+        "source_ref": "refs/heads/claude/af-001-signature-verify-irpxey"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/claude/footer-canon-adopt",
+        "changed": true,
+        "original_commit_sha": "e8073e59ae5256ba4048f43c4aebf1b3b7d44e60",
+        "original_object_sha": "e8073e59ae5256ba4048f43c4aebf1b3b7d44e60",
+        "sanitized_commit_sha": "cb4019b055727237278cddc9187e5835f55ae591",
+        "source_ref": "refs/heads/claude/footer-canon-adopt"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/claude/live-gates-docker-zfs-qoe2bc",
+        "changed": true,
+        "original_commit_sha": "81e1bf4601a76bf57d90a6e21b946c05d695c0b9",
+        "original_object_sha": "81e1bf4601a76bf57d90a6e21b946c05d695c0b9",
+        "sanitized_commit_sha": "c86cfd36947871b5c3bf26944da937ce6941d0e1",
+        "source_ref": "refs/heads/claude/live-gates-docker-zfs-qoe2bc"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/claude/repository-security-audit-2trwtq",
+        "changed": true,
+        "original_commit_sha": "92dc928febb49837b71755ccb75a8eeccbe14b2b",
+        "original_object_sha": "92dc928febb49837b71755ccb75a8eeccbe14b2b",
+        "sanitized_commit_sha": "70d7c3343ec3ce89b3fff5c50123c1a24033424b",
+        "source_ref": "refs/heads/claude/repository-security-audit-2trwtq"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/claude/startup-message-meaning-tovlbj",
+        "changed": true,
+        "original_commit_sha": "d88c9cff80366c973d7a9040d4bdbb3072a41c40",
+        "original_object_sha": "d88c9cff80366c973d7a9040d4bdbb3072a41c40",
+        "sanitized_commit_sha": "65f2d53572950eb49bc8aad670658f1188b49ce0",
+        "source_ref": "refs/heads/claude/startup-message-meaning-tovlbj"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/claude/v5-v10-sts-migration-flqpoj",
+        "changed": true,
+        "original_commit_sha": "1e4582c342efa59acb51b41fd29d0ef4e53a9c8b",
+        "original_object_sha": "1e4582c342efa59acb51b41fd29d0ef4e53a9c8b",
+        "sanitized_commit_sha": "96c6b167ec52a21075169964c3141f1895c152b0",
+        "source_ref": "refs/heads/claude/v5-v10-sts-migration-flqpoj"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/main",
+        "changed": true,
+        "original_commit_sha": "fedf005a30ad388ab156dc8bd693a3aa3f0702ea",
+        "original_object_sha": "fedf005a30ad388ab156dc8bd693a3aa3f0702ea",
+        "sanitized_commit_sha": "bb06cd1d42848847da95eda3b8a62d38ebb9eb06",
+        "source_ref": "refs/heads/main"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/AUDIT-FIX-2",
+        "changed": true,
+        "original_commit_sha": "50399c56e9d84524061ceecf8c5783b0de6d0725",
+        "original_object_sha": "50399c56e9d84524061ceecf8c5783b0de6d0725",
+        "sanitized_commit_sha": "aec93a5fd470cfed9cbb8dbb22a26384b60ba933",
+        "source_ref": "refs/heads/session/AUDIT-FIX-2"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/BRAND-01",
+        "changed": false,
+        "original_commit_sha": "afdacaed57906cc3788329590d71bcdfa6fdef57",
+        "original_object_sha": "afdacaed57906cc3788329590d71bcdfa6fdef57",
+        "sanitized_commit_sha": "afdacaed57906cc3788329590d71bcdfa6fdef57",
+        "source_ref": "refs/heads/session/BRAND-01"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/CLIP-1",
+        "changed": true,
+        "original_commit_sha": "603fa6700659af11b6f95897f43c1c9345798216",
+        "original_object_sha": "603fa6700659af11b6f95897f43c1c9345798216",
+        "sanitized_commit_sha": "0128ea61f81f8421f4527cfbf4fe424954fee368",
+        "source_ref": "refs/heads/session/CLIP-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/CMSG-1",
+        "changed": true,
+        "original_commit_sha": "c39a9732568c846eeacce2fa928fe4f9eb695e92",
+        "original_object_sha": "c39a9732568c846eeacce2fa928fe4f9eb695e92",
+        "sanitized_commit_sha": "ff10cc91870d7fa2106d8b0bad4aa0a0678d3136",
+        "source_ref": "refs/heads/session/CMSG-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/DEP-1",
+        "changed": true,
+        "original_commit_sha": "ff99cecb34494af894a08bbc035c60eee64fe90e",
+        "original_object_sha": "ff99cecb34494af894a08bbc035c60eee64fe90e",
+        "sanitized_commit_sha": "755a811353183eddb3b5a49f4db1c93d95342735",
+        "source_ref": "refs/heads/session/DEP-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/DOCS-1",
+        "changed": true,
+        "original_commit_sha": "3a32aa086fcafde70a7dc1e081eca011ebaa2999",
+        "original_object_sha": "3a32aa086fcafde70a7dc1e081eca011ebaa2999",
+        "sanitized_commit_sha": "2156c2219ced5db0f7f3de84f9d53eee97e35662",
+        "source_ref": "refs/heads/session/DOCS-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/GOV-1",
+        "changed": true,
+        "original_commit_sha": "051002bbee02f10e6fe9cb1109716edaf22a6858",
+        "original_object_sha": "051002bbee02f10e6fe9cb1109716edaf22a6858",
+        "sanitized_commit_sha": "90d4d662ab81ab1bbd949d547e4b3712cafd2c13",
+        "source_ref": "refs/heads/session/GOV-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/HF-1",
+        "changed": false,
+        "original_commit_sha": "8fe981c7bdfc50c9c47add82c2e4f3ef0f5de3ea",
+        "original_object_sha": "8fe981c7bdfc50c9c47add82c2e4f3ef0f5de3ea",
+        "sanitized_commit_sha": "8fe981c7bdfc50c9c47add82c2e4f3ef0f5de3ea",
+        "source_ref": "refs/heads/session/HF-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/HF-2",
+        "changed": true,
+        "original_commit_sha": "51812845b3cabc6c109037831c343fd7d78cf2b3",
+        "original_object_sha": "51812845b3cabc6c109037831c343fd7d78cf2b3",
+        "sanitized_commit_sha": "e0fc81791002cdc2511fd6e7746bf5d7d98a794e",
+        "source_ref": "refs/heads/session/HF-2"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/HF-3",
+        "changed": true,
+        "original_commit_sha": "176f6ae935c5b2a55b231d15bdfc3915b6226b99",
+        "original_object_sha": "176f6ae935c5b2a55b231d15bdfc3915b6226b99",
+        "sanitized_commit_sha": "b832c43fd1f4d3683af4bdaefafd8a92700e953a",
+        "source_ref": "refs/heads/session/HF-3"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/IGD-01",
+        "changed": false,
+        "original_commit_sha": "94c4bd0f389c01e44b227540aeee1f40a7e9cca0",
+        "original_object_sha": "94c4bd0f389c01e44b227540aeee1f40a7e9cca0",
+        "sanitized_commit_sha": "94c4bd0f389c01e44b227540aeee1f40a7e9cca0",
+        "source_ref": "refs/heads/session/IGD-01"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/IGD-04",
+        "changed": true,
+        "original_commit_sha": "504632af449e29a400432922383bbb0e4a35506f",
+        "original_object_sha": "504632af449e29a400432922383bbb0e4a35506f",
+        "sanitized_commit_sha": "bbeb46df84e9d6ba1f3eda3b23b08c0843b4c18c",
+        "source_ref": "refs/heads/session/IGD-04"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/IGD-05",
+        "changed": true,
+        "original_commit_sha": "cff1a4ed6165137b4fed1797b88d26e5d976febb",
+        "original_object_sha": "cff1a4ed6165137b4fed1797b88d26e5d976febb",
+        "sanitized_commit_sha": "bb69b5454327628aa53edf5563fecc296cb8ce3c",
+        "source_ref": "refs/heads/session/IGD-05"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/IGD-08",
+        "changed": true,
+        "original_commit_sha": "a93ca1c803ca72101da96bde196bef5d3ec1c403",
+        "original_object_sha": "a93ca1c803ca72101da96bde196bef5d3ec1c403",
+        "sanitized_commit_sha": "10bf416e421880ca8e66508b604206cc624d417d",
+        "source_ref": "refs/heads/session/IGD-08"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/IGD-09",
+        "changed": true,
+        "original_commit_sha": "b277ac9f51f4aa9b22b3cdc2537ff8b2355b7075",
+        "original_object_sha": "b277ac9f51f4aa9b22b3cdc2537ff8b2355b7075",
+        "sanitized_commit_sha": "ab79a8e9750cad6c8c4c0c66bc6f7c3f3e0a1ddd",
+        "source_ref": "refs/heads/session/IGD-09"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/IGD-10",
+        "changed": true,
+        "original_commit_sha": "fbf1bb54f496709dae28e065f48105916f7cd7f0",
+        "original_object_sha": "fbf1bb54f496709dae28e065f48105916f7cd7f0",
+        "sanitized_commit_sha": "b792214602d4e98e84d3fd34044ee05a465844cb",
+        "source_ref": "refs/heads/session/IGD-10"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/J-14",
+        "changed": false,
+        "original_commit_sha": "b899a84f2b009e6c824277f201a814bb57269f38",
+        "original_object_sha": "b899a84f2b009e6c824277f201a814bb57269f38",
+        "sanitized_commit_sha": "b899a84f2b009e6c824277f201a814bb57269f38",
+        "source_ref": "refs/heads/session/J-14"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/J-15",
+        "changed": false,
+        "original_commit_sha": "9d68ab01c0a5d60fb2233988867833c92fd72caa",
+        "original_object_sha": "9d68ab01c0a5d60fb2233988867833c92fd72caa",
+        "sanitized_commit_sha": "9d68ab01c0a5d60fb2233988867833c92fd72caa",
+        "source_ref": "refs/heads/session/J-15"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/J-22",
+        "changed": false,
+        "original_commit_sha": "58e739413dd48f0d48ffba83451083d54fbc095e",
+        "original_object_sha": "58e739413dd48f0d48ffba83451083d54fbc095e",
+        "sanitized_commit_sha": "58e739413dd48f0d48ffba83451083d54fbc095e",
+        "source_ref": "refs/heads/session/J-22"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/LCH-1",
+        "changed": false,
+        "original_commit_sha": "392359f4cda17672d841b4d1e9985b443157ada2",
+        "original_object_sha": "392359f4cda17672d841b4d1e9985b443157ada2",
+        "sanitized_commit_sha": "392359f4cda17672d841b4d1e9985b443157ada2",
+        "source_ref": "refs/heads/session/LCH-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/RC-10",
+        "changed": false,
+        "original_commit_sha": "8f27bbea2d04be3c9614eeeeac67bd0315b836a2",
+        "original_object_sha": "8f27bbea2d04be3c9614eeeeac67bd0315b836a2",
+        "sanitized_commit_sha": "8f27bbea2d04be3c9614eeeeac67bd0315b836a2",
+        "source_ref": "refs/heads/session/RC-10"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/SCAN-1",
+        "changed": false,
+        "original_commit_sha": "6a32e8e3790674bf41f104951a96d95038aa0451",
+        "original_object_sha": "6a32e8e3790674bf41f104951a96d95038aa0451",
+        "sanitized_commit_sha": "6a32e8e3790674bf41f104951a96d95038aa0451",
+        "source_ref": "refs/heads/session/SCAN-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/SEC-1",
+        "changed": true,
+        "original_commit_sha": "815218ac0b5939ed6727913e8bce7d29597617eb",
+        "original_object_sha": "815218ac0b5939ed6727913e8bce7d29597617eb",
+        "sanitized_commit_sha": "5da533151d162eb88044dee16680c55634829c58",
+        "source_ref": "refs/heads/session/SEC-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/TLM-1",
+        "changed": true,
+        "original_commit_sha": "a9b8c3f9fda2f3181aac60e7b6342174408ee7c8",
+        "original_object_sha": "a9b8c3f9fda2f3181aac60e7b6342174408ee7c8",
+        "sanitized_commit_sha": "892ff015a9ffb9377be14a6870dd453099eb6978",
+        "source_ref": "refs/heads/session/TLM-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/TLM-2",
+        "changed": true,
+        "original_commit_sha": "96dcf89b80ce330a223681bda84f3dccfde68ac8",
+        "original_object_sha": "96dcf89b80ce330a223681bda84f3dccfde68ac8",
+        "sanitized_commit_sha": "f5e9529f5d23b9d1a26dcd907a8bd1dea3ae6670",
+        "source_ref": "refs/heads/session/TLM-2"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/TLM-3",
+        "changed": true,
+        "original_commit_sha": "35056b2ffe88c9f28f4fc62cc32437a98150c7f8",
+        "original_object_sha": "35056b2ffe88c9f28f4fc62cc32437a98150c7f8",
+        "sanitized_commit_sha": "1ab922781df7d9c4c74d27cd42051e857cf8175a",
+        "source_ref": "refs/heads/session/TLM-3"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/TLM-4",
+        "changed": true,
+        "original_commit_sha": "e9746586b4766e2115b865753c811b06f90cedbe",
+        "original_object_sha": "e9746586b4766e2115b865753c811b06f90cedbe",
+        "sanitized_commit_sha": "7a74d64bfd07c948869b851a58e20960cb0979eb",
+        "source_ref": "refs/heads/session/TLM-4"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/WARN-1",
+        "changed": true,
+        "original_commit_sha": "419ec6cf03f7bde93ea4c1b95359dfd40ef35128",
+        "original_object_sha": "419ec6cf03f7bde93ea4c1b95359dfd40ef35128",
+        "sanitized_commit_sha": "4bd08fbe638b4480b23e4cb769ab86f21a0580b2",
+        "source_ref": "refs/heads/session/WARN-1"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/WELCOME-01",
+        "changed": false,
+        "original_commit_sha": "1da1b641580a2aab0d0af85cd285b482b70f01ce",
+        "original_object_sha": "1da1b641580a2aab0d0af85cd285b482b70f01ce",
+        "sanitized_commit_sha": "1da1b641580a2aab0d0af85cd285b482b70f01ce",
+        "source_ref": "refs/heads/session/WELCOME-01"
+      },
+      {
+        "archive_ref": "refs/heads/history/mighty-eel/session/node24-github-actions",
+        "changed": true,
+        "original_commit_sha": "02ae597155582f6fbcb25ae171d9b70cc2843943",
+        "original_object_sha": "02ae597155582f6fbcb25ae171d9b70cc2843943",
+        "sanitized_commit_sha": "1e8378bb1389ebd590a6889da8e734edbafaa7bb",
+        "source_ref": "refs/heads/session/node24-github-actions"
+      }
+    ],
+    "rewrite_required": true,
+    "sanitization": {
+      "changed_object_type_counts": {
+        "blob": 1,
+        "commit": 456,
+        "tree": 10
+      },
+      "original_secret_object_shas": [
+        "ffb2ea027f2a965cdad277c1ebbde291d3314a36",
+        "c75e95f15256b929e382ec58658348502e6a5f83"
+      ],
+      "replacement": "remove the historical wrapped-token value and require runtime injection",
+      "signature_stripped_commit_count": 235
+    }
+  },
+  "generator": {
+    "path": "tools/prove_saddle_history_archive_safety.py",
+    "sha256": "707862f082ca0698caae5946b7a9b021b7b2217bcff9ada573554d5652b35fe8"
+  },
+  "inventory": {
+    "path": "test-evidence/saddle/SAD-HIST-01/history-inventory.json",
+    "published_ref_digest": "bdde566501e6852d42b7c790477a0e053e2676cfeecc95ca7866921809df20cd",
+    "sha256": "b46cc39cf6266fc961849e3869d3980c87328bd57baf6eb10525a42ea406c88f"
+  },
+  "object_map": {
+    "changed_object_count": 467,
+    "entry_count": 10444,
+    "original_object_byte_count": 98552427,
+    "path": "test-evidence/saddle/SAD-HIST-02/object-map.jsonl",
+    "schema_version": "saddle-history-object-map/v1",
+    "sha256": "146a43b93caa86538e1ec70c53dabc2622b774a86a92384d1fb683f2b36499fe",
+    "unchanged_object_count": 9977
+  },
+  "prompt": "SAD-HIST-02",
+  "scanners": {
+    "findings": {
+      "path": "test-evidence/saddle/SAD-HIST-02/scanner-findings.json",
+      "sha256": "404ac5048b8d538a76480fbf16d934b3edd84473ee4756d1852baba1fa7369d7"
+    },
+    "gitleaks": {
+      "binary_sha256": "17157e2ee8b76fc8b1d8bee607a250e34b8a8023c8bc81822d4b5ee4d78fcb7c",
+      "mode": "filesystem over exact reachable blob and commit-message closure",
+      "version": "8.30.1"
+    },
+    "original": {
+      "coverage": {
+        "blob_count": 4885,
+        "commit_message_count": 762,
+        "deleted_blob_count": 2173,
+        "input_byte_count": 95447620,
+        "input_file_count": 5647,
+        "object_type_counts": {
+          "blob": 4885,
+          "commit": 762,
+          "tree": 4797
+        }
+      },
+      "disposition_counts": {
+        "confirmed-secret": 2,
+        "reviewed-non-secret": 583
+      },
+      "gitleaks": {
+        "exit_code": 1,
+        "raw_finding_count": 209
+      },
+      "normalized_finding_count": 585,
+      "trufflehog": {
+        "batch_count": 19,
+        "duplicate_finding_count": 3,
+        "exit_code": 0,
+        "raw_finding_count": 379
+      }
+    },
+    "sanitized": {
+      "coverage": {
+        "blob_count": 4885,
+        "commit_message_count": 762,
+        "deleted_blob_count": 2173,
+        "input_byte_count": 95447611,
+        "input_file_count": 5647,
+        "object_type_counts": {
+          "blob": 4885,
+          "commit": 762,
+          "tree": 4797
+        }
+      },
+      "disposition_counts": {
+        "reviewed-non-secret": 583
+      },
+      "gitleaks": {
+        "exit_code": 1,
+        "raw_finding_count": 207
+      },
+      "normalized_finding_count": 583,
+      "trufflehog": {
+        "batch_count": 19,
+        "duplicate_finding_count": 3,
+        "exit_code": 0,
+        "raw_finding_count": 379
+      }
+    },
+    "trufflehog": {
+      "binary_sha256": "ef2a19081957f59a08b6f682b1b2cc43944166191517c9afb43c9b74397be618",
+      "mode": "filesystem over exact reachable blob and commit-message closure; verification disabled",
+      "version": "3.95.9"
+    }
+  },
+  "schema_version": "saddle-history-archive-safety/v1",
+  "source": {
+    "candidate_commit_count": 762,
+    "candidate_ref_count": 38,
+    "remote_url": "https://github.com/USS-Parks/Mighty-Eel-OS.git"
+  },
+  "status": "pass"
+}

@@ -12,8 +12,8 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01 COMPLETE; SAD-HIST-02 THROUGH
-SAD-HIST-04 PENDING.**
+**Current status:** **SAD-HIST-01, SAD-HIST-02, AND SAD-HIST-03 COMPLETE;
+SAD-HIST-04 ARCHIVE PUBLICATION VERIFIED; REVIEWED-LANE INTEGRATION PENDING.**
 
 ## 1. Governance and boundaries
 
@@ -73,21 +73,35 @@ Archive publication additionally requires:
   tree-equivalent, or review-required; regeneration is byte-for-byte
   deterministic; no history is imported or pushed.
 
-- [ ] **SAD-HIST-02 — Prove archive safety.** Run two independent secret
+- [x] **SAD-HIST-02 — Prove archive safety.** Run two independent secret
   scanners across all candidate commits and deleted blobs; define exact clean
   archive refs or a transparent sanitized rewrite with a complete old-to-new
   object map.
   **Gate:** no secret-bearing object can enter Saddle; every rewrite is
   explained and reproducible; original SHAs remain cited as external
-  provenance.
+  provenance. **Result:** a sanitized rewrite is required for one blob and one
+  commit message; the complete object/ref maps and two-scanner proof reproduce
+  locally. All 14 applicable checks passed on review checkpoint
+  `509abbed7d47ed1f81bbb9876937ade7422d3873`; the pull-request-only nightly
+  integration matrix was correctly skipped.
 
-- [ ] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
+- [x] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
   non-patch-equivalent commit for WSF/AOG/Saddle behavior, security findings,
   tests, documentation, and superseding Saddle implementation. Transplant only
   still-required behavior through focused Saddle-native commits that cite the
   source SHA.
   **Gate:** every commit has an honest reuse, superseded, transplant, archive,
   or exclusion disposition with code and test evidence where applicable.
+  **Implementation result:** all 12 review-required commits are dispositioned:
+  nine superseded, one archive-only, one excluded from the Saddle source
+  boundary, and one adapted transplant. The transplant is the hardened WSF
+  OpenAPI contract in Saddle commit
+  `1caaa4f8d160bece69aaf0416d57d573e73b2a1d`; the deterministic ledger is
+  `test-evidence/saddle/SAD-HIST-03/non-main-reconciliation.json`. No source
+  object or archive ref was imported. All 15 applicable GitHub checks passed on
+  reviewed checkpoint `56bf5596adc84b2db109dad35830b13a2dc0034d`;
+  the pull-request-only nightly and release publication jobs were correctly
+  skipped.
 
 - [ ] **SAD-HIST-04 — Publish and close history.** Push verified historical
   objects only under protected `history/mighty-eel/...` refs, publish the final
@@ -98,10 +112,32 @@ Archive publication additionally requires:
   every applicable GitHub workflow is green, and the canonical PSPR and DEVLOG
   truthfully record the closeout.
 
-## 4. Current authorization
+## 4. Authorization history
 
 The user authorized STS execution of SAD-HIST-01. That authorization covers the
 isolated inventory implementation, evidence, focused commit, branch push, and
 green review checkpoint. SAD-HIST-01 does not authorize archive-ref publication,
 history rewriting, code transplantation, or execution of SAD-HIST-02 through
 SAD-HIST-04.
+
+The user authorized STS execution of SAD-HIST-02 on 2026-07-18 from verified
+Saddle checkpoint `f66134ef4b3b36c1506f277dbbb9bf61c7d82d7c`. That authorization covers the
+isolated two-scanner proof, reproducible sanitized-map definition, focused
+branch commits, branch push, and green-workflow closeout. It does not authorize
+publication of archive refs, rewriting active Saddle history, source
+transplantation, SAD-HIST-03 or SAD-HIST-04, or merge to `main`.
+
+The user authorized SAD-HIST-03 STS for the entirety of the 2026-07-19 session.
+That authorization covers the isolated review, the one focused Saddle-native
+transplant, deterministic evidence, in-scope commits, branch push, and remote
+workflow closeout. It does not authorize archive-ref publication, rewriting or
+merging source history, SAD-HIST-04, merge to `main`, deployment, or credential
+rotation.
+
+The user authorized SAD-HIST-04 STS for the entirety of the 2026-07-19 session.
+That authorization covers exact sanitized archive-ref publication, immutable
+namespace protection, deterministic provenance evidence, in-scope commits and
+branch pushes, complete applicable GitHub workflow verification, and the
+reviewed non-squash merge to `main`. It does not authorize force-push, a merge
+of the Mighty Eel source graph into active Saddle history, deployment,
+credential rotation, paid services, or unrelated changes.
