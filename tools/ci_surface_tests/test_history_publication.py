@@ -35,3 +35,19 @@ def test_recorded_publication_matches_approved_map() -> None:
         "non_fast_forward",
         "update",
     ]
+
+
+def test_recorded_active_tree_supports_shallow_ci(monkeypatch) -> None:
+    evidence = ROOT / "test-evidence" / "saddle" / "SAD-HIST-04" / "archive-publication.json"
+    payload = json.loads(evidence.read_text(encoding="utf-8"))
+    original_git = MODULE.git
+
+    monkeypatch.setattr(MODULE, "git_object_exists", lambda _root, _sha: False)
+
+    def shallow_git(root: Path, *args: str) -> bytes:
+        if args == ("rev-parse", "--is-shallow-repository"):
+            return b"true\n"
+        return original_git(root, *args)
+
+    monkeypatch.setattr(MODULE, "git", shallow_git)
+    MODULE.verify_recorded_repository_gate(ROOT, payload["active_tree"])

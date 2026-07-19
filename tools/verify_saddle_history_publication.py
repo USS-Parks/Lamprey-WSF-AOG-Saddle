@@ -82,6 +82,24 @@ def git(repo: Path, *args: str) -> bytes:
     )
 
 
+def git_object_exists(repo: Path, object_id: str) -> bool:
+    completed = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={repo.resolve()}",
+            "-C",
+            str(repo.resolve()),
+            "cat-file",
+            "-e",
+            f"{object_id}^{{commit}}",
+        ],
+        capture_output=True,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
 def read_json(path: Path, label: str) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -279,6 +297,49 @@ def repository_change_gate(root: Path) -> dict[str, Any]:
     }
 
 
+def verify_recorded_repository_gate(root: Path, recorded: dict[str, Any]) -> None:
+    if recorded.get("base_commit") != BASE_COMMIT:
+        fail("recorded active-tree base commit changed")
+    if recorded.get("reviewed_lane_commit") != REVIEWED_LANE_COMMIT:
+        fail("recorded reviewed-lane commit changed")
+
+    for path in ("Cargo.toml", "Cargo.lock"):
+        expected = recorded.get("dependency_files", {}).get(path, {})
+        current = sha256_file(root / path)
+        if expected.get("base_sha256") != current:
+            fail(f"recorded base dependency digest changed: {path}")
+        if expected.get("current_sha256") != current:
+            fail(f"active dependency digest changed: {path}")
+
+    product_changes = recorded.get("active_product_changes")
+    if not isinstance(product_changes, list):
+        fail("recorded active product changes are malformed")
+    expected_changes = {
+        path: disposition for path, disposition in ACTIVE_PRODUCT_CHANGES.items()
+    }
+    recorded_changes: dict[str, str] = {}
+    for item in product_changes:
+        path = item.get("path")
+        disposition = item.get("disposition")
+        if not isinstance(path, str) or not isinstance(disposition, str):
+            fail("recorded active product change is malformed")
+        if sha256_file(root / path) != item.get("sha256"):
+            fail(f"reviewed active product digest changed: {path}")
+        recorded_changes[path] = disposition
+    if recorded_changes != expected_changes:
+        fail("recorded active product change set changed")
+
+    full_history = git_object_exists(root, BASE_COMMIT) and git_object_exists(
+        root, REVIEWED_LANE_COMMIT
+    )
+    if full_history:
+        if repository_change_gate(root) != recorded:
+            fail("recorded active-tree gate changed")
+        return
+    if git(root, "rev-parse", "--is-shallow-repository").strip() != b"true":
+        fail("required history commits are missing from a non-shallow checkout")
+
+
 def object_map_summary(path: Path) -> dict[str, Any]:
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     if len(records) != 10444:
@@ -383,7 +444,7 @@ def verify_recorded(root: Path, output: Path) -> None:
     normalized_ruleset = dict(payload["protection"])
     if normalized_ruleset.get("rules") != sorted(REQUIRED_RULES):
         fail("recorded archive protection rules changed")
-    repository_change_gate(root)
+    verify_recorded_repository_gate(root, payload["active_tree"])
 
 
 def parse_args() -> argparse.Namespace:
