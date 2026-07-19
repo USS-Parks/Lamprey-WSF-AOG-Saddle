@@ -112,3 +112,63 @@ pull-request run:
 
 SAD-HIST-03 remains pending and is not authorized by this closeout. No merge to
 `main` occurred.
+
+## SAD-HIST-03 - Non-main reconciliation
+
+**Status:** implementation complete; remote verification pending
+
+**Branch:** `session/SAD-HIST-3`
+
+**Verified base:** `0e3bd77656601b46cc03d96765d703c3916dbcd3`
+
+### Scope
+
+- review all 12 commits classified `review-required` by SAD-HIST-01;
+- compare their behavior and tests with approved source main and current Saddle;
+- adapt only behavior that is still absent; and
+- preserve archive publication as a separate SAD-HIST-04 action.
+
+### Result
+
+- nine commits are superseded by smaller reviewed source-main changes or later
+  Saddle work;
+- `8f27bbe` is archive-only Mighty Eel RC1.2 release evidence;
+- `f30164f` is excluded because its implementation belongs to MAI appliance
+  vault crates outside Saddle's selected source closure; and
+- `92dc928` exposed real OpenAPI drift and was adapted to current Saddle DTOs in
+  focused commit `1caaa4f8d160bece69aaf0416d57d573e73b2a1d`.
+
+No candidate source commit was cherry-picked or merged. No historical object or
+`history/mighty-eel/...` ref was created or pushed.
+
+### Evidence
+
+- `docs/history/SAD-HIST-03-NON-MAIN-RECONCILIATION.md`
+- `test-evidence/saddle/SAD-HIST-03/non-main-reconciliation.json`
+- `tools/reconcile_saddle_history_non_main.py`
+- `tools/ci_surface_tests/test_history_reconciliation.py`
+- `tools/ci_surface_tests/test_wsf_openapi.py`
+
+### Local verification
+
+- deterministic reconciliation generation and byte-for-byte verification: PASS;
+- reconciliation and OpenAPI contract tests: PASS;
+- WSF trust primitives (`fabric-contracts`, `fabric-token`,
+  `fabric-revocation`, `wsf-broker`, `wsf-seal`): PASS;
+- WSF authentication, issuance-permission, and ledger-authorization tests:
+  15 passed, 0 failed;
+- Saddle server seal tests: 2 passed, 0 failed;
+- Saddle bridge property tests: 6 passed, 0 failed;
+- console tests: 23 passed, 0 failed; Node 24 production build: PASS; and
+- JSON parsing, Python compilation, `git diff --check`, targeted integrity, and
+  staged no-slop checks: PASS.
+
+Tests named `live_*` skip when their required backend variables are absent;
+this session does not convert those deterministic skips into fresh OpenBao live
+proof. The existing AF-005 real-ZFS+TPM deferral also remains unchanged.
+
+### Publication
+
+The focused transplant commit exists locally. The reconciliation/evidence
+commit, branch push, and applicable GitHub workflows are pending. SAD-HIST-04 is
+not authorized by this implementation checkpoint.

@@ -404,8 +404,8 @@
   },
   "schema_version": 1,
   "status": "PASS",
-  "text_files_scanned": 953,
+  "text_files_scanned": 958,
   "total_retired_name_occurrences": 619,
-  "tracked_files_scanned": 959,
+  "tracked_files_scanned": 964,
   "unexplained_matches": []
 }

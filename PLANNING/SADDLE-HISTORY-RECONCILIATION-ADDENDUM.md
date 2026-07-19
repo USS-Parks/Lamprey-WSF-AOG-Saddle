@@ -12,8 +12,8 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01 AND SAD-HIST-02 COMPLETE; SAD-HIST-03 AND
-SAD-HIST-04 PENDING.**
+**Current status:** **SAD-HIST-01 AND SAD-HIST-02 COMPLETE; SAD-HIST-03
+IMPLEMENTED WITH REMOTE VERIFICATION PENDING; SAD-HIST-04 PENDING.**
 
 ## 1. Governance and boundaries
 
@@ -92,6 +92,14 @@ Archive publication additionally requires:
   source SHA.
   **Gate:** every commit has an honest reuse, superseded, transplant, archive,
   or exclusion disposition with code and test evidence where applicable.
+  **Implementation result:** all 12 review-required commits are dispositioned:
+  nine superseded, one archive-only, one excluded from the Saddle source
+  boundary, and one adapted transplant. The transplant is the hardened WSF
+  OpenAPI contract in Saddle commit
+  `1caaa4f8d160bece69aaf0416d57d573e73b2a1d`; the deterministic ledger is
+  `test-evidence/saddle/SAD-HIST-03/non-main-reconciliation.json`. No source
+  object or archive ref was imported. Remote workflow verification remains
+  required before this checkbox closes.
 
 - [ ] **SAD-HIST-04 — Publish and close history.** Push verified historical
   objects only under protected `history/mighty-eel/...` refs, publish the final
@@ -116,3 +124,10 @@ isolated two-scanner proof, reproducible sanitized-map definition, focused
 branch commits, branch push, and green-workflow closeout. It does not authorize
 publication of archive refs, rewriting active Saddle history, source
 transplantation, SAD-HIST-03 or SAD-HIST-04, or merge to `main`.
+
+The user authorized SAD-HIST-03 STS for the entirety of the 2026-07-19 session.
+That authorization covers the isolated review, the one focused Saddle-native
+transplant, deterministic evidence, in-scope commits, branch push, and remote
+workflow closeout. It does not authorize archive-ref publication, rewriting or
+merging source history, SAD-HIST-04, merge to `main`, deployment, or credential
+rotation.
