@@ -81,6 +81,35 @@ impl Backend for RedbBackend {
         Ok(())
     }
 
+    fn replace_all(&mut self, entries: &[(String, Versioned)]) -> Result<(), StoreError> {
+        let existing = {
+            let rtx = self.db.begin_read().map_err(be)?;
+            let table = rtx.open_table(TABLE).map_err(be)?;
+            let mut keys = Vec::new();
+            for item in table.iter().map_err(be)? {
+                let (key, _) = item.map_err(be)?;
+                keys.push(key.value().to_owned());
+            }
+            keys
+        };
+        let encoded = entries
+            .iter()
+            .map(|(key, value)| Ok((key, encode(value)?)))
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        let wtx = self.db.begin_write().map_err(be)?;
+        {
+            let mut table = wtx.open_table(TABLE).map_err(be)?;
+            for key in existing {
+                table.remove(key.as_str()).map_err(be)?;
+            }
+            for (key, bytes) in encoded {
+                table.insert(key.as_str(), bytes.as_slice()).map_err(be)?;
+            }
+        }
+        wtx.commit().map_err(be)?;
+        Ok(())
+    }
+
     fn scan_prefix(&self, prefix: &str) -> Result<Vec<(String, Versioned)>, StoreError> {
         let rtx = self.db.begin_read().map_err(be)?;
         let table = rtx.open_table(TABLE).map_err(be)?;

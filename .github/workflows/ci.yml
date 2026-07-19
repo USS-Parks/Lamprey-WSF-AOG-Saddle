@@ -222,3 +222,5 @@ jobs:
         run: cargo test -p saddle-bridge --test contract_properties --locked -- --nocapture
       - name: Saddle conformance suite
         run: cargo test -p saddle-conformance --locked -- --nocapture
+      - name: SAD-41 consensus truth and fencing
+        run: cargo test -p saddle-controller --test sad41_consensus_truth --locked -- --nocapture

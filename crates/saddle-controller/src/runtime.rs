@@ -136,6 +136,7 @@ pub struct Controller<R: Reconciler> {
     started: bool,
     resync_interval: Option<Duration>,
     last_resync: Option<Instant>,
+    watch_staleness: Duration,
 }
 
 impl<R: Reconciler> Controller<R> {
@@ -157,6 +158,7 @@ impl<R: Reconciler> Controller<R> {
             started: false,
             resync_interval: None,
             last_resync: None,
+            watch_staleness: Duration::from_secs(30),
         }
     }
 
@@ -166,6 +168,15 @@ impl<R: Reconciler> Controller<R> {
     #[must_use]
     pub fn with_resync(mut self, interval: Duration) -> Self {
         self.resync_interval = Some(interval);
+        self
+    }
+
+    /// Set the maximum age of the informer view used for a reconcile pass.
+    /// Once the bound expires, the next pass performs a full re-list before any
+    /// leader is allowed to act.
+    #[must_use]
+    pub fn with_watch_staleness(mut self, max_staleness: Duration) -> Self {
+        self.watch_staleness = max_staleness;
         self
     }
 
@@ -221,7 +232,7 @@ impl<R: Reconciler> Controller<R> {
         // the first pass re-lists to pick up pre-existing state — either way
         // the diff below sees the authoritative present, not an event replay.
         if self.started {
-            self.informer.poll().await?;
+            self.informer.poll_bounded(self.watch_staleness).await?;
         } else {
             self.informer.resync().await?;
             self.started = true;

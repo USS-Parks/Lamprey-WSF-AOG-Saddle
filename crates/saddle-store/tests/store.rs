@@ -106,3 +106,32 @@ fn redb_persists_across_reopen() {
 
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn exact_snapshot_restore_replaces_keyspace_and_preserves_delete_revision() {
+    let mut source = Store::open(MemBackend::new()).unwrap();
+    source
+        .apply(&put("Workload/keep", "v1", Precondition::Absent))
+        .unwrap();
+    source
+        .apply(&put("Workload/deleted", "v1", Precondition::Absent))
+        .unwrap();
+    source
+        .apply(&del("Workload/deleted", Precondition::Any))
+        .unwrap();
+    let snapshot = source.range("").unwrap();
+
+    let mut target = Store::open(MemBackend::new()).unwrap();
+    target
+        .apply(&put("Workload/extra", "stale", Precondition::Absent))
+        .unwrap();
+    target.restore_exact(&snapshot, source.revision()).unwrap();
+
+    assert_eq!(target.range("").unwrap(), snapshot);
+    assert!(target.get("Workload/extra").unwrap().is_none());
+    assert_eq!(
+        target.revision(),
+        3,
+        "the deleted key's revision survives even though no live entry carries it"
+    );
+}

@@ -1,0 +1,69 @@
+{
+  "artifacts": {
+    "admin_membership": {
+      "path": "crates/saddled/src/admin.rs",
+      "sha256": "f11dd5411721e447805deca65b1e7013631e27bfe525e3069d77fff18b4471da"
+    },
+    "consensus_tests": {
+      "path": "crates/saddle-controller/tests/sad41_consensus_truth.rs",
+      "sha256": "f6156b0af1ad80746f1fc8b18422f6efffc72ce3aa8fd36e5d5c5324b4b3e513"
+    },
+    "controller_runtime": {
+      "path": "crates/saddle-controller/src/runtime.rs",
+      "sha256": "0cfc5be0789eed497fdd640dca9e75dd5d42ccf4fa5726f51b64a0b1b352d1fc"
+    },
+    "raft_node": {
+      "path": "crates/saddle-store/src/raft/mod.rs",
+      "sha256": "c8f4a87d630e8e7d15c872f25ae2eaabb385b039c5a1fe90183bdb68eb329054"
+    },
+    "snapshot_state_machine": {
+      "path": "crates/saddle-store/src/raft/state_machine.rs",
+      "sha256": "ee56de2bdd2874a7843eb45164d5e33004468414df1a8dd545e76528566d4e8f"
+    },
+    "store": {
+      "path": "crates/saddle-store/src/lib.rs",
+      "sha256": "550d2bdb21722ed7f6696a6aa4ddf1d78d1c47067f6900d53cb3814727e5d52a"
+    },
+    "store_tests": {
+      "path": "crates/saddle-store/tests/store.rs",
+      "sha256": "f63f74316ca78fef26c8e8dd7394aabf948f56143918870ee692c661e06a3c5d"
+    },
+    "watch_cache": {
+      "path": "crates/saddle-store/src/raft/watch.rs",
+      "sha256": "a1b67ba44cd201cfe3962a9168c18e7c04807a69c5fc7b23d1b0619d9bd0c6a9"
+    }
+  },
+  "profile": {
+    "attempts_per_client": 32,
+    "concurrent_clients": 6,
+    "control_plane_voters": 3,
+    "membership_rotation_nodes": 4,
+    "watch_buffer_overflow_events": 100
+  },
+  "prompt": "SAD-41",
+  "properties": {
+    "bounded_stale_watch": "fail_closed_then_resync",
+    "consensus_test_names": [
+      "concurrent_writes_remain_linearizable_across_leader_transition",
+      "snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence_removed_member",
+      "bounded_stale_watch_fails_closed_and_recovers_from_lag",
+      "membership_validation_rejects_unknown_and_non_quorum_rotations",
+      "minority_partition_closes_confirmed_gate_and_serves_no_authoritative_write"
+    ],
+    "lagged_watch": "full_relist_exact_revision",
+    "leader_transition_under_partition": "pass",
+    "linearizable_acknowledged_writes": "no_lost_acknowledgement",
+    "membership_change": "known_members_safe_count_quorum_overlap",
+    "minority_partition": "no_authoritative_write",
+    "quorum_confirmed_controller_gate": "fail_closed",
+    "removed_member_authority": "fenced",
+    "snapshot_format": "versioned_blake3_checksummed",
+    "snapshot_install": "late_learner_exact_state_and_revision",
+    "store_test_names": [
+      "exact_snapshot_restore_replaces_keyspace_and_preserves_delete_revision",
+      "versioned_snapshot_checksum_rejects_tampering"
+    ]
+  },
+  "schema_version": "saddle-sad41-consensus-truth-gate/v1",
+  "status": "pass"
+}

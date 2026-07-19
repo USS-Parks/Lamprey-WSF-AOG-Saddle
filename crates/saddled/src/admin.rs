@@ -24,8 +24,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use openraft::BasicNode;
 use saddle_apiserver::auth::{Authenticator, TOKEN_HEADER};
-use saddle_store::raft::RaftNode;
 use saddle_store::raft::types::{NodeId, RaftResponse};
+use saddle_store::raft::{RaftNode, validate_membership_change};
 use saddle_store::{Op, Versioned};
 use saddle_wire::canonical_peer_origin;
 use saddle_wire::tls::TlsPeer;
@@ -341,6 +341,9 @@ async fn change_membership(
     Json(req): Json<ChangeMembershipRequest>,
 ) -> AdminResult<StatusCode> {
     let voters: BTreeSet<NodeId> = req.voters.into_iter().collect();
+    let (current, known) = state.node.membership_sets();
+    validate_membership_change(&current, &known, &voters)
+        .map_err(|error| (StatusCode::BAD_REQUEST, error.to_string()))?;
     state
         .node
         .raft()

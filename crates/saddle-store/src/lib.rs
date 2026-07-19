@@ -99,6 +99,10 @@ pub trait Backend {
     /// # Errors
     /// Backend failure.
     fn remove(&mut self, key: &str) -> Result<(), StoreError>;
+    /// Atomically replace the complete keyspace with `entries`.
+    /// # Errors
+    /// Backend failure.
+    fn replace_all(&mut self, entries: &[(String, Versioned)]) -> Result<(), StoreError>;
     /// Entries whose key starts with `prefix`, ascending by key.
     /// # Errors
     /// Backend failure.
@@ -136,6 +140,11 @@ impl Backend for MemBackend {
 
     fn remove(&mut self, key: &str) -> Result<(), StoreError> {
         self.map.remove(key);
+        Ok(())
+    }
+
+    fn replace_all(&mut self, entries: &[(String, Versioned)]) -> Result<(), StoreError> {
+        self.map = entries.iter().cloned().collect();
         Ok(())
     }
 
@@ -229,6 +238,33 @@ impl<B: Backend> Store<B> {
             max = max.max(versioned.mod_revision);
         }
         self.revision = max;
+        Ok(())
+    }
+
+    /// Replace the complete state from an authoritative Raft snapshot.
+    /// Keys absent from the snapshot are deleted and the global revision is
+    /// restored exactly, including revisions consumed by deleted keys.
+    ///
+    /// # Errors
+    /// Backend failure, or an invalid snapshot whose entry revision exceeds
+    /// the declared global revision.
+    pub fn restore_exact(
+        &mut self,
+        entries: &[(String, Versioned)],
+        revision: Revision,
+    ) -> Result<(), StoreError> {
+        let max_entry_revision = entries
+            .iter()
+            .map(|(_, value)| value.mod_revision)
+            .max()
+            .unwrap_or(0);
+        if max_entry_revision > revision {
+            return Err(StoreError::Backend(format!(
+                "snapshot entry revision {max_entry_revision} exceeds declared revision {revision}"
+            )));
+        }
+        self.backend.replace_all(entries)?;
+        self.revision = revision;
         Ok(())
     }
 

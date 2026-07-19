@@ -13,7 +13,7 @@
 #![allow(clippy::result_large_err)]
 
 use std::fmt;
-use std::io::Cursor;
+use std::io::{Cursor, Error as IoError, ErrorKind};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -55,9 +55,22 @@ fn io_sm<E: std::error::Error + 'static>(verb: ErrorVerb, err: E) -> StorageErro
 /// A snapshot payload — the full KV dump plus applied metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SnapshotPayload {
+    revision: crate::Revision,
     kvs: Vec<(String, Versioned)>,
     last_applied: Option<LogId<NodeId>>,
     last_membership: StoredMembership<NodeId, BasicNode>,
+}
+
+const SNAPSHOT_FORMAT_VERSION: u32 = 1;
+
+/// Versioned, checksummed wire envelope. Sensitive resource fields are already
+/// envelope-sealed before reaching this store; the digest detects corruption
+/// before any snapshot state replaces the active estate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SnapshotEnvelope {
+    format_version: u32,
+    payload_checksum: String,
+    payload: SnapshotPayload,
 }
 
 /// A persisted snapshot (meta + bytes).
@@ -123,6 +136,43 @@ fn persist_meta(db: &Database, data: &SmData) -> StorageResult<()> {
     sm_write(db, "last_membership", &data.last_membership)
 }
 
+fn snapshot_bytes(payload: SnapshotPayload) -> StorageResult<Vec<u8>> {
+    let payload_bytes = serde_json::to_vec(&payload).map_err(|e| io_sm(ErrorVerb::Write, e))?;
+    let envelope = SnapshotEnvelope {
+        format_version: SNAPSHOT_FORMAT_VERSION,
+        payload_checksum: blake3::hash(&payload_bytes).to_hex().to_string(),
+        payload,
+    };
+    serde_json::to_vec(&envelope).map_err(|e| io_sm(ErrorVerb::Write, e))
+}
+
+fn decode_snapshot(bytes: &[u8]) -> StorageResult<SnapshotPayload> {
+    let envelope: SnapshotEnvelope =
+        serde_json::from_slice(bytes).map_err(|e| io_sm(ErrorVerb::Read, e))?;
+    if envelope.format_version != SNAPSHOT_FORMAT_VERSION {
+        return Err(io_sm(
+            ErrorVerb::Read,
+            IoError::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "unsupported snapshot format version {}",
+                    envelope.format_version
+                ),
+            ),
+        ));
+    }
+    let payload_bytes =
+        serde_json::to_vec(&envelope.payload).map_err(|e| io_sm(ErrorVerb::Read, e))?;
+    let actual = blake3::hash(&payload_bytes).to_hex().to_string();
+    if actual != envelope.payload_checksum {
+        return Err(io_sm(
+            ErrorVerb::Read,
+            IoError::new(ErrorKind::InvalidData, "snapshot checksum mismatch"),
+        ));
+    }
+    Ok(envelope.payload)
+}
+
 impl RedbStateMachine {
     /// Open the state machine under `dir` (creates `sm-kv.redb` + `sm-meta.redb`),
     /// recovering `last_applied` and membership from prior state.
@@ -186,6 +236,17 @@ impl RedbStateMachine {
         self.data.read().await.store.range(prefix)
     }
 
+    /// Range plus its exact global revision under one state-machine read lock.
+    /// This prevents an informer re-list from labeling an older keyset with a
+    /// revision that committed between two separate reads.
+    pub async fn range_with_revision(
+        &self,
+        prefix: &str,
+    ) -> Result<(crate::Revision, Vec<(String, Versioned)>), crate::StoreError> {
+        let data = self.data.read().await;
+        Ok((data.store.revision(), data.store.range(prefix)?))
+    }
+
     /// Subscribe to the change-event stream (watch).
     #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<WatchEvent> {
@@ -195,21 +256,28 @@ impl RedbStateMachine {
 
 impl RaftSnapshotBuilder<TypeConfig> for RedbStateMachine {
     async fn build_snapshot(&mut self) -> StorageResult<Snapshot<TypeConfig>> {
-        let (kvs, last_applied, last_membership) = {
+        let (revision, kvs, last_applied, last_membership) = {
             let data = self.data.read().await;
+            let revision = data.store.revision();
             let kvs = data
                 .store
                 .range("")
                 .map_err(|e| io_sm(ErrorVerb::Read, e))?;
-            (kvs, data.last_applied, data.last_membership.clone())
+            (
+                revision,
+                kvs,
+                data.last_applied,
+                data.last_membership.clone(),
+            )
         };
 
         let payload = SnapshotPayload {
+            revision,
             kvs,
             last_applied,
             last_membership: last_membership.clone(),
         };
-        let bytes = serde_json::to_vec(&payload).map_err(|e| io_sm(ErrorVerb::Write, e))?;
+        let bytes = snapshot_bytes(payload)?;
 
         let idx = self.snapshot_idx.fetch_add(1, Ordering::Relaxed);
         let snapshot_id = match last_applied {
@@ -312,14 +380,24 @@ impl RaftStateMachine<TypeConfig> for RedbStateMachine {
         snapshot: Box<Cursor<Vec<u8>>>,
     ) -> StorageResult<()> {
         let bytes = snapshot.into_inner();
-        let payload: SnapshotPayload =
-            serde_json::from_slice(&bytes).map_err(|e| io_sm(ErrorVerb::Read, e))?;
+        let payload = decode_snapshot(&bytes)?;
+        if payload.last_applied != meta.last_log_id
+            || payload.last_membership != meta.last_membership
+        {
+            return Err(io_sm(
+                ErrorVerb::Read,
+                IoError::new(
+                    ErrorKind::InvalidData,
+                    "snapshot payload metadata does not match Raft metadata",
+                ),
+            ));
+        }
 
         let meta_db = self.meta_db.clone();
         {
             let mut data = self.data.write().await;
             data.store
-                .restore(&payload.kvs)
+                .restore_exact(&payload.kvs, payload.revision)
                 .map_err(|e| io_sm(ErrorVerb::Write, e))?;
             data.last_applied = meta.last_log_id;
             data.last_membership = meta.last_membership.clone();
@@ -339,5 +417,35 @@ impl RaftStateMachine<TypeConfig> for RedbStateMachine {
             meta: s.meta,
             snapshot: Box::new(Cursor::new(s.data)),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn versioned_snapshot_checksum_rejects_tampering() {
+        let payload = SnapshotPayload {
+            revision: 1,
+            kvs: vec![(
+                "Workload/checksum".to_owned(),
+                Versioned {
+                    value: b"sealed".to_vec(),
+                    create_revision: 1,
+                    mod_revision: 1,
+                    version: 1,
+                },
+            )],
+            last_applied: None,
+            last_membership: StoredMembership::default(),
+        };
+        let bytes = snapshot_bytes(payload).unwrap();
+        let mut envelope: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        envelope["payload"]["kvs"][0][1]["value"] =
+            serde_json::json!([102, 111, 114, 103, 101, 100]);
+        let tampered = serde_json::to_vec(&envelope).unwrap();
+
+        assert!(decode_snapshot(&tampered).is_err());
     }
 }

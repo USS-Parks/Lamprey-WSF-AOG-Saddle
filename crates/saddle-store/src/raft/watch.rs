@@ -5,6 +5,7 @@
 //! read path the Phase-R controllers build on.
 
 use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
 
 use tokio::sync::broadcast;
 
@@ -38,6 +39,7 @@ pub struct Informer {
     cache: BTreeMap<String, Versioned>,
     rx: broadcast::Receiver<WatchEvent>,
     revision: Revision,
+    refreshed_at: Option<Instant>,
 }
 
 impl Informer {
@@ -52,6 +54,7 @@ impl Informer {
             cache: BTreeMap::new(),
             rx,
             revision: 0,
+            refreshed_at: None,
         }
     }
 
@@ -63,9 +66,10 @@ impl Informer {
     /// Store backend failure.
     pub async fn resync(&mut self) -> Result<(), StoreError> {
         self.rx = self.sm.subscribe();
-        let entries = self.sm.range(&self.prefix).await?;
-        self.revision = self.sm.revision().await;
+        let (revision, entries) = self.sm.range_with_revision(&self.prefix).await?;
+        self.revision = revision;
         self.cache = entries.into_iter().collect();
+        self.refreshed_at = Some(Instant::now());
         Ok(())
     }
 
@@ -76,16 +80,38 @@ impl Informer {
     /// # Errors
     /// Store backend failure during a re-list.
     pub async fn poll(&mut self) -> Result<(), StoreError> {
+        let mut observed = false;
         loop {
             match self.rx.try_recv() {
-                Ok(event) => self.apply_event(event).await?,
-                Err(
-                    broadcast::error::TryRecvError::Empty | broadcast::error::TryRecvError::Closed,
-                ) => {
+                Ok(event) => {
+                    self.apply_event(event).await?;
+                    observed = true;
+                }
+                Err(broadcast::error::TryRecvError::Empty) => break,
+                Err(broadcast::error::TryRecvError::Closed) => {
+                    self.resync().await?;
                     break;
                 }
                 Err(broadcast::error::TryRecvError::Lagged(_)) => self.resync().await?,
             }
+        }
+        if observed {
+            self.refreshed_at = Some(Instant::now());
+        }
+        Ok(())
+    }
+
+    /// Poll the event stream and force a full re-list when the cache has not
+    /// observed authoritative state within `max_staleness`. Controller action
+    /// paths call this before acting, so a quiet or silently disconnected watch
+    /// cannot remain trusted without a bounded refresh.
+    ///
+    /// # Errors
+    /// Store backend failure during polling or the bounded re-list.
+    pub async fn poll_bounded(&mut self, max_staleness: Duration) -> Result<(), StoreError> {
+        self.poll().await?;
+        if !self.is_fresh(max_staleness) {
+            self.resync().await?;
         }
         Ok(())
     }
@@ -115,6 +141,28 @@ impl Informer {
     #[must_use]
     pub fn snapshot(&self) -> &BTreeMap<String, Versioned> {
         &self.cache
+    }
+
+    /// Cache age since the last applied event or full authoritative re-list.
+    #[must_use]
+    pub fn freshness_age(&self) -> Option<Duration> {
+        self.refreshed_at.map(|at| at.elapsed())
+    }
+
+    /// Whether the cache is inside the caller's declared staleness budget.
+    #[must_use]
+    pub fn is_fresh(&self, max_staleness: Duration) -> bool {
+        self.freshness_age().is_some_and(|age| age <= max_staleness)
+    }
+
+    /// Return the cache only while it is inside the declared staleness budget.
+    /// `None` is the fail-closed result for a never-synced or expired watch.
+    #[must_use]
+    pub fn snapshot_if_fresh(
+        &self,
+        max_staleness: Duration,
+    ) -> Option<&BTreeMap<String, Versioned>> {
+        self.is_fresh(max_staleness).then_some(&self.cache)
     }
 
     /// The highest revision observed.

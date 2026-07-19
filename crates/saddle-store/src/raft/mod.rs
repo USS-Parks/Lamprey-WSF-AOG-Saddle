@@ -40,6 +40,56 @@ pub enum NodeError {
     Raft(String),
     #[error("io: {0}")]
     Io(String),
+    #[error(transparent)]
+    Membership(#[from] MembershipError),
+}
+
+/// A proposed voter set violates the production quorum contract.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum MembershipError {
+    #[error("voter set cannot be empty")]
+    Empty,
+    #[error("production voter count must be 3 or 5 (single voter is bootstrap-only), got {0}")]
+    UnsafeVoterCount(usize),
+    #[error("proposed voter {0} is neither a current voter nor a caught-up learner")]
+    UnknownVoter(NodeId),
+    #[error(
+        "membership rotation retains {retained} current voters; at least {required} are required"
+    )]
+    InsufficientOverlap { retained: usize, required: usize },
+}
+
+/// Validate a final voter set before openraft begins its joint-consensus
+/// transition. This keeps the production topology at three or five voters,
+/// requires every promoted voter to be known, and rotates no more than a
+/// current quorum at once. The initial one-voter bootstrap estate may expand
+/// only into one of those supported production topologies.
+///
+/// # Errors
+/// [`MembershipError`] when the proposed set could accidentally discard the
+/// supported quorum or promote an unknown member.
+pub fn validate_membership_change(
+    current_voters: &BTreeSet<NodeId>,
+    known_members: &BTreeSet<NodeId>,
+    proposed_voters: &BTreeSet<NodeId>,
+) -> Result<(), MembershipError> {
+    if proposed_voters.is_empty() {
+        return Err(MembershipError::Empty);
+    }
+    if !matches!(proposed_voters.len(), 3 | 5) {
+        return Err(MembershipError::UnsafeVoterCount(proposed_voters.len()));
+    }
+    if let Some(unknown) = proposed_voters.difference(known_members).next() {
+        return Err(MembershipError::UnknownVoter(*unknown));
+    }
+    if current_voters.len() >= 3 {
+        let retained = current_voters.intersection(proposed_voters).count();
+        let required = current_voters.len() / 2 + 1;
+        if retained < required {
+            return Err(MembershipError::InsufficientOverlap { retained, required });
+        }
+    }
+    Ok(())
 }
 
 /// A running single-node Saddle control-plane Raft node.
@@ -98,6 +148,7 @@ impl RaftNode {
 
         let config = Config {
             cluster_name: "saddle".to_owned(),
+            max_in_snapshot_log_to_keep: 0,
             ..Config::default()
         };
         let config = Arc::new(
@@ -190,11 +241,27 @@ impl RaftNode {
     /// # Errors
     /// [`NodeError::Raft`] on a raft failure.
     pub async fn change_membership(&self, voters: BTreeSet<NodeId>) -> Result<(), NodeError> {
+        let (current, known) = self.membership_sets();
+        validate_membership_change(&current, &known, &voters)?;
         self.raft
             .change_membership(voters, false)
             .await
             .map_err(|e| NodeError::Raft(e.to_string()))?;
         Ok(())
+    }
+
+    /// Current voters and all known members (voters plus learners).
+    #[must_use]
+    pub fn membership_sets(&self) -> (BTreeSet<NodeId>, BTreeSet<NodeId>) {
+        let metrics = self.raft.metrics();
+        let metrics = metrics.borrow();
+        let membership = metrics.membership_config.membership();
+        let voters = membership.voter_ids().collect();
+        let known = membership
+            .voter_ids()
+            .chain(membership.learner_ids())
+            .collect();
+        (voters, known)
     }
 
     /// Whether this node is the current Raft leader — the signal a controller's
@@ -238,19 +305,37 @@ impl RaftNode {
         )
     }
 
-    /// A watch of this node's leadership, updated on every Raft state change — the
-    /// wiring a `SharedGate` follows, so losing leadership stops this replica
-    /// reconciling on the next pass (fail-closed for action, doctrine I-4).
+    /// A quorum-confirmed leadership watch for authoritative controller fencing.
+    /// It starts closed, opens only after `ensure_linearizable` confirms a quorum,
+    /// and re-confirms at least every 100 ms. An isolated former leader therefore
+    /// closes within the confirmation timeout even while stale metrics still call
+    /// it leader.
     #[must_use]
     pub fn leadership(&self) -> tokio::sync::watch::Receiver<bool> {
+        const RECHECK: Duration = Duration::from_millis(100);
+        const CONFIRM_TIMEOUT: Duration = Duration::from_millis(500);
+
+        let raft = self.raft.clone();
         let mut metrics = self.raft.metrics();
-        let initial = matches!(metrics.borrow().state, ServerState::Leader);
-        let (tx, rx) = tokio::sync::watch::channel(initial);
+        let (tx, rx) = tokio::sync::watch::channel(false);
         tokio::spawn(async move {
-            while metrics.changed().await.is_ok() {
-                let leader = matches!(metrics.borrow().state, ServerState::Leader);
-                if tx.send(leader).is_err() {
+            loop {
+                let reports_leader = matches!(metrics.borrow().state, ServerState::Leader);
+                let confirmed = reports_leader
+                    && matches!(
+                        tokio::time::timeout(CONFIRM_TIMEOUT, raft.ensure_linearizable()).await,
+                        Ok(Ok(_))
+                    );
+                if tx.send(confirmed).is_err() {
                     break;
+                }
+                tokio::select! {
+                    changed = metrics.changed() => {
+                        if changed.is_err() {
+                            break;
+                        }
+                    }
+                    () = tokio::time::sleep(RECHECK) => {}
                 }
             }
         });
