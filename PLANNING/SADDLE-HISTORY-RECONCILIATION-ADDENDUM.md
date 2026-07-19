@@ -12,8 +12,8 @@ published in `USS-Parks/Mighty-Eel-OS` without rewriting Saddle's independent
 **Reconciled integration base:** SAD-40 closeout checkpoint
 `b789b68ed8e2b9eed1fe75ec1c6532c1961a24ac`.
 **Parallel branch:** `session/SAD-HIST-1`.
-**Current status:** **SAD-HIST-01 COMPLETE; SAD-HIST-02 LOCAL GATES PASS WITH
-REMOTE VERIFICATION PENDING; SAD-HIST-03 AND SAD-HIST-04 PENDING.**
+**Current status:** **SAD-HIST-01 AND SAD-HIST-02 COMPLETE; SAD-HIST-03 AND
+SAD-HIST-04 PENDING.**
 
 ## 1. Governance and boundaries
 
@@ -73,15 +73,17 @@ Archive publication additionally requires:
   tree-equivalent, or review-required; regeneration is byte-for-byte
   deterministic; no history is imported or pushed.
 
-- [ ] **SAD-HIST-02 — Prove archive safety.** Run two independent secret
+- [x] **SAD-HIST-02 — Prove archive safety.** Run two independent secret
   scanners across all candidate commits and deleted blobs; define exact clean
   archive refs or a transparent sanitized rewrite with a complete old-to-new
   object map.
   **Gate:** no secret-bearing object can enter Saddle; every rewrite is
   explained and reproducible; original SHAs remain cited as external
-  provenance. **Local result:** a sanitized rewrite is required for one blob
-  and one commit message; the complete object/ref maps and two-scanner proof
-  pass locally. Completion remains pending applicable green GitHub workflows.
+  provenance. **Result:** a sanitized rewrite is required for one blob and one
+  commit message; the complete object/ref maps and two-scanner proof reproduce
+  locally. All 14 applicable checks passed on review checkpoint
+  `509abbed7d47ed1f81bbb9876937ade7422d3873`; the pull-request-only nightly
+  integration matrix was correctly skipped.
 
 - [ ] **SAD-HIST-03 — Reconcile non-main work.** Review every non-main,
   non-patch-equivalent commit for WSF/AOG/Saddle behavior, security findings,

@@ -52,7 +52,7 @@ prompt residue, and mechanical narration remain prohibited.
 
 ## SAD-HIST-02 - Archive safety
 
-**Status:** local gates pass; remote verification pending
+**Status:** complete
 
 **Branch:** `session/SAD-HIST-2`
 
@@ -85,6 +85,30 @@ prompt residue, and mechanical narration remain prohibited.
 - `test-evidence/saddle/SAD-HIST-02/object-map.jsonl`
 - `test-evidence/saddle/SAD-HIST-02/scanner-findings.json`
 
+### Publication
+
 No historical ref, source object, source file, or active-history rewrite was
-published. This entry remains open until every applicable workflow on the
-focused branch checkpoint is green.
+published. The focused branch was published through three additive commits;
+neither repair rewrote its predecessor:
+
+- implementation and evidence:
+  `88bf63a28750b72c5c0db0c9a8439222a0ebc44b`;
+- independent-boundary evidence refresh:
+  `39d1241ec91ca3a104e9904d221352b511a1b8e1`;
+- active-name evidence refresh:
+  `509abbed7d47ed1f81bbb9876937ade7422d3873`; and
+- draft review: <https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/pull/2>.
+
+### Remote verification
+
+The reviewed implementation checkpoint passed all 14 applicable checks. The
+nightly integration matrix was correctly skipped because this was a
+pull-request run:
+
+- [Saddle CI](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29676518115);
+- [Saddle Validation](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29676518138);
+- [Windows workspace validation](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29676518113); and
+- [canonical footer check](https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29676518126).
+
+SAD-HIST-03 remains pending and is not authorized by this closeout. No merge to
+`main` occurred.
