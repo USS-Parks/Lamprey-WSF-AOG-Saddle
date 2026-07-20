@@ -1752,3 +1752,106 @@ On final verification checkpoint
 ### Next prompt
 
 `SAD-43 - Professional scheduler framework and fairness`.
+
+## SAD-43 - Professional scheduler framework and fairness
+
+**Status:** PASS - implementation commit
+`2a2dd39959654ea159056f94573e13ddad893e22`; tracked-evidence repair
+`fe615e1ab6b61f6e2658510d8c5d3269263a4b45`; final verified checkpoint
+`062b1e1592c5946a4fe884101fc7093146321df4`.
+
+### Work completed
+
+- Added a public professional scheduling framework with the ordered QueueSort,
+  PreFilter, Filter, PostFilter, PreScore, normalized Score, Reserve/Unreserve,
+  Permit, PreBind, Bind, and PostBind lifecycle. Plugins declare identity,
+  version, timeout, and failure posture; failures and panics fail closed.
+- Added one coherent revisioned scheduling state with workload
+  UID/generation/replica compare-and-swap identity, clone-before-commit atomic
+  reservations and binding, complete rollback, and recomputed allocation
+  invariants after every committed transition.
+- Preserved SAD-32's deny-wins trust predicates and added tenant/estate,
+  runtime-class, lease/cordon, quota, full resource-vector, placement-group,
+  topology, and capacity filters that never relax under pressure.
+- Added weighted dominant-resource fairness across CPU, memory, ephemeral
+  storage, GPU, NPU, accelerator memory and slots, spend, and extended
+  resources, combined with guarantees, priority, age, and a declared feasible
+  starvation bound.
+- Added bounded permit approve/wait/reject/expiry behavior, all-or-nothing gang
+  reservation and binding, deterministic multi-victim disruption-aware
+  preemption, topology/locality and spread scoring, consolidation, and
+  authoritative metered budget/ROI scoring.
+- Added bounded active, backoff, unschedulable, and permit-wait queues with
+  explicit wake events, plus CI and local-validation integration.
+- Added a 10-case deterministic gate with seed `0x5ad43000c0def17e`, 256
+  adversarial multi-tenant histories, and 64 operations per history. It proves
+  no sovereignty bypass, double bind, quota/capacity oversubscription, leaked
+  reservation, or feasible-work starvation.
+- Refreshed deterministic evidence whose tracked-file or workflow digests
+  legitimately changed. The verifier is executable and hashes UTF-8 text after
+  canonical LF normalization so identical Linux and Windows checkouts produce
+  the same evidence.
+- Repaired the stale post-rename Gitleaks allowlist path for the already reviewed
+  synthetic OpenBao anchor fixture; the strict scan then reported no leaks.
+
+### Local gate
+
+- Focused SAD-43 suite - PASS, 10/10 tests; 256 histories x 64 operations;
+  deterministic verifier generation and byte verification - PASS.
+- Complete `saddle-scheduler` suite - PASS, 64/64 tests.
+- `cargo fmt --all --check`, locked all-target workspace check, strict all-target
+  clippy, and full `cargo test --workspace --locked` including doctests - PASS.
+  The full Windows run used Git for Windows' bundled OpenSSL for the mTLS tests;
+  only the repository's deliberately ignored aggressive, SLO, and nightly tests
+  remained skipped.
+- `cargo audit`, `cargo deny check`, and locked workspace documentation - PASS;
+  existing nonfatal duplicate-dependency and rustdoc warnings were unchanged.
+- Console install from lock, 23/23 tests, production build, and npm audit - PASS
+  with 198 packages and zero reported vulnerabilities.
+- Full Python repository suite - PASS, 52/52 tests.
+- SAD-12 independence, SAD-23 active-name, SAD-40 estate, SAD-41 consensus,
+  SAD-42 reconciliation, SAD-43 scheduler, SAD-HIST-03 reconciliation, and
+  SAD-HIST-04 publication verifiers - PASS.
+- Gitleaks, integrity, formatting/diff checks, executable modes, configured
+  staged/full no-slop hooks, route policy, manual pre-push, and outgoing
+  canonical-footer audits - PASS. The stricter historical helper continued to
+  report nine pre-existing provenance identifiers in the untouched history
+  reconciler; the configured repository hook remained authoritative and clean.
+
+### Remote gate
+
+On final verification checkpoint
+`062b1e1592c5946a4fe884101fc7093146321df4`:
+
+- `commit-msg-check` run `29729863242` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29729863242
+- `Saddle Validation` run `29729863276` - PASS, including repository boundary,
+  all deterministic evidence records, and SAD-43:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29729863276
+- `Saddle CI` run `29729863283` - PASS, including Rust quality, supply chain,
+  integration, contract/conformance, live trust, and Phase-V scale,
+  revocation-SLO, split-brain, and chaos/soak gates:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29729863283
+- `Saddle Workspace Validation` run `29729863298` - PASS on Windows in the full
+  all-suite profile, including the LF-normalized SAD-43 evidence check:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29729863298
+
+### Evidence
+
+- `test-evidence/saddle/SAD-43/professional-scheduler-gate.json`, SHA-256
+  `cece294b1ab37aecf790e1d4b076f2159aa8f0b08bb7bfc5db58fd6bab7d5580`;
+- `tools/verify_sad43_professional_scheduler.py`, SHA-256
+  `db21d3564a9fed8b19babcdce3332dcb725dca4c26215e59071f00916cb3a972`;
+- `crates/saddle-scheduler/src/professional.rs`, SHA-256
+  `2ce6f47cc7e812f1fa409804adaad62793aae3e23d9c740740d5e7a1c5dd7461`;
+- `crates/saddle-scheduler/tests/sad43_professional_scheduler.rs`, SHA-256
+  `d164a32d66fe01da4f6a716e21c3d06c4c9ef01451ab597b2c88a61cb79c15bc`;
+  and
+- implementation commit `2a2dd39959654ea159056f94573e13ddad893e22`,
+  tracked-evidence repair `fe615e1ab6b61f6e2658510d8c5d3269263a4b45`,
+  and final verified checkpoint
+  `062b1e1592c5946a4fe884101fc7093146321df4`.
+
+### Next prompt
+
+`SAD-44 - Node runtime and attestation liveness`.
