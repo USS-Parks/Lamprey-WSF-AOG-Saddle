@@ -60,7 +60,9 @@ def require_tests(output: str) -> None:
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    text = path.read_text(encoding="utf-8")
+    canonical_text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(canonical_text.encode("utf-8")).hexdigest()
 
 
 def require_markers(path: Path, markers: tuple[str, ...]) -> None:
@@ -149,6 +151,7 @@ def build_evidence(root: Path) -> dict[str, Any]:
         "schema_version": "saddle-sad43-professional-scheduler-gate/v1",
         "prompt": "SAD-43",
         "status": "pass",
+        "artifact_digest": "sha256_utf8_lf_normalized",
         "profile": {
             "deterministic_seed": "0x5ad43000c0def17e",
             "adversarial_histories": 256,

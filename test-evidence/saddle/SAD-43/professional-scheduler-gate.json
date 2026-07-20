@@ -1,4 +1,5 @@
 {
+  "artifact_digest": "sha256_utf8_lf_normalized",
   "artifacts": {
     "conformance_workflow": {
       "path": ".github/workflows/ci.yml",
