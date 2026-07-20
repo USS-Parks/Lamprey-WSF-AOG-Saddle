@@ -6,7 +6,7 @@
     },
     "consensus_tests": {
       "path": "crates/saddle-controller/tests/sad41_consensus_truth.rs",
-      "sha256": "b8cc684ab46d54c4244487a634ca71331a99ec5bc8a440273dc50cc35da30877"
+      "sha256": "61bedc6a1ba8e0d676f2fc51a595ba4ff128fc98ae1839d00cff80341bc38367"
     },
     "controller_runtime": {
       "path": "crates/saddle-controller/src/runtime.rs",

@@ -44,6 +44,74 @@ async fn confirmed_leader(nodes: &[Arc<RaftNode>], timeout: Duration) -> Option<
     }
 }
 
+async fn write_with_leader_failover(
+    nodes: &[Arc<RaftNode>],
+    op: Op,
+    timeout: Duration,
+) -> RaftResponse {
+    let deadline = Instant::now() + timeout;
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "a quorum-confirmed leader accepts the write before the deadline"
+        );
+        if let Some(index) = confirmed_leader(nodes, Duration::from_millis(500)).await {
+            match nodes[index].write(op.clone()).await {
+                Ok(response) => return response,
+                Err(NodeError::Raft(_)) => {}
+                Err(error) => panic!("leader write failed without a Raft transition: {error}"),
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+async fn add_learner_with_leader_failover(
+    nodes: &[Arc<RaftNode>],
+    learner: u64,
+    timeout: Duration,
+) {
+    let deadline = Instant::now() + timeout;
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "a quorum-confirmed leader adds the learner before the deadline"
+        );
+        if let Some(index) = confirmed_leader(nodes, Duration::from_millis(500)).await {
+            match nodes[index].add_learner(learner).await {
+                Ok(()) => return,
+                Err(NodeError::Raft(_)) => {}
+                Err(error) => panic!("add-learner failed without a Raft transition: {error}"),
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+async fn change_membership_with_leader_failover(
+    nodes: &[Arc<RaftNode>],
+    voters: BTreeSet<u64>,
+    timeout: Duration,
+) {
+    let deadline = Instant::now() + timeout;
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "a quorum-confirmed leader changes membership before the deadline"
+        );
+        if let Some(index) = confirmed_leader(nodes, Duration::from_millis(500)).await {
+            match nodes[index].change_membership(voters.clone()).await {
+                Ok(()) => return,
+                Err(NodeError::Raft(_)) => {}
+                Err(error) => {
+                    panic!("membership change failed without a Raft transition: {error}")
+                }
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
 async fn await_value(node: &RaftNode, key: &str, expected: &[u8]) -> bool {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -221,42 +289,48 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         .await
         .unwrap();
 
-    // Expanding the voter set may legitimately elect a different leader before
-    // this client issues its first write. Follow the quorum-confirmed leader
-    // instead of assuming the single-node bootstrap leader retained authority.
-    let initial_leader = confirmed_leader(&nodes[..3], Duration::from_secs(10))
-        .await
-        .expect("expanded membership elects a confirmed leader");
-    let removed_node = Arc::clone(&nodes[initial_leader]);
-
     for index in 0..40 {
-        removed_node
-            .write(put(
-                &format!("Workload/w{index:02}"),
-                format!("v{index}").into_bytes(),
-                Precondition::Absent,
-            ))
-            .await
-            .unwrap();
+        assert!(matches!(
+            write_with_leader_failover(
+                &nodes[..3],
+                put(
+                    &format!("Workload/w{index:02}"),
+                    format!("v{index}").into_bytes(),
+                    Precondition::Absent,
+                ),
+                Duration::from_secs(10),
+            )
+            .await,
+            RaftResponse::Applied { .. }
+        ));
     }
-    removed_node
-        .write(Op::Delete {
-            key: "Workload/w05".to_owned(),
-            expected: Precondition::Any,
-        })
+    assert!(matches!(
+        write_with_leader_failover(
+            &nodes[..3],
+            Op::Delete {
+                key: "Workload/w05".to_owned(),
+                expected: Precondition::Any,
+            },
+            Duration::from_secs(10),
+        )
+        .await,
+        RaftResponse::Deleted { .. }
+    ));
+    let snapshot_leader = confirmed_leader(&nodes[..3], Duration::from_secs(10))
         .await
-        .unwrap();
-    let expected = removed_node.range("Workload/").await.unwrap();
-    let expected_revision = removed_node.revision().await;
+        .expect("expanded membership elects a snapshot leader");
+    let snapshot_node = Arc::clone(&nodes[snapshot_leader]);
+    let expected = snapshot_node.range("Workload/").await.unwrap();
+    let expected_revision = snapshot_node.revision().await;
     assert_eq!(expected_revision, 41, "delete revisions are snapshot truth");
-    removed_node
+    snapshot_node
         .snapshot(Duration::from_secs(10))
         .await
         .unwrap();
 
     // With pre-snapshot logs purged, the late learner must install the versioned,
     // checksummed snapshot rather than reconstructing the estate from log zero.
-    removed_node.add_learner(4).await.unwrap();
+    add_learner_with_leader_failover(&nodes[..3], 4, Duration::from_secs(10)).await;
     let snapshot_deadline = Instant::now() + Duration::from_secs(10);
     loop {
         let restored = nodes[3].range("Workload/").await.unwrap();
@@ -277,7 +351,10 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         "the late learner installed a snapshot"
     );
 
-    let unsafe_change = removed_node
+    let unsafe_leader = confirmed_leader(&nodes[..3], Duration::from_secs(10))
+        .await
+        .expect("expanded membership retains a confirmed leader");
+    let unsafe_change = nodes[unsafe_leader]
         .change_membership(BTreeSet::from([1, 2]))
         .await
         .unwrap_err();
@@ -286,6 +363,10 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         NodeError::Membership(MembershipError::UnsafeVoterCount(2))
     ));
 
+    let removed_leader = confirmed_leader(&nodes[..3], Duration::from_secs(10))
+        .await
+        .expect("healthy membership has a leader to remove");
+    let removed_node = Arc::clone(&nodes[removed_leader]);
     let removed_gate = SharedGate::new(false);
     removed_gate.follow(removed_node.leadership());
     let gate_deadline = Instant::now() + Duration::from_secs(5);
@@ -303,18 +384,18 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         .map(|node| node.id())
         .filter(|id| *id != removed_id)
         .collect();
-    removed_node
-        .change_membership(rotated_members)
-        .await
-        .unwrap();
+    change_membership_with_leader_failover(&nodes, rotated_members, Duration::from_secs(10)).await;
     let survivors = nodes
         .iter()
         .filter(|node| node.id() != removed_id)
         .cloned()
         .collect::<Vec<_>>();
-    let leader = confirmed_leader(&survivors, Duration::from_secs(10))
-        .await
-        .expect("rotated membership elects a leader");
+    assert!(
+        confirmed_leader(&survivors, Duration::from_secs(10))
+            .await
+            .is_some(),
+        "rotated membership elects a leader"
+    );
     let fence_deadline = Instant::now() + Duration::from_secs(5);
     while removed_gate.is_leader() && Instant::now() < fence_deadline {
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -343,14 +424,19 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         "removed member cannot acknowledge a write"
     );
 
-    survivors[leader]
-        .write(put(
-            "Workload/rotated",
-            b"authoritative".to_vec(),
-            Precondition::Absent,
-        ))
-        .await
-        .unwrap();
+    assert!(matches!(
+        write_with_leader_failover(
+            &survivors,
+            put(
+                "Workload/rotated",
+                b"authoritative".to_vec(),
+                Precondition::Absent,
+            ),
+            Duration::from_secs(10),
+        )
+        .await,
+        RaftResponse::Applied { .. }
+    ));
     for node in &survivors {
         assert!(await_value(node, "Workload/rotated", b"authoritative").await);
     }
