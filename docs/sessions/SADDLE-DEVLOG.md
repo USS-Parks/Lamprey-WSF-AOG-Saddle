@@ -1651,7 +1651,7 @@ On final implementation checkpoint
 - `tools/verify_sad41_consensus_truth.py`, SHA-256
   `a07c566a0f2111d9affb4235e02ae1d648bdb10f6822c1547c3bc64ea60e7c7e`;
 - `crates/saddle-controller/tests/sad41_consensus_truth.rs`, SHA-256
-  `b8cc684ab46d54c4244487a634ca71331a99ec5bc8a440273dc50cc35da30877`;
+  `61bedc6a1ba8e0d676f2fc51a595ba4ff128fc98ae1839d00cff80341bc38367`;
   and
 - implementation commit `d3f26627b4912e8cd25c916dcbddfdf601a8af85`, history
   integration commit `12d6c8da5703a5398dee9276b3a087fd588b2ad9`, and merged-boundary
@@ -1667,6 +1667,11 @@ On final implementation checkpoint
   membership rotation through that node, removes and fences that elected
   leader, and derives the survivor set from the actual removed member.
   Production code is unchanged.
+- Follow-up Windows run `29709831561` transferred leadership again during the
+  write sequence. Final repair `f502b0881518b186a869b19f1271c41861419412`
+  now reacquires quorum-confirmed leadership for every write, learner add, and
+  membership operation, tolerating Raft forwarding without weakening any
+  precondition or fencing assertion.
 - The exact failed scenario passed 11/11 local runs; the complete SAD-41 gate
   passed 5/5; its deterministic verifier, strict focused clippy, formatting,
   and diff checks passed. The evidence hash above was refreshed accordingly.
@@ -1674,3 +1679,76 @@ On final implementation checkpoint
 ### Next prompt
 
 `SAD-42 - Level-triggered reconciliation`.
+
+## SAD-42 - Level-triggered reconciliation
+
+**Status:** PASS - implementation commit
+`870947c6c05329c47165eef7e4ae07fa6dd5eca9`; evidence-boundary repair
+`0aeb54bfcb76cad7f110761629003faf915150a3`; final verified checkpoint
+`f502b0881518b186a869b19f1271c41861419412`.
+
+### Work completed
+
+- Replaced event-history dependence with level-triggered reconciliation from
+  current estate state. Duplicate, reordered, and dropped events converge
+  through informer full relist and periodic resync.
+- Added deterministic per-key jittered exponential backoff, bounded retry,
+  visible dead-letter state, and redrive without defeating active backoff.
+- Added reconcile deadlines and shutdown cancellation so hung or abandoned
+  futures cannot retain controller authority.
+- Preserved restart-recoverable finalizer truth and proved external withdrawal
+  precedes admitted deletion through the live vkey finalizer seam.
+- Added deterministic fault injection covering 256 histories, 86 overflow
+  histories, 52 restart histories, and 100 watch-overflow events per injected
+  history under seed `0x5ad42000c0def17e`.
+- Repaired the SAD-HIST evidence boundary after the SAD-42 workflow change, then
+  made the SAD-41 membership-rotation test follow and fence the actual
+  quorum-confirmed leader instead of assuming bootstrap node 1 retained
+  leadership. Production behavior was unchanged by that CI repair.
+
+### Local gate
+
+- SAD-42 controller library, replay, and fault-history suites - PASS;
+  deterministic reconciliation verifier - PASS.
+- Full Python repository suite after the evidence-boundary repair - PASS,
+  52/52 tests.
+- Exact formerly failing SAD-41 leader-rotation scenario - PASS, 11/11 local
+  runs; complete SAD-41 gate - PASS, 5/5; deterministic SAD-41 verifier and
+  strict focused clippy - PASS.
+- Formatting, diff checks, configured staged/full no-slop hooks, and outgoing
+  canonical-footer audits - PASS. Disposable local build and downloaded CI
+  artifacts were removed after verification.
+
+### Remote gate
+
+On final verification checkpoint
+`f502b0881518b186a869b19f1271c41861419412`:
+
+- `commit-msg-check` run `29710953629` - PASS:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29710953629
+- `Saddle Validation` run `29710953654` - PASS, including repository boundary
+  and deterministic evidence checks:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29710953654
+- `Saddle CI` run `29710953650` - PASS, including Rust quality, supply chain,
+  Phase-V live estate, live WSF/AOG/Saddle trust, integration, and conformance:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29710953650
+- `Saddle Workspace Validation` run `29710953648` - PASS on Windows, including
+  the complete workspace suite and leader-rotation regression:
+  https://github.com/USS-Parks/Lamprey-WSF-AOG-Saddle/actions/runs/29710953648
+
+### Evidence
+
+- `test-evidence/saddle/SAD-42/reconciliation-gate.json`, SHA-256
+  `44ab8f5ebb8307494575d4a20bb8d858c6b63ba5effe4993f640b98c67931ae0`;
+- `tools/verify_sad42_reconciliation.py`, SHA-256
+  `b130b242151b36a283919631101b0dbd4115224f79ae1ed1cf689d58c856d97a`;
+- `crates/saddle-controller/tests/sad42_reconciliation.rs`, SHA-256
+  `607f1d3136eba74566e575a6a249aff966cb09114a02ed0cc50f62e17ed3cea0`;
+  and
+- implementation commit `870947c6c05329c47165eef7e4ae07fa6dd5eca9`, evidence
+  repair `0aeb54bfcb76cad7f110761629003faf915150a3`, and final verified
+  checkpoint `f502b0881518b186a869b19f1271c41861419412`.
+
+### Next prompt
+
+`SAD-43 - Professional scheduler framework and fairness`.
