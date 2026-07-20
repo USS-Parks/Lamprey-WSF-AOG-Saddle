@@ -1651,11 +1651,25 @@ On final implementation checkpoint
 - `tools/verify_sad41_consensus_truth.py`, SHA-256
   `a07c566a0f2111d9affb4235e02ae1d648bdb10f6822c1547c3bc64ea60e7c7e`;
 - `crates/saddle-controller/tests/sad41_consensus_truth.rs`, SHA-256
-  `f6156b0af1ad80746f1fc8b18422f6efffc72ce3aa8fd36e5d5c5324b4b3e513`;
+  `b8cc684ab46d54c4244487a634ca71331a99ec5bc8a440273dc50cc35da30877`;
   and
 - implementation commit `d3f26627b4912e8cd25c916dcbddfdf601a8af85`, history
   integration commit `12d6c8da5703a5398dee9276b3a087fd588b2ad9`, and merged-boundary
   verification commit `ca6ee6ba21b59ce14f51d2f0f19f87a58ab55b66`.
+
+### Windows CI leader-rotation repair
+
+- `Saddle Workspace Validation` run `29708461122` exposed a legitimate leader
+  transfer from bootstrap node 1 to node 3 after voter expansion. The SAD-41
+  test incorrectly pinned subsequent writes to node 1 and unwrapped the
+  resulting `ForwardToLeader` response.
+- The test now discovers the quorum-confirmed leader, drives snapshot and
+  membership rotation through that node, removes and fences that elected
+  leader, and derives the survivor set from the actual removed member.
+  Production code is unchanged.
+- The exact failed scenario passed 11/11 local runs; the complete SAD-41 gate
+  passed 5/5; its deterministic verifier, strict focused clippy, formatting,
+  and diff checks passed. The evidence hash above was refreshed accordingly.
 
 ### Next prompt
 

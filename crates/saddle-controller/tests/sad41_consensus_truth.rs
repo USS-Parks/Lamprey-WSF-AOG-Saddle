@@ -221,8 +221,16 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         .await
         .unwrap();
 
+    // Expanding the voter set may legitimately elect a different leader before
+    // this client issues its first write. Follow the quorum-confirmed leader
+    // instead of assuming the single-node bootstrap leader retained authority.
+    let initial_leader = confirmed_leader(&nodes[..3], Duration::from_secs(10))
+        .await
+        .expect("expanded membership elects a confirmed leader");
+    let removed_node = Arc::clone(&nodes[initial_leader]);
+
     for index in 0..40 {
-        nodes[0]
+        removed_node
             .write(put(
                 &format!("Workload/w{index:02}"),
                 format!("v{index}").into_bytes(),
@@ -231,21 +239,24 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
             .await
             .unwrap();
     }
-    nodes[0]
+    removed_node
         .write(Op::Delete {
             key: "Workload/w05".to_owned(),
             expected: Precondition::Any,
         })
         .await
         .unwrap();
-    let expected = nodes[0].range("Workload/").await.unwrap();
-    let expected_revision = nodes[0].revision().await;
+    let expected = removed_node.range("Workload/").await.unwrap();
+    let expected_revision = removed_node.revision().await;
     assert_eq!(expected_revision, 41, "delete revisions are snapshot truth");
-    nodes[0].snapshot(Duration::from_secs(10)).await.unwrap();
+    removed_node
+        .snapshot(Duration::from_secs(10))
+        .await
+        .unwrap();
 
     // With pre-snapshot logs purged, the late learner must install the versioned,
     // checksummed snapshot rather than reconstructing the estate from log zero.
-    nodes[0].add_learner(4).await.unwrap();
+    removed_node.add_learner(4).await.unwrap();
     let snapshot_deadline = Instant::now() + Duration::from_secs(10);
     loop {
         let restored = nodes[3].range("Workload/").await.unwrap();
@@ -266,7 +277,7 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         "the late learner installed a snapshot"
     );
 
-    let unsafe_change = nodes[0]
+    let unsafe_change = removed_node
         .change_membership(BTreeSet::from([1, 2]))
         .await
         .unwrap_err();
@@ -276,7 +287,7 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
     ));
 
     let removed_gate = SharedGate::new(false);
-    removed_gate.follow(nodes[0].leadership());
+    removed_gate.follow(removed_node.leadership());
     let gate_deadline = Instant::now() + Duration::from_secs(5);
     while !removed_gate.is_leader() && Instant::now() < gate_deadline {
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -286,11 +297,21 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         "healthy quorum opens the confirmed gate"
     );
 
-    nodes[0]
-        .change_membership(BTreeSet::from([2, 3, 4]))
+    let removed_id = removed_node.id();
+    let rotated_members = nodes
+        .iter()
+        .map(|node| node.id())
+        .filter(|id| *id != removed_id)
+        .collect();
+    removed_node
+        .change_membership(rotated_members)
         .await
         .unwrap();
-    let survivors = nodes[1..].to_vec();
+    let survivors = nodes
+        .iter()
+        .filter(|node| node.id() != removed_id)
+        .cloned()
+        .collect::<Vec<_>>();
     let leader = confirmed_leader(&survivors, Duration::from_secs(10))
         .await
         .expect("rotated membership elects a leader");
@@ -303,14 +324,14 @@ async fn snapshot_install_and_membership_rotation_preserve_exact_truth_and_fence
         "removed member closes its action gate"
     );
     assert!(
-        !nodes[0]
+        !removed_node
             .confirm_leadership(Duration::from_millis(500))
             .await,
         "removed member cannot confirm authority"
     );
     let removed_write = tokio::time::timeout(
         Duration::from_secs(2),
-        nodes[0].write(put(
+        removed_node.write(put(
             "Workload/removed",
             b"forged".to_vec(),
             Precondition::Any,
