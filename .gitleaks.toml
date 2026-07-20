@@ -82,7 +82,7 @@ paths = [
     '''(^|/)docs/(sessions/)?THREE-LAYER-MANIFOLD-PLAN\.md$''',
 
     # Named test fixtures: example claim/anchor tokens inside #[test] blocks.
-    '''(^|/)crates/aogd/tests/live_openbao_anchor\.rs$''',
+    '''(^|/)crates/saddled/tests/live_openbao_anchor\.rs$''',
     '''(^|/)crates/fabric-contracts/tests/contracts\.rs$''',
 ]
 

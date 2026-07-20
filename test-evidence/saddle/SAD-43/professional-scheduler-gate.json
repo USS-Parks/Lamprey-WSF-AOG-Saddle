@@ -1,0 +1,70 @@
+{
+  "artifacts": {
+    "conformance_workflow": {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "b8426641dcf0bfa432093eed58ef0305d0626b610e9cc87737318892293b104b"
+    },
+    "legacy_filter_framework": {
+      "path": "crates/saddle-scheduler/src/framework.rs",
+      "sha256": "f1300724cd4163f171627f1751f74ab61d84925a71269e456f781e11a0703703"
+    },
+    "local_validation_driver": {
+      "path": "scripts/saddle-validation.ps1",
+      "sha256": "83b9be6b8e9b096c1c9e1f1fc94effb0ba7396c0917f80641012a5faea6cef3f"
+    },
+    "professional_scheduler": {
+      "path": "crates/saddle-scheduler/src/professional.rs",
+      "sha256": "2ce6f47cc7e812f1fa409804adaad62793aae3e23d9c740740d5e7a1c5dd7461"
+    },
+    "sad43_tests": {
+      "path": "crates/saddle-scheduler/tests/sad43_professional_scheduler.rs",
+      "sha256": "d164a32d66fe01da4f6a716e21c3d06c4c9ef01451ab597b2c88a61cb79c15bc"
+    },
+    "scheduler_exports": {
+      "path": "crates/saddle-scheduler/src/lib.rs",
+      "sha256": "eadc5f33725ec940ffae98e2734f8b97f84f583fced33d537ae753fe6dca6840"
+    },
+    "validation_workflow": {
+      "path": ".github/workflows/ship-validation.yml",
+      "sha256": "62ddf0e9d8e237cf3a39607adbb1f8a27c09ea7267813acf0d4b3b759ad7cfd9"
+    }
+  },
+  "profile": {
+    "adversarial_histories": 256,
+    "adversarial_operations": 16384,
+    "deterministic_seed": "0x5ad43000c0def17e",
+    "focused_tests": 10,
+    "starvation_bound_cycles": 32,
+    "steps_per_history": 64
+  },
+  "prompt": "SAD-43",
+  "properties": {
+    "binding": "one_uid_generation_replica_under_revision_cas",
+    "budget_roi": "authoritative_metered_cost_only",
+    "coherent_snapshot": "global_revision_cas",
+    "fairness": "weighted_drf_guarantees_priority_and_bounded_starvation",
+    "gang": "all_members_or_none_with_topology_domain",
+    "hard_sovereignty": "estate_tenant_ring_attestation_deny_wins",
+    "permit": "approve_wait_reject_and_bounded_expiry",
+    "plugin_cycle": "queue_sort_through_post_bind_ordered",
+    "preemption": "deterministic_multi_victim_disruption_aware",
+    "quota": "hard_ceiling_atomic_with_node_reservation",
+    "reservation": "clone_before_commit_and_complete_unreserve",
+    "resource_safety": "node_and_tenant_accounting_recomputed_after_each_step",
+    "test_names": [
+      "ordered_queue_to_post_bind_cycle_is_replayable_and_cas_guarded",
+      "hard_sovereignty_quota_and_capacity_filters_never_relax_under_pressure",
+      "gang_reservation_wait_reject_and_expiry_are_all_or_nothing",
+      "plugin_failure_or_panic_fails_closed_without_leaked_reservation",
+      "weighted_drf_guarantees_priority_and_starvation_bound_queue_order",
+      "feasible_work_is_selected_within_the_declared_starvation_bound",
+      "accelerator_topology_locality_spread_and_authoritative_roi_drive_selection",
+      "deterministic_multi_victim_preemption_respects_trust_and_disruption",
+      "bounded_queue_classes_require_explicit_wake_events",
+      "deterministic_adversarial_multi_tenant_histories_preserve_all_invariants"
+    ],
+    "topology": "accelerator_interconnect_locality_and_spread"
+  },
+  "schema_version": "saddle-sad43-professional-scheduler-gate/v1",
+  "status": "pass"
+}

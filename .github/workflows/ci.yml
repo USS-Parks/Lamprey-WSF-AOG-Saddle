@@ -227,3 +227,5 @@ jobs:
         run: cargo test -p saddle-controller --test sad41_consensus_truth --locked -- --nocapture
       - name: SAD-42 level-triggered reconciliation
         run: cargo test -p saddle-controller --test sad42_reconciliation --locked -- --nocapture
+      - name: SAD-43 professional scheduler
+        run: cargo test -p saddle-scheduler --test sad43_professional_scheduler --locked -- --nocapture

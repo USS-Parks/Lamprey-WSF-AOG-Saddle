@@ -39,6 +39,7 @@
 pub mod filters;
 pub mod framework;
 pub mod preemption;
+pub mod professional;
 pub mod scorers;
 pub mod types;
 
@@ -48,6 +49,13 @@ pub use filters::{
 };
 pub use framework::{Filter, Scheduler, Scorer};
 pub use preemption::{NodeOccupancy, PreemptionPlan, Victim, plan_preemption};
+pub use professional::{
+    Binding, BoundedQueues, CycleOutcome, CyclePhase, CyclePlugin, CycleReceipt, CycleResult,
+    FailurePosture, GangSpec, PermitDecision, PluginContext, PluginDescriptor, PluginError,
+    ProfessionalNode, ProfessionalPreemptionPlan, ProfessionalScheduler, QueueClass, QueuedWork,
+    ResourceVector, SchedulerFailure, SchedulingState, ScoreBreakdown, ScoringPolicy,
+    TenantAccount, WorkIdentity,
+};
 pub use scorers::{ConsolidationScorer, SpreadScorer, UtilizationScorer};
 pub use types::{
     FilterVerdict, NodeEvaluation, NodeSnapshot, ProviderEligibility, ScheduleOutcome,

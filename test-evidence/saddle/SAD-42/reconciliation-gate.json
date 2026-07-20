@@ -2,7 +2,7 @@
   "artifacts": {
     "ci_workflow": {
       "path": ".github/workflows/ci.yml",
-      "sha256": "0dcfac78ffe43c6ecf27317664b5813d047279e8e3ec64e2a4ca579511a28716"
+      "sha256": "b8426641dcf0bfa432093eed58ef0305d0626b610e9cc87737318892293b104b"
     },
     "controller_runtime": {
       "path": "crates/saddle-controller/src/runtime.rs",

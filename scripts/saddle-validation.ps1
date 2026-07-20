@@ -101,6 +101,9 @@ if ($runIntegration) {
     Invoke-SaddleStep "saddle-conformance" "cargo test -p saddle-conformance --locked" {
         cargo test -p saddle-conformance --locked
     }
+    Invoke-SaddleStep "sad43-professional-scheduler" "python tools/verify_sad43_professional_scheduler.py --root . --evidence-output test-evidence/saddle/SAD-43/professional-scheduler-gate.json --verify" {
+        python tools/verify_sad43_professional_scheduler.py --root . --evidence-output test-evidence/saddle/SAD-43/professional-scheduler-gate.json --verify
+    }
 }
 
 if ($runConfig) {

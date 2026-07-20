@@ -114,7 +114,11 @@ impl Scheduler {
         }
     }
 
-    fn evaluate(&self, request: &ScheduleRequest, node: &NodeSnapshot) -> NodeEvaluation {
+    pub(crate) fn evaluate(
+        &self,
+        request: &ScheduleRequest,
+        node: &NodeSnapshot,
+    ) -> NodeEvaluation {
         let signals = SignalProvenance::of(node);
         let mut verdicts = Vec::with_capacity(self.filters.len());
         let mut fit = true;
@@ -129,6 +133,21 @@ impl Scheduler {
             verdicts,
             score,
         }
+    }
+
+    /// Evaluate a coherent node set without selecting a winner. The
+    /// professional queue-to-bind framework uses this to preserve the existing
+    /// SAD-32 deny-wins trust filters while adding transactional reservation,
+    /// permit, gang, and bind phases around them.
+    pub(crate) fn evaluate_nodes(
+        &self,
+        request: &ScheduleRequest,
+        nodes: &[NodeSnapshot],
+    ) -> Vec<NodeEvaluation> {
+        nodes
+            .iter()
+            .map(|node| self.evaluate(request, node))
+            .collect()
     }
 
     /// Composite score = Σ weightᵢ · scorerᵢ(node) over the scorers that produced
